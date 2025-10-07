@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colorful Pattern Guess Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --blue: #3498db;
+        --red: #e74c3c;
+        --yellow: #f1c40f;
+        --green: #2ecc71;
+        --purple: #9b59b6;
+        --grey: #bdc3c7;
+        --dark: #34495e;
+        --orange: #f39c12;
+    }
+
+    body {
+        font-family: 'Fredoka One', cursive;
+        background: linear-gradient(135deg, #f0f9ff, #cbebff);
+        margin: 0;
+        padding: 24px;
+        color: var(--dark);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+
+    h1 {
+        margin: 0 0 24px;
+        text-align: center;
+        font-size: clamp(2.5rem, 6vw, 3.5rem);
+        color: var(--dark);
+        text-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+    }
+
+    .game-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        width: 100%;
+        max-width: 1200px;
+    }
+
+    .board {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 16px;
+        width: 100%;
+        padding: 10px;
+    }
+
+    .card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        aspect-ratio: 1/1;
+        gap: 8px;
+        background: #fff;
+        border: 4px solid var(--grey);
+        border-radius: 20px;
+        position: relative;
+        padding: 8px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card.starCard {
+        border: 6px solid gold;
+        box-shadow: 0 0 30px gold;
+        transform: scale(1.05);
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 20px gold; }
+        50% { box-shadow: 0 0 40px gold; }
+        100% { box-shadow: 0 0 20px gold; }
+    }
+    
+    .card-number {
+        position: absolute;
+        inset: 8px; /* Inset to appear within the padding */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(3rem, 10vw, 5rem);
+        color: white;
+        background-color: rgba(44, 62, 80, 0.9);
+        border-radius: 12px;
+        cursor: pointer;
+        z-index: 10;
+        transition: opacity 0.3s ease, transform 0.3s ease, background-color 0.2s ease;
+    }
+
+    .card-number:hover {
+        background-color: rgba(84, 102, 120, 0.95);
+        transform: scale(1.03);
+    }
+
+    .cell {
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .cell-blue { background: linear-gradient(135deg, #85d7ff, #1ea7e9); }
+    .cell-red { background: linear-gradient(135deg, #ff8a80, #ef4b3c); }
+    .cell-yellow { background: linear-gradient(135deg, #ffee9b, #ffd54a); }
+    .cell-white { background: #ecf0f1; }
+
+
+    .magnet {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, #ffffff, #e0e0e0);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--purple);
+        font-size: clamp(2rem, 8vw, 4rem);
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        z-index: 5;
+    }
+    .magnet:hover {
+        transform: scale(1.05);
+        background: linear-gradient(135deg, #f5f5f5, #cccccc);
+    }
+
+    .star {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: clamp(4rem, 10vw, 7rem);
+        color: gold;
+        text-shadow: 3px 3px 8px rgba(0,0,0,0.5);
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    .starNum {
+        position: absolute;
+        bottom: -50px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: bold;
+        color: var(--dark);
+    }
+
+    .controls {
+        margin: 20px 0;
+        text-align: center;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    button, .back-button {
+        padding: 16px 32px;
+        font-size: clamp(1.2rem, 3vw, 1.5rem);
+        font-family: 'Fredoka One', cursive;
+        border-radius: 15px;
+        border: none;
+        cursor: pointer;
+        color: #fff;
+        box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    button:active, .back-button:active {
+        transform: translateY(4px);
+        box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    }
+    
+    .new-game { background-color: var(--green); }
+    .cover-all { background-color: var(--purple); }
+    .reveal-all { background-color: var(--blue); }
+    .back-button { background-color: var(--orange); }
+
+    #dice {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 100px;
+        height: 100px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, var(--red), #e47e72);
+        color: white;
+        border: 5px solid white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 50px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+        transition: transform 0.3s;
+        z-index: 100;
+    }
+
+    #dice:hover {
+        transform: scale(1.1);
+    }
+
+    #dice.roll {
+        animation: jumpRoll 1s ease-in-out;
+    }
+
+    @keyframes jumpRoll {
+        0% { transform: translateY(0) rotate(0deg) scale(1); }
+        25% { transform: translateY(-60px) rotate(180deg) scale(1.1); }
+        50% { transform: translateY(0) rotate(360deg) scale(1); }
+        75% { transform: translateY(-30px) rotate(540deg) scale(1.05); }
+        100% { transform: translateY(0) rotate(720deg) scale(1); }
+    }
+</style>
+</head>
+<body>
+<main class="game-wrapper">
+    <h1>🎲 Pattern Guess Game 🎲</h1>
+
+    <div class="board" id="board"></div>
+
+    <div class="controls">
+      <a href="index.html" class="back-button">🏠 Menu</a>
+      <button class="new-game" onclick="newGame()">✨ New Game</button>
+      <button class="cover-all" onclick="coverAll()">🙈 Cover All</button>
+      <button class="reveal-all" onclick="revealAll()">🙉 Reveal All</button>
+    </div>
+</main>
+
+<div id="dice" onclick="rollDice()">🎲</div>
+
+<script>
+const colors=["blue", "red", "yellow"];
+const board=document.getElementById("board");
+const dice=document.getElementById("dice");
+let cards=[];
+let covers=[];
+let starIndex=null;
+
+// Position patterns
+function genPositionPattern(type){
+  let base=[];
+  if(type===0){ let pattern=[[0,1],[2,3]]; for(let i=0;i<8;i++) base.push(pattern[i%2]); } 
+  else if(type===1){ let pattern=[[0,1],[0,2],[1,3]]; for(let i=0;i<8;i++) base.push(pattern[i%3]); } 
+  else { let pattern=[[0,1],[2,3],[0,2],[1,3]]; for(let i=0;i<8;i++) base.push(pattern[i%4]); }
+  return base;
+}
+
+// Color patterns
+function genColorPattern(type){
+  let seq=[];
+  if(type===0){for(let i=0;i<8;i++) seq.push(i%3);}
+  else if(type===1){for(let i=0;i<8;i++) seq.push(i%2);}
+  else if(type===2){let base=[0,1,2,2];for(let i=0;i<8;i++) seq.push(base[i%4]);}
+  else if(type===3){let base=[0,2,1];for(let i=0;i<8;i++) seq.push(base[i%3]);}
+  else if(type===4){let base=[2,1,0];for(let i=0;i<8;i++) seq.push(base[i%3]);}
+  else {let base=[0,1,2,0,0,1,2,0];for(let i=0;i<8;i++) seq.push(base[i]);}
+  return seq;
+}
+
+// New Game
+function newGame(){
+  board.innerHTML="";
+  cards=[];
+  covers=[];
+  if (starIndex !== null) { starIndex = null; }
+  
+  let posType=Math.floor(Math.random()*3);
+  let colType=Math.floor(Math.random()*6);
+  let posPattern=genPositionPattern(posType);
+  let colPattern=genColorPattern(colType);
+
+  for(let i=0;i<8;i++){
+    let card=document.createElement("div");
+    card.className="card";
+    
+    let cellColors=["white","white","white","white"];
+    let chosenColor=colors[colPattern[i]];
+    posPattern[i].forEach(p=>cellColors[p]=chosenColor);
+
+    cellColors.forEach(col=>{
+      let cell=document.createElement("div");
+      cell.className = `cell cell-${col}`;
+      card.appendChild(cell);
+    });
+    
+    let numOverlay = document.createElement("div");
+    numOverlay.className = "card-number";
+    numOverlay.textContent = i + 1;
+    numOverlay.onclick = revealCardOnClick;
+    card.appendChild(numOverlay);
+    
+    board.appendChild(card);
+    cards.push(card);
+  }
+  coverAll();
+}
+
+function revealCardOnClick(event) {
+    const numOverlay = event.currentTarget;
+    const card = numOverlay.parentElement;
+    const cardCovers = [...card.querySelectorAll('.magnet')];
+
+    numOverlay.style.opacity = '0';
+    numOverlay.style.transform = 'scale(0.5)';
+    setTimeout(() => { if (numOverlay) numOverlay.remove(); }, 300);
+
+    cardCovers.forEach(cover => {
+        cover.style.transition = 'opacity 0.3s ease';
+        cover.style.opacity = '0';
+        setTimeout(() => { if (cover) cover.remove(); }, 300);
+    });
+}
+
+function coverAll(){
+  covers.forEach(c=>c.remove());
+  covers=[];
+  
+  cards.forEach((card)=>{
+    [...card.children].forEach((cell)=>{
+      if (cell.classList.contains('cell')) {
+        let cover=document.createElement("div");
+        cover.className="magnet";
+        cover.onclick=()=>toggleCover(cover);
+        cover.textContent="?";
+        cell.appendChild(cover);
+        covers.push(cover);
+      }
+    });
+  });
+}
+
+function toggleCover(cover){
+  if(cover) {
+      cover.style.transition = 'opacity 0.3s ease';
+      cover.style.opacity = '0';
+      setTimeout(() => cover.remove(), 300);
+  }
+}
+
+function placeStar(i){
+  if(starIndex!==null){
+    let oldStar = document.querySelector(".star");
+    if(oldStar) oldStar.remove();
+    cards[starIndex].classList.remove("starCard");
+  }
+  starIndex=i;
+  let star=document.createElement("div");
+  star.className="star";
+  star.textContent="★";
+  
+  let num=document.createElement("div");
+  num.className="starNum";
+  num.textContent=(i+1);
+  star.appendChild(num);
+  
+  cards[i].appendChild(star);
+  cards[i].classList.add("starCard");
+}
+
+function revealAll(){
+  const allOverlays = document.querySelectorAll('.magnet, .card-number');
+  allOverlays.forEach(overlay => {
+      overlay.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      overlay.style.opacity = '0';
+      overlay.style.transform = 'scale(0)';
+  });
+  setTimeout(() => {
+    allOverlays.forEach(c => c.remove());
+    covers=[];
+  }, 300);
+}
+
+function rollDice(){
+  if (dice.classList.contains("roll")) return;
+  dice.classList.add("roll");
+  
+  setTimeout(()=>{
+      dice.classList.remove("roll");
+      dice.textContent = "🎲";
+  }, 1500);
+  
+  let result=Math.floor(Math.random()*8)+1;
+  setTimeout(() => {
+      dice.textContent=result;
+      placeStar(result-1);
+  }, 500);
+}
+
+newGame();
+</script>
+</body>
+</html>
