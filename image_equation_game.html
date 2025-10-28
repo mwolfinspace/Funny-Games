@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Equation Puzzle Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .step {
+            display: none;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .image-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .image-item img {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            background: transparent;
+        }
+
+        .image-item input {
+            width: 60px;
+            padding: 8px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .image-item input.hidden-value {
+            color: white;
+            background: white;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .image-item input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .equation-display {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .equation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .equation img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            background: transparent;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-item {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .result-item img {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            margin-bottom: 10px;
+            background: transparent;
+        }
+
+        .result-item .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .progress {
+            text-align: center;
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Image Equation Puzzle Game</h1>
+        
+        <!-- Step 1: Setup -->
+        <div class="step active" id="step1">
+            <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Step 1: Assign Values to Images</h2>
+            <div class="images-grid" id="setupGrid"></div>
+            <div style="text-align: center; margin: 20px 0;">
+                <label style="font-size: 1.2em; color: #333; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; margin-right: 20px;">
+                    <input type="checkbox" id="hideValues" onchange="toggleHideValues()" style="width: 20px; height: 20px; cursor: pointer;">
+                    <span>👁️ Hide Values</span>
+                </label>
+                <label style="font-size: 1.2em; color: #333; cursor: pointer; display: inline-flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="challengeMode" style="width: 20px; height: 20px; cursor: pointer;">
+                    <span>🔥 Challenge Mode</span>
+                </label>
+            </div>
+            <div class="buttons">
+                <button class="btn-secondary" onclick="randomizeValues()">🎲 Random</button>
+                <button class="btn-primary" onclick="startGame()">▶️ Start Game</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Equations -->
+        <div class="step" id="step2">
+            <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Step 2: Solve the Equations</h2>
+            <div class="progress" id="progress"></div>
+            <div class="equation-display" id="equationDisplay"></div>
+            <div class="buttons">
+                <button class="btn-primary" onclick="nextEquation()">💡 Next Equation</button>
+                <button class="btn-secondary" onclick="showResults()">🎉 Show Results</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Results -->
+        <div class="step" id="step3">
+            <h2 style="text-align: center; margin-bottom: 20px; color: #333;">Step 3: Results</h2>
+            <div class="results-grid" id="resultsGrid"></div>
+            <div class="buttons">
+                <button class="btn-primary" onclick="resetGame()">🔄 Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const images = ['A.png', 'B.png', 'C.png', 'D.png', 'E.png'];
+        const imageNames = ['A', 'B', 'C', 'D', 'E'];
+        let values = {};
+        let equations = [];
+        let currentEquationIndex = 0;
+        let challengeMode = false;
+
+        // Initialize Step 1
+        function initSetup() {
+            const grid = document.getElementById('setupGrid');
+            grid.innerHTML = '';
+            
+            images.forEach((img, index) => {
+                const item = document.createElement('div');
+                item.className = 'image-item';
+                item.innerHTML = `
+                    <img src="${img}" alt="${imageNames[index]}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'100\\' height=\\'100\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'40\\' fill=\\'%23666\\'%3E${imageNames[index]}%3C/text%3E%3C/svg%3E'">
+                    <input type="number" id="value${index}" min="0" max="9" value="0" maxlength="1" oninput="this.value = this.value.slice(0,1)">
+                `;
+                grid.appendChild(item);
+            });
+        }
+
+        function randomizeValues() {
+            images.forEach((img, index) => {
+                const randomValue = Math.floor(Math.random() * 10);
+                document.getElementById(`value${index}`).value = randomValue;
+            });
+        }
+
+        function toggleHideValues() {
+            const hideValues = document.getElementById('hideValues').checked;
+            images.forEach((img, index) => {
+                const input = document.getElementById(`value${index}`);
+                if (hideValues) {
+                    input.classList.add('hidden-value');
+                } else {
+                    input.classList.remove('hidden-value');
+                }
+            });
+        }
+
+        function startGame() {
+            // Collect values
+            values = {};
+            let allValid = true;
+            
+            images.forEach((img, index) => {
+                const input = document.getElementById(`value${index}`);
+                const value = parseInt(input.value);
+                
+                if (isNaN(value) || value < 0 || value > 9) {
+                    allValid = false;
+                }
+                values[imageNames[index]] = value;
+            });
+
+            if (!allValid) {
+                alert('Please enter valid numbers (0-9) for all images!');
+                return;
+            }
+
+            // Get challenge mode setting
+            challengeMode = document.getElementById('challengeMode').checked;
+
+            // Generate equations
+            generateEquations();
+            
+            // Switch to step 2
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            
+            // Clear previous equations
+            document.getElementById('equationDisplay').innerHTML = '';
+            
+            currentEquationIndex = 0;
+            showEquation();
+        }
+
+        function generateEquations() {
+            equations = [];
+            const allEquations = [];
+
+            // Generate all possible combinations
+            for (let i = 0; i < imageNames.length; i++) {
+                for (let j = i + 1; j < imageNames.length; j++) {
+                    const name1 = imageNames[i];
+                    const name2 = imageNames[j];
+                    
+                    // Addition
+                    allEquations.push({
+                        img1: images[i],
+                        name1: name1,
+                        img2: images[j],
+                        name2: name2,
+                        operation: '+',
+                        result: values[name1] + values[name2],
+                        type: 'normal'
+                    });
+
+                    // Subtraction (only if result > 0)
+                    if (values[name1] > values[name2]) {
+                        allEquations.push({
+                            img1: images[i],
+                            name1: name1,
+                            img2: images[j],
+                            name2: name2,
+                            operation: '-',
+                            result: values[name1] - values[name2],
+                            type: 'normal'
+                        });
+                    }
+                    
+                    if (values[name2] > values[name1]) {
+                        allEquations.push({
+                            img1: images[j],
+                            name1: name2,
+                            img2: images[i],
+                            name2: name1,
+                            operation: '-',
+                            result: values[name2] - values[name1],
+                            type: 'normal'
+                        });
+                    }
+                }
+            }
+
+            // Add challenge mode equations
+            if (challengeMode) {
+                generateChallengeEquations(allEquations);
+            }
+
+            // Ensure all 5 images appear in first 3 equations
+            const usedImages = new Set();
+            const firstThree = [];
+            
+            // Shuffle all equations first
+            allEquations.sort(() => Math.random() - 0.5);
+            
+            // In challenge mode, prioritize challenge equations for first 3
+            if (challengeMode) {
+                const challengeEqs = allEquations.filter(eq => eq.type === 'challenge');
+                const normalEqs = allEquations.filter(eq => eq.type === 'normal');
+                
+                // Try to use challenge equations first
+                for (let eq of challengeEqs) {
+                    if (usedImages.size >= 5 && firstThree.length >= 3) break;
+                    
+                    const imgs = [...eq.leftSide, ...eq.rightSide];
+                    const hasNew = imgs.some(img => !usedImages.has(img));
+                    
+                    if (hasNew || firstThree.length < 3) {
+                        firstThree.push(eq);
+                        imgs.forEach(img => usedImages.add(img));
+                    }
+                }
+                
+                // Fill remaining with normal equations if needed
+                if (usedImages.size < 5 || firstThree.length < 3) {
+                    for (let eq of normalEqs) {
+                        if (usedImages.size >= 5 && firstThree.length >= 3) break;
+                        
+                        const imgs = [eq.name1, eq.name2];
+                        const hasNew = imgs.some(img => !usedImages.has(img));
+                        
+                        if (hasNew || firstThree.length < 3) {
+                            firstThree.push(eq);
+                            imgs.forEach(img => usedImages.add(img));
+                        }
+                    }
+                }
+            } else {
+                // Normal mode: use original logic
+                for (let eq of allEquations) {
+                    if (usedImages.size >= 5) break;
+                    
+                    const imgs = eq.type === 'normal' ? [eq.name1, eq.name2] : [...eq.leftSide, ...eq.rightSide];
+                    const hasNew = imgs.some(img => !usedImages.has(img));
+                    
+                    if (hasNew) {
+                        firstThree.push(eq);
+                        imgs.forEach(img => usedImages.add(img));
+                        
+                        if (firstThree.length >= 3 && usedImages.size >= 5) break;
+                    }
+                }
+                
+                // If we still need more equations to reach 3, add any remaining
+                if (firstThree.length < 3) {
+                    for (let eq of allEquations) {
+                        if (!firstThree.includes(eq)) {
+                            firstThree.push(eq);
+                            const imgs = eq.type === 'normal' ? [eq.name1, eq.name2] : [...eq.leftSide, ...eq.rightSide];
+                            imgs.forEach(img => usedImages.add(img));
+                            if (firstThree.length >= 3) break;
+                        }
+                    }
+                }
+            }
+            
+            // Add the first three to equations
+            equations.push(...firstThree);
+            
+            // Add remaining equations (shuffled)
+            const remaining = allEquations.filter(eq => !firstThree.includes(eq));
+            remaining.sort(() => Math.random() - 0.5);
+            equations.push(...remaining);
+        }
+
+        function generateChallengeEquations(allEquations) {
+            // Generate complex equations like A+B=C+D, A-B=C, etc.
+            const usedCombos = new Set();
+            
+            // Try to generate various types of challenge equations
+            for (let attempt = 0; attempt < 200; attempt++) {
+                const availableIndices = [...Array(5).keys()];
+                shuffle(availableIndices);
+                
+                // Randomly pick 2-5 images for equation
+                const numImages = 2 + Math.floor(Math.random() * 4); // 2 to 5 images
+                const selectedIndices = availableIndices.slice(0, numImages);
+                const selectedNames = selectedIndices.map(i => imageNames[i]);
+                
+                // Create combo key to avoid duplicates
+                const comboKey = selectedNames.sort().join(',');
+                if (usedCombos.has(comboKey)) continue;
+                
+                // Try to create a valid equation
+                const eq = createChallengeEquation(selectedIndices, selectedNames);
+                if (eq) {
+                    allEquations.push(eq);
+                    usedCombos.add(comboKey);
+                }
+            }
+        }
+
+        function createChallengeEquation(indices, names) {
+            // Split into left and right sides
+            const splitPoint = 1 + Math.floor(Math.random() * (names.length - 1));
+            const leftNames = names.slice(0, splitPoint);
+            const rightNames = names.slice(splitPoint);
+            
+            // Generate operations for each side
+            const leftOps = generateOperations(leftNames.length);
+            const rightOps = generateOperations(rightNames.length);
+            
+            // Calculate values
+            const leftValue = calculateSide(leftNames, leftOps);
+            const rightValue = calculateSide(rightNames, rightOps);
+            
+            // Only accept if both sides are equal
+            if (leftValue !== rightValue || leftValue < 0 || rightValue < 0) return null;
+            
+            return {
+                type: 'challenge',
+                leftSide: leftNames,
+                leftOps: leftOps,
+                rightSide: rightNames,
+                rightOps: rightOps,
+                leftValue: leftValue,
+                rightValue: rightValue
+            };
+        }
+
+        function generateOperations(count) {
+            const ops = [];
+            for (let i = 0; i < count - 1; i++) {
+                ops.push(Math.random() > 0.5 ? '+' : '-');
+            }
+            return ops;
+        }
+
+        function calculateSide(names, ops) {
+            let result = values[names[0]];
+            for (let i = 0; i < ops.length; i++) {
+                if (ops[i] === '+') {
+                    result += values[names[i + 1]];
+                } else {
+                    result -= values[names[i + 1]];
+                }
+            }
+            return result;
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function showEquation() {
+            if (currentEquationIndex >= equations.length) {
+                showResults();
+                return;
+            }
+
+            const eq = equations[currentEquationIndex];
+            const display = document.getElementById('equationDisplay');
+            const progress = document.getElementById('progress');
+
+            progress.textContent = `Equation ${currentEquationIndex + 1} of ${equations.length}`;
+
+            // Create new equation element
+            const equationDiv = document.createElement('div');
+            equationDiv.className = 'equation';
+            
+            if (eq.type === 'normal') {
+                // Normal equation: A + B = number
+                equationDiv.innerHTML = `
+                    <img src="${eq.img1}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'60\\' height=\\'60\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'60\\' height=\\'60\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'30\\' fill=\\'%23666\\'%3E${eq.name1}%3C/text%3E%3C/svg%3E'">
+                    <span>${eq.operation}</span>
+                    <img src="${eq.img2}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'60\\' height=\\'60\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'60\\' height=\\'60\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'30\\' fill=\\'%23666\\'%3E${eq.name2}%3C/text%3E%3C/svg%3E'">
+                    <span>=</span>
+                    <span style="color: #667eea;">${eq.result}</span>
+                `;
+            } else {
+                // Challenge equation: A + B = C or A + B = C + D, etc.
+                let html = '';
+                
+                // Left side
+                for (let i = 0; i < eq.leftSide.length; i++) {
+                    const name = eq.leftSide[i];
+                    const imgIndex = imageNames.indexOf(name);
+                    html += `<img src="${images[imgIndex]}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'60\\' height=\\'60\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'60\\' height=\\'60\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'30\\' fill=\\'%23666\\'%3E${name}%3C/text%3E%3C/svg%3E'">`;
+                    if (i < eq.leftOps.length) {
+                        html += `<span>${eq.leftOps[i]}</span>`;
+                    }
+                }
+                
+                html += `<span>=</span>`;
+                
+                // Right side
+                for (let i = 0; i < eq.rightSide.length; i++) {
+                    const name = eq.rightSide[i];
+                    const imgIndex = imageNames.indexOf(name);
+                    html += `<img src="${images[imgIndex]}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'60\\' height=\\'60\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'60\\' height=\\'60\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'30\\' fill=\\'%23666\\'%3E${name}%3C/text%3E%3C/svg%3E'">`;
+                    if (i < eq.rightOps.length) {
+                        html += `<span>${eq.rightOps[i]}</span>`;
+                    }
+                }
+                
+                equationDiv.innerHTML = html;
+            }
+            
+            // Append to display (add new equations below old ones)
+            display.appendChild(equationDiv);
+        }
+
+        function nextEquation() {
+            currentEquationIndex++;
+            
+            if (currentEquationIndex >= equations.length) {
+                showResults();
+            } else {
+                showEquation();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step3').classList.add('active');
+
+            const grid = document.getElementById('resultsGrid');
+            grid.innerHTML = '';
+
+            images.forEach((img, index) => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `
+                    <img src="${img}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'100\\' height=\\'100\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-size=\\'40\\' fill=\\'%23666\\'%3E${imageNames[index]}%3C/text%3E%3C/svg%3E'">
+                    <div class="value">${values[imageNames[index]]}</div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+
+        function resetGame() {
+            document.getElementById('step3').classList.remove('active');
+            document.getElementById('step1').classList.add('active');
+            initSetup();
+            
+            // Reapply hide values if it's still checked
+            if (document.getElementById('hideValues').checked) {
+                toggleHideValues();
+            }
+        }
+
+        // Initialize on load
+        initSetup();
+    </script>
+</body>
+</html>
