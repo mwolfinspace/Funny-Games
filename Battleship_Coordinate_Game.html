@@ -82,7 +82,7 @@
     <!-- Step 1: Team Setup -->
     <div id="team-setup-screen" class="screen flex flex-col items-center justify-center h-full">
         <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
-            <h1 class="text-3xl font-bold mb-6">Coordinate Battleship</h1>
+            <h1 class="text-3xl font-bold mb-6">🚢 Coordinate Battleship</h1>
             <label for="team-count" class="block text-lg mb-2">Select number of teams (1-5):</label>
             <select id="team-count" class="bg-gray-200 text-gray-900 border border-gray-300 p-2 rounded-lg text-lg mb-4 w-full">
                 <option value="1">1 Team</option>
@@ -97,13 +97,13 @@
                 <label for="extra-turn-toggle" class="flex items-center justify-center cursor-pointer select-none">
                     <input type="checkbox" id="extra-turn-toggle" class="sr-only peer">
                     <div class="relative w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
-                    <span class="ml-3 text-lg font-medium text-gray-900">Extra Turn Rules</span>
+                    <span class="ml-3 text-lg font-medium text-gray-900">⚔️ Extra Turn Rules</span>
                 </label>
                 <p class="text-sm text-gray-600 mt-2">Hit an enemy ship? Get an extra turn! (Until miss)</p>
             </div>
 
-            <button id="start-setup-btn" class="btn btn-primary text-xl w-full mb-3">Continue to Grid Setup</button>
-            <button id="menu-btn-setup" class="btn btn-secondary text-lg w-full">Back to Menu</button>
+            <button id="start-setup-btn" class="btn btn-primary text-xl w-full mb-3">Continue to Grid Setup 🚢</button>
+            <button id="menu-btn-setup" class="btn btn-secondary text-lg w-full">◀️ Back to Menu</button>
         </div>
     </div>
 
@@ -120,8 +120,8 @@
             <div class="flex-grow w-full min-h-0 mb-2 flex items-center justify-center" style="max-height: 70vh;">
                 <canvas id="grid-setup-canvas" style="width: 100%; height: 100%; max-width: 900px; max-height: 70vh;"></canvas>
             </div>
-            <button id="confirm-grid-btn" class="btn btn-primary text-lg w-full flex-shrink-0 mb-2">Confirm Grid & Start Placement</button>
-            <button id="menu-btn-grid" class="btn btn-secondary text-sm w-full flex-shrink-0">Back to Menu</button>
+                <button id="confirm-grid-btn" class="btn btn-primary text-lg w-full flex-shrink-0 mb-2">Confirm Grid & Start Placement ⚓</button>
+            <button id="menu-btn-grid" class="btn btn-secondary text-sm w-full flex-shrink-0">◀️ Back to Menu</button>
         </div>
     </div>
 
@@ -147,12 +147,12 @@
                 </div>
                 <!-- Controls -->
                 <div class="flex flex-wrap justify-center gap-2">
-                    <button id="next-btn" class="btn btn-primary text-lg">Next Team</button>
-                    <button id="start-game-btn" class="btn btn-primary text-lg hidden">Start Game</button>
-                    <button id="end-game-btn" class="btn btn-utility text-lg hidden">End Game (Bonus)</button>
-                    <button id="reveal-all-btn" class="btn btn-danger text-lg hidden">Reveal All</button>
-                    <button id="new-game-btn" class="btn btn-primary text-lg hidden">New Game</button>
-                    <button id="menu-btn-game" class="btn btn-secondary text-lg hidden">Menu</button>
+                    <button id="next-btn" class="btn btn-primary text-lg">Next Team ➡️</button>
+                    <button id="start-game-btn" class="btn btn-primary text-lg hidden">Start Game ▶️</button>
+                    <button id="end-game-btn" class="btn btn-utility text-lg hidden">End Game (Bonus) 🔚</button>
+                    <button id="reveal-all-btn" class="btn btn-danger text-lg hidden">Reveal All 🔍</button>
+                    <button id="new-game-btn" class="btn btn-primary text-lg hidden">New Game 🔄</button>
+                    <button id="menu-btn-game" class="btn btn-secondary text-lg hidden">◀️ Back to Menu</button>
                 </div>
             </div>
         </div>
@@ -220,12 +220,27 @@
             // --- UI UPDATE FUNCTIONS ---
 
             function showMessage(msg) {
-                messageBox.textContent = msg;
+                // Prefix messages with a small chat emoji to match the playful theme
+                const full = '💬 ' + msg;
+                messageBox.textContent = full;
                 setTimeout(() => {
-                    if (messageBox.textContent === msg) {
+                    if (messageBox.textContent === full) {
                         messageBox.textContent = '';
                     }
                 }, 3000);
+            }
+
+            // Helper: choose readable contrast color (black or white) for a background hex color
+            function getContrastColor(hex) {
+                if (!hex) return '#000000';
+                // strip # if present
+                const h = hex.replace('#', '');
+                const r = parseInt(h.substring(0,2),16);
+                const g = parseInt(h.substring(2,4),16);
+                const b = parseInt(h.substring(4,6),16);
+                // Perceived luminance
+                const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+                return luminance > 0.6 ? '#000000' : '#FFFFFF';
             }
 
             function updateScoreboard() {
@@ -234,7 +249,7 @@
                     const scoreEl = document.createElement('div');
                     scoreEl.className = 'p-3 rounded-lg shadow-md text-center';
                     scoreEl.style.backgroundColor = team.color;
-                    scoreEl.style.color = '#000000';
+                    scoreEl.style.color = getContrastColor(team.color);
                     scoreEl.style.minWidth = '120px';
                     scoreEl.innerHTML = `
                         <span class="block font-bold text-lg">${team.name}</span>
@@ -246,14 +261,14 @@
             
             function updateTurnInfo() {
                 if (gameState === 'PLACEMENT') {
-                    const team = teams[currentPlacingTeamIndex];
-                    const teamEmoji = ['Red', 'Blue', 'Green', 'Yellow', 'Purple'][currentPlacingTeamIndex];
-                    turnInfo.textContent = `${teamEmoji} ${team.name} Team: Place Your Ships`;
+                        const team = teams[currentPlacingTeamIndex];
+                        const teamEmoji = ['🔴','🔵','🟢','🟡','🟣'][currentPlacingTeamIndex];
+                        turnInfo.textContent = `${teamEmoji} ${team.name} Team: Place Your Ships`;
                     turnInfo.style.color = team.color;
                     showMessage("Click once: place ship | Click twice: promote to Commander (3pts) | Click thrice: remove");
                 } else if (gameState === 'GAME') {
                     const team = teams[currentPlayerIndex];
-                    const teamEmoji = ['Red', 'Blue', 'Green', 'Yellow', 'Purple'][currentPlayerIndex];
+                    const teamEmoji = ['🔴','🔵','🟢','🟡','🟣'][currentPlayerIndex];
                     const extraBadge = isExtraTurn ? ' (Extra Turn)' : '';
                     turnInfo.textContent = `${teamEmoji} ${team.name} Team's Turn${extraBadge}`;
                     turnInfo.style.color = team.color;
@@ -288,16 +303,16 @@
             function drawAxes(c, metrics) {
                 const { cellS, originX, originY, gridW, gridH } = metrics;
                 const axisColor = '#6B7281';
-                const axisWidth = 2;
-                const arrowheadSize = 10;
-                const gridLineColor = '#E0E7FF';
+                const axisWidth = 8;
+                const arrowheadSize = 20;
+                const gridLineColor = '#6B7281';
 
                 const gridWidth = gridW * cellS;
                 const gridHeight = gridH * cellS;
 
                 // --- Draw Grid Lines ---
                 c.strokeStyle = gridLineColor;
-                c.lineWidth = 1;
+                c.lineWidth = 4;
                 for (let x = 0; x < gridW; x++) {
                     const lineX = originX + (x + 0.5) * cellS;
                     c.beginPath();
@@ -697,12 +712,12 @@
 
                 if (winners.length > 1) {
                     // For tie: use neutral color (black)
-                    turnInfo.textContent = `Game Over! Tie between: ${winners.map(t => t.name).join(', ')}!`;
+                    turnInfo.textContent = `🎉 Game Over! Tie between: ${winners.map(t => t.name).join(', ')}!`;
                     turnInfo.style.color = '#000000';
                 } else {
                     // Single winner: use their team color
                     const winner = winners[0];
-                    turnInfo.textContent = `Game Over! ${winner.name} Team wins!`;
+                    turnInfo.textContent = `🏆 Game Over! ${winner.name} Team wins!`;
                     turnInfo.style.color = winner.color;
                 }
             }
