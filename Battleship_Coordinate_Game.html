@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinate Battleship</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+        canvas {
+            background-color: #F0F9FF; /* sky-50 */
+            border-radius: 0.5rem;
+            border: 2px solid #D1D5DB; /* gray-300 */
+        }
+        .game-screen {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100%;
+        }
+        /* Replaced Tailwind @apply rules with plain CSS so the file works without a build step */
+        .btn {
+            padding: 0.5rem 1rem; /* py-2 px-4 */
+            border-radius: 0.5rem; /* rounded-lg */
+            font-weight: 600; /* font-semibold */
+            color: #ffffff; /* text-white */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* shadow-md */
+            transition: all 200ms ease; /* transition-all duration-200 */
+            border: none;
+            cursor: pointer;
+            background-color: #2563EB; /* default to blue-600 for buttons unless overridden */
+        }
+        .btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(59,130,246,0.25); /* focus ring approximation */
+        }
+
+        .btn-primary {
+            background-color: #2563EB; /* blue-600 */
+        }
+        .btn-primary:hover { background-color: #1D4ED8; /* blue-700 */ }
+        .btn-primary:focus { box-shadow: 0 0 0 4px rgba(37,99,235,0.30); }
+
+        .btn-secondary {
+            background-color: #6B7280; /* gray-500 */
+        }
+        .btn-secondary:hover { background-color: #4B5563; /* gray-600 */ }
+        .btn-secondary:focus { box-shadow: 0 0 0 4px rgba(107,114,128,0.20); }
+
+        .btn-danger {
+            background-color: #DC2626; /* red-600 */
+        }
+        .btn-danger:hover { background-color: #B91C1C; /* red-700 */ }
+        .btn-danger:focus { box-shadow: 0 0 0 4px rgba(220,38,38,0.20); }
+
+        .btn-utility {
+            background-color: #EAB308; /* yellow-500 */
+            color: #000000; /* text-black */
+        }
+        .btn-utility:hover { background-color: #D97706; /* yellow-600 */ }
+        .btn-utility:focus { box-shadow: 0 0 0 4px rgba(234,179,8,0.18); }
+
+        .screen {
+            width: 100%;
+            height: 100%;
+            max-width: 64rem; /* approx max-w-4xl */
+            margin-left: auto;
+            margin-right: auto;
+            padding: 0.5rem; /* p-2 */
+        }
+        @media (min-width: 640px) {
+            .screen { padding: 1rem; /* sm:p-4 */ }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 h-screen overflow-hidden">
+
+    <!-- Step 1: Team Setup -->
+    <div id="team-setup-screen" class="screen flex flex-col items-center justify-center h-full">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
+            <h1 class="text-3xl font-bold mb-6">Coordinate Battleship</h1>
+            <label for="team-count" class="block text-lg mb-2">Select number of teams (1-5):</label>
+            <select id="team-count" class="bg-gray-200 text-gray-900 border border-gray-300 p-2 rounded-lg text-lg mb-4 w-full">
+                <option value="1">1 Team</option>
+                <option value="2" selected>2 Teams</option>
+                <option value="3">3 Teams</option>
+                <option value="4">4 Teams</option>
+                <option value="5">5 Teams</option>
+            </select>
+
+            <!-- Extra Turn Rules Toggle -->
+            <div class="mb-6">
+                <label for="extra-turn-toggle" class="flex items-center justify-center cursor-pointer select-none">
+                    <input type="checkbox" id="extra-turn-toggle" class="sr-only peer">
+                    <div class="relative w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                    <span class="ml-3 text-lg font-medium text-gray-900">Extra Turn Rules</span>
+                </label>
+                <p class="text-sm text-gray-600 mt-2">Hit an enemy ship? Get an extra turn! (Until miss)</p>
+            </div>
+
+            <button id="start-setup-btn" class="btn btn-primary text-xl w-full mb-3">Continue to Grid Setup</button>
+            <button id="menu-btn-setup" class="btn btn-secondary text-lg w-full">Back to Menu</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Grid Setup -->
+    <div id="grid-setup-screen" class="screen hidden flex flex-col h-full items-center justify-center">
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-xl w-full flex flex-col flex-grow min-h-0 max-w-3xl" style="max-height: 90vh;">
+            <h2 class="text-2xl font-bold mb-4 text-center flex-shrink-0">Setup Grid Size</h2>
+            <div class="flex items-center justify-center space-x-4 mb-2 flex-shrink-0">
+                <button id="decrease-grid-btn" class="btn btn-secondary w-16 text-2xl">–</button>
+                <span id="grid-size-display" class="text-3xl font-bold w-40 text-center">5 x 5</span>
+                <button id="increase-grid-btn" class="btn btn-secondary w-16 text-2xl">+</button>
+            </div>
+            <p class="text-gray-600 mb-2 text-center flex-shrink-0">Adjust the coordinate system size. (Min 5x5, Max 20x20)</p>
+            <div class="flex-grow w-full min-h-0 mb-2 flex items-center justify-center" style="max-height: 70vh;">
+                <canvas id="grid-setup-canvas" style="width: 100%; height: 100%; max-width: 900px; max-height: 70vh;"></canvas>
+            </div>
+            <button id="confirm-grid-btn" class="btn btn-primary text-lg w-full flex-shrink-0 mb-2">Confirm Grid & Start Placement</button>
+            <button id="menu-btn-grid" class="btn btn-secondary text-sm w-full flex-shrink-0">Back to Menu</button>
+        </div>
+    </div>
+
+    <!-- Step 3 & 4: Placement & Game -->
+    <div id="game-container" class="screen hidden flex-col h-full overflow-hidden items-center justify-center">
+        <div class="w-full max-w-4xl flex flex-col h-full" style="max-height: 95vh;">
+            <!-- Header: Turn Info & Messages -->
+            <div class="flex-shrink-0 p-4 bg-white rounded-lg shadow-lg mb-2">
+                <h2 id="turn-info" class="text-2xl font-bold text-center mb-2">Red Team: Place Your Ships</h2>
+                <p id="message-box" class="text-center text-indigo-600 h-6"></p>
+            </div>
+
+            <!-- Main Content: Game Board -->
+            <div class="flex-grow w-full min-h-0 flex items-center justify-center mb-2" style="max-height: 65vh;">
+                <canvas id="game-canvas" style="width: 100%; height: 100%; max-width: 1000px; max-height: 65vh;"></canvas>
+            </div>
+            
+            <!-- Footer: Scoreboard & Controls -->
+            <div class="flex-shrink-0">
+                <!-- Scoreboard -->
+                <div id="scoreboard" class="flex flex-wrap justify-center gap-2 mb-2">
+                    <!-- Scores will be injected here by JS -->
+                </div>
+                <!-- Controls -->
+                <div class="flex flex-wrap justify-center gap-2">
+                    <button id="next-btn" class="btn btn-primary text-lg">Next Team</button>
+                    <button id="start-game-btn" class="btn btn-primary text-lg hidden">Start Game</button>
+                    <button id="end-game-btn" class="btn btn-utility text-lg hidden">End Game (Bonus)</button>
+                    <button id="reveal-all-btn" class="btn btn-danger text-lg hidden">Reveal All</button>
+                    <button id="new-game-btn" class="btn btn-primary text-lg hidden">New Game</button>
+                    <button id="menu-btn-game" class="btn btn-secondary text-lg hidden">Menu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONSTANTS & STATE ---
+            const TEAM_COLORS = [
+                { name: 'Red', color: '#EF4444' },    // red-500
+                { name: 'Blue', color: '#1D4ED8' },   // blue-700 (darker blue)
+                { name: 'Green', color: '#22C55E' },  // green-500
+                { name: 'Yellow', color: '#EAB308' }, // yellow-500
+                { name: 'Purple', color: '#A855F7' }, // purple-500
+            ];
+            const GRID_COLOR_EMPTY = '#DBEAFE'; // blue-100 (very light blue)
+            const GRID_COLOR_BANNED = '#6B7281'; // gray-500
+            const GRID_COLOR_HIDDEN_SHIP = '#4B5563'; // gray-600
+            const GRID_COLOR_MISS = '#E5E7EB'; // gray-200
+            const GRID_COLOR_UNREVEALED = '#93C5FD'; // blue-300
+
+            let gameState = 'TEAM_SETUP'; // 'TEAM_SETUP', 'GRID_SETUP', 'PLACEMENT', 'GAME', 'GAME_OVER'
+            let teams = [];
+            let gridSize = { x: 5, y: 5 };
+            let board = []; // 2D array of cell objects
+            let currentPlacingTeamIndex = 0;
+            let currentPlayerIndex = 0;
+            let revealAll = false;
+            let extraTurnEnabled = false;
+            let isExtraTurn = false;
+            let canvas, ctx;
+            let setupCanvas, setupCtx;
+
+            // --- UI ELEMENTS ---
+            const screens = {
+                teamSetup: document.getElementById('team-setup-screen'),
+                gridSetup: document.getElementById('grid-setup-screen'),
+                game: document.getElementById('game-container'),
+            };
+            const teamCountSelect = document.getElementById('team-count');
+            const extraTurnToggle = document.getElementById('extra-turn-toggle');
+            const startSetupBtn = document.getElementById('start-setup-btn');
+            
+            const gridSizeDisplay = document.getElementById('grid-size-display');
+            const decreaseGridBtn = document.getElementById('decrease-grid-btn');
+            const increaseGridBtn = document.getElementById('increase-grid-btn');
+            const confirmGridBtn = document.getElementById('confirm-grid-btn');
+            setupCanvas = document.getElementById('grid-setup-canvas');
+            setupCtx = setupCanvas.getContext('2d');
+            
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+            const turnInfo = document.getElementById('turn-info');
+            const messageBox = document.getElementById('message-box');
+            const scoreboard = document.getElementById('scoreboard');
+            const nextBtn = document.getElementById('next-btn');
+            const startGameBtn = document.getElementById('start-game-btn');
+            const endGameBtn = document.getElementById('end-game-btn');
+            const revealAllBtn = document.getElementById('reveal-all-btn');
+            const newGameBtn = document.getElementById('new-game-btn');
+            const menuBtnSetup = document.getElementById('menu-btn-setup');
+            const menuBtnGrid = document.getElementById('menu-btn-grid');
+            const menuBtnGame = document.getElementById('menu-btn-game');
+
+            // --- UI UPDATE FUNCTIONS ---
+
+            function showMessage(msg) {
+                messageBox.textContent = msg;
+                setTimeout(() => {
+                    if (messageBox.textContent === msg) {
+                        messageBox.textContent = '';
+                    }
+                }, 3000);
+            }
+
+            function updateScoreboard() {
+                scoreboard.innerHTML = '';
+                teams.forEach(team => {
+                    const scoreEl = document.createElement('div');
+                    scoreEl.className = 'p-3 rounded-lg shadow-md text-center';
+                    scoreEl.style.backgroundColor = team.color;
+                    scoreEl.style.color = '#000000';
+                    scoreEl.style.minWidth = '120px';
+                    scoreEl.innerHTML = `
+                        <span class="block font-bold text-lg">${team.name}</span>
+                        <span class="block text-2xl">${team.score}</span>
+                    `;
+                    scoreboard.appendChild(scoreEl);
+                });
+            }
+            
+            function updateTurnInfo() {
+                if (gameState === 'PLACEMENT') {
+                    const team = teams[currentPlacingTeamIndex];
+                    const teamEmoji = ['Red', 'Blue', 'Green', 'Yellow', 'Purple'][currentPlacingTeamIndex];
+                    turnInfo.textContent = `${teamEmoji} ${team.name} Team: Place Your Ships`;
+                    turnInfo.style.color = team.color;
+                    showMessage("Click once: place ship | Click twice: promote to Commander (3pts) | Click thrice: remove");
+                } else if (gameState === 'GAME') {
+                    const team = teams[currentPlayerIndex];
+                    const teamEmoji = ['Red', 'Blue', 'Green', 'Yellow', 'Purple'][currentPlayerIndex];
+                    const extraBadge = isExtraTurn ? ' (Extra Turn)' : '';
+                    turnInfo.textContent = `${teamEmoji} ${team.name} Team's Turn${extraBadge}`;
+                    turnInfo.style.color = team.color;
+                }
+            }
+
+            // --- CANVAS DRAWING UTILITIES ---
+            function getDrawingMetrics(c, gridW, gridH) {
+                const axisPadding = { top: 30, right: 30, bottom: 70, left: 70 };
+                const canvasWidth = c.canvas.width;
+                const canvasHeight = c.canvas.height;
+                if (canvasWidth === 0 || canvasHeight === 0) {
+                    return { cellS: 20, radius: 7, originX: 70, originY: 130, gridW, gridH };
+                }
+                const gridWidth = canvasWidth - axisPadding.left - axisPadding.right;
+                const gridHeight = canvasHeight - axisPadding.top - axisPadding.bottom;
+                const cellS_W = gridWidth / gridW;
+                const cellS_H = gridHeight / gridH;
+                const cellS = Math.min(cellS_W, cellS_H);
+                const radius = (cellS * 0.7) / 2;
+                const originX = axisPadding.left;
+                const originY = c.canvas.height - axisPadding.bottom;
+                return { cellS, radius, originX, originY, gridW, gridH };
+            }
+
+            function getCircleCenter(x, y, cellS, originX, originY) {
+                const cx = originX + (x + 0.5) * cellS;
+                const cy = originY - (y + 0.5) * cellS;
+                return { cx, cy };
+            }
+
+            function drawAxes(c, metrics) {
+                const { cellS, originX, originY, gridW, gridH } = metrics;
+                const axisColor = '#6B7281';
+                const axisWidth = 2;
+                const arrowheadSize = 10;
+                const gridLineColor = '#E0E7FF';
+
+                const gridWidth = gridW * cellS;
+                const gridHeight = gridH * cellS;
+
+                // --- Draw Grid Lines ---
+                c.strokeStyle = gridLineColor;
+                c.lineWidth = 1;
+                for (let x = 0; x < gridW; x++) {
+                    const lineX = originX + (x + 0.5) * cellS;
+                    c.beginPath();
+                    c.moveTo(lineX, originY);
+                    c.lineTo(lineX, originY - gridHeight);
+                    c.stroke();
+                }
+                for (let y = 0; y < gridH; y++) {
+                    const lineY = originY - (y + 0.5) * cellS;
+                    c.beginPath();
+                    c.moveTo(originX, lineY);
+                    c.lineTo(originX + gridWidth, lineY);
+                    c.stroke();
+                }
+
+                // --- Draw Numbers and Axes ---
+                c.strokeStyle = axisColor;
+                c.fillStyle = axisColor;
+                c.lineWidth = axisWidth;
+
+                // Dynamic font size: matches circle size (0.7 * cellS)
+                const numberFontSize = cellS * 0.7;
+                c.font = `bold ${numberFontSize}px sans-serif`;
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+
+                // --- X-Axis Numbers (0, 1, 2...) ---
+                c.textBaseline = 'top';
+                for (let x = 0; x < gridW; x++) {
+                    const cx = originX + (x + 0.5) * cellS;
+                    const cy = originY + 10;
+                    c.fillText(x, cx, cy);
+                }
+
+                // --- Y-Axis Numbers (0, 1, 2...) ---
+                c.textAlign = 'right';
+                c.textBaseline = 'middle';
+                for (let y = 0; y < gridH; y++) {
+                    const cx = originX - 10;
+                    const cy = originY - (y + 0.5) * cellS;
+                    c.fillText(y, cx, cy);
+                }
+                
+                // --- Draw Axes Lines ---
+                const yAxisX = originX + (0.5 * cellS);
+                const yAxisTop = originY - gridHeight - 10;
+                const yAxisBottom = originY;
+                c.beginPath();
+                c.moveTo(yAxisX, yAxisBottom);
+                c.lineTo(yAxisX, yAxisTop);
+                c.stroke();
+                c.beginPath();
+                c.moveTo(yAxisX, yAxisTop - arrowheadSize);
+                c.lineTo(yAxisX - arrowheadSize / 2, yAxisTop);
+                c.lineTo(yAxisX + arrowheadSize / 2, yAxisTop);
+                c.closePath();
+                c.fill();
+
+                const xAxisY = originY - (0.5 * cellS);
+                const xAxisLeft = originX;
+                const xAxisRight = originX + gridWidth + 10;
+                c.beginPath();
+                c.moveTo(xAxisLeft, xAxisY);
+                c.lineTo(xAxisRight, xAxisY);
+                c.stroke();
+                c.beginPath();
+                c.moveTo(xAxisRight + arrowheadSize, xAxisY);
+                c.lineTo(xAxisRight, xAxisY - arrowheadSize / 2);
+                c.lineTo(xAxisRight, xAxisY + arrowheadSize / 2);
+                c.closePath();
+                c.fill();
+            }
+
+            function drawCircle(c, x, y, radius, color, isFill = true) {
+                c.beginPath();
+                c.arc(x, y, radius, 0, Math.PI * 2);
+                if (isFill) {
+                    c.fillStyle = color;
+                    c.fill();
+                } else {
+                    c.strokeStyle = color;
+                    c.lineWidth = 2;
+                    c.stroke();
+                }
+            }
+
+            function drawStar(c, x, y, radius) {
+                const fontSize = radius * 1.5;
+                c.font = `${fontSize}px Arial`;
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText('⭐', x, y);
+            }
+
+            function drawQuestionMark(c, x, y, radius) {
+                const fontSize = radius * 1.3;
+                c.font = `${fontSize}px Arial`;
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText('❓', x, y);
+            }
+
+            // --- GAME LOGIC ---
+
+            function drawGameBoard() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const metrics = getDrawingMetrics(ctx, gridSize.x, gridSize.y);
+                const { cellS, radius, originX, originY } = metrics;
+
+                drawAxes(ctx, metrics);
+
+                if (gameState === 'PLACEMENT') {
+                    const currentTeam = teams[currentPlacingTeamIndex];
+                    for (let y = 0; y < gridSize.y; y++) {
+                        for (let x = 0; x < gridSize.x; x++) {
+                            const { cx, cy } = getCircleCenter(x, y, cellS, originX, originY);
+                            const cell = board[y][x];
+                            
+                            if (cell.teamId === currentTeam.id) {
+                                drawCircle(ctx, cx, cy, radius, currentTeam.color);
+                                if (cell.isCommander) {
+                                    drawStar(ctx, cx, cy, radius);
+                                }
+                            } else if (cell.teamId !== null) {
+                                drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY, true);
+                            } else if (isAvailableForPlacing(x, y, currentTeam.id)) {
+                                drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY);
+                            } else {
+                                drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY, true);
+                            }
+                        }
+                    }
+                } else if (gameState === 'GAME' || gameState === 'GAME_OVER') {
+                    for (let y = 0; y < gridSize.y; y++) {
+                        for (let x = 0; x < gridSize.x; x++) {
+                            const { cx, cy } = getCircleCenter(x, y, cellS, originX, originY);
+                            const cell = board[y][x];
+
+                            if (revealAll) {
+                                if (cell.teamId !== null) {
+                                    const team = teams.find(t => t.id === cell.teamId);
+                                    drawCircle(ctx, cx, cy, radius, team.color, true);
+                                    if (cell.isCommander) {
+                                        drawStar(ctx, cx, cy, radius);
+                                    }
+                                } else {
+                                    drawCircle(ctx, cx, cy, radius, GRID_COLOR_MISS, true);
+                                }
+                            } else {
+                                if (cell.revealed) {
+                                    if (cell.hitShipColor) {
+                                        drawCircle(ctx, cx, cy, radius, cell.hitShipColor, true);
+                                        if (cell.isCommander) {
+                                            drawStar(ctx, cx, cy, radius);
+                                        }
+                                    } else {
+                                        drawCircle(ctx, cx, cy, radius, GRID_COLOR_MISS, true);
+                                    }
+                                } else {
+                                    drawCircle(ctx, cx, cy, radius, GRID_COLOR_UNREVEALED);
+                                    drawQuestionMark(ctx, cx, cy, radius);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            function resizeAndDrawGame() {
+                const container = canvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                if (canvas.width !== rect.width || canvas.height !== rect.height) {
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                }
+                drawGameBoard();
+            }
+
+            function drawGridSetupBoard() {
+                const container = setupCanvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                if (setupCanvas.width !== rect.width || setupCanvas.height !== rect.height) {
+                    setupCanvas.width = rect.width;
+                    setupCanvas.height = rect.height;
+                }
+                const metrics = getDrawingMetrics(setupCtx, gridSize.x, gridSize.y);
+                const { cellS, radius, originX, originY } = metrics;
+
+                setupCtx.clearRect(0, 0, setupCanvas.width, setupCanvas.height);
+                drawAxes(setupCtx, metrics);
+                
+                for (let y = 0; y < gridSize.y; y++) {
+                    for (let x = 0; x < gridSize.x; x++) {
+                        const { cx, cy } = getCircleCenter(x, y, cellS, originX, originY);
+                        drawCircle(setupCtx, cx, cy, radius, GRID_COLOR_EMPTY);
+                    }
+                }
+            }
+            
+            function setGameState(newState) {
+                gameState = newState;
+                Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+
+                switch (gameState) {
+                    case 'TEAM_SETUP':
+                        screens.teamSetup.classList.remove('hidden');
+                        break;
+                    case 'GRID_SETUP':
+                        screens.gridSetup.classList.remove('hidden');
+                        setTimeout(drawGridSetupBoard, 0);
+                        break;
+                    case 'PLACEMENT':
+                        screens.game.classList.remove('hidden');
+                        nextBtn.classList.remove('hidden');
+                        startGameBtn.classList.add('hidden');
+                        endGameBtn.classList.add('hidden');
+                        revealAllBtn.classList.add('hidden');
+                        newGameBtn.classList.add('hidden');
+                        menuBtnGame.classList.add('hidden');
+                        updateTurnInfo();
+                        updateScoreboard();
+                        setTimeout(resizeAndDrawGame, 0);
+                        break;
+                    case 'GAME':
+                        screens.game.classList.remove('hidden');
+                        nextBtn.classList.add('hidden');
+                        startGameBtn.classList.add('hidden');
+                        endGameBtn.classList.remove('hidden');
+                        revealAllBtn.classList.remove('hidden');
+                        newGameBtn.classList.add('hidden');
+                        menuBtnGame.classList.add('hidden');
+                        isExtraTurn = false;
+                        updateTurnInfo();
+                        setTimeout(resizeAndDrawGame, 0);
+                        break;
+                    case 'GAME_OVER':
+                        screens.game.classList.remove('hidden');
+                        nextBtn.classList.add('hidden');
+                        startGameBtn.classList.add('hidden');
+                        endGameBtn.classList.add('hidden');
+                        revealAllBtn.classList.add('hidden');
+                        newGameBtn.classList.remove('hidden');
+                        menuBtnGame.classList.remove('hidden');
+                        // Do NOT call updateTurnInfo() here — winner text will set color
+                        setTimeout(resizeAndDrawGame, 0);
+                        break;
+                }
+            }
+
+            function handleTeamSetup() {
+                const numTeams = parseInt(teamCountSelect.value);
+                extraTurnEnabled = extraTurnToggle.checked;
+                teams = [];
+                for (let i = 0; i < numTeams; i++) {
+                    teams.push({
+                        id: i + 1,
+                        ...TEAM_COLORS[i],
+                        ships: [],
+                        score: 0,
+                    });
+                }
+                setGameState('GRID_SETUP');
+            }
+
+            function handleGridAdjust(change) {
+                let newSize = gridSize.x + change;
+                if (newSize >= 5 && newSize <= 20) {
+                    gridSize = { x: newSize, y: newSize };
+                    gridSizeDisplay.textContent = `${newSize} x ${newSize}`;
+                    drawGridSetupBoard();
+                }
+            }
+
+            function handleGridConfirm() {
+                board = [];
+                for (let y = 0; y < gridSize.y; y++) {
+                    const row = [];
+                    for (let x = 0; x < gridSize.x; x++) {
+                        row.push({
+                            x, y,
+                            teamId: null,
+                            isCommander: false,
+                            revealed: false,
+                            hitShipColor: null,
+                            miss: false,
+                        });
+                    }
+                    board.push(row);
+                }
+                currentPlacingTeamIndex = 0;
+                setGameState('PLACEMENT');
+            }
+
+            function isAvailableForPlacing(x, y, placingTeamId) {
+                if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return false;
+                const cell = board[y][x];
+                if (cell.teamId !== null && cell.teamId !== placingTeamId) return false;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx, ny = y + dy;
+                        if (nx >= 0 && nx < gridSize.x && ny >= 0 && ny < gridSize.y) {
+                            const neighborTeamId = board[ny][nx].teamId;
+                            if (neighborTeamId !== null && neighborTeamId !== placingTeamId) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            function placeShip(x, y) {
+                if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return;
+                const currentTeam = teams[currentPlacingTeamIndex];
+                const cell = board[y][x];
+                
+                if (cell.teamId === currentTeam.id) {
+                    if (!cell.isCommander) {
+                        cell.isCommander = true;
+                        const shipIndex = currentTeam.ships.findIndex(s => s.x === x && s.y === y);
+                        if (shipIndex !== -1) {
+                            currentTeam.ships[shipIndex].isCommander = true;
+                        }
+                        showMessage("Promoted to Commander Ship! (Worth 3 points)");
+                    } else {
+                        cell.teamId = null;
+                        cell.isCommander = false;
+                        currentTeam.ships = currentTeam.ships.filter(s => !(s.x === x && s.y === y));
+                        showMessage("Ship removed!");
+                    }
+                    resizeAndDrawGame();
+                    return;
+                }
+                
+                if (isAvailableForPlacing(x, y, currentTeam.id)) {
+                    cell.teamId = currentTeam.id;
+                    cell.isCommander = false;
+                    currentTeam.ships.push({ x, y, isCommander: false });
+                    showMessage("Ship placed! Click again to promote to Commander");
+                    resizeAndDrawGame();
+                } else {
+                    showMessage("Can't place ship here! (Too close to enemy or spot taken)");
+                }
+            }
+
+            // --- NEW: Check for last team standing (with bonus) ---
+            function checkLastTeamStanding() {
+                const activeTeamIds = new Set();
+                for (let y = 0; y < gridSize.y; y++) {
+                    for (let x = 0; x < gridSize.x; x++) {
+                        const cell = board[y][x];
+                        if (cell.teamId !== null && !cell.revealed) {
+                            activeTeamIds.add(cell.teamId);
+                        }
+                    }
+                }
+
+                if (activeTeamIds.size === 1) {
+                    const winnerId = Array.from(activeTeamIds)[0];
+                    const winnerTeam = teams.find(t => t.id === winnerId);
+
+                    // Award bonus points for all surviving ships
+                    for (let y = 0; y < gridSize.y; y++) {
+                        for (let x = 0; x < gridSize.x; x++) {
+                            const cell = board[y][x];
+                            if (cell.teamId === winnerId && !cell.revealed) {
+                                const bonus = cell.isCommander ? 3 : 1;
+                                winnerTeam.score += bonus;
+                            }
+                        }
+                    }
+
+                    updateScoreboard();
+                    revealAll = true;
+                    setGameState('GAME_OVER');
+                    showFinalWinnerMessage();
+                    showMessage(`Victory! ${winnerTeam.name} Team gets bonus for surviving ships!`);
+                    return true;
+                }
+                return false;
+            }
+
+            // --- Centralized winner calculation ---
+            function showFinalWinnerMessage() {
+                let maxScore = -Infinity;
+                let winners = [];
+
+                teams.forEach(team => {
+                    if (team.score > maxScore) {
+                        maxScore = team.score;
+                        winners = [team];
+                    } else if (team.score === maxScore) {
+                        winners.push(team);
+                    }
+                });
+
+                if (winners.length > 1) {
+                    // For tie: use neutral color (black)
+                    turnInfo.textContent = `Game Over! Tie between: ${winners.map(t => t.name).join(', ')}!`;
+                    turnInfo.style.color = '#000000';
+                } else {
+                    // Single winner: use their team color
+                    const winner = winners[0];
+                    turnInfo.textContent = `Game Over! ${winner.name} Team wins!`;
+                    turnInfo.style.color = winner.color;
+                }
+            }
+
+            function checkGameOver() {
+                let totalShips = 0, revealedShips = 0;
+                for (let y = 0; y < gridSize.y; y++) {
+                    for (let x = 0; x < gridSize.x; x++) {
+                        const cell = board[y][x];
+                        if (cell.teamId !== null) {
+                            totalShips++;
+                            if (cell.revealed) revealedShips++;
+                        }
+                    }
+                }
+
+                // 1. All ships revealed → end with no bonus
+                if (totalShips > 0 && revealedShips === totalShips) {
+                    revealAll = true;
+                    setGameState('GAME_OVER');
+                    showFinalWinnerMessage();
+                    showMessage("All ships revealed! No survival bonus.");
+                    return;
+                }
+
+                // 2. Last team standing → bonus applied
+                if (checkLastTeamStanding()) {
+                    return;
+                }
+            }
+
+            function makeGuess(x, y) {
+                if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return;
+                const cell = board[y][x];
+                if (cell.revealed) {
+                    showMessage("This spot has already been revealed.");
+                    return;
+                }
+
+                cell.revealed = true;
+                const currentPlayer = teams[currentPlayerIndex];
+                const hitTeamId = cell.teamId;
+
+                if (hitTeamId !== null) {
+                    const hitTeam = teams.find(t => t.id === hitTeamId);
+                    cell.hitShipColor = hitTeam.color;
+                    const pointValue = cell.isCommander ? 3 : 1;
+
+                    if (hitTeamId === currentPlayer.id) {
+                        currentPlayer.score -= pointValue;
+                        const shipType = cell.isCommander ? "Commander ship" : "ship";
+                        showMessage(`${currentPlayer.name} hit their own ${shipType}! -${pointValue} Point${pointValue > 1 ? 's' : ''}!`);
+                        isExtraTurn = false;
+                        nextTurn();
+                    } else {
+                        currentPlayer.score += pointValue;
+                        const shipType = cell.isCommander ? "Commander ship" : "ship";
+                        const extraMsg = extraTurnEnabled ? " (Extra turn applied)" : "";
+                        showMessage(`${currentPlayer.name} hit ${hitTeam.name}'s ${shipType}! +${pointValue} Point${pointValue > 1 ? 's' : ''}!${extraMsg}`);
+                        if (extraTurnEnabled) {
+                            isExtraTurn = true;
+                            updateTurnInfo();
+                        } else {
+                            nextTurn();
+                        }
+                    }
+                } else {
+                    cell.miss = true;
+                    showMessage("Miss!");
+                    isExtraTurn = false;
+                    nextTurn();
+                }
+
+                updateScoreboard();
+                resizeAndDrawGame();
+                checkGameOver();
+            }
+
+            function nextTurn() {
+                isExtraTurn = false;
+                currentPlayerIndex = (currentPlayerIndex + 1) % teams.length;
+                updateTurnInfo();
+            }
+
+            function handleNextTeam() {
+                currentPlacingTeamIndex++;
+                if (currentPlacingTeamIndex >= teams.length) {
+                    setGameState('GAME');
+                } else {
+                    if (currentPlacingTeamIndex === teams.length - 1) {
+                        nextBtn.classList.add('hidden');
+                        startGameBtn.classList.remove('hidden');
+                    }
+                    updateTurnInfo();
+                    resizeAndDrawGame();
+                }
+            }
+            
+            function handleCanvasClick(event) {
+                const rect = canvas.getBoundingClientRect();
+                const canvasX = event.clientX - rect.left;
+                const canvasY = event.clientY - rect.top;
+                const { cellS, originX, originY } = getDrawingMetrics(ctx, gridSize.x, gridSize.y);
+                const gridX = canvasX - originX;
+                const gridY = originY - canvasY;
+                const x = Math.floor(gridX / cellS);
+                const y = Math.floor(gridY / cellS);
+
+                if (gameState === 'PLACEMENT') {
+                    placeShip(x, y);
+                } else if (gameState === 'GAME') {
+                    makeGuess(x, y);
+                }
+            }
+
+            function handleEndGame() {
+                // Award bonus for all unrevealed ships (all teams)
+                for (let y = 0; y < gridSize.y; y++) {
+                    for (let x = 0; x < gridSize.x; x++) {
+                        const cell = board[y][x];
+                        if (cell.teamId !== null && !cell.revealed) {
+                            const team = teams.find(t => t.id === cell.teamId);
+                            const bonus = cell.isCommander ? 3 : 1;
+                            team.score += bonus;
+                        }
+                    }
+                }
+                updateScoreboard();
+                revealAll = true;
+                setGameState('GAME_OVER');
+                showFinalWinnerMessage();
+                showMessage("Bonus points awarded to all surviving ships!");
+            }
+
+            function handleRevealAll() {
+                revealAll = true;
+                setGameState('GAME_OVER');
+                showFinalWinnerMessage();
+                showMessage("All ships revealed! No survival bonus.");
+            }
+
+            function handleNewGame() {
+                teams = [];
+                board = [];
+                currentPlacingTeamIndex = 0;
+                currentPlayerIndex = 0;
+                revealAll = false;
+                isExtraTurn = false;
+                gridSize = { x: 5, y: 5 };
+                gridSizeDisplay.textContent = '5 x 5';
+                extraTurnToggle.checked = false;
+                setGameState('TEAM_SETUP');
+            }
+
+            function handleBackToMenu() {
+                window.location.href = 'index.html';
+            }
+
+            // --- EVENT LISTENERS ---
+            startSetupBtn.addEventListener('click', handleTeamSetup);
+            decreaseGridBtn.addEventListener('click', () => handleGridAdjust(-1));
+            increaseGridBtn.addEventListener('click', () => handleGridAdjust(1));
+            confirmGridBtn.addEventListener('click', handleGridConfirm);
+            window.addEventListener('resize', () => {
+                if (gameState === 'GRID_SETUP') drawGridSetupBoard();
+                if (gameState === 'PLACEMENT' || gameState === 'GAME' || gameState === 'GAME_OVER') {
+                    resizeAndDrawGame();
+                }
+            });
+
+            canvas.addEventListener('click', handleCanvasClick);
+            nextBtn.addEventListener('click', handleNextTeam);
+            startGameBtn.addEventListener('click', handleNextTeam);
+            endGameBtn.addEventListener('click', handleEndGame);
+            revealAllBtn.addEventListener('click', handleRevealAll);
+            newGameBtn.addEventListener('click', handleNewGame);
+            menuBtnSetup.addEventListener('click', handleBackToMenu);
+            menuBtnGrid.addEventListener('click', handleBackToMenu);
+            menuBtnGame.addEventListener('click', handleBackToMenu);
+
+            // --- INITIALIZE ---
+            setGameState('TEAM_SETUP');
+        });
+    </script>
+</body>
+</html>
