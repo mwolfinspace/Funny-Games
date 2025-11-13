@@ -110,35 +110,53 @@
 
         /* Start screen/card sizing to avoid title wrapping */
         .start-card {
-            max-width: 900px; /* allow wide title */
-            min-width: 520px; /* ensure enough room for controls */
-            padding: 2.25rem; /* larger padding */
+            max-width: 1000px; /* allow wide title */
+            min-width: 640px; /* ensure enough room for controls on desktop/tablet */
+            padding: 2.5rem; /* larger padding */
         }
 
-        /* Make sure buttons and control text don't wrap */
+        /* Make sure buttons and control text don't wrap and are comfortably sized */
         .btn {
             white-space: nowrap;
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
         }
 
         /* Title should prefer a single line but scale on small screens */
         #title {
             white-space: nowrap;
             overflow-wrap: normal;
-            font-size: clamp(1.6rem, 3.5vw, 2.25rem);
-            line-height: 1.05;
+            font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+            line-height: 1.02;
         }
 
         /* Make start screen controls comfortably large */
         #team-count, #lang-select {
-            min-width: 160px;
+            min-width: 180px;
             font-size: 1rem;
+            white-space: nowrap;
         }
 
+        /* Ensure grid size display doesn't wrap */
+        #grid-size-display { white-space: nowrap; }
+
+        /* Circle labels shouldn't wrap */
+        .team-circle-label { white-space: nowrap; }
+
+        /* Scoreboard entries shouldn't wrap */
+        #scoreboard > div { white-space: nowrap; }
+
+        /* Turn info should not wrap on larger screens; allow smaller font on narrow screens */
+        #turn-info { white-space: nowrap; }
+
         /* On very small screens allow smaller min-width so layout doesn't overflow the viewport */
-        @media (max-width: 560px) {
-            .start-card { min-width: 280px; padding: 1rem; }
+        @media (max-width: 760px) {
+            .start-card { min-width: 320px; padding: 1rem; }
             #title { white-space: normal; font-size: 1.4rem; }
             #team-count, #lang-select { min-width: 120px; }
+            .team-circle { width:48px; height:48px; }
+            .team-circle-label { font-size:0.72rem; }
+            .btn { font-size:0.95rem; padding:0.6rem 1rem; }
         }
 
         /* Team circle UI */
@@ -156,9 +174,15 @@
             user-select: none;
         }
         .team-circle:active { transform: scale(0.96); }
-        .team-circle-label { display:block; text-align:center; font-size:0.78rem; margin-top:6px; color:#333; min-width:64px; }
+    .team-circle-label { display:block; text-align:center; font-size:0.78rem; margin-top:6px; color:#333; min-width:100px; }
 
         .team-circle.small { width:48px; height:48px; }
+        .team-circle-wrapper { display:flex; flex-direction:column; align-items:center; min-width:120px; }
+
+        /* reduce wrapper min-width on small screens */
+        @media (max-width: 760px) {
+            .team-circle-wrapper { min-width:84px; }
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 h-screen overflow-hidden">
@@ -187,7 +211,7 @@
             </select>
 
             <!-- Team color circles: allow quick selection by clicking. -->
-            <div id="team-circles" style="display:flex;justify-content:center;gap:14px;margin-bottom:12px;">
+            <div id="team-circles" style="display:flex;justify-content:center;gap:22px;margin-bottom:12px;">
                 <!-- will be populated by JS if not present -->
             </div>
 
@@ -395,10 +419,7 @@
 
             function createCircleElement(i) {
                 const wrapper = document.createElement('div');
-                wrapper.style.display = 'flex';
-                wrapper.style.flexDirection = 'column';
-                wrapper.style.alignItems = 'center';
-                wrapper.style.width = '72px';
+                wrapper.className = 'team-circle-wrapper';
 
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -454,10 +475,10 @@
             function initCircles() {
                 if (!teamCirclesContainer) return;
                 teamCirclesContainer.innerHTML = '';
-                for (let i = 0; i < CIRCLE_COUNT; i++) {
-                    const el = createCircleElement(i);
-                    teamCirclesContainer.appendChild(el);
-                }
+                    for (let i = 0; i < CIRCLE_COUNT; i++) {
+                        const el = createCircleElement(i);
+                        teamCirclesContainer.appendChild(el);
+                    }
                 // set initial circles according to the select default
                 applySelectToCircles();
             }
