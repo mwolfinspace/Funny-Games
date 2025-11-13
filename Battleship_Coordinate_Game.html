@@ -71,9 +71,41 @@
             margin-left: auto;
             margin-right: auto;
             padding: 0.5rem; /* p-2 */
+            position: relative; /* allow overlays positioned inside screens */
         }
         @media (min-width: 640px) {
             .screen { padding: 1rem; /* sm:p-4 */ }
+        }
+
+        /* Feedback overlay styles */
+        .feedback-overlay {
+            position: absolute;
+            inset: 0; /* cover parent */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none; /* clicks pass through */
+            z-index: 60;
+        }
+
+        .feedback-emoji {
+            font-size: 6rem;
+            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.25));
+            opacity: 0;
+            transform: scale(0.6);
+            will-change: transform, opacity;
+            /* default animation: fade in (1.5s) then stay then fade out */
+            animation: feedbackFadeIn 1.5s forwards, feedbackFadeOut 0.6s 1.6s forwards;
+        }
+
+        @keyframes feedbackFadeIn {
+            0% { opacity: 0; transform: scale(0.6); }
+            100% { opacity: 1; transform: scale(1.15); }
+        }
+
+        @keyframes feedbackFadeOut {
+            0% { opacity: 1; transform: scale(1.15); }
+            100% { opacity: 0; transform: scale(1.25); }
         }
     </style>
 </head>
@@ -106,6 +138,9 @@
             <button id="menu-btn-setup" class="btn btn-secondary text-lg w-full">◀️ Back to Menu</button>
         </div>
     </div>
+
+        <!-- Feedback overlay for hit/miss emoji animations -->
+        <div id="feedback-overlay" class="feedback-overlay" aria-hidden="true"></div>
 
     <!-- Step 2: Grid Setup -->
     <div id="grid-setup-screen" class="screen hidden flex flex-col h-full items-center justify-center">
@@ -185,6 +220,16 @@
             let isExtraTurn = false;
             let canvas, ctx;
             let setupCanvas, setupCtx;
+            // Audio context - created lazily on first interaction to satisfy browser autoplay
+            let audioCtx = null;
+            function ensureAudioContext() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } else if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                return audioCtx;
+            }
 
             // --- UI ELEMENTS ---
             const screens = {
@@ -228,6 +273,70 @@
                         messageBox.textContent = '';
                     }
                 }, 3000);
+            }
+
+            // --- Feedback visuals & sounds ---
+            // duration for the fade-in portion in milliseconds (adjustable)
+            const FEEDBACK_FADEIN_MS = 1500;
+
+            function showFeedback(type) {
+                // type: 'hit' or 'miss'
+                const overlay = document.getElementById('feedback-overlay');
+                if (!overlay) return;
+
+                const span = document.createElement('div');
+                span.className = 'feedback-emoji';
+                span.style.animation = `feedbackFadeIn ${FEEDBACK_FADEIN_MS}ms forwards, feedbackFadeOut 600ms ${FEEDBACK_FADEIN_MS + 100}ms forwards`;
+                span.textContent = (type === 'hit') ? '💥' : '😅';
+                overlay.appendChild(span);
+
+                // remove after animations finish
+                const totalMs = FEEDBACK_FADEIN_MS + 800;
+                setTimeout(() => {
+                    if (overlay.contains(span)) overlay.removeChild(span);
+                }, totalMs + 50);
+            }
+
+            // Simple synthesized explosion sound using WebAudio
+            function playExplosion() {
+                const ctx = ensureAudioContext();
+                if (!ctx) return;
+                const bufferSize = 2 * ctx.sampleRate;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                // fill buffer with white noise shaped by an exponential decay envelope
+                for (let i = 0; i < bufferSize; i++) {
+                    const t = i / ctx.sampleRate;
+                    // white noise
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-3 * t);
+                }
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+                const lp = ctx.createBiquadFilter();
+                lp.type = 'lowpass';
+                lp.frequency.value = 1200;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                noise.connect(lp).connect(gain).connect(ctx.destination);
+                noise.start();
+                noise.stop(ctx.currentTime + 1.3);
+            }
+
+            // Simple synthesized sad beep
+            function playSadBeep() {
+                const ctx = ensureAudioContext();
+                if (!ctx) return;
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(680, ctx.currentTime);
+                g.gain.setValueAtTime(0.0001, ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+                o.connect(g).connect(ctx.destination);
+                o.start();
+                o.stop(ctx.currentTime + 0.55);
             }
 
             // Helper: choose readable contrast color (black or white) for a background hex color
@@ -794,6 +903,9 @@
                         showMessage(`${currentPlayer.name} hit their own ${shipType}! -${pointValue} Point${pointValue > 1 ? 's' : ''}!`);
                         isExtraTurn = false;
                         nextTurn();
+                        // show explosion even for self-hit (can be changed)
+                        showFeedback('hit');
+                        playExplosion();
                     } else {
                         currentPlayer.score += pointValue;
                         const shipType = cell.isCommander ? "Commander ship" : "ship";
@@ -802,7 +914,11 @@
                         if (extraTurnEnabled) {
                             isExtraTurn = true;
                             updateTurnInfo();
+                            showFeedback('hit');
+                            playExplosion();
                         } else {
+                            showFeedback('hit');
+                            playExplosion();
                             nextTurn();
                         }
                     }
@@ -811,6 +927,9 @@
                     showMessage("Miss!");
                     isExtraTurn = false;
                     nextTurn();
+                    // miss feedback
+                    showFeedback('miss');
+                    playSadBeep();
                 }
 
                 updateScoreboard();
