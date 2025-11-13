@@ -107,15 +107,77 @@
             0% { opacity: 1; transform: scale(1.15); }
             100% { opacity: 0; transform: scale(1.25); }
         }
+
+        /* Start screen/card sizing to avoid title wrapping */
+        .start-card {
+            max-width: 900px; /* allow wide title */
+            min-width: 520px; /* ensure enough room for controls */
+            padding: 2.25rem; /* larger padding */
+        }
+
+        /* Make sure buttons and control text don't wrap */
+        .btn {
+            white-space: nowrap;
+        }
+
+        /* Title should prefer a single line but scale on small screens */
+        #title {
+            white-space: nowrap;
+            overflow-wrap: normal;
+            font-size: clamp(1.6rem, 3.5vw, 2.25rem);
+            line-height: 1.05;
+        }
+
+        /* Make start screen controls comfortably large */
+        #team-count, #lang-select {
+            min-width: 160px;
+            font-size: 1rem;
+        }
+
+        /* On very small screens allow smaller min-width so layout doesn't overflow the viewport */
+        @media (max-width: 560px) {
+            .start-card { min-width: 280px; padding: 1rem; }
+            #title { white-space: normal; font-size: 1.4rem; }
+            #team-count, #lang-select { min-width: 120px; }
+        }
+
+        /* Team circle UI */
+        .team-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 9999px;
+            background: #ffffff;
+            border: 2px solid rgba(0,0,0,0.12);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            user-select: none;
+        }
+        .team-circle:active { transform: scale(0.96); }
+        .team-circle-label { display:block; text-align:center; font-size:0.78rem; margin-top:6px; color:#333; min-width:64px; }
+
+        .team-circle.small { width:48px; height:48px; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 h-screen overflow-hidden">
 
     <!-- Step 1: Team Setup -->
     <div id="team-setup-screen" class="screen flex flex-col items-center justify-center h-full">
-        <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
-            <h1 class="text-3xl font-bold mb-6">🚢 Coordinate Battleship</h1>
+    <div class="bg-white p-8 rounded-lg shadow-xl text-center start-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <h1 id="title" class="text-3xl font-bold mb-6">🚢 Coordinate Battleship</h1>
+                <div style="margin-left:8px;">
+                    <label for="lang-select" class="sr-only">Language</label>
+                    <select id="lang-select" aria-label="Language" style="padding:6px;border-radius:8px;font-weight:600;">
+                        <option value="en">English</option>
+                        <option value="vi">Tiếng Việt</option>
+                    </select>
+                </div>
+            </div>
             <label for="team-count" class="block text-lg mb-2">Select number of teams (1-5):</label>
+            <label id="team-count-label" for="team-count" class="sr-only">Select number of teams</label>
             <select id="team-count" class="bg-gray-200 text-gray-900 border border-gray-300 p-2 rounded-lg text-lg mb-4 w-full">
                 <option value="1">1 Team</option>
                 <option value="2" selected>2 Teams</option>
@@ -124,14 +186,19 @@
                 <option value="5">5 Teams</option>
             </select>
 
+            <!-- Team color circles: allow quick selection by clicking. -->
+            <div id="team-circles" style="display:flex;justify-content:center;gap:14px;margin-bottom:12px;">
+                <!-- will be populated by JS if not present -->
+            </div>
+
             <!-- Extra Turn Rules Toggle -->
             <div class="mb-6">
                 <label for="extra-turn-toggle" class="flex items-center justify-center cursor-pointer select-none">
                     <input type="checkbox" id="extra-turn-toggle" class="sr-only peer">
                     <div class="relative w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
-                    <span class="ml-3 text-lg font-medium text-gray-900">⚔️ Extra Turn Rules</span>
+                    <span id="extra-turn-label" class="ml-3 text-lg font-medium text-gray-900">⚔️ Extra Turn Rules</span>
                 </label>
-                <p class="text-sm text-gray-600 mt-2">Hit an enemy ship? Get an extra turn! (Until miss)</p>
+                <p id="extra-turn-desc" class="text-sm text-gray-600 mt-2">Hit an enemy ship? Get an extra turn! (Until miss)</p>
             </div>
 
             <button id="start-setup-btn" class="btn btn-primary text-xl w-full mb-3">Continue to Grid Setup 🚢</button>
@@ -203,6 +270,62 @@
                 { name: 'Yellow', color: '#EAB308' }, // yellow-500
                 { name: 'Purple', color: '#A855F7' }, // purple-500
             ];
+            // Current UI language
+            let currentLang = 'en';
+
+            // Simple translation dictionary (short and tidy)
+            const I18N = {
+                title: { en: '🚢 Coordinate Battleship', vi: '🚢 Trận chiến Tọa độ' },
+                select_teams: { en: 'Select number of teams (1-5):', vi: 'Chọn số đội (1-5):' },
+                extra_turn_label: { en: '⚔️ Extra Turn Rules', vi: '⚔️ Luật lượt thêm' },
+                extra_turn_desc: { en: 'Hit an enemy ship? Get an extra turn! (Until miss)', vi: 'Trúng tàu địch? Được lượt thêm! (Cho đến khi trượt)' },
+                continue_btn: { en: 'Continue to Grid Setup 🚢', vi: 'Tiếp tục tới lưới 🚢' },
+                back_menu: { en: '◀️ Back to Menu', vi: '◀️ Trở về' },
+                setup_grid_title: { en: 'Setup Grid Size', vi: 'Cài kích thước lưới' },
+                adjust_grid_desc: { en: 'Adjust the coordinate system size. (Min 5x5, Max 20x20)', vi: 'Điều chỉnh kích thước hệ tọa độ. (Tối thiểu 5x5, tối đa 20x20)' },
+                confirm_grid: { en: 'Confirm Grid & Start Placement ⚓', vi: 'Xác nhận & Bắt đầu đặt tàu ⚓' },
+                next_team: { en: 'Next Team ➡️', vi: 'Đội tiếp theo ➡️' },
+                start_game: { en: 'Start Game ▶️', vi: 'Bắt đầu ▶️' },
+                end_game: { en: 'End Game (Bonus) 🔚', vi: 'Kết thúc (Thưởng) 🔚' },
+                reveal_all: { en: 'Reveal All 🔍', vi: 'Hiện tất cả 🔍' },
+                new_game: { en: 'New Game 🔄', vi: 'Trò chơi mới 🔄' },
+                place_ships: { en: 'Place Your Ships', vi: 'Đặt tàu' },
+                team_turn: { en: "Team's Turn", vi: 'Lượt của đội' },
+                extra_turn_badge: { en: '(Extra Turn)', vi: '(Lượt thêm)' },
+                placement_help: { en: 'Click once: place ship | Click twice: promote to Commander (3pts) | Click thrice: remove', vi: 'Nhấn 1 lần: đặt tàu | 2 lần: thăng hạng Chỉ huy (3 điểm) | 3 lần: gỡ' },
+                promoted: { en: 'Promoted to Commander Ship! (Worth 3 points)', vi: 'Đã thăng Chỉ huy! (3 điểm)' },
+                ship_removed: { en: 'Ship removed!', vi: 'Đã gỡ tàu!' },
+                ship_placed: { en: 'Ship placed! Click again to promote to Commander', vi: 'Đã đặt tàu! Nhấn lại để thăng Chỉ huy' },
+                cant_place: { en: "Can't place ship here! (Too close to enemy or spot taken)", vi: 'Không thể đặt ở đây! (Quá gần kẻ địch hoặc chỗ đã có)' },
+                victory_bonus: { en: 'Victory! {team} Team gets bonus for surviving ships!', vi: 'Chiến thắng! Đội {team} nhận thưởng cho tàu sống sót!' },
+                all_revealed: { en: 'All ships revealed! No survival bonus.', vi: 'Tất cả tàu đã lộ! Không có thưởng.' },
+                hit_own: { en: '{player} hit their own {shipType}! -{points}!', vi: '{player} bắn trúng tàu đội mình {shipType}! -{points}!' },
+                hit_own_single: { en: '{player} hit their own {shipType}! +{points}!', vi: '{player} bắn trúng tàu đội mình {shipType}! +{points}!' },
+                hit_enemy: { en: '{player} hit {team} team\'s {shipType}! +{points}!{extra}', vi: '{player} trúng tàu đội {team} {shipType}! +{points}!{extra}' },
+                already_revealed: { en: 'This spot has already been revealed.', vi: 'Vị trí này đã được lộ.' },
+                miss: { en: 'Miss!', vi: 'Trượt!' },
+                bonus_awarded: { en: 'Bonus points awarded to all surviving ships!', vi: 'Đã cộng điểm thưởng cho tàu sống sót!' },
+                tie_message: { en: '🎉 Game Over! Tie between: {teams}!', vi: '🎉 Trò chơi kết thúc! Hòa giữa: {teams}!' },
+                game_over_win: { en: '🏆 Game Over! {team} Team wins!', vi: '🏆 Kết thúc! Đội {team} thắng!' },
+                already_playing: { en: ' (Extra turn applied)', vi: ' (áp dụng lượt thêm)' },
+                color_Red: { en: 'Red', vi: 'Đỏ' },
+                color_Blue: { en: 'Blue', vi: 'Xanh dương' },
+                color_Green: { en: 'Green', vi: 'Xanh lá' },
+                color_Yellow: { en: 'Yellow', vi: 'Vàng' },
+                color_Purple: { en: 'Purple', vi: 'Tím' },
+            };
+
+            function t(key, vars = {}) {
+                const entry = I18N[key];
+                const str = entry ? (entry[currentLang] || entry.en) : key;
+                return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : ''));
+            }
+
+            function getTeamLabel(team) {
+                // team.name contains the English color name (e.g., 'Red')
+                const key = 'color_' + team.name;
+                return I18N[key] ? t(key) : team.name;
+            }
             const GRID_COLOR_EMPTY = '#DBEAFE'; // blue-100 (very light blue)
             const GRID_COLOR_BANNED = '#6B7281'; // gray-500
             const GRID_COLOR_HIDDEN_SHIP = '#4B5563'; // gray-600
@@ -240,6 +363,7 @@
             const teamCountSelect = document.getElementById('team-count');
             const extraTurnToggle = document.getElementById('extra-turn-toggle');
             const startSetupBtn = document.getElementById('start-setup-btn');
+            const langSelect = document.getElementById('lang-select');
             
             const gridSizeDisplay = document.getElementById('grid-size-display');
             const decreaseGridBtn = document.getElementById('decrease-grid-btn');
@@ -250,6 +374,7 @@
             
             canvas = document.getElementById('game-canvas');
             ctx = canvas.getContext('2d');
+            const teamCirclesContainer = document.getElementById('team-circles');
             const turnInfo = document.getElementById('turn-info');
             const messageBox = document.getElementById('message-box');
             const scoreboard = document.getElementById('scoreboard');
@@ -261,6 +386,149 @@
             const menuBtnSetup = document.getElementById('menu-btn-setup');
             const menuBtnGrid = document.getElementById('menu-btn-grid');
             const menuBtnGame = document.getElementById('menu-btn-game');
+
+            // --- Team circles UI state ---
+            const CIRCLE_COUNT = 5;
+            // circleState holds color index (0..TEAM_COLORS.length-1) or null for white/unassigned
+            let circleState = new Array(CIRCLE_COUNT).fill(null);
+            const COLOR_EMOJIS = ['🔴','🔵','🟢','🟡','🟣'];
+
+            function createCircleElement(i) {
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'flex';
+                wrapper.style.flexDirection = 'column';
+                wrapper.style.alignItems = 'center';
+                wrapper.style.width = '72px';
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'team-circle';
+                btn.dataset.index = String(i);
+                btn.setAttribute('aria-label', `Team circle ${i+1}`);
+
+                const label = document.createElement('span');
+                label.className = 'team-circle-label';
+                label.id = `circle-label-${i}`;
+                label.textContent = '';
+
+                btn.addEventListener('click', () => {
+                    // cycle color: null(white) -> 0 -> 1 -> ... -> last -> null
+                    const cur = circleState[i];
+                    const cycleLen = TEAM_COLORS.length + 1; // include null state
+                    let nextIdx;
+                    if (cur === null) nextIdx = 0;
+                    else {
+                        const k = (cur + 1) % cycleLen;
+                        nextIdx = (k === TEAM_COLORS.length) ? null : k;
+                    }
+                    circleState[i] = nextIdx;
+                    renderCircle(i);
+                    updateSelectFromCircles();
+                });
+
+                wrapper.appendChild(btn);
+                wrapper.appendChild(label);
+                return wrapper;
+            }
+
+            function renderCircle(i) {
+                const wrapper = teamCirclesContainer.children[i];
+                if (!wrapper) return;
+                const btn = wrapper.querySelector('.team-circle');
+                const label = wrapper.querySelector('.team-circle-label');
+                const colorIdx = circleState[i];
+                if (colorIdx === null || colorIdx === undefined) {
+                    btn.style.background = '#ffffff';
+                    btn.style.border = '2px solid rgba(0,0,0,0.12)';
+                    label.textContent = '';
+                } else {
+                    const color = TEAM_COLORS[colorIdx].color;
+                    btn.style.background = color;
+                    btn.style.border = '2px solid rgba(0,0,0,0.08)';
+                    // show emoji + localized team name
+                    const emoji = COLOR_EMOJIS[colorIdx] || '';
+                    label.textContent = emoji + ' ' + getTeamLabel(TEAM_COLORS[colorIdx]);
+                }
+            }
+
+            function initCircles() {
+                if (!teamCirclesContainer) return;
+                teamCirclesContainer.innerHTML = '';
+                for (let i = 0; i < CIRCLE_COUNT; i++) {
+                    const el = createCircleElement(i);
+                    teamCirclesContainer.appendChild(el);
+                }
+                // set initial circles according to the select default
+                applySelectToCircles();
+            }
+
+            function applySelectToCircles() {
+                const n = parseInt(teamCountSelect.value) || 0;
+                // assign first n circles unique colors in order
+                for (let i = 0; i < CIRCLE_COUNT; i++) {
+                    if (i < n) {
+                        circleState[i] = i % TEAM_COLORS.length;
+                    } else {
+                        circleState[i] = null;
+                    }
+                    renderCircle(i);
+                }
+            }
+
+            function updateSelectFromCircles() {
+                // count unique color indices among circleState (exclude null)
+                const unique = [];
+                circleState.forEach(ci => {
+                    if (ci === null) return;
+                    if (!unique.includes(ci)) unique.push(ci);
+                });
+                const count = unique.length;
+                // update select value to match unique count
+                teamCountSelect.value = String(Math.max(1, count));
+                // also update displayed labels and scoreboard (if teams exist later)
+                updateScoreboard();
+            }
+
+
+            // Apply language to static elements
+            function applyLanguage() {
+                // header / labels
+                const titleEl = document.getElementById('title'); if (titleEl) titleEl.textContent = t('title');
+                const teamLabel = document.querySelector('label[for="team-count"]'); if (teamLabel) teamLabel.textContent = t('select_teams');
+                const extraLabel = document.getElementById('extra-turn-label'); if (extraLabel) extraLabel.textContent = t('extra_turn_label');
+                const extraDesc = document.getElementById('extra-turn-desc'); if (extraDesc) extraDesc.textContent = t('extra_turn_desc');
+                // Grid setup
+                const gridTitle = document.querySelector('.text-2xl.font-bold.mb-4'); if (gridTitle) gridTitle.textContent = t('setup_grid_title');
+                const adjustDesc = document.querySelector('.text-gray-600.mb-2'); if (adjustDesc) adjustDesc.textContent = t('adjust_grid_desc');
+                // Buttons
+                startSetupBtn.textContent = t('continue_btn');
+                document.getElementById('menu-btn-setup').textContent = t('back_menu');
+                document.getElementById('confirm-grid-btn').textContent = t('confirm_grid');
+                document.getElementById('menu-btn-grid').textContent = t('back_menu');
+                document.getElementById('next-btn').textContent = t('next_team');
+                document.getElementById('start-game-btn').textContent = t('start_game');
+                document.getElementById('end-game-btn').textContent = t('end_game');
+                document.getElementById('reveal-all-btn').textContent = t('reveal_all');
+                document.getElementById('new-game-btn').textContent = t('new_game');
+                document.getElementById('menu-btn-game').textContent = t('back_menu');
+                // update dynamic labels
+                updateTurnInfo();
+                updateScoreboard();
+            }
+
+            // language selector
+            if (langSelect) {
+                langSelect.value = currentLang;
+                langSelect.addEventListener('change', (e) => {
+                    currentLang = e.target.value;
+                    applyLanguage();
+                    // re-render circle labels in new language
+                    for (let i = 0; i < CIRCLE_COUNT; i++) renderCircle(i);
+                });
+            }
+
+            // initialize circles after language and dom ready
+            initCircles();
 
             // --- UI UPDATE FUNCTIONS ---
 
@@ -360,26 +628,36 @@
                     scoreEl.style.backgroundColor = team.color;
                     scoreEl.style.color = getContrastColor(team.color);
                     scoreEl.style.minWidth = '120px';
+                    // find emoji for this team's color (matching TEAM_COLORS order)
+                    const idx = TEAM_COLORS.findIndex(tc => tc.color.toLowerCase() === team.color.toLowerCase());
+                    const emoji = (idx >= 0 && idx < COLOR_EMOJIS.length) ? COLOR_EMOJIS[idx] + ' ' : '';
                     scoreEl.innerHTML = `
-                        <span class="block font-bold text-lg">${team.name}</span>
+                        <span class="block font-bold text-lg">${emoji}${getTeamLabel(team)}</span>
                         <span class="block text-2xl">${team.score}</span>
                     `;
                     scoreboard.appendChild(scoreEl);
                 });
             }
+
+            function getEmojiForTeam(team) {
+                if (!team) return '';
+                const idx = TEAM_COLORS.findIndex(tc => tc.color.toLowerCase() === team.color.toLowerCase());
+                return (idx >= 0 && idx < COLOR_EMOJIS.length) ? COLOR_EMOJIS[idx] : '';
+            }
             
             function updateTurnInfo() {
                 if (gameState === 'PLACEMENT') {
                         const team = teams[currentPlacingTeamIndex];
-                        const teamEmoji = ['🔴','🔵','🟢','🟡','🟣'][currentPlacingTeamIndex];
-                        turnInfo.textContent = `${teamEmoji} ${team.name} Team: Place Your Ships`;
-                    turnInfo.style.color = team.color;
-                    showMessage("Click once: place ship | Click twice: promote to Commander (3pts) | Click thrice: remove");
+                            const teamEmoji = getEmojiForTeam(team);
+                            turnInfo.textContent = `${teamEmoji} ${getTeamLabel(team)} ${t('place_ships')}`;
+                        turnInfo.style.color = team.color;
+                        showMessage(t('placement_help'));
                 } else if (gameState === 'GAME') {
                     const team = teams[currentPlayerIndex];
-                    const teamEmoji = ['🔴','🔵','🟢','🟡','🟣'][currentPlayerIndex];
+                    const teamEmoji = getEmojiForTeam(team);
                     const extraBadge = isExtraTurn ? ' (Extra Turn)' : '';
-                    turnInfo.textContent = `${teamEmoji} ${team.name} Team's Turn${extraBadge}`;
+                        const extraText = isExtraTurn ? ' ' + t('extra_turn_badge') : '';
+                        turnInfo.textContent = `${teamEmoji} ${getTeamLabel(team)} ${t('team_turn')}${extraText}`;
                     turnInfo.style.color = team.color;
                 }
             }
@@ -694,17 +972,28 @@
             }
 
             function handleTeamSetup() {
-                const numTeams = parseInt(teamCountSelect.value);
+                // If circles have assigned colors, derive teams from unique circle colors (in order of first occurrence)
                 extraTurnEnabled = extraTurnToggle.checked;
                 teams = [];
-                for (let i = 0; i < numTeams; i++) {
-                    teams.push({
-                        id: i + 1,
-                        ...TEAM_COLORS[i],
-                        ships: [],
-                        score: 0,
+                const unique = [];
+                circleState.forEach(ci => {
+                    if (ci === null || unique.includes(ci)) return;
+                    unique.push(ci);
+                });
+                if (unique.length > 0) {
+                    unique.forEach((ci, idx) => {
+                        const colorObj = TEAM_COLORS[ci];
+                        teams.push({ id: idx + 1, ...colorObj, ships: [], score: 0 });
                     });
+                } else {
+                    // fallback to select value
+                    const numTeams = parseInt(teamCountSelect.value) || 1;
+                    for (let i = 0; i < numTeams; i++) {
+                        teams.push({ id: i + 1, ...TEAM_COLORS[i], ships: [], score: 0 });
+                    }
                 }
+                // apply language to team labels immediately
+                updateScoreboard();
                 setGameState('GRID_SETUP');
             }
 
@@ -768,12 +1057,12 @@
                         if (shipIndex !== -1) {
                             currentTeam.ships[shipIndex].isCommander = true;
                         }
-                        showMessage("Promoted to Commander Ship! (Worth 3 points)");
+                        showMessage(t('promoted'));
                     } else {
                         cell.teamId = null;
                         cell.isCommander = false;
                         currentTeam.ships = currentTeam.ships.filter(s => !(s.x === x && s.y === y));
-                        showMessage("Ship removed!");
+                        showMessage(t('ship_removed'));
                     }
                     resizeAndDrawGame();
                     return;
@@ -783,15 +1072,19 @@
                     cell.teamId = currentTeam.id;
                     cell.isCommander = false;
                     currentTeam.ships.push({ x, y, isCommander: false });
-                    showMessage("Ship placed! Click again to promote to Commander");
+                    showMessage(t('ship_placed'));
                     resizeAndDrawGame();
                 } else {
-                    showMessage("Can't place ship here! (Too close to enemy or spot taken)");
+                    showMessage(t('cant_place'));
                 }
             }
 
             // --- NEW: Check for last team standing (with bonus) ---
             function checkLastTeamStanding() {
+                // If only one team in the game, don't treat them as "last team standing" immediately.
+                // This allows single-player mode to continue until all ships are revealed or the player ends the game.
+                if (teams.length <= 1) return false;
+
                 const activeTeamIds = new Set();
                 for (let y = 0; y < gridSize.y; y++) {
                     for (let x = 0; x < gridSize.x; x++) {
@@ -821,7 +1114,7 @@
                     revealAll = true;
                     setGameState('GAME_OVER');
                     showFinalWinnerMessage();
-                    showMessage(`Victory! ${winnerTeam.name} Team gets bonus for surviving ships!`);
+                    showMessage(t('victory_bonus', { team: getTeamLabel(winnerTeam) }));
                     return true;
                 }
                 return false;
@@ -843,12 +1136,13 @@
 
                 if (winners.length > 1) {
                     // For tie: use neutral color (black)
-                    turnInfo.textContent = `🎉 Game Over! Tie between: ${winners.map(t => t.name).join(', ')}!`;
+                    const names = winners.map(t => getTeamLabel(t)).join(', ');
+                    turnInfo.textContent = t('tie_message', { teams: names });
                     turnInfo.style.color = '#000000';
                 } else {
                     // Single winner: use their team color
                     const winner = winners[0];
-                    turnInfo.textContent = `🏆 Game Over! ${winner.name} Team wins!`;
+                    turnInfo.textContent = t('game_over_win', { team: getTeamLabel(winner) });
                     turnInfo.style.color = winner.color;
                 }
             }
@@ -870,7 +1164,7 @@
                     revealAll = true;
                     setGameState('GAME_OVER');
                     showFinalWinnerMessage();
-                    showMessage("All ships revealed! No survival bonus.");
+                    showMessage(t('all_revealed'));
                     return;
                 }
 
@@ -884,7 +1178,7 @@
                 if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return;
                 const cell = board[y][x];
                 if (cell.revealed) {
-                    showMessage("This spot has already been revealed.");
+                    showMessage(t('already_revealed'));
                     return;
                 }
 
@@ -898,9 +1192,15 @@
                     const pointValue = cell.isCommander ? 3 : 1;
 
                     if (hitTeamId === currentPlayer.id) {
-                        currentPlayer.score -= pointValue;
-                        const shipType = cell.isCommander ? "Commander ship" : "ship";
-                        showMessage(`${currentPlayer.name} hit their own ${shipType}! -${pointValue} Point${pointValue > 1 ? 's' : ''}!`);
+                        const shipType = cell.isCommander ? (currentLang === 'vi' ? 'Chỉ huy' : 'Commander ship') : (currentLang === 'vi' ? 'tàu' : 'ship');
+                        if (teams.length === 1) {
+                            // Single-team mode: reward player instead of penalize
+                            currentPlayer.score += pointValue;
+                            showMessage(t('hit_own_single', { player: currentPlayer.name, shipType: shipType, points: pointValue }));
+                        } else {
+                            currentPlayer.score -= pointValue;
+                            showMessage(t('hit_own', { player: currentPlayer.name, shipType: shipType, points: pointValue }));
+                        }
                         isExtraTurn = false;
                         nextTurn();
                         // show explosion even for self-hit (can be changed)
@@ -908,9 +1208,9 @@
                         playExplosion();
                     } else {
                         currentPlayer.score += pointValue;
-                        const shipType = cell.isCommander ? "Commander ship" : "ship";
-                        const extraMsg = extraTurnEnabled ? " (Extra turn applied)" : "";
-                        showMessage(`${currentPlayer.name} hit ${hitTeam.name}'s ${shipType}! +${pointValue} Point${pointValue > 1 ? 's' : ''}!${extraMsg}`);
+                        const shipType = cell.isCommander ? (currentLang === 'vi' ? 'Chỉ huy' : 'Commander ship') : (currentLang === 'vi' ? 'tàu' : 'ship');
+                        const extraMsg = extraTurnEnabled ? t('already_playing') : '';
+                        showMessage(t('hit_enemy', { player: currentPlayer.name, team: getTeamLabel(hitTeam), shipType: shipType, points: pointValue, extra: extraMsg }));
                         if (extraTurnEnabled) {
                             isExtraTurn = true;
                             updateTurnInfo();
@@ -924,7 +1224,7 @@
                     }
                 } else {
                     cell.miss = true;
-                    showMessage("Miss!");
+                    showMessage(t('miss'));
                     isExtraTurn = false;
                     nextTurn();
                     // miss feedback
@@ -1022,6 +1322,8 @@
             decreaseGridBtn.addEventListener('click', () => handleGridAdjust(-1));
             increaseGridBtn.addEventListener('click', () => handleGridAdjust(1));
             confirmGridBtn.addEventListener('click', handleGridConfirm);
+            // change select updates circles
+            teamCountSelect.addEventListener('change', applySelectToCircles);
             window.addEventListener('resize', () => {
                 if (gameState === 'GRID_SETUP') drawGridSetupBoard();
                 if (gameState === 'PLACEMENT' || gameState === 'GAME' || gameState === 'GAME_OVER') {
