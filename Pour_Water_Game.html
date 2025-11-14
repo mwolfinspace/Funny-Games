@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pour Water - Fraction Combination Game</title>
+  <style>
+    :root{--bg:#f3f6fb;--card:#fff;--muted:#6b7280}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:linear-gradient(180deg,#eaf2ff 0%,#fdfdff 100%);color:#111}
+  /* use all available wide screen space so many cylinders can fit on one row */
+  .wrap{max-width:calc(100% - 40px);width:100%;margin:12px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:1.25rem;margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{background:#0f9ed5;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+    button.secondary{background:#6b7280}
+    .layout{display:flex;gap:20px}
+    .left{flex:1}
+    .right{width:420px}
+  .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(15,30,60,0.06)}
+  /* modal for rules to save horizontal space */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:none;align-items:center;justify-content:center;z-index:60}
+  .modal{background:var(--card);padding:18px;border-radius:12px;max-width:720px;width:min(96%,720px);box-shadow:0 12px 40px rgba(2,6,23,0.25)}
+  .modal h3{margin-top:0}
+  .modal .close{background:#ef4444;color:#fff;border:none;padding:6px 10px;border-radius:8px;cursor:pointer}
+
+  /* stacked fraction display for result and current fraction */
+  .frac{display:inline-block;vertical-align:middle;text-align:center;margin:0 6px;width:160px;font-size:1.25rem}
+  .frac .num{display:block;font-weight:800;font-size:1.6rem}
+  .frac .bar{display:block;width:100%;height:6px;background:#0f172a;border-radius:3px;margin:10px 0}
+  .frac .den{display:block;font-size:1.6rem}
+  /* show cylinders in a horizontal row, top-aligned; new items append to the right */
+  .cylinders{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:18px;margin-top:12px}
+  /* each cylinder stacks visual on top, inputs below (numerator/bar/denominator) */
+  .cyl{display:flex;flex-direction:column;gap:8px;align-items:center;width:110px}
+  /* 3D-style cylinder visual: subtle side shading, top ellipse and inner gloss */
+  .cyl .visual{width:86px;height:140px;border-radius:12px;border:4px solid #cfe8ff;background:linear-gradient(180deg,#f9fdff 0%, #eaf6ff 60%);position:relative;flex-shrink:0;box-shadow:0 8px 18px rgba(2,6,23,0.06), inset -8px 0 24px rgba(2,6,23,0.03);overflow:visible}
+  .cyl .visual::before{content:"";position:absolute;left:6px;right:6px;top:6px;height:18px;border-radius:50%;background:radial-gradient(ellipse at center, rgba(255,255,255,0.95), rgba(255,255,255,0.6));box-shadow:0 4px 8px rgba(2,6,23,0.06) inset;pointer-events:none}
+  .cyl .visual::after{content:"";position:absolute;left:0;right:0;top:0;bottom:0;border-radius:12px;box-shadow:inset -6px 0 18px rgba(2,6,23,0.04);pointer-events:none}
+  .cyl .visual .water{position:absolute;left:6px;right:6px;bottom:6px;border-radius:8px;background:linear-gradient(180deg,#60a5fa 0%,#2563eb 100%);transition:height .3s;overflow:visible}
+  .cyl .visual .water::before{content:"";position:absolute;left:0;right:0;top:-10px;height:20px;border-radius:50%;background:radial-gradient(ellipse at center, rgba(255,255,255,0.9), rgba(255,255,255,0.05));box-shadow:0 6px 10px rgba(2,6,23,0.06) inset;pointer-events:none}
+  .cyl .inputs{display:flex;flex-direction:column;gap:6px;align-items:center}
+  .cyl input{width:64px;padding:6px;border-radius:8px;border:1px solid #e5e7eb;text-align:center}
+  .cyl .label{font-weight:600;color:var(--muted);font-size:0.95rem;text-align:center}
+  /* canvas visuals (for crisp 3D-look) */
+  .visual-canvas{width:86px;height:140px;border-radius:12px;border:4px solid #cfe8ff;background:transparent;flex-shrink:0}
+  .visual-canvas.overflow{box-shadow:0 0 0 6px rgba(239,68,68,0.06);border-color:#fca5a5}
+  .color-swatch{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(2,6,23,0.08);cursor:pointer}
+  .frac-bar{width:56px;height:4px;background:#0f172a;opacity:0.92;border-radius:3px;box-shadow:0 1px 0 rgba(0,0,0,0.06)}
+    .drag-hint{font-size:0.9rem;color:#374151}
+
+    /* bottom target */
+    .target-area{margin-top:18px;padding:12px;display:flex;flex-direction:column;gap:12px}
+    .target{display:flex;align-items:center;gap:12px}
+  /* target matches individual cylinder size so fills look consistent */
+  /* target uses the same 3D cylinder styling so fills match visually */
+  .target .visual{width:86px;height:140px;border-radius:12px;border:4px solid #cfe8ff;background:linear-gradient(180deg,#fff 0%,#f0fbf6 60%);position:relative;box-shadow:0 8px 18px rgba(2,6,23,0.06), inset -8px 0 24px rgba(2,6,23,0.03);overflow:visible}
+  .target .visual::before{content:"";position:absolute;left:6px;right:6px;top:6px;height:18px;border-radius:50%;background:radial-gradient(ellipse at center, rgba(255,255,255,0.95), rgba(255,255,255,0.6));box-shadow:0 4px 8px rgba(2,6,23,0.06) inset;pointer-events:none}
+  .target .visual::after{content:"";position:absolute;left:0;right:0;top:0;bottom:0;border-radius:12px;box-shadow:inset -6px 0 18px rgba(2,6,23,0.04);pointer-events:none}
+  .target .visual .water{position:absolute;left:6px;right:6px;bottom:6px;border-radius:8px;background:linear-gradient(180deg,#34d399 0%,#059669 100%);transition:height .3s;overflow:visible}
+  .target .visual .water::before{content:"";position:absolute;left:0;right:0;top:-10px;height:20px;border-radius:50%;background:radial-gradient(ellipse at center, rgba(255,255,255,0.9), rgba(255,255,255,0.05));box-shadow:0 6px 10px rgba(2,6,23,0.06) inset;pointer-events:none}
+  .eq{font-family:monospace;background:#f8fafc;padding:16px;border-radius:8px;display:flex;align-items:center;gap:12px}
+  .eq .left-text{flex:1;font-size:1.6rem;font-weight:800;color:#0f172a}
+    .warning{color:#b91c1c;font-weight:700}
+    .overflow { border-color: #fca5a5 !important; }
+    .overflow .visual { box-shadow: 0 0 0 4px rgba(239,68,68,0.06); }
+    .emoji-warning{font-size:1.5rem;margin-right:6px}
+
+  .info{font-size:1.1rem;color:#374151;font-weight:600}
+    .small{font-size:0.85rem;color:#6b7280}
+    .row{display:flex;gap:8px;align-items:center}
+    .muted{color:#6b7280}
+
+    /* draggable cursor */
+    .draggable{cursor:grab}
+    .draggable:active{cursor:grabbing}
+
+    /* responsive */
+    @media(max-width:880px){.layout{flex-direction:column}.right{width:auto}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1 id="titleH1">Pour Water — combine fractions ≤ 1</h1>
+      <div class="controls">
+        <div class="small muted">Add/remove cylinders:</div>
+        <button id="addBtn">➕ Add</button>
+        <button id="removeBtn" class="secondary">➖ Remove</button>
+          <button id="randomBtn">🎲 Randomize</button>
+          <button id="restoreBtn" class="secondary">♻️ Restore</button>
+          <button id="langBtn" class="secondary">🇬🇧 ENG</button>
+        <button id="helpBtn" class="secondary" title="Show game rules">❓</button>
+        <button id="backBtn" class="secondary" title="Back to menu">🏠 Menu</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="left">
+        <div class="card">
+          <div class="row"><div class="drag-hint">💧 Drag a cylinder into the target below to pour its entire amount.</div></div>
+          <div class="cylinders" id="cylinders"></div>
+        </div>
+
+        <div class="card target-area" id="targetCard">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div class="row"><div id="overflowMark" style="display:none" class="emoji-warning">⚠</div><div id="targetTitle" style="font-weight:700">Target Container</div></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="small muted">📥 Drop cylinders here</div>
+              <button id="resetBtn" class="secondary" title="Reset target and return poured water to sources">🔄 Reset</button>
+            </div>
+          </div>
+          <div class="target" id="targetDrop" ondragover="event.preventDefault()">
+            <canvas id="targetCanvas" class="visual-canvas" width="172" height="280" aria-label="Target cylinder"></canvas>
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+              <div id="addedList" class="small muted">📌 Cylinder added: —</div>
+              <div class="info">Current: <span id="currentFraction">0/1</span> &nbsp; (<span id="currentDecimal">0.00</span>)</div>
+              <div class="eq" id="equation">—</div>
+              <div id="overflowText" class="warning" style="display:none">Overflow: total &gt; 1</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- right rules card removed; rules moved to a modal to free horizontal space -->
+    </div>
+  </div>
+
+  <!-- rules modal -->
+  <div id="rulesModal" class="modal-backdrop" role="dialog" aria-modal="true" style="display:none">
+    <div class="modal" role="document">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="rulesTitle">Game rules</h3>
+        <button class="close" id="closeRules">Close</button>
+      </div>
+      <div id="rulesBody" class="small" style="margin-top:8px">Each cylinder is sized equally. Enter numerator and denominator; the fill follows the ratio. Drag a cylinder onto the target to pour its full amount into the target (source becomes empty). The equation shows combined fractions. If total &gt; 1, target and text turn red (overflow). Use Reset to return poured amounts to their sources.</div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // simple fraction helpers
+  function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a}
+  function lcm(a,b){return Math.abs(a*b)/gcd(a,b)||0}
+  function simplify(n,d){if(d===0) return {n:0,d:1}; if(n===0) return {n:0,d:1}; const g=gcd(n,d); return {n: n/g, d: d/g};}
+
+  // state
+  const containers = document.getElementById('cylinders');
+  const addBtn = document.getElementById('addBtn');
+  const removeBtn = document.getElementById('removeBtn');
+  const targetCanvas = document.getElementById('targetCanvas');
+  const targetDrop = document.getElementById('targetDrop');
+  const equationEl = document.getElementById('equation');
+  const currentFraction = document.getElementById('currentFraction');
+  const currentDecimal = document.getElementById('currentDecimal');
+  const overflowText = document.getElementById('overflowText');
+  const overflowMark = document.getElementById('overflowMark');
+  const resetBtn = document.getElementById('resetBtn');
+  const addedListEl = document.getElementById('addedList');
+  const helpBtn = document.getElementById('helpBtn');
+  const randomBtn = document.getElementById('randomBtn');
+  const restoreBtn = document.getElementById('restoreBtn');
+  const langBtn = document.getElementById('langBtn');
+  const rulesModal = document.getElementById('rulesModal');
+  const closeRules = document.getElementById('closeRules');
+  const backBtn = document.getElementById('backBtn');
+  const dragHintEl = document.querySelector('.drag-hint');
+  const titleEl = document.getElementById('titleH1');
+  const targetTitleEl = document.getElementById('targetTitle');
+  const rulesTitleEl = document.getElementById('rulesTitle');
+  const rulesBodyEl = document.getElementById('rulesBody');
+
+  let cylinders = []; // {num, den}
+  let targetParts = []; // array of {n,d,fromIndex}
+
+  function createCylinder(initial){
+    const idx = cylinders.length;
+    cylinders.push({num: initial?.num||0, den: initial?.den||1, color: initial?.color || '#2563eb'});
+    renderAll();
+  }
+
+  function removeCylinder(){
+    if(cylinders.length<=1) return;
+    cylinders.pop();
+    renderAll();
+  }
+
+  function renderAll(){
+    containers.innerHTML = '';
+    cylinders.forEach((c, i)=>{
+        const el = document.createElement('div'); el.className='cyl';
+        // top label + color swatch
+        const head = document.createElement('div'); head.style.display='flex'; head.style.gap='8px'; head.style.alignItems='center';
+        const lbl = document.createElement('div'); lbl.className='label'; lbl.textContent = 'Cylinder ' + (i+1);
+  const swatch = document.createElement('div'); swatch.className='color-swatch'; swatch.style.background = c.color || '#2563eb'; swatch.title = c.colorName || 'Change water color';
+        // hidden color input
+        const colorInput = document.createElement('input'); colorInput.type='color'; colorInput.value = c.color || '#2563eb'; colorInput.style.display='none';
+  colorInput.addEventListener('input', ()=>{ cylinders[i].color = colorInput.value; cylinders[i].colorName = null; swatch.style.background = colorInput.value; updateCylinder(i); });
+        swatch.addEventListener('click', ()=> colorInput.click());
+
+        head.appendChild(lbl); head.appendChild(swatch); head.appendChild(colorInput);
+
+        // visual as canvas for nicer 3D drawing
+        const canvas = document.createElement('canvas'); canvas.className='visual-canvas draggable'; canvas.setAttribute('width', 172); canvas.setAttribute('height', 280); canvas.draggable = true; canvas.dataset.index = i;
+        // draw initial cylinder visual
+        const frac = safeFraction(c.num,c.den);
+        drawCylinderCanvas(canvas, fillHeight(frac.n, frac.d)/100, c.color || '#2563eb');
+
+        // inputs below visual: numerator, small bar, denominator
+        const inputs = document.createElement('div'); inputs.className='inputs';
+        const num = document.createElement('input'); num.type='number'; num.value = c.num; num.min=0; num.title='numerator'; num.style.fontSize='1.1rem';
+        const bar = document.createElement('div'); bar.className='frac-bar';
+        const den = document.createElement('input'); den.type='number'; den.value = c.den; den.min=1; den.title='denominator'; den.style.fontSize='1.1rem';
+        num.addEventListener('input', ()=>{cylinders[i].num = parseInt(num.value)||0; updateCylinder(i)});
+        den.addEventListener('input', ()=>{cylinders[i].den = Math.max(1, parseInt(den.value)||1); updateCylinder(i)});
+
+        // drag handlers on canvas
+        canvas.addEventListener('dragstart', (ev)=>{
+          ev.dataTransfer.setData('text/plain', String(i));
+          ev.dataTransfer.effectAllowed = 'move';
+          canvas.classList.add('dragging');
+        });
+        canvas.addEventListener('dragend', ()=> canvas.classList.remove('dragging'));
+
+        inputs.appendChild(num);
+        inputs.appendChild(bar);
+        inputs.appendChild(den);
+
+        el.appendChild(head);
+        el.appendChild(canvas);
+        el.appendChild(inputs);
+        containers.appendChild(el);
+    });
+  }
+
+  function updateCylinder(i){
+    // refresh specific visual and also the source becomes 0 if changed? just update display
+    const c = cylinders[i];
+    const canvas = containers.children[i].querySelector('.visual-canvas');
+    const frac = safeFraction(c.num,c.den);
+    if(canvas) drawCylinderCanvas(canvas, fillHeight(frac.n, frac.d)/100, c.color || '#2563eb');
+  }
+
+  function safeFraction(n,d){if(d<=0) return {n:0,d:1}; if(n<0) n=0; return {n:n,d:d};}
+  function fillHeight(n,d){const v = (d===0)?0: Math.min(1, n/d); return Math.round(v*100);} 
+
+  // target logic
+  function recomputeTarget(){
+  if(targetParts.length===0){
+    // clear target canvas (no parts)
+    if(targetCanvas) drawTargetCanvas(targetCanvas, 0, []);
+        equationEl.textContent = '—'; currentFraction.textContent='0/1'; currentDecimal.textContent='0.00'; overflowText.style.display='none'; overflowMark.style.display='none';
+        if(targetCanvas) targetCanvas.classList.remove('overflow');
+        if(addedListEl) addedListEl.textContent = 'Cylinder added: —';
+        return;
+      }
+    // sum fractions
+    let totalN=0, totalD=1;
+    // compute by converting to common denom via lcm
+    let common = 1;
+    for(const p of targetParts) common = lcm(common, p.d);
+    totalN = targetParts.reduce((acc,p)=> acc + p.n*(common/p.d),0);
+    totalD = common;
+    const simp = simplify(totalN, totalD);
+    const decimal = totalN / totalD;
+    const pct = Math.min(1, decimal);
+    // draw target using layered parts (each poured part is a visible layer)
+    if(targetCanvas) drawTargetCanvas(targetCanvas, pct, targetParts);
+  // show left side as full stacked fractions (each term as a full fraction) and show simplified result
+  equationEl.textContent = '';
+  const leftWrapper = document.createElement('span'); leftWrapper.className='left-text'; leftWrapper.style.display='flex'; leftWrapper.style.alignItems='center'; leftWrapper.style.gap='8px';
+  targetParts.forEach((p, idx)=>{
+    leftWrapper.appendChild(createFracElement(p.n,p.d));
+    if(idx < targetParts.length -1){ const plus = document.createElement('span'); plus.textContent = ' + '; plus.style.fontWeight='800'; leftWrapper.appendChild(plus); }
+  });
+  equationEl.appendChild(leftWrapper);
+  const eqSign = document.createElement('span'); eqSign.textContent = ' = '; eqSign.style.fontWeight='800'; equationEl.appendChild(eqSign);
+  equationEl.appendChild(createFracElement(simp.n,simp.d));
+  const decNode = document.createElement('span'); decNode.textContent = ' (' + decimal.toFixed(4)+')'; equationEl.appendChild(decNode);
+  // current fraction (stacked)
+  currentFraction.innerHTML = ''; currentFraction.appendChild(createFracElement(simp.n,simp.d));
+    currentDecimal.textContent = decimal.toFixed(4);
+    // update added list (unique source ids in order)
+    const added = [];
+    for(const p of targetParts){ if(!added.includes(p.from+1)) added.push(p.from+1); }
+    addedListEl.textContent = added.length? ('Cylinder added: ' + added.join(' + ')) : 'Cylinder added: —';
+
+    // play ding/explosion on state changes
+    const isOverflow = decimal>1;
+    const isFull = Math.abs(decimal - 1) < 1e-9 || Math.round(decimal*1000)===1000; // treat very close to 1 as full
+    if(isOverflow){ overflowText.style.display='block'; overflowMark.style.display='block'; if(targetCanvas) targetCanvas.classList.add('overflow'); }
+    else { overflowText.style.display='none'; overflowMark.style.display='none'; if(targetCanvas) targetCanvas.classList.remove('overflow'); }
+    // new overflow event
+    if(isOverflow && !lastOverflowState){ playExplosion(); }
+    // full exactly 1 event
+    if(isFull && !lastFullState && !isOverflow){ playDing(); }
+    lastOverflowState = isOverflow;
+    lastFullState = isFull;
+  }
+
+    function createFracElement(n,d){
+      const wrap = document.createElement('span'); wrap.className='frac';
+      const num = document.createElement('span'); num.className='num'; num.textContent = n;
+      const bar = document.createElement('span'); bar.className='bar';
+      const den = document.createElement('span'); den.className='den'; den.textContent = d;
+      wrap.appendChild(num); wrap.appendChild(bar); wrap.appendChild(den);
+      return wrap;
+    }
+
+    // canvas drawing helper (flat 2D cylinder with bold outline)
+    function drawCylinderCanvas(canvas, fillPct, waterColor){
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width; const h = canvas.height;
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      const cw = w / dpr; const ch = h / dpr;
+      ctx.clearRect(0,0,cw,ch);
+      const pad = 12;
+      const innerW = cw - pad*2;
+      const innerH = ch - pad*2;
+      const x = pad; const y = pad;
+      const r = 10; // corner radius for 2D rounded rect
+
+      // draw flat 2D container (light fill) with heavy bold outline
+      ctx.beginPath();
+      roundedRectPath(ctx, x, y, innerW, innerH, r);
+      ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.lineWidth = 6; ctx.strokeStyle = '#0b1720'; ctx.stroke();
+
+      // draw water clipped to same rounded rect so bottoms are rounded
+      const waterTop = y + innerH * (1 - Math.min(1, fillPct));
+      if(fillPct>0){
+        ctx.save();
+        ctx.beginPath(); roundedRectPath(ctx, x+4, y+4, innerW-8, innerH-8, Math.max(6,r-4)); ctx.clip();
+        ctx.fillStyle = waterColor || '#2563eb';
+        ctx.fillRect(x+4, waterTop+4, innerW-8, y+innerH - (waterTop+4));
+        // surface highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath(); ctx.ellipse(x+innerW/2, waterTop+8, (innerW-16)/2, 8, 0, 0, 2*Math.PI); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function roundedRectPath(ctx, x, y, w, h, r){
+      const radius = Math.min(r, w/2, h/2);
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    // draw target as flat 2D with bold outline and stacked layers
+    function drawTargetCanvas(canvas, fillPct, parts){
+      const dpr = window.devicePixelRatio || 1;
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      const cw = canvas.width / dpr; const ch = canvas.height / dpr;
+      ctx.clearRect(0,0,cw,ch);
+      const pad = 12; const innerW = cw - pad*2; const innerH = ch - pad*2; const x = pad; const y = pad; const r = 10;
+
+      // draw flat container with heavy outline
+      ctx.beginPath(); roundedRectPath(ctx, x, y, innerW, innerH, r); ctx.fillStyle='#fff'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle='#0b1720'; ctx.stroke();
+
+      if(!parts || parts.length===0 || fillPct<=0){
+        // empty top highlight
+        ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.ellipse(x+innerW/2, y+12, innerW/2 - 8, 8, 0, 0, 2*Math.PI); ctx.fill();
+        return;
+      }
+
+      const layers = parts.map(p => ({value: (p.n||0)/(p.d||1), color: p.color || '#2563eb'}));
+      let drawn = 0; const maxDraw = Math.min(1, fillPct);
+
+      // clip to rounded rect interior
+      ctx.save(); ctx.beginPath(); roundedRectPath(ctx, x+4, y+4, innerW-8, innerH-8, Math.max(6,r-4)); ctx.clip();
+      for(const layer of layers){
+        if(drawn >= maxDraw) break;
+        const layerAmt = Math.max(0, layer.value);
+        if(layerAmt <= 0) continue;
+        const remaining = maxDraw - drawn;
+        const drawAmt = Math.min(layerAmt, remaining);
+        const layerHeight = drawAmt * innerH;
+        const yTop = y + innerH - (drawn*innerH) - layerHeight;
+        ctx.fillStyle = layer.color || '#2563eb'; ctx.fillRect(x+4, yTop, innerW-8, layerHeight);
+        // surface highlight for this layer
+        ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.ellipse(x+innerW/2, yTop+6, (innerW-16)/2, 6, 0, 0, 2*Math.PI); ctx.fill();
+        drawn += drawAmt;
+      }
+      ctx.restore();
+    }
+
+    // small color utility
+    function shadeColor(hex, percent) {
+      // hex -> shade by percent (-100..100)
+      const f = hex.slice(1); const R = parseInt(f.substring(0,2),16); const G = parseInt(f.substring(2,4),16); const B = parseInt(f.substring(4,6),16);
+      const t = percent<0?0:255; const p = Math.abs(percent)/100;
+      const Rn = Math.round((t - R)*p) + R; const Gn = Math.round((t - G)*p) + G; const Bn = Math.round((t - B)*p) + B;
+      return `rgb(${Rn},${Gn},${Bn})`;
+    }
+
+    // --- language toggle / translations ---
+    const TRANSLATIONS = {
+      en: {
+        add: '➕ Add', remove: '➖ Remove', random: '🎲 Randomize', restore: '♻️ Restore', langLabel: '🇬🇧 ENG', help: '❓', menu: '🏠 Menu', reset: '🔄 Reset',
+        dragHint: '💧 Drag a cylinder into the target below to pour its entire amount.', targetTitle: 'Target Container', dropHint: '📥 Drop cylinders here', cylinderAdded: '📌 Cylinder added: —', current: 'Current:', overflow: 'Overflow: total > 1',
+        rulesTitle: 'Game rules', rulesBody: 'Each cylinder is sized equally. Enter numerator and denominator; the fill follows the ratio. Drag a cylinder onto the target to pour its full amount into the target (source becomes empty). The equation shows combined fractions. If total > 1, target and text turn red (overflow). Use Reset to return poured amounts to their sources.'
+      },
+      vi: {
+        add: '➕ Thêm', remove: '➖ Xóa', random: '🎲 Ngẫu nhiên', restore: '♻️ Khôi phục', langLabel: '🇻🇳 VIE', help: '❓', menu: '🏠 Menu', reset: '🔄 Làm mới',
+        dragHint: '💧 Kéo một bình vào mục dưới để đổ lượng nước của nó.', targetTitle: 'Bình đích', dropHint: '📥 Thả các bình vào đây', cylinderAdded: '📌 Thêm bình: —', current: 'Hiện tại:', overflow: 'Tràn: tổng > 1',
+        rulesTitle: 'Luật chơi', rulesBody: 'Mỗi bình có cùng kích thước. Nhập tử số và mẫu số; mực nước theo tỉ lệ. Kéo bình vào đích để đổ hết lượng (bình nguồn thành 0). Phép tính hiển thị tổng phân số. Nếu tổng > 1, sẽ báo tràn.'
+      }
+    };
+
+    let currentLang = localStorage.getItem('pour_lang') || 'en';
+    // sound state trackers
+    let lastOverflowState = false;
+    let lastFullState = false;
+    function applyLanguage(){
+      const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+      if(titleEl) titleEl.textContent = (currentLang==='vi')? 'Đổ nước — cộng phân số ≤ 1' : 'Pour Water — combine fractions ≤ 1';
+      if(addBtn) addBtn.textContent = t.add; if(removeBtn) removeBtn.textContent = t.remove;
+      if(randomBtn) randomBtn.textContent = t.random; if(restoreBtn) restoreBtn.textContent = t.restore;
+      if(langBtn) langBtn.textContent = t.langLabel; if(helpBtn) helpBtn.title = t.help; if(backBtn) backBtn.title = t.menu; if(resetBtn) resetBtn.textContent = t.reset;
+      if(dragHintEl) dragHintEl.textContent = t.dragHint; if(targetTitleEl) targetTitleEl.textContent = t.targetTitle;
+      const dropHintEl = document.querySelector('#targetCard .small.muted'); if(dropHintEl) dropHintEl.textContent = t.dropHint;
+      if(addedListEl) addedListEl.textContent = t.cylinderAdded;
+      // update rules modal
+      if(rulesTitleEl) rulesTitleEl.textContent = t.rulesTitle; if(rulesBodyEl) rulesBodyEl.textContent = t.rulesBody;
+      // overflow text
+      if(overflowText) overflowText.textContent = t.overflow;
+      // current label (we keep fraction element after it)
+      const infoEl = document.querySelector('.info'); if(infoEl) infoEl.childNodes[0].textContent = t.current + ' ';
+      localStorage.setItem('pour_lang', currentLang);
+    }
+    function toggleLanguage(){ currentLang = (currentLang==='en')? 'vi':'en'; applyLanguage(); }
+
+    if(langBtn) langBtn.addEventListener('click', toggleLanguage);
+    // apply language on load
+    applyLanguage();
+
+    // --- pour sound (WebAudio) ---
+    function playPourSound(){
+      try{
+        const C = window.__pourAudioCtx = window.__pourAudioCtx || new (window.AudioContext||window.webkitAudioContext)();
+        const o = C.createOscillator(); const g = C.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(700, C.currentTime); o.frequency.exponentialRampToValueAtTime(250, C.currentTime+0.25);
+        g.gain.setValueAtTime(0.0001, C.currentTime); g.gain.exponentialRampToValueAtTime(0.12, C.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.001, C.currentTime+0.35);
+        o.connect(g); g.connect(C.destination); o.start(); o.stop(C.currentTime+0.35);
+      }catch(e){/* ignore if not available */}
+    }
+
+    function playDing(){
+      try{
+        const C = window.__pourAudioCtx = window.__pourAudioCtx || new (window.AudioContext||window.webkitAudioContext)();
+        const o = C.createOscillator(); const g = C.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(880, C.currentTime); o.frequency.exponentialRampToValueAtTime(1320, C.currentTime+0.15);
+        g.gain.setValueAtTime(0.0001, C.currentTime); g.gain.exponentialRampToValueAtTime(0.18, C.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.0001, C.currentTime+0.45);
+        o.connect(g); g.connect(C.destination); o.start(); o.stop(C.currentTime+0.45);
+      }catch(e){}
+    }
+
+    function playExplosion(){
+      try{
+        const C = window.__pourAudioCtx = window.__pourAudioCtx || new (window.AudioContext||window.webkitAudioContext)();
+        // create short noise buffer
+        const bufferSize = C.sampleRate * 0.35;
+        const buffer = C.createBuffer(1, bufferSize, C.sampleRate);
+        const data = buffer.getChannelData(0);
+        for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufferSize); }
+        const src = C.createBufferSource(); src.buffer = buffer;
+        const g = C.createGain(); g.gain.setValueAtTime(0.0001, C.currentTime); g.gain.exponentialRampToValueAtTime(0.6, C.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.0001, C.currentTime+0.35);
+        src.connect(g); g.connect(C.destination); src.start();
+      }catch(e){}
+    }
+
+    // --- randomize / restore ---
+    let savedSnapshot = null;
+    const NAMED_COLORS = [
+      {name:'Red',hex:'#ef4444'},{name:'Orange',hex:'#f97316'},{name:'Yellow',hex:'#f59e0b'},{name:'Lime',hex:'#84cc16'},{name:'Green',hex:'#10b981'},
+      {name:'Teal',hex:'#14b8a6'},{name:'Cyan',hex:'#06b6d4'},{name:'Sky',hex:'#38bdf8'},{name:'Blue',hex:'#2563eb'},{name:'Indigo',hex:'#6366f1'},
+      {name:'Violet',hex:'#8b5cf6'},{name:'Pink',hex:'#ec4899'},{name:'Rose',hex:'#fb7185'},{name:'Brown',hex:'#8b5a2b'},{name:'Gray',hex:'#6b7280'}
+    ];
+    function pickRandomNamedColor(){ return NAMED_COLORS[Math.floor(Math.random()*NAMED_COLORS.length)]; }
+    function randomizeCylinders(){
+      // save current state if not saved
+      if(!savedSnapshot) savedSnapshot = JSON.parse(JSON.stringify(cylinders));
+      const n = cylinders.length;
+      if(n===0) return;
+
+      // helpers
+      function fracEqual(a,b){ return a.n * b.d === b.n * a.d; }
+      function containsFrac(list, f){ return list.some(x=> fracEqual(x,f)); }
+
+      // try to build k-part decomposition summing to 1, with k between 2 and min(4,n)
+      const maxK = Math.min(4, n);
+      const minK = Math.max(2, Math.min(2, maxK));
+      let success = false;
+      let result = null;
+      const ATTEMPTS = 800;
+      for(let attempt=0; attempt<ATTEMPTS && !success; attempt++){
+        const k = Math.floor(Math.random()*(maxK - minK + 1)) + minK; // random k in [minK,maxK]
+        // pick k-1 random fractions
+        const parts = [];
+        let ok = true;
+        for(let i=0;i<k-1;i++){
+          let innerAttempts = 0; let picked = null;
+          while(innerAttempts++ < 120){
+            const d = Math.floor(Math.random()*11)+2; const num = Math.floor(Math.random()*(d-1))+1;
+            const f = {n: num, d: d};
+            if(!containsFrac(parts,f)) { picked = f; break; }
+          }
+          if(!picked){ ok=false; break; }
+          parts.push(picked);
+        }
+        if(!ok) continue;
+        // compute sum using common denom
+        let common = 1; for(const p of parts) common = lcm(common, p.d);
+        let sumN = parts.reduce((acc,p)=> acc + p.n*(common/p.d), 0);
+        const remN = common - sumN; // remaining numerator over common
+        if(remN <=0) continue; // can't complete to 1
+        // try to find a denominator 2..12 making remaining representable exactly
+        let lastFound = null;
+        for(let d=2; d<=12; d++){
+          // check if remN * d is divisible by common
+          if((remN * d) % common !== 0) continue;
+          const nLast = (remN * d) / common;
+          if(nLast >=1 && nLast < d){
+            const candidate = {n: nLast, d: d};
+            if(!containsFrac(parts, candidate)) { lastFound = candidate; break; }
+          }
+        }
+        if(!lastFound) continue;
+        parts.push(lastFound);
+        // now we have k parts summing to 1; build remaining distinct fractions
+        const allParts = parts.slice();
+        for(let j=parts.length; j<n; j++){
+          let inner=0; let picked=null;
+          while(inner++ < 300){
+            const d = Math.floor(Math.random()*11)+2; const num = Math.floor(Math.random()*(d-1))+1; const f={n:num,d:d};
+            if(!containsFrac(allParts,f)) { picked=f; break; }
+          }
+          if(!picked){ ok=false; break; }
+          allParts.push(picked);
+        }
+        if(!ok) continue;
+        // success
+        success = true; result = allParts;
+      }
+
+      // fallback: if couldn't find, produce simple pair 1/3 + 2/3 etc.
+      if(!success){
+        const parts = [];
+        // try denominators from 2..12 to find a complementary pair
+        outer: for(let d1=2; d1<=12; d1++){
+          for(let n1=1;n1<d1;n1++){
+            const rem = 1 - n1/d1;
+            for(let d2=2; d2<=12; d2++){
+              const n2 = rem * d2;
+              if(Math.abs(n2 - Math.round(n2))<1e-9){ const nn2=Math.round(n2); if(nn2>=1 && nn2<d2){ parts.push({n:n1,d:d1}); parts.push({n:nn2,d:d2}); break outer; } }
+            }
+          }
+        }
+        // fill rest with distinct fractions
+        const allParts = parts.slice();
+        while(allParts.length < n){
+          for(let d=2; d<=12; d++){
+            for(let num=1; num<d; num++){
+              const f={n:num,d:d}; if(!containsFrac(allParts,f)){ allParts.push(f); break; }
+            }
+            if(allParts.length>=n) break;
+          }
+          if(allParts.length>=n) break;
+        }
+        result = allParts.slice(0,n);
+      }
+
+      // assign to cylinders ensuring distinct values and assign colors from palette (no name duplicate preference)
+      const usedColors = new Set();
+      cylinders = result.map((f,i)=>{
+        // pick a color not used yet, rotate through NAMED_COLORS
+        const colObj = NAMED_COLORS[i % NAMED_COLORS.length]; usedColors.add(colObj.name);
+        return { num: f.n, den: f.d, color: colObj.hex, colorName: colObj.name };
+      });
+      renderAll(); recomputeTarget();
+    }
+    function restoreCylinders(){ if(savedSnapshot){ cylinders = JSON.parse(JSON.stringify(savedSnapshot)); savedSnapshot = null; renderAll(); recomputeTarget(); } }
+    if(randomBtn) randomBtn.addEventListener('click', randomizeCylinders);
+    if(restoreBtn) restoreBtn.addEventListener('click', restoreCylinders);
+
+  // return poured amounts to their source cylinders and clear the target
+  function resetTarget(){
+    if(targetParts.length===0) return;
+    // sum poured amounts by source
+    const restore = {};
+    for(const p of targetParts){ restore[p.from] = (restore[p.from]||0) + (p.n||0); }
+    for(const idxStr in restore){ const idx = parseInt(idxStr); if(!isNaN(idx) && cylinders[idx]){ cylinders[idx].num = (cylinders[idx].num || 0) + restore[idx]; } }
+    // clear target
+    targetParts = [];
+    renderAll();
+    recomputeTarget();
+  }
+  function hexToRgb(hex){
+    const h = hex.replace('#','');
+    return { r: parseInt(h.substring(0,2),16), g: parseInt(h.substring(2,4),16), b: parseInt(h.substring(4,6),16) };
+  }
+  function rgbToHex(r,g,b){
+    const toHex = v=> ('0'+Math.max(0,Math.min(255,Math.round(v))).toString(16)).slice(-2);
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+  }
+
+  // drop handling
+  targetDrop.addEventListener('dragover', (ev)=>{ ev.preventDefault(); ev.dataTransfer.dropEffect='move';});
+  targetDrop.addEventListener('drop', (ev)=>{
+    ev.preventDefault();
+    const txt = ev.dataTransfer.getData('text/plain');
+    if(!txt) return;
+    const idx = parseInt(txt);
+    if(isNaN(idx) || idx <0 || idx >= cylinders.length) return;
+    // pour full amount from source to target
+    const src = cylinders[idx];
+    const frac = safeFraction(src.num, src.den);
+    if(frac.n<=0) { showToast('Source is empty'); return; }
+    // add to targetParts (include color to allow blended target color)
+    targetParts.push({n:frac.n,d:frac.d, from: idx, color: src.color || '#2563eb'});
+    // empty source
+    cylinders[idx].num = 0;
+  // play pour sound
+  playPourSound();
+    // update UI
+    renderAll();
+    recomputeTarget();
+  });
+
+  // reset button handler
+  resetBtn.addEventListener('click', ()=>{ resetTarget(); });
+
+  // rules modal handlers
+  if(helpBtn && rulesModal){
+    helpBtn.addEventListener('click', ()=>{ rulesModal.style.display='flex'; });
+    closeRules.addEventListener('click', ()=>{ rulesModal.style.display='none'; });
+    rulesModal.addEventListener('click', (ev)=>{ if(ev.target === rulesModal) rulesModal.style.display='none'; });
+    window.addEventListener('keydown', (ev)=>{ if(ev.key==='Escape') rulesModal.style.display='none'; });
+  }
+
+  // back to menu
+  if(backBtn){ backBtn.addEventListener('click', ()=>{ window.location.href = 'index.html'; }); }
+
+  function showToast(msg){ alert(msg); }
+
+  // add/remove handlers
+  addBtn.addEventListener('click', ()=>{ if(cylinders.length>=10) { showToast('Max 10 cylinders'); return; } createCylinder({num:0,den:1}); });
+  removeBtn.addEventListener('click', ()=>{ removeCylinder(); });
+
+  // init
+  createCylinder({num:1,den:2});
+  createCylinder({num:1,den:3});
+
+  // export some helpers for dev
+  window.__pourGame = { containers, cylinders, targetParts };
+})();
+</script>
+</body>
+</html>
