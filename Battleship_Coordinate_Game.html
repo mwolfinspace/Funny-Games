@@ -183,6 +183,30 @@
         @media (max-width: 760px) {
             .team-circle-wrapper { min-width:84px; }
         }
+
+        /* Windows 11 Style Hover Effect */
+        .btn, .team-circle {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before, .team-circle::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            background: radial-gradient(circle at var(--x) var(--y), rgba(255, 255, 255, 0.6) 0%, transparent 50%);
+            opacity: 0;
+            transition: opacity 0.2s ease-out;
+            pointer-events: none;
+        }
+
+        .btn:hover::before, .team-circle:hover::before {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 h-screen overflow-hidden">
@@ -367,6 +391,8 @@
             let isExtraTurn = false;
             let canvas, ctx;
             let setupCanvas, setupCtx;
+            let hoveredCell = { x: -1, y: -1 };
+            let mousePos = { x: 0, y: 0 };
             // Audio context - created lazily on first interaction to satisfy browser autoplay
             let audioCtx = null;
             function ensureAudioContext() {
@@ -873,6 +899,15 @@
                             } else {
                                 drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY, true);
                             }
+
+                            // Draw hover effect
+                            if (hoveredCell.x === x && hoveredCell.y === y) {
+                                ctx.strokeStyle = '#000000';
+                                ctx.lineWidth = 4;
+                                ctx.beginPath();
+                                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
                         }
                     }
                 } else if (gameState === 'GAME' || gameState === 'GAME_OVER') {
@@ -905,6 +940,15 @@
                                     drawCircle(ctx, cx, cy, radius, GRID_COLOR_UNREVEALED);
                                     drawQuestionMark(ctx, cx, cy, radius);
                                 }
+                            }
+
+                            // Draw hover effect (only in GAME state)
+                            if (gameState ==='GAME' && hoveredCell.x === x && hoveredCell.y === y) {
+                                ctx.strokeStyle = '#000000';
+                                ctx.lineWidth = 4;
+                                ctx.beginPath();
+                                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                                ctx.stroke();
                             }
                         }
                     }
@@ -1353,14 +1397,59 @@
             });
 
             canvas.addEventListener('click', handleCanvasClick);
+
+            canvas.addEventListener('mousemove', e => {
+                if (gameState !== 'GAME' && gameState !== 'PLACEMENT') return;
+
+                const rect = canvas.getBoundingClientRect();
+                const canvasX = e.clientX - rect.left;
+                const canvasY = e.clientY - rect.top;
+                const { cellS, originX, originY } = getDrawingMetrics(ctx, gridSize.x, gridSize.y);
+
+                const gridX = canvasX - originX;
+                const gridY = originY - canvasY;
+                const x = Math.floor(gridX / cellS);
+                const y = Math.floor(gridY / cellS);
+
+                mousePos = { x: canvasX, y: canvasY };
+
+                if (x !== hoveredCell.x || y !== hoveredCell.y) {
+                    if (x >= 0 && x < gridSize.x && y >= 0 && y < gridSize.y) {
+                        hoveredCell = { x, y };
+                    } else {
+                        hoveredCell = { x: -1, y: -1 };
+                    }
+                    drawGameBoard();
+                }
+            });
+
+            canvas.addEventListener('mouseout', () => {
+                if (hoveredCell.x !== -1 || hoveredCell.y !== -1) {
+                    hoveredCell = { x: -1, y: -1 };
+                    drawGameBoard();
+                }
+            });
+
             nextBtn.addEventListener('click', handleNextTeam);
-            startGameBtn.addEventListener('click', handleNextTeam);
+            startGameBtn.addEventListener('click', () => setGameState('GAME'));
             endGameBtn.addEventListener('click', handleEndGame);
             revealAllBtn.addEventListener('click', handleRevealAll);
             newGameBtn.addEventListener('click', handleNewGame);
             menuBtnSetup.addEventListener('click', handleBackToMenu);
             menuBtnGrid.addEventListener('click', handleBackToMenu);
             menuBtnGame.addEventListener('click', handleBackToMenu);
+
+            // --- Windows 11 Style Hover Effect (delegated) ---
+            document.body.addEventListener('mousemove', e => {
+                const el = e.target.closest('.btn, .team-circle');
+                if (el) {
+                    const rect = el.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    el.style.setProperty('--x', `${x}px`);
+                    el.style.setProperty('--y', `${y}px`);
+                }
+            });
 
             // --- INITIALIZE ---
             setGameState('TEAM_SETUP');
