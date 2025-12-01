@@ -231,49 +231,48 @@
         import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
         import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-        // --- I18n ---
+        // --- Application State ----------------------------------------------------
+        const app = {
+            // Core THREE.js components
+            scene: null, camera: null, renderer: null, 
+            controls: null, composer: null, outlinePass: null,
+            // Main object groups
+            cubeGroup: null, floor: null,
+            // Lights
+            ambientLight: null, directionalLight: null,
+            // On-demand rendering flag
+            renderRequested: false,
+        };
+
+        const settings = {
+            cubeCount: 5,
+            cubeColor: '#ff8800',
+            edgeColor: '#000000',
+            edgeOpacity: 1.0,
+            edgeVisible: true,
+            edgeWidth: 2,
+            contrast: 0.5,
+            shadows: false,
+            bgColor: '#ffffff',
+        };
+
+        const interaction = {
+            state: 'IDLE', // 'IDLE' or 'MOVING'
+            selectedCube: null,
+            selectedEdges: null,
+            ghostCube: null,
+            mouse: new THREE.Vector2(),
+            raycaster: new THREE.Raycaster(),
+        };
+
+        const CUBE_SIZE = 1;
+        const lightDirection = new THREE.Vector3(8, 15, 10).normalize();
+        
+        // --- I18n -----------------------------------------------------------------
         let currentLanguage = 'en';
         const translations = {
-            en: {
-                'menu-btn': '🏠 Menu', 'random-btn': '🔀 Random', 'export-btn': '🖼️ Export', 'help-btn': '❔ Help',
-                'cubes-label': '🎨 Cubes:', 'bg-label': '🖼️ Background:', 'edges-label': '✒️ Edges:', 'shadows-label': '☀️ Shadows:', 'contrast-label': '🌗 Contrast:',
-                'preview-title': 'Image Preview (4:3)', 'preview-cancel': 'Cancel', 'preview-save': 'Save PNG',
-                'help-title': 'How to Play', 'help-close-btn': 'Got It',
-                'help-camera': 'Camera Controls',
-                'help-cam-rot': "<strong>Left Mouse + Drag:</strong> Rotate camera.",
-                'help-cam-pan': "<strong>Right Mouse + Drag:</strong> Pan camera.",
-                'help-cam-zoom': "<strong>Scroll Wheel:</strong> Zoom in / out.",
-                'help-cubes': 'Cube Interaction',
-                'help-cubes-select': "<strong>Double-click a cube:</strong> Select it to move.",
-                'help-cubes-rot': "<strong>Press 'R' key:</strong> Rotate the selected cube.",
-                'help-cubes-place': "<strong>Click on another cube's face:</strong> Place the selected cube.",
-                'help-cubes-cancel': "<strong>Press 'Esc' key:</strong> Cancel the move.",
-                'help-controls': 'Controls',
-                'help-ctrl-menu': "<strong>🏠 Menu:</strong> Return to the main page.",
-                'help-ctrl-addrem': "<strong>➖ / ➕:</strong> Decrease / Increase the number of cubes.",
-                'help-ctrl-rand': "<strong>🔀 Random:</strong> Generate a new random shape.",
-                'help-ctrl-export': "<strong>🖼️ Export:</strong> Export the current view as a PNG image.",
-            },
-            vi: {
-                'menu-btn': '🏠 Menu', 'random-btn': '🔀 Ngẫu nhiên', 'export-btn': '🖼️ Xuất ảnh', 'help-btn': '❔ Hướng dẫn',
-                'cubes-label': '🎨 Khối:', 'bg-label': '🖼️ Nền:', 'edges-label': '✒️ Viền:', 'shadows-label': '☀️ Đổ bóng:', 'contrast-label': '🌗 Tương phản:',
-                'preview-title': 'Xem trước ảnh (4:3)', 'preview-cancel': 'Hủy', 'preview-save': 'Lưu PNG',
-                'help-title': 'Hướng Dẫn', 'help-close-btn': 'Đã hiểu',
-                'help-camera': 'Điều khiển Camera',
-                'help-cam-rot': "<strong>Chuột trái + Kéo:</strong> Xoay camera.",
-                'help-cam-pan': "<strong>Chuột phải + Kéo:</strong> Di chuyển camera.",
-                'help-cam-zoom': "<strong>Lăn chuột:</strong> Phóng to / Thu nhỏ.",
-                'help-cubes': 'Tương tác với Khối',
-                'help-cubes-select': "<strong>Double-click (nhấn đúp) một khối:</strong> Chọn khối đó để di chuyển.",
-                'help-cubes-rot': "<strong>Nhấn phím 'R':</strong> Xoay khối đang chọn.",
-                'help-cubes-place': "<strong>Click vào mặt của khối khác:</strong> Đặt khối đang chọn vào vị trí đó.",
-                'help-cubes-cancel': "<strong>Nhấn phím 'Esc':</strong> Hủy bỏ việc di chuyển khối.",
-                'help-controls': 'Các Nút điều khiển',
-                'help-ctrl-menu': "<strong>🏠 Menu:</strong> Quay về trang chủ.",
-                'help-ctrl-addrem': "<strong>➖ / ➕:</strong> Giảm / Tăng số lượng khối.",
-                'help-ctrl-rand': "<strong>🔀 Random:</strong> Tạo một hình khối ngẫu nhiên mới.",
-                'help-ctrl-export': "<strong>🖼️ Export:</strong> Xuất hình ảnh hiện tại ra file PNG.",
-            }
+            en: { 'menu-btn': '🏠 Menu', 'random-btn': '🔀 Random', 'export-btn': '🖼️ Export', 'help-btn': '❔ Help', 'cubes-label': '🎨 Cubes:', 'bg-label': '🖼️ Background:', 'edges-label': '✒️ Edges:', 'shadows-label': '☀️ Shadows:', 'contrast-label': '🌗 Contrast:', 'preview-title': 'Image Preview (4:3)', 'preview-cancel': 'Cancel', 'preview-save': 'Save PNG', 'help-title': 'How to Play', 'help-close-btn': 'Got It', 'help-camera': 'Camera Controls', 'help-cam-rot': "<strong>Left Mouse + Drag:</strong> Rotate camera.", 'help-cam-pan': "<strong>Right Mouse + Drag:</strong> Pan camera.", 'help-cam-zoom': "<strong>Scroll Wheel:</strong> Zoom in / out.", 'help-cubes': 'Cube Interaction', 'help-cubes-select': "<strong>Double-click a cube:</strong> Select it to move.", 'help-cubes-rot': "<strong>Press 'R' key:</strong> Rotate the selected cube.", 'help-cubes-place': "<strong>Click on another cube's face:</strong> Place the selected cube.", 'help-cubes-cancel': "<strong>Press 'Esc' key:</strong> Cancel the move.", 'help-controls': 'Controls', 'help-ctrl-menu': "<strong>🏠 Menu:</strong> Return to the main page.", 'help-ctrl-addrem': "<strong>➖ / ➕:</strong> Decrease / Increase the number of cubes.", 'help-ctrl-rand': "<strong>🔀 Random:</strong> Generate a new random shape.", 'help-ctrl-export': "<strong>🖼️ Export:</strong> Export the current view as a PNG image.", },
+            vi: { 'menu-btn': '🏠 Menu', 'random-btn': '🔀 Ngẫu nhiên', 'export-btn': '🖼️ Xuất ảnh', 'help-btn': '❔ Hướng dẫn', 'cubes-label': '🎨 Khối:', 'bg-label': '🖼️ Nền:', 'edges-label': '✒️ Viền:', 'shadows-label': '☀️ Đổ bóng:', 'contrast-label': '🌗 Tương phản:', 'preview-title': 'Xem trước ảnh (4:3)', 'preview-cancel': 'Hủy', 'preview-save': 'Lưu PNG', 'help-title': 'Hướng Dẫn', 'help-close-btn': 'Đã hiểu', 'help-camera': 'Điều khiển Camera', 'help-cam-rot': "<strong>Chuột trái + Kéo:</strong> Xoay camera.", 'help-cam-pan': "<strong>Chuột phải + Kéo:</strong> Di chuyển camera.", 'help-cam-zoom': "<strong>Lăn chuột:</strong> Phóng to / Thu nhỏ.", 'help-cubes': 'Tương tác với Khối', 'help-cubes-select': "<strong>Double-click (nhấn đúp) một khối:</strong> Chọn khối đó để di chuyển.", 'help-cubes-rot': "<strong>Nhấn phím 'R':</strong> Xoay khối đang chọn.", 'help-cubes-place': "<strong>Click vào mặt của khối khác:</strong> Đặt khối đang chọn vào vị trí đó.", 'help-cubes-cancel': "<strong>Nhấn phím 'Esc':</strong> Hủy bỏ việc di chuyển khối.", 'help-controls': 'Các Nút điều khiển', 'help-ctrl-menu': "<strong>🏠 Menu:</strong> Quay về trang chủ.", 'help-ctrl-addrem': "<strong>➖ / ➕:</strong> Giảm / Tăng số lượng khối.", 'help-ctrl-rand': "<strong>🔀 Random:</strong> Tạo một hình khối ngẫu nhiên mới.", 'help-ctrl-export': "<strong>🖼️ Export:</strong> Xuất hình ảnh hiện tại ra file PNG.", }
         };
 
         function setLanguage(lang) {
@@ -281,146 +280,123 @@
             document.documentElement.lang = lang;
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
-                if (translations[lang] && translations[lang][key]) {
-                    // Check for a special attribute to prevent overwriting child elements
-                    if (el.hasAttribute('data-danger')) {
-                         el.innerHTML = translations[lang][key];
-                    } else {
-                         el.textContent = translations[lang][key];
-                    }
+                if (translations[lang]?.[key]) {
+                    el[el.hasAttribute('data-danger') ? 'innerHTML' : 'textContent'] = translations[lang][key];
                 }
             });
+            requestRender();
         }
-        // --- End I18n ---
 
-        let scene, camera, renderer, controls, composer, outlinePass;
-        let cubeGroup, ghostCube, floor;
-        let ambientLight, directionalLight;
-        const lightDirection = new THREE.Vector3(8, 15, 10).normalize();
+        // --- Core Functions -------------------------------------------------------
         
-        let state = 'IDLE';
-        let selectedCube = null, selectedEdges = null;
-        const mouse = new THREE.Vector2();
-        const raycaster = new THREE.Raycaster();
-        const CUBE_SIZE = 1;
+        /**
+         * Requests a new frame to be rendered. Important for on-demand rendering.
+         */
+        function requestRender() {
+            app.renderRequested = true;
+        }
 
-        // Global state for settings
-        let cubeCount = 5;
-        let cubeColor, edgeColor, edgeOpacity, edgeVisible, edgeWidth, contrast;
+        /**
+         * The main animation loop. Only renders if requested or if controls are damping.
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+            // Damping requires continuous updates. It returns true if the view is still changing.
+            const controlsUpdated = app.controls.update();
+            if (controlsUpdated || app.renderRequested) {
+                app.composer.render();
+                app.renderRequested = false;
+            }
+        }
 
-        // Gradient canvas
-        const gradCanvas = document.createElement('canvas');
-        const gradCtx = gradCanvas.getContext('2d');
-        gradCanvas.width = 64;
-        gradCanvas.height = 64;
-
+        /**
+         * Initializes the entire THREE.js scene, objects, and event listeners.
+         */
         function init() {
-            // Initialize state from DOM
             updateSettingsFromDOM();
             
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(document.getElementById('bg-color-picker').value);
+            app.scene = new THREE.Scene();
+            app.scene.background = new THREE.Color(settings.bgColor);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(5, 5, 5);
+            app.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            app.camera.position.set(5, 5, 5);
             
-            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.getElementById('container').appendChild(renderer.domElement);
+            // preserveDrawingBuffer is essential for the export feature to work reliably.
+            app.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            app.renderer.shadowMap.enabled = true;
+            app.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(app.renderer.domElement);
 
             // Lights
-            ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-            scene.add(ambientLight);
+            app.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            app.scene.add(app.ambientLight);
             
-            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(lightDirection.x, lightDirection.y, lightDirection.z).multiplyScalar(15);
-            directionalLight.castShadow = document.getElementById('shadows-toggle').checked;
-            directionalLight.shadow.mapSize.width = 2048; 
-            directionalLight.shadow.mapSize.height = 2048;
+            app.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            app.directionalLight.position.set(lightDirection.x, lightDirection.y, lightDirection.z).multiplyScalar(15);
+            app.directionalLight.castShadow = settings.shadows;
+            app.directionalLight.shadow.mapSize.set(2048, 2048);
             const shadowSize = 15;
-            directionalLight.shadow.camera.left = -shadowSize;
-            directionalLight.shadow.camera.right = shadowSize;
-            directionalLight.shadow.camera.top = shadowSize;
-            directionalLight.shadow.camera.bottom = -shadowSize;
-            scene.add(directionalLight);
+            app.directionalLight.shadow.camera.left = -shadowSize;
+            app.directionalLight.shadow.camera.right = shadowSize;
+            app.directionalLight.shadow.camera.top = shadowSize;
+            app.directionalLight.shadow.camera.bottom = -shadowSize;
+            app.scene.add(app.directionalLight);
 
-            // Floor
+            // Floor for receiving shadows
             const floorGeometry = new THREE.PlaneGeometry(200, 200);
             const floorMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
-            floor = new THREE.Mesh(floorGeometry, floorMaterial);
-            floor.rotation.x = -Math.PI / 2;
-            floor.position.y = -5;
-            floor.receiveShadow = true;
-            scene.add(floor);
+            app.floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            app.floor.rotation.x = -Math.PI / 2;
+            app.floor.position.y = -5;
+            app.floor.receiveShadow = true;
+            app.floor.visible = settings.shadows;
+            app.scene.add(app.floor);
+
+            // Controls
+            app.controls = new OrbitControls(app.camera, app.renderer.domElement);
+            app.controls.enableDamping = true;
+            app.controls.addEventListener('change', requestRender); // Request render on interaction
+
+            app.cubeGroup = new THREE.Group();
+            app.scene.add(app.cubeGroup);
+
+            // Post-processing
+            app.composer = new EffectComposer(app.renderer);
+            app.composer.addPass(new RenderPass(app.scene, app.camera));
+            app.outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), app.scene, app.camera);
+            app.outlinePass.edgeStrength = 8;
+            app.outlinePass.edgeGlow = 0.5;
+            app.outlinePass.visibleEdgeColor.set(settings.edgeColor);
+            app.outlinePass.hiddenEdgeColor.set(settings.edgeColor);
+            app.composer.addPass(app.outlinePass);
+            app.composer.addPass(new OutputPass());
             
-            floor.visible = document.getElementById('shadows-toggle').checked;
-
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-
-            cubeGroup = new THREE.Group();
-            scene.add(cubeGroup);
-
-            composer = new EffectComposer(renderer);
-            composer.addPass(new RenderPass(scene, camera));
-            outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
-            outlinePass.edgeStrength = 8;
-            outlinePass.edgeGlow = 0.5;
-            outlinePass.visibleEdgeColor.set(edgeColor);
-            outlinePass.hiddenEdgeColor.set(edgeColor);
-            composer.addPass(outlinePass);
-            composer.addPass(new OutputPass());
-            
-            generateConnectedCubes(cubeCount);
+            generateConnectedCubes(settings.cubeCount);
             setupEventListeners();
-            setLanguage('en'); // Set default language
+            setLanguage('en');
+            requestRender(); // Initial render
             animate();
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            composer.render();
-        }
+        // --- Event Listeners ------------------------------------------------------
         
-        function enterMoveState(cube) {
-            const edges = cubeGroup.children.find(c => c.userData.isEdges && c.userData.cubeId === cube.uuid);
-            if (!edges) return;
-            state = 'MOVING';
-            selectedCube = cube;
-            selectedEdges = edges;
-            outlinePass.selectedObjects = [selectedCube];
-            if (!ghostCube) {
-                const geo = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-                const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5, depthTest: false });
-                ghostCube = new THREE.Mesh(geo, mat);
-            }
-            ghostCube.position.copy(selectedCube.position);
-            ghostCube.quaternion.copy(selectedCube.quaternion);
-            scene.add(ghostCube);
-            selectedCube.visible = false;
-            selectedEdges.visible = false;
-        }
-
-        function leaveMoveState() {
-            state = 'IDLE';
-            if (selectedCube) selectedCube.visible = true;
-            if (selectedEdges) selectedEdges.visible = edgeVisible;
-            outlinePass.selectedObjects = [];
-            if (ghostCube) scene.remove(ghostCube);
-            selectedCube = null;
-            selectedEdges = null;
-        }
-
         function setupEventListeners() {
-            document.getElementById('lang-toggle').addEventListener('click', () => {
-                setLanguage(currentLanguage === 'en' ? 'vi' : 'en');
-            });
+            // Window
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', onKeyDown);
+
+            // Container
+            const container = document.getElementById('container');
+            container.addEventListener('dblclick', onDoubleClick);
+            container.addEventListener('pointermove', onPointerMove);
+            container.addEventListener('pointerdown', onPointerDown);
+            
+            // Controls
+            document.getElementById('lang-toggle').addEventListener('click', () => setLanguage(currentLanguage === 'en' ? 'vi' : 'en'));
             document.getElementById('add-cube').addEventListener('click', () => updateCubeCount(1));
             document.getElementById('remove-cube').addEventListener('click', () => updateCubeCount(-1));
-            document.getElementById('randomize').addEventListener('click', () => generateConnectedCubes(cubeCount));
+            document.getElementById('randomize').addEventListener('click', () => generateConnectedCubes(settings.cubeCount));
             document.getElementById('color-picker').addEventListener('input', changeCubeColor);
             document.getElementById('bg-color-picker').addEventListener('input', changeBackgroundColor);
             document.getElementById('edges-toggle').addEventListener('change', toggleEdgesVisibility);
@@ -428,102 +404,132 @@
             document.getElementById('edges-opacity-slider').addEventListener('input', changeEdgesOpacity);
             document.getElementById('incr-edge-width').addEventListener('click', () => updateEdgeWidth(1));
             document.getElementById('decr-edge-width').addEventListener('click', () => updateEdgeWidth(-1));
+            document.getElementById('shadows-toggle').addEventListener('input', toggleShadows);
+            document.getElementById('contrast-slider').addEventListener('input', changeContrast);
+            
+            // Modals
             document.getElementById('export-png').addEventListener('click', exportToPNG);
-            document.getElementById('help-btn').addEventListener('click', () => {
-                document.getElementById('help-overlay').style.display = 'flex';
-            });
-            document.getElementById('help-close').addEventListener('click', () => {
-                document.getElementById('help-overlay').style.display = 'none';
-            });
-            document.getElementById('shadows-toggle').addEventListener('input', (event) => {
-                const enabled = event.target.checked;
-                floor.visible = enabled;
-                directionalLight.castShadow = enabled;
-                scene.traverse(child => {
-                    if (child.material) child.material.needsUpdate = true;
-                });
-            });
-            document.getElementById('contrast-slider').addEventListener('input', (event) => {
-                contrast = parseFloat(event.target.value);
-                updateAllCubeMaterials();
-            });
-            document.getElementById('preview-cancel').addEventListener('click', () => {
-                document.getElementById('preview-overlay').style.display = 'none';
-            });
-            document.getElementById('preview-save').addEventListener('click', () => {
-                const dataURL = document.getElementById('preview-image').src;
-                if (dataURL && dataURL.startsWith('data:image/png')) {
-                    const link = document.createElement('a');
-                    link.href = dataURL;
-                    link.download = 'funny-cubes-puzzle.png';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }
-                document.getElementById('preview-overlay').style.display = 'none';
-            });
+            document.getElementById('help-btn').addEventListener('click', () => { document.getElementById('help-overlay').style.display = 'flex'; });
+            document.getElementById('help-close').addEventListener('click', () => { document.getElementById('help-overlay').style.display = 'none'; });
+            document.getElementById('preview-cancel').addEventListener('click', () => { document.getElementById('preview-overlay').style.display = 'none'; });
+            document.getElementById('preview-save').addEventListener('click', savePreviewImage);
         }
 
+        function onWindowResize() {
+            app.camera.aspect = window.innerWidth / window.innerHeight;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setSize(window.innerWidth, window.innerHeight);
+            app.composer.setSize(window.innerWidth, window.innerHeight);
+            requestRender();
+        }
+
+        // --- Interaction Logic ----------------------------------------------------
+
         function onDoubleClick(event) {
-            if (state !== 'IDLE') return;
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(cubeGroup.children.filter(c => c.isMesh));
+            if (interaction.state !== 'IDLE') return;
+            interaction.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            interaction.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            interaction.raycaster.setFromCamera(interaction.mouse, app.camera);
+            const intersects = interaction.raycaster.intersectObjects(app.cubeGroup.children.filter(c => c.isMesh));
             if (intersects.length > 0) enterMoveState(intersects[0].object);
         }
         
         function onPointerMove(event) {
-            if (state !== 'MOVING') return;
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const otherCubes = cubeGroup.children.filter(c => c.isMesh && c !== selectedCube);
-            const intersects = raycaster.intersectObjects(otherCubes);
+            if (interaction.state !== 'MOVING') return;
+            interaction.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            interaction.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            interaction.raycaster.setFromCamera(interaction.mouse, app.camera);
+            const otherCubes = app.cubeGroup.children.filter(c => c.isMesh && c !== interaction.selectedCube);
+            const intersects = interaction.raycaster.intersectObjects(otherCubes);
             if (intersects.length > 0) {
                 const intersect = intersects[0];
                 const normal = intersect.face.normal.clone().transformDirection(intersect.object.matrixWorld).round();
                 const newPos = new THREE.Vector3().copy(intersect.object.position).add(normal.multiplyScalar(CUBE_SIZE));
-                ghostCube.position.copy(newPos);
+                interaction.ghostCube.position.copy(newPos);
+                requestRender();
             }
         }
 
         function onPointerDown(event) {
-            if (state === 'MOVING' && event.button === 0) {
-                let isOccupied = false;
-                const otherCubes = cubeGroup.children.filter(c => c.isMesh && c !== selectedCube);
-                for (const other of otherCubes) {
-                    if (other.position.distanceTo(ghostCube.position) < 0.1) {
-                        isOccupied = true;
-                        break;
-                    }
-                }
+            if (interaction.state === 'MOVING' && event.button === 0) {
+                const isOccupied = app.cubeGroup.children.some(c => c.isMesh && c !== interaction.selectedCube && c.position.distanceTo(interaction.ghostCube.position) < 0.1);
                 if (!isOccupied) {
-                    selectedCube.position.copy(ghostCube.position);
-                    selectedCube.quaternion.copy(ghostCube.quaternion);
-                    selectedEdges.position.copy(ghostCube.position);
-                    selectedEdges.quaternion.copy(ghostCube.quaternion);
+                    interaction.selectedCube.position.copy(interaction.ghostCube.position);
+                    interaction.selectedCube.quaternion.copy(interaction.ghostCube.quaternion);
+                    interaction.selectedEdges.position.copy(interaction.ghostCube.position);
+                    interaction.selectedEdges.quaternion.copy(interaction.ghostCube.quaternion);
                 }
                 leaveMoveState();
             }
         }
 
         function onKeyDown(event) {
-            if (state === 'MOVING') {
+            if (interaction.state === 'MOVING') {
                 if (event.key === 'Escape') leaveMoveState();
                 else if (event.key.toLowerCase() === 'r') {
                     const quarterTurn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
-                    ghostCube.quaternion.premultiply(quarterTurn);
+                    interaction.ghostCube.quaternion.premultiply(quarterTurn);
+                    requestRender();
                 }
             }
         }
 
+        function enterMoveState(cube) {
+            const edges = app.cubeGroup.children.find(c => c.userData.isEdges && c.userData.cubeId === cube.uuid);
+            if (!edges) return;
+            interaction.state = 'MOVING';
+            interaction.selectedCube = cube;
+            interaction.selectedEdges = edges;
+            app.outlinePass.selectedObjects = [interaction.selectedCube];
+            if (!interaction.ghostCube) {
+                const geo = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+                const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5, depthTest: false });
+                interaction.ghostCube = new THREE.Mesh(geo, mat);
+            }
+            interaction.ghostCube.position.copy(interaction.selectedCube.position);
+            interaction.ghostCube.quaternion.copy(interaction.selectedCube.quaternion);
+            app.scene.add(interaction.ghostCube);
+            interaction.selectedCube.visible = false;
+            interaction.selectedEdges.visible = false;
+            requestRender();
+        }
+
+        function leaveMoveState() {
+            interaction.state = 'IDLE';
+            if (interaction.selectedCube) interaction.selectedCube.visible = true;
+            if (interaction.selectedEdges) interaction.selectedEdges.visible = settings.edgeVisible;
+            app.outlinePass.selectedObjects = [];
+            if (interaction.ghostCube) app.scene.remove(interaction.ghostCube);
+            interaction.selectedCube = null;
+            interaction.selectedEdges = null;
+            requestRender();
+        }
+        
+        // --- Cube Generation and Management ---------------------------------------
+
+        /**
+         * Reads all settings from the DOM controls into the settings object.
+         */
+        function updateSettingsFromDOM() {
+            settings.cubeColor = document.getElementById('color-picker').value;
+            settings.edgeColor = document.getElementById('edges-color-picker').value;
+            settings.edgeOpacity = parseFloat(document.getElementById('edges-opacity-slider').value);
+            settings.edgeVisible = document.getElementById('edges-toggle').checked;
+            settings.edgeWidth = parseInt(document.getElementById('edge-width-display').textContent) || 2;
+            settings.contrast = parseFloat(document.getElementById('contrast-slider').value);
+            settings.shadows = document.getElementById('shadows-toggle').checked;
+            settings.bgColor = document.getElementById('bg-color-picker').value;
+        }
+
         function clearCubes() {
-            while (cubeGroup.children.length > 0) {
-                const child = cubeGroup.children[0];
-                cubeGroup.remove(child);
+            while (app.cubeGroup.children.length > 0) {
+                const child = app.cubeGroup.children[0];
+                app.cubeGroup.remove(child);
                 if (child.userData.isEdges) {
-                    child.children.forEach(tube => { tube.geometry.dispose(); tube.material.dispose(); });
+                    child.children.forEach(tube => {
+                        tube.geometry.dispose();
+                        tube.material.dispose();
+                    });
                 } else if (child.isMesh) {
                     child.geometry.dispose();
                     if (Array.isArray(child.material)) {
@@ -538,21 +544,15 @@
             }
         }
         
-        function updateSettingsFromDOM() {
-            cubeColor = document.getElementById('color-picker').value;
-            edgeColor = document.getElementById('edges-color-picker').value;
-            edgeOpacity = parseFloat(document.getElementById('edges-opacity-slider').value);
-            edgeVisible = document.getElementById('edges-toggle').checked;
-            edgeWidth = parseInt(document.getElementById('edge-width-display').textContent) || 2;
-            contrast = parseFloat(document.getElementById('contrast-slider').value);
-        }
-
         function generateConnectedCubes(count) {
-            updateSettingsFromDOM(); // Ensure settings are current
+            updateSettingsFromDOM();
             leaveMoveState();
             clearCubes();
             document.getElementById('cube-count').textContent = count;
-            if (count <= 0) return;
+            if (count <= 0) {
+                requestRender();
+                return;
+            }
             const occupiedPositions = new Set();
             const firstPos = new THREE.Vector3(0, 0, 0);
             createCubeAndEdges(firstPos);
@@ -582,27 +582,27 @@
                 if (!placed) { console.error("Could not place all cubes."); break; }
             }
 
-            if (floor && count > 0) {
+            if (app.floor && count > 0) {
                 let minY = Infinity;
-                cubeGroup.children.forEach(c => {
+                app.cubeGroup.children.forEach(c => {
                     if (c.isMesh) minY = Math.min(minY, c.position.y);
                 });
-                floor.position.y = minY - CUBE_SIZE / 2 - 0.05;
+                app.floor.position.y = minY - CUBE_SIZE / 2 - 0.05;
             }
+            requestRender();
         }
 
-        const faceNormals = [
-            new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0),
-            new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)
-        ];
+        const faceNormals = [ new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1) ];
+        const gradCanvas = document.createElement('canvas');
+        gradCanvas.width = 64; gradCanvas.height = 64;
+        const gradCtx = gradCanvas.getContext('2d');
 
         function createCubeMaterials() {
-            const baseColor = new THREE.Color(cubeColor);
-            const materials = [];
-            for (const normal of faceNormals) {
+            const baseColor = new THREE.Color(settings.cubeColor);
+            return faceNormals.map(normal => {
                 const dot = normal.dot(lightDirection);
                 if (dot > 0) {
-                    const lightColor = baseColor.clone().multiplyScalar(1 + dot * contrast * 0.5);
+                    const lightColor = baseColor.clone().multiplyScalar(1 + dot * settings.contrast * 0.5);
                     const grad = gradCtx.createLinearGradient(0, 0, 0, 64);
                     grad.addColorStop(0, lightColor.clone().multiplyScalar(1.15).getStyle());
                     grad.addColorStop(1, lightColor.getStyle());
@@ -610,13 +610,12 @@
                     gradCtx.fillRect(0, 0, 64, 64);
                     const texture = new THREE.CanvasTexture(gradCanvas);
                     texture.colorSpace = THREE.SRGBColorSpace;
-                    materials.push(new THREE.MeshBasicMaterial({ map: texture }));
+                    return new THREE.MeshBasicMaterial({ map: texture });
                 } else {
-                    const darkColor = baseColor.clone().multiplyScalar(1 - contrast * 0.7);
-                    materials.push(new THREE.MeshBasicMaterial({ color: darkColor }));
+                    const darkColor = baseColor.clone().multiplyScalar(1 - settings.contrast * 0.7);
+                    return new THREE.MeshBasicMaterial({ color: darkColor });
                 }
-            }
-            return materials;
+            });
         }
 
         function createCubeAndEdges(position) {
@@ -628,24 +627,22 @@
             cube.receiveShadow = true;
             const edges = createTubeEdges(cube);
             cube.userData.edgesId = edges.uuid;
-            cubeGroup.add(cube);
-            cubeGroup.add(edges);
+            app.cubeGroup.add(cube);
+            app.cubeGroup.add(edges);
         }
 
         function createTubeEdges(cube) {
             const edgesGroup = new THREE.Group();
             edgesGroup.userData.isEdges = true;
             edgesGroup.userData.cubeId = cube.uuid;
-            const radius = edgeWidth * 0.01;
+            const radius = settings.edgeWidth * 0.01;
             const material = new THREE.MeshBasicMaterial({
-                color: edgeColor, opacity: edgeOpacity, transparent: true, visible: edgeVisible
+                color: settings.edgeColor, opacity: settings.edgeOpacity, transparent: true, visible: settings.edgeVisible
             });
             const half = CUBE_SIZE / 2;
             const points = [
-                new THREE.Vector3(-half, -half, -half), new THREE.Vector3(half, -half, -half),
-                new THREE.Vector3(half, half, -half), new THREE.Vector3(-half, half, -half),
-                new THREE.Vector3(-half, -half, half), new THREE.Vector3(half, -half, half),
-                new THREE.Vector3(half, half, half), new THREE.Vector3(-half, half, half)
+                new THREE.Vector3(-half,-half,-half), new THREE.Vector3(half,-half,-half), new THREE.Vector3(half,half,-half), new THREE.Vector3(-half,half,-half),
+                new THREE.Vector3(-half,-half,half), new THREE.Vector3(half,-half,half), new THREE.Vector3(half,half,half), new THREE.Vector3(-half,half,half)
             ];
             const edgePairs = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
             edgePairs.forEach(pair => {
@@ -661,21 +658,94 @@
 
         function posToString(v) { return `${Math.round(v.x)},${Math.round(v.y)},${Math.round(v.z)}`; }
         
+        // --- Control Update Handlers ----------------------------------------------
+
         function updateCubeCount(delta) {
-             const newCount = cubeCount + delta;
+             const newCount = settings.cubeCount + delta;
              if (newCount >= 0 && newCount <= 150) {
-                 cubeCount = newCount;
-                 generateConnectedCubes(cubeCount);
+                 settings.cubeCount = newCount;
+                 generateConnectedCubes(settings.cubeCount);
              }
+        }
+        
+        function changeCubeColor(event) {
+            settings.cubeColor = event.target.value;
+            updateAllCubeMaterials();
+        }
+        
+        function changeBackgroundColor(event) { 
+            settings.bgColor = event.target.value;
+            app.scene.background.set(settings.bgColor);
+            requestRender();
+        }
+
+        function toggleEdgesVisibility(event) {
+            settings.edgeVisible = event.target.checked;
+            app.cubeGroup.children.forEach(c => {
+                if (c.userData.isEdges && c !== interaction.selectedEdges) c.visible = settings.edgeVisible;
+            });
+            requestRender();
+        }
+
+        function changeEdgesColor(event) {
+            settings.edgeColor = event.target.value;
+            const newColor = new THREE.Color(settings.edgeColor);
+            app.outlinePass.visibleEdgeColor.set(newColor);
+            app.outlinePass.hiddenEdgeColor.set(newColor);
+            app.cubeGroup.children.forEach(c => {
+                if (c.userData.isEdges) c.children.forEach(tube => tube.material.color.set(newColor));
+            });
+            requestRender();
+        }
+
+        function changeEdgesOpacity(event) {
+            settings.edgeOpacity = parseFloat(event.target.value);
+            app.cubeGroup.children.forEach(c => {
+                if (c.userData.isEdges) c.children.forEach(tube => tube.material.opacity = settings.edgeOpacity);
+            });
+            requestRender();
+        }
+
+        function updateEdgeWidth(delta) {
+            const newWidth = settings.edgeWidth + delta;
+            if (newWidth >= 1 && newWidth <= 20) {
+                settings.edgeWidth = newWidth;
+                document.getElementById('edge-width-display').textContent = settings.edgeWidth;
+                const allCubes = app.cubeGroup.children.filter(c => c.isMesh);
+                const oldEdges = app.cubeGroup.children.filter(c => c.userData.isEdges);
+                oldEdges.forEach(edges => {
+                    app.cubeGroup.remove(edges);
+                    edges.children.forEach(tube => { tube.geometry.dispose(); tube.material.dispose(); });
+                });
+                allCubes.forEach(cube => {
+                    const newEdges = createTubeEdges(cube);
+                    cube.userData.edgesId = newEdges.uuid;
+                    app.cubeGroup.add(newEdges);
+                });
+                requestRender();
+            }
+        }
+
+        function toggleShadows(event) {
+            settings.shadows = event.target.checked;
+            app.floor.visible = settings.shadows;
+            app.directionalLight.castShadow = settings.shadows;
+            app.scene.traverse(child => {
+                if (child.material) child.material.needsUpdate = true;
+            });
+            requestRender();
+        }
+
+        function changeContrast(event) {
+            settings.contrast = parseFloat(event.target.value);
+            updateAllCubeMaterials();
         }
 
         function updateAllCubeMaterials() {
              const newMaterials = createCubeMaterials();
-             cubeGroup.children.forEach(c => {
+             app.cubeGroup.children.forEach(c => {
                  if (c.isMesh) {
-                    if (Array.isArray(c.material)) {
-                         c.material.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
-                    }
+                    if (Array.isArray(c.material)) c.material.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
                     c.material = newMaterials.map(m => m.clone());
                     for(let i = 0; i < c.material.length; i++) {
                         if (newMaterials[i].map) {
@@ -686,65 +756,32 @@
                  }
              });
              newMaterials.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
+             requestRender();
         }
+
+        // --- Export Logic ---------------------------------------------------------
         
-        function changeCubeColor(event) {
-            cubeColor = event.target.value;
-            updateAllCubeMaterials();
-        }
-        
-        function changeBackgroundColor(event) { scene.background.set(event.target.value); }
+        function getBoundingBox(targetGroup, camera) {
+            const box = new THREE.Box3();
+            const vertex = new THREE.Vector3();
 
-        function toggleEdgesVisibility(event) {
-            edgeVisible = event.target.checked;
-            cubeGroup.children.forEach(c => {
-                if (c.userData.isEdges && c !== selectedEdges) c.visible = edgeVisible;
+            targetGroup.traverse(child => {
+                if (child.isMesh && child.geometry) {
+                    const position = child.geometry.attributes.position;
+                    for (let i = 0; i < position.count; i++) {
+                        vertex.fromBufferAttribute(position, i);
+                        vertex.applyMatrix4(child.matrixWorld);
+                        // We project the world vertex, not a local one
+                        box.expandByPoint(vertex);
+                    }
+                }
             });
+            return box;
         }
 
-        function changeEdgesColor(event) {
-            edgeColor = event.target.value;
-            const newColor = new THREE.Color(edgeColor);
-            outlinePass.visibleEdgeColor.set(newColor);
-            outlinePass.hiddenEdgeColor.set(newColor);
-            cubeGroup.children.forEach(c => {
-                if (c.userData.isEdges) c.children.forEach(tube => tube.material.color.set(newColor));
-            });
-        }
-
-        function changeEdgesOpacity(event) {
-            edgeOpacity = parseFloat(event.target.value);
-            cubeGroup.children.forEach(c => {
-                if (c.userData.isEdges) c.children.forEach(tube => tube.material.opacity = edgeOpacity);
-            });
-        }
-
-        function updateEdgeWidth(delta) {
-            const newWidth = edgeWidth + delta;
-            if (newWidth >= 1 && newWidth <= 20) {
-                edgeWidth = newWidth;
-                document.getElementById('edge-width-display').textContent = edgeWidth;
-                const allCubes = cubeGroup.children.filter(c => c.isMesh);
-                const oldEdges = cubeGroup.children.filter(c => c.userData.isEdges);
-                oldEdges.forEach(edges => {
-                    cubeGroup.remove(edges);
-                    edges.children.forEach(tube => { tube.geometry.dispose(); tube.material.dispose(); });
-                });
-                allCubes.forEach(cube => {
-                    const newEdges = createTubeEdges(cube);
-                    cube.userData.edgesId = newEdges.uuid;
-                    cubeGroup.add(newEdges);
-                });
-            }
-        }
-        
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
-        }
-
+        /**
+         * The main export function, orchestrating the high-resolution render and capture.
+         */
         async function exportToPNG() {
             const exportButton = document.getElementById('export-png');
             const originalText = exportButton.textContent;
@@ -752,39 +789,43 @@
             exportButton.textContent = currentLanguage === 'vi' ? 'Đang xuất...' : 'Exporting...';
             
             const originalSize = new THREE.Vector2();
-            renderer.getSize(originalSize);
-            const originalAspect = camera.aspect;
-            controls.enabled = false;
+            app.renderer.getSize(originalSize);
+            const originalAspect = app.camera.aspect;
+            app.controls.enabled = false;
 
-            // --- Part 1: Define a large but safe 4:3 render size for SSAA ---
-            const RENDER_WIDTH = 4096;
-            const RENDER_HEIGHT = 3072; // 4096 * (3/4)
+            // Define target resolutions. RENDER is for SSAA, EXPORT is the final file size.
+            const EXPORT_CONFIG = {
+                RENDER_WIDTH: 4096,
+                RENDER_HEIGHT: 3072, // 4:3 aspect ratio
+                EXPORT_WIDTH: 4000,
+                EXPORT_HEIGHT: 3000, // 4:3 aspect ratio
+                PADDING_FACTOR: 1.1, // 10% padding (5% on each side)
+            };
 
-            // --- Part 2: Resize renderer and camera, then render ---
-            renderer.setSize(RENDER_WIDTH, RENDER_HEIGHT, false);
-            composer.setSize(RENDER_WIDTH, RENDER_HEIGHT);
+            // Resize renderer and camera for high-res capture
+            app.renderer.setSize(EXPORT_CONFIG.RENDER_WIDTH, EXPORT_CONFIG.RENDER_HEIGHT, false);
+            app.composer.setSize(EXPORT_CONFIG.RENDER_WIDTH, EXPORT_CONFIG.RENDER_HEIGHT);
+            app.camera.aspect = EXPORT_CONFIG.RENDER_WIDTH / EXPORT_CONFIG.RENDER_HEIGHT;
+            app.camera.updateProjectionMatrix();
             
-            camera.aspect = RENDER_WIDTH / RENDER_HEIGHT;
-            camera.updateProjectionMatrix();
-            
-            composer.render();
+            // Render the scene at high resolution
+            app.composer.render();
 
-            // --- Part 3: Process the image after a delay for the GPU ---
+            // A timeout is critical to wait for the GPU to finish rendering before reading pixels.
             setTimeout(() => {
                 try {
-                    const sourceCanvas = renderer.domElement;
+                    const sourceCanvas = app.renderer.domElement;
 
-                    // --- Part 3a: Calculate 2D Bounding Box in the new 4:3 space ---
+                    // Project the 3D bounding box of the cubes to 2D screen space
                     const min = new THREE.Vector2(1, 1);
                     const max = new THREE.Vector2(-1, -1);
                     const vertex = new THREE.Vector3();
-                    cubeGroup.traverse(child => {
+                    app.cubeGroup.traverse(child => {
                         if (child.isMesh && child.geometry) {
                             const position = child.geometry.attributes.position;
                             for (let i = 0; i < position.count; i++) {
-                                vertex.fromBufferAttribute(position, i);
-                                vertex.applyMatrix4(child.matrixWorld);
-                                vertex.project(camera);
+                                vertex.fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld);
+                                vertex.project(app.camera); // Project using the updated 4:3 camera
                                 min.x = Math.min(min.x, vertex.x);
                                 min.y = Math.min(min.y, vertex.y);
                                 max.x = Math.max(max.x, vertex.x);
@@ -798,70 +839,85 @@
                         return;
                     }
 
-                    // --- Part 3b: CORRECTED Cropping Logic in Pixel Space ---
-                    const targetAspect = 4 / 3;
+                    // Calculate the final crop area in PIXEL space to avoid distortion
+                    const { cropX, cropY, finalCropW, finalCropH } = calculateCropInPixelSpace(min, max, EXPORT_CONFIG);
 
-                    // 1. Convert the object's NDC bounding box to pixel dimensions
-                    const objPixelWidth = (max.x - min.x) * RENDER_WIDTH / 2;
-                    const objPixelHeight = (max.y - min.y) * RENDER_HEIGHT / 2;
-
-                    // 2. Add padding
-                    let paddedPixelW = objPixelWidth * 1.1;
-                    let paddedPixelH = objPixelHeight * 1.1;
-
-                    // 3. Enforce the target 4:3 aspect ratio on the padded pixel box
-                    if (paddedPixelW / paddedPixelH > targetAspect) {
-                        paddedPixelH = paddedPixelW / targetAspect;
-                    } else {
-                        paddedPixelW = paddedPixelH * targetAspect;
-                    }
-                    const finalCropW = paddedPixelW;
-                    const finalCropH = paddedPixelH;
-
-                    // 4. Find the center of the object in pixels
-                    const centerPixelX = (1 + (min.x + max.x) / 2) * RENDER_WIDTH / 2;
-                    const centerPixelY = (1 - (min.y + max.y) / 2) * RENDER_HEIGHT / 2;
-
-                    // 5. Calculate the top-left corner of this final crop box
-                    const cropX = centerPixelX - finalCropW / 2;
-                    const cropY = centerPixelY - finalCropH / 2;
-
-
-                    // --- Part 3c: Draw the cropped, downsampled image to the final canvas ---
-                    const EXPORT_WIDTH = 4000;
-                    const EXPORT_HEIGHT = 3000;
+                    // Draw the cropped, downsampled image to the final canvas
                     const finalCanvas = document.createElement('canvas');
-                    finalCanvas.width = EXPORT_WIDTH;
-                    finalCanvas.height = EXPORT_HEIGHT;
+                    finalCanvas.width = EXPORT_CONFIG.EXPORT_WIDTH;
+                    finalCanvas.height = EXPORT_CONFIG.EXPORT_HEIGHT;
                     const finalCtx = finalCanvas.getContext('2d');
                     finalCtx.imageSmoothingQuality = "high";
-
-                    finalCtx.fillStyle = document.getElementById('bg-color-picker').value;
-                    finalCtx.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
-                    
+                    finalCtx.fillStyle = settings.bgColor;
+                    finalCtx.fillRect(0, 0, EXPORT_CONFIG.EXPORT_WIDTH, EXPORT_CONFIG.EXPORT_HEIGHT);
                     finalCtx.drawImage(sourceCanvas,
                         cropX, cropY, finalCropW, finalCropH,
-                        0, 0, EXPORT_WIDTH, EXPORT_HEIGHT
+                        0, 0, EXPORT_CONFIG.EXPORT_WIDTH, EXPORT_CONFIG.EXPORT_HEIGHT
                     );
 
+                    // Show preview
                     const finalImageDataURL = finalCanvas.toDataURL('image/png');
                     document.getElementById('preview-image').src = finalImageDataURL;
                     document.getElementById('preview-overlay').style.display = 'flex';
 
                 } finally {
-                    // --- Part 4: Restore everything to its original state ---
-                    renderer.setSize(originalSize.x, originalSize.y, false);
-                    composer.setSize(originalSize.x, originalSize.y);
-                    camera.aspect = originalAspect;
-                    camera.updateProjectionMatrix();
-                    controls.enabled = true;
+                    // Restore everything to its original state
+                    app.renderer.setSize(originalSize.x, originalSize.y, false);
+                    app.composer.setSize(originalSize.x, originalSize.y);
+                    app.camera.aspect = originalAspect;
+                    app.camera.updateProjectionMatrix();
+                    app.controls.enabled = true;
                     exportButton.disabled = false;
                     exportButton.textContent = originalText;
-                    composer.render();
+                    requestRender();
                 }
             }, 100);
         }
+
+        function calculateCropInPixelSpace(minNDC, maxNDC, config) {
+            const targetAspect = config.EXPORT_WIDTH / config.EXPORT_HEIGHT;
+
+            // 1. Convert the object's NDC bounding box to pixel dimensions
+            const objPixelWidth = (maxNDC.x - minNDC.x) * config.RENDER_WIDTH / 2;
+            const objPixelHeight = (maxNDC.y - minNDC.y) * config.RENDER_HEIGHT / 2;
+
+            // 2. Add padding
+            let paddedPixelW = objPixelWidth * config.PADDING_FACTOR;
+            let paddedPixelH = objPixelHeight * config.PADDING_FACTOR;
+
+            // 3. Enforce the target 4:3 aspect ratio on the padded pixel box
+            if (paddedPixelW / paddedPixelH > targetAspect) {
+                paddedPixelH = paddedPixelW / targetAspect;
+            } else {
+                paddedPixelW = paddedPixelH * targetAspect;
+            }
+            const finalCropW = paddedPixelW;
+            const finalCropH = paddedPixelH;
+
+            // 4. Find the center of the object in pixels
+            const centerPixelX = (1 + (minNDC.x + maxNDC.x) / 2) * config.RENDER_WIDTH / 2;
+            const centerPixelY = (1 - (minNDC.y + maxNDC.y) / 2) * config.RENDER_HEIGHT / 2;
+
+            // 5. Calculate the top-left corner of this final crop box
+            const cropX = centerPixelX - finalCropW / 2;
+            const cropY = centerPixelY - finalCropH / 2;
+
+            return { cropX, cropY, finalCropW, finalCropH };
+        }
+
+        function savePreviewImage() {
+            const dataURL = document.getElementById('preview-image').src;
+            if (dataURL?.startsWith('data:image/png')) {
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = 'funny-cubes-puzzle.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            document.getElementById('preview-overlay').style.display = 'none';
+        }
+
+        // --- Init ---
         init();
     </script>
-</body>
-</html>
