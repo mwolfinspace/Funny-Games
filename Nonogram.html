@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nonogram</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --cell-size: 50px;
+            --cell-size: 40px;
             --font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
             --background-color: #f3f3f3;
             --control-background-color: #ffffff;
@@ -18,61 +16,6 @@
             --text-color: #1a1a1a;
             --input-padding: 12px;
         }
-
-        /* Custom styles from Battleship for buttons and hover effect */
-        .btn {
-            padding: 0.5rem 1rem; /* py-2 px-4 */
-            border-radius: 0.5rem; /* rounded-lg */
-            font-weight: 600; /* font-semibold */
-            color: #ffffff; /* text-white */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* shadow-md */
-            transition: all 200ms ease; /* transition-all duration-200 */
-            border: none;
-            cursor: pointer;
-            background-color: #2563EB; /* default to blue-600 for buttons unless overridden */
-        }
-        .btn:focus {
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(59,130,246,0.25); /* focus ring approximation */
-        }
-
-        .btn-primary {
-            background-color: #2563EB; /* blue-600 */
-        }
-        .btn-primary:hover { background-color: #1D4ED8; /* blue-700 */ }
-        .btn-primary:focus { box-shadow: 0 0 0 4px rgba(37,99,235,0.30); }
-
-        .btn-secondary {
-            background-color: #6B7280; /* gray-500 */
-        }
-        .btn-secondary:hover { background-color: #4B5563; /* gray-600 */ }
-        .btn-secondary:focus { box-shadow: 0 0 0 4px rgba(107,114,128,0.20); }
-        
-        /* Windows 11 Style Hover Effect */
-        .btn {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: inherit;
-            background: radial-gradient(circle at var(--x) var(--y), rgba(255, 255, 255, 0.6) 0%, transparent 50%);
-            opacity: 0;
-            transition: opacity 0.2s ease-out;
-            pointer-events: none;
-        }
-
-        .btn:hover::before {
-            opacity: 1;
-        }
-
-
         html, body {
             height: 100%;
             margin: 0;
@@ -81,9 +24,8 @@
             font-family: var(--font-family);
             background-color: var(--background-color);
             color: var(--text-color);
-            min-height: 100vh; /* Use min-h-screen equivalent */
             display: flex;
-            justify-content: center; /* Center content horizontally */
+            flex-direction: column;
             text-align: center; 
         }
         .screen { 
@@ -94,34 +36,35 @@
         .screen.active { 
             display: flex;
             flex-direction: column;
-            align-items: center; /* Center items within the screen */
-            justify-content: center; /* Center content vertically within the screen */
-            flex-grow: 1; /* Allow it to take full height */
-            background-color: white; /* Equivalent of bg-white */
-            padding: 2.5rem; /* Equivalent of p-10 */
-            border-radius: 0.5rem; /* Equivalent of rounded-lg */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Equivalent of shadow-xl */
-            width: 90%; /* Responsive width */
-            max-width: 1200px; /* Allow wider screens for game content */
+            flex-grow: 1;
+        }
+
+        #game-screen, #editor-screen {
+            /* justify-content: center; */ /* Removed to allow title and buttons to be at top/bottom */
+            /* align-items: center; */ /* This can cause issues with scrolling on small screens */
         }
 
         .game-area-wrapper {
             flex-grow: 1;
             display: flex;
-            justify-content: center; /* Keep horizontal centering */
-            align-items: center;
-            min-height: 0;
-            width: 100%; /* Ensure it takes full width */
+            min-height: 0; /* Prevents flexbox overflow issues */
+            position: relative; /* Anchor for the absolute positioned child */
         }
 
-        #game-container, #editor-container, #solver-board-container {
+        #game-container, #editor-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Center the container */
             transform-origin: center center;
-            transition: transform 0.3s ease-in-out;
+            transition: transform 0.3s ease-in-out; /* Smooth transition for scaling */
+
+            /* The rest of the grid styles are still valid */
             display: grid;
             grid-template-columns: auto 1fr;
             grid-template-rows: auto 1fr;
             border: 2px solid black;
-            margin: 0;
+            margin: 0; /* No margin needed with absolute positioning */
         }
 
         .corner {
@@ -129,7 +72,7 @@
             grid-row: 1;
         }
 
-        #game-board, #editor-board, #solver-board { 
+        #game-board, #editor-board { 
             grid-column: 2;
             grid-row: 2;
             display: grid; 
@@ -159,8 +102,6 @@
             flex-direction: column;
             justify-content: space-around;
             border-right: 2px solid black;
-            max-width: 150px;
-            overflow-x: auto;
         }
 
         .row-clues > div, .row-clues-editor > div {
@@ -171,13 +112,13 @@
             box-sizing: border-box;
             padding: 5px 10px;
             border-top: 1px solid #ccc;
-            font-size: 20px;
+            font-size: 20px; /* Revert to fixed font-size, as scaling is now uniform */
             font-weight: bold;
-            white-space: nowrap;
         }
         .row-clues > div:first-child, .row-clues-editor > div:first-child {
              border-top: none;
         }
+
 
         .col-clues, .col-clues-editor {
             grid-column: 2;
@@ -185,27 +126,24 @@
             display: flex;
             justify-content: space-around;
             border-bottom: 2px solid black;
-            align-items: flex-end;
         }
 
         .clue-group {
             width: var(--cell-size);
             display: flex;
-            flex-direction: column;
+            flex-direction: column-reverse;
             align-items: center;
-            justify-content: flex-end;
             box-sizing: border-box;
-            padding: 5px 0;
+            padding: 5px;
             border-left: 1px solid #ccc;
-            font-size: 20px;
+            font-size: 20px; /* Revert to fixed font-size, as scaling is now uniform */
             font-weight: bold;
         }
         .clue-group:first-child {
             border-left: none;
         }
         .clue-group > div {
-             line-height: 1.1;
-             text-align: center;
+             line-height: 1.2;
         }
         
         div[contenteditable="true"] {
@@ -213,6 +151,7 @@
             padding: 2px;
         }
 
+        /* New UI Styles */
         h1, h2, h3 {
             color: var(--text-color);
         }
@@ -232,7 +171,6 @@
             justify-content: center;
             flex-wrap: wrap;
             margin-top: 20px;
-            gap: 1rem; /* Add space between buttons */
         }
 
         button {
@@ -240,25 +178,23 @@
             color: white;
             border: none;
             border-radius: var(--control-border-radius);
-            padding: 12px 18px;
+            padding: 12px 18px; /* less horizontal padding */
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.2s;
-            margin: 8px;
+            margin: 5px;
         }
         button:hover {
             background-color: #005a9e;
         }
 
-        input[type="number"], input[type="file"] {
+        input[type="number"] {
             border: 1px solid var(--control-border-color);
             border-radius: var(--control-border-radius);
             padding: var(--input-padding);
-            font-size: 1.2em;
-            margin: 8px;
-        }
-        input[type="number"] {
+            font-size: 16px;
+            margin: 5px;
             width: 80px;
         }
 
@@ -266,169 +202,52 @@
             transition: none !important;
         }
 
-        /* Solver specific styles */
-        #solver-input-wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-grow: 1;
-            min-height: 0;
-            padding: 20px 0;
-        }
-
-        #solver-input-container {
-            transform-origin: center center;
-            transition: transform 0.3s ease-in-out;
+        /* --- Solver Styles --- */
+        #solver-input-area {
             display: grid;
             grid-template-columns: auto 1fr;
             grid-template-rows: auto 1fr;
-            border: 2px solid black;
-        }
-
-        .solver-col-clues {
-            grid-column: 2;
-            grid-row: 1;
-            display: flex;
-            justify-content: space-around;
-            border-bottom: 2px solid black;
-            align-items: flex-end;
-        }
-
-        .solver-row-clues {
-            grid-column: 1;
-            grid-row: 2;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            border-right: 2px solid black;
-            max-width: 200px;
-            overflow-x: auto;
-        }
-
-        .solver-clue-col {
-            width: var(--cell-size);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end;
-            box-sizing: border-box;
-            padding: 5px 0;
-            border-left: 1px solid #ccc;
-        }
-        .solver-clue-col:first-child {
-            border-left: none;
-        }
-
-        .solver-clue-row {
-            height: var(--cell-size);
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            box-sizing: border-box;
-            padding: 5px 10px;
-            border-top: 1px solid #ccc;
-        }
-        .solver-clue-row:first-child {
-            border-top: none;
-        }
-
-        .solver-clue-cell {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            text-align: center;
-            border: 1px solid #999;
-            border-radius: 3px;
-            font-size: 18px;
-            font-weight: bold;
-            box-sizing: border-box;
-            background: white;
-            display: flex;
-            align-items: center;
+            gap: 5px;
+            margin: 20px auto;
             justify-content: center;
-            cursor: text;
-            user-select: none;
-            outline: none;
         }
-
-        .solver-clue-cell:hover {
-            background: #f0f0f0;
-        }
-
-        .solver-clue-cell:focus {
-            background: #e3f2fd;
-            outline: 2px solid var(--accent-color);
-        }
-
-        #solver-preview-grid {
-            grid-column: 2;
-            grid-row: 2;
+        .solver-col-clues-wrapper, .solver-row-clues-wrapper, .solver-dummy-grid {
             display: grid;
+            gap: 2px;
         }
-
-        .preview-cell {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
+        .solver-clue-input {
+            border: 1px solid var(--control-border-color);
+            background-color: var(--control-background-color);
+            padding: 5px;
+            width: 30px;
+            height: 30px;
             box-sizing: border-box;
-        }
-        
-        .preview-cell.filled {
-            background-color: black;
-        }
-
-        #solve-status {
-            margin: 15px auto;
-            padding: 12px 20px;
-            max-width: 600px;
-            border-radius: var(--control-border-radius);
-            font-weight: 600;
-            display: none;
-        }
-
-        #solve-status.success {
-            background-color: #d4edda;
-            color: #155724;
-            display: block;
-        }
-
-        #solve-status.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            display: block;
-        }
-
-        #solve-status.solving {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            display: block;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
     <div id="start-screen" class="screen active">
-        <h1 style="font-size: 3em; font-weight: bold; margin-bottom: 20px;">🧩 Nonogram</h1>
-        <div id="new-game-options" style="margin-bottom: 20px;">
-            <h3 style="font-size: 1.5em; font-weight: bold; margin-bottom: 10px;">✨ New Game</h3>
-            <label for="puzzle-width-input" style="margin-right: 10px; font-size: 1.2em; font-weight: bold;">Width:</label>
-            <input type="number" id="puzzle-width-input" min="4" max="20" value="5" style="margin-right: 10px;">
-            <label for="puzzle-height-input" style="margin-right: 10px; font-size: 1.2em; font-weight: bold;">Height:</label>
-            <input type="number" id="puzzle-height-input" min="4" max="20" value="5" style="margin-right: 10px;">
-            <button id="start-new-game-btn" class="btn btn-primary" style="margin-top: 15px;">🚀 Start New Game</button>
+        <h1>Nonogram</h1>
+        <div id="new-game-options">
+            <h3>New Game</h3>
+            <label for="puzzle-width-input">Width:</label>
+            <input type="number" id="puzzle-width-input" min="4" max="20" value="5">
+            <label for="puzzle-height-input">Height:</label>
+            <input type="number" id="puzzle-height-input" min="4" max="20" value="5">
+            <button id="start-new-game-btn">Start New Game</button>
         </div>
-        <hr style="margin: 20px 0;">
-        <h3 style="font-size: 1.5em; font-weight: bold; margin-bottom: 10px;">🛠️ Create, Load, or Solve</h3>
-        <div class="button-group">
-            <button id="create-puzzle-btn" class="btn btn-primary">✏️ Create Puzzle</button>
-            <button id="solver-btn" class="btn btn-secondary">🧠 Solver</button>
-            <label for="load-puzzle-input" class="btn btn-secondary">📂 Load Puzzle</label>
-            <input type="file" id="load-puzzle-input" accept=".nonogram" hidden>
-        </div>
+        <hr>
+        <h3>Create, Load, or Solve</h3>
+        <button id="create-puzzle-btn">Create Puzzle</button>
+        <button id="solver-btn">Solver</button>
+        <label for="load-puzzle-input">Load Puzzle:</label>
+        <input type="file" id="load-puzzle-input" accept=".nonogram">
     </div>
 
     <div id="game-screen" class="screen">
-        <h2 style="font-size: 2em; font-weight: bold; margin-bottom: 15px;">🎮 Nonogram Puzzle</h2>
+        <h2>Nonogram Puzzle</h2>
         <div class="game-area-wrapper">
             <div id="game-container">
                 <div class="corner"></div>
@@ -437,17 +256,17 @@
                 <div id="game-board"></div>
             </div>
         </div>
-        <button id="back-to-start-btn-game" class="btn btn-secondary">↩️ Back to Start</button>
+        <button id="back-to-start-btn-game">Back to Start</button>
     </div>
 
     <div id="editor-screen" class="screen">
-        <h2 style="font-size: 2em; font-weight: bold; margin-bottom: 15px;">✍️ Puzzle Editor</h2>
+        <h2>Puzzle Editor</h2>
         <div>
-            <label for="board-width" style="font-size: 1.2em; font-weight: bold;">Width (4-20):</label>
+            <label for="board-width">Width (4-20):</label>
             <input type="number" id="board-width" min="4" max="20" value="5">
-            <label for="board-height" style="font-size: 1.2em; font-weight: bold;">Height (4-20):</label>
+            <label for="board-height">Height (4-20):</label>
             <input type="number" id="board-height" min="4" max="20" value="5">
-            <button id="create-grid-btn" class="btn btn-primary" style="margin-left: 10px;">➕ Create Grid</button>
+            <button id="create-grid-btn">Create Grid</button>
         </div>
         <div class="game-area-wrapper">
             <div id="editor-container">
@@ -458,1064 +277,790 @@
             </div>
         </div>
         <div class="button-group">
-            <button id="save-puzzle-btn" class="btn btn-primary">💾 Save Puzzle</button>
-            <button id="test-puzzle-btn" class="btn btn-primary">🧪 Test Puzzle</button>
-            <button id="validate-puzzle-btn" class="btn btn-secondary">✅ Validate Puzzle</button>
-            <button id="back-to-start-btn-editor" class="btn btn-secondary">↩️ Back to Start</button>
+            <button id="save-puzzle-btn">Save Puzzle</button>
+            <button id="test-puzzle-btn">Test Puzzle</button>
+            <button id="validate-puzzle-btn">Validate Puzzle</button>
+            <button id="back-to-start-btn-editor">Back to Start</button>
         </div>
     </div>
 
     <div id="solver-screen" class="screen">
-        <h2 style="font-size: 2em; font-weight: bold; margin-bottom: 15px;">🔍 Nonogram Solver</h2>
-        <div>
-            <label for="solver-width" style="font-size: 1.2em; font-weight: bold;">Width:</label>
-            <input type="number" id="solver-width" min="3" max="20" value="5">
-            <label for="solver-height" style="font-size: 1.2em; font-weight: bold;">Height:</label>
-            <input type="number" id="solver-height" min="3" max="20" value="5">
-            <button id="create-solver-grid-btn" class="btn btn-primary" style="margin-left: 10px;">➕ Create Grid</button>
+        <h2>Nonogram Solver</h2>
+        <div class="solver-controls">
+            <label for="solver-width">Width:</label>
+            <input type="number" id="solver-width" min="1" max="30" value="5">
+            <label for="solver-height">Height:</label>
+            <input type="number" id="solver-height" min="1" max="30" value="5">
+            <br>
+            <label for="solver-max-row-clues">Max Row Clues:</label>
+            <input type="number" id="solver-max-row-clues" min="1" max="30" value="3">
+            <label for="solver-max-col-clues">Max Col Clues:</label>
+            <input type="number" id="solver-max-col-clues" min="1" max="30" value="3">
+            <button id="create-solver-inputs-btn">Set Grid</button>
         </div>
-        
-        <div id="solver-input-wrapper">
-            <div id="solver-input-container">
-                <div class="corner"></div>
-                <div class="solver-col-clues"></div>
-                <div class="solver-row-clues"></div>
-                <div id="solver-preview-grid"></div>
-            </div>
+        <div id="solver-input-area">
+            <!-- clue inputs will be generated here -->
         </div>
-
-        <div id="solve-status"></div>
-
         <div class="button-group">
-            <button id="solve-puzzle-btn" class="btn btn-primary">💡 Solve Puzzle</button>
-            <button id="save-solver-clues-btn" class="btn btn-primary">💾 Save Solver Clues</button>
-            <button id="clear-solver-btn" class="btn btn-secondary">🧹 Clear Clues</button>
-            <button id="back-to-start-btn-solver" class="btn btn-secondary">↩️ Back to Start</button>
+            <button id="solve-puzzle-btn">Solve</button>
+            <button id="back-to-start-btn-solver">Back to Start</button>
+        </div>
+        <div class="game-area-wrapper">
+            <div id="solver-board-container" class="game-container" style="visibility: hidden;">
+                <div class="corner"></div>
+                <div class="col-clues"></div>
+                <div class="row-clues"></div>
+                <div id="solver-board"></div>
+            </div>
         </div>
     </div>
 
-    <script>
-        const startScreen = document.getElementById('start-screen');
-        const gameScreen = document.getElementById('game-screen');
-        const editorScreen = document.getElementById('editor-screen');
-        const solverScreen = document.getElementById('solver-screen');
-
-        const createPuzzleBtn = document.getElementById('create-puzzle-btn');
-        const loadPuzzleInput = document.getElementById('load-puzzle-input');
+            <script>
+                const startScreen = document.getElementById('start-screen');
+                const gameScreen = document.getElementById('game-screen');
+                const editorScreen = document.getElementById('editor-screen');
         
-        const startNewGameBtn = document.getElementById('start-new-game-btn');
-        const puzzleWidthInput = document.getElementById('puzzle-width-input');
-        const puzzleHeightInput = document.getElementById('puzzle-height-input');
+                const createPuzzleBtn = document.getElementById('create-puzzle-btn');
+                const loadPuzzleInput = document.getElementById('load-puzzle-input');
+                
+                const startNewGameBtn = document.getElementById('start-new-game-btn');
+                const puzzleWidthInput = document.getElementById('puzzle-width-input');
+                const puzzleHeightInput = document.getElementById('puzzle-height-input');
+        
+                const backToStartBtnGame = document.getElementById('back-to-start-btn-game');
+                const backToStartBtnEditor = document.getElementById('back-to-start-btn-editor');
+        
+                const createGridBtn = document.getElementById('create-grid-btn');
+                const boardWidthInput = document.getElementById('board-width');
+                const boardHeightInput = document.getElementById('board-height');
+                const editorBoard = document.getElementById('editor-board');
+                const rowCluesEditor = document.querySelector('.row-clues-editor');
+                const colCluesEditor = document.querySelector('.col-clues-editor');
+                const savePuzzleBtn = document.getElementById('save-puzzle-btn');
+                const testPuzzleBtn = document.getElementById('test-puzzle-btn');
+                const validatePuzzleBtn = document.getElementById('validate-puzzle-btn');
+        
+                const gameBoard = document.getElementById('game-board');
+                const rowCluesGame = document.querySelector('.row-clues');
+                const colCluesGame = document.querySelector('.col-clues');
 
-        const backToStartBtnGame = document.getElementById('back-to-start-btn-game');
-        const backToStartBtnEditor = document.getElementById('back-to-start-btn-editor');
-        const backToStartBtnSolver = document.getElementById('back-to-start-btn-solver');
+                // --- Solver Elements ---
+                const solverScreen = document.getElementById('solver-screen');
+                const solverBtn = document.getElementById('solver-btn');
+                const backToStartBtnSolver = document.getElementById('back-to-start-btn-solver');
+                const solverWidthInput = document.getElementById('solver-width');
+                const solverHeightInput = document.getElementById('solver-height');
+                const createSolverInputsBtn = document.getElementById('create-solver-inputs-btn');
+                const solverInputArea = document.getElementById('solver-input-area');
+                const solvePuzzleBtn = document.getElementById('solve-puzzle-btn');
+                const solverResultsContainer = document.getElementById('solver-results-container');
+                const solverMaxRowCluesInput = document.getElementById('solver-max-row-clues');
+                const solverMaxColCluesInput = document.getElementById('solver-max-col-clues');
 
-        const createGridBtn = document.getElementById('create-grid-btn');
-        const boardWidthInput = document.getElementById('board-width');
-        const boardHeightInput = document.getElementById('board-height');
-        const editorBoard = document.getElementById('editor-board');
-        const rowCluesEditor = document.querySelector('.row-clues-editor');
-        const colCluesEditor = document.querySelector('.col-clues-editor');
-        const savePuzzleBtn = document.getElementById('save-puzzle-btn');
-        const testPuzzleBtn = document.getElementById('test-puzzle-btn');
-        const validatePuzzleBtn = document.getElementById('validate-puzzle-btn');
+                function createSolverInputs() {
+                    const width = parseInt(solverWidthInput.value);
+                    const height = parseInt(solverHeightInput.value);
+                    const maxRow = parseInt(solverMaxRowCluesInput.value);
+                    const maxCol = parseInt(solverMaxColCluesInput.value);
 
-        const gameBoard = document.getElementById('game-board');
-        const rowCluesGame = document.querySelector('.row-clues');
-        const colCluesGame = document.querySelector('.col-clues');
-
-        // Solver Elements
-        const solverBtn = document.getElementById('solver-btn');
-        const solverWidthInput = document.getElementById('solver-width');
-        const solverHeightInput = document.getElementById('solver-height');
-        const createSolverGridBtn = document.getElementById('create-solver-grid-btn');
-        const solverInputContainer = document.getElementById('solver-input-container');
-        const solverPreviewGrid = document.getElementById('solver-preview-grid');
-        const solverColClues = document.querySelector('.solver-col-clues');
-        const solverRowClues = document.querySelector('.solver-row-clues');
-        const solvePuzzleBtn = document.getElementById('solve-puzzle-btn');
-        const saveSolverCluesBtn = document.getElementById('save-solver-clues-btn');
-        const clearSolverBtn = document.getElementById('clear-solver-btn');
-        const solveStatus = document.getElementById('solve-status');
-
-        let editorSolution = [];
-        let editorManualClues = { rowClues: [], colClues: [] };
-        let gameSolution = [];
-        let currentPuzzle = {};
-        let isDragging = false;
-        let dragAction = null;
-        let isEditorDragging = false;
-        let editorDragMode = null;
-
-        window.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                dragAction = null;
-                checkWin();
-            }
-            if (isEditorDragging) {
-                isEditorDragging = false;
-                editorDragMode = null;
-                if(editorSolution.length > 0) {
-                    const width = editorSolution[0].length;
-                    const height = editorSolution.length;
-                    updateEditorClues(width, height);
-                }
-            }
-        });
-
-        // Navigation
-        function showScreen(screen) {
-            startScreen.classList.remove('active');
-            gameScreen.classList.remove('active');
-            editorScreen.classList.remove('active');
-            solverScreen.classList.remove('active');
-            screen.classList.add('active');
-        }
-
-        solverBtn.addEventListener('click', () => {
-            showScreen(solverScreen);
-            createSolverGrid(); // Ensure grid is created/reset when entering solver
-        });
-        backToStartBtnSolver.addEventListener('click', () => showScreen(startScreen));
-
-        startNewGameBtn.addEventListener('click', () => {
-            const width = parseInt(puzzleWidthInput.value);
-            const height = parseInt(puzzleHeightInput.value);
-            
-            if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
-                const solution = Array.from({ length: height }, () => 
-                    Array.from({ length: width }, () => Math.round(Math.random()))
-                );
-                const clues = calculateClues(solution, width, height);
-                const puzzle = {
-                    name: "Random Puzzle",
-                    width: width,
-                    height: height,
-                    solution: solution,
-                    clues: clues
-                };
-                startGame(puzzle);
-            } else {
-                alert('Board width and height must be between 4 and 20.');
-            }
-        });
-
-        createPuzzleBtn.addEventListener('click', () => showScreen(editorScreen));
-        loadPuzzleInput.addEventListener('change', loadPuzzle);
-        backToStartBtnGame.addEventListener('click', () => showScreen(startScreen));
-        backToStartBtnEditor.addEventListener('click', () => showScreen(startScreen));
-
-        // Solver Grid Creation
-        function createSolverGrid(initialClues = null) {
-            const width = parseInt(solverWidthInput.value);
-            const height = parseInt(solverHeightInput.value);
-
-            if (width < 3 || height < 3 || width > 20 || height > 20) {
-                alert('Dimensions must be between 3 and 20');
-                return;
-            }
-
-            solverInputContainer.classList.add('no-transition');
-            solverInputContainer.style.transform = 'scale(0)';
-
-            setTimeout(() => {
-                solverInputContainer.dataset.puzzleWidth = width;
-                solverInputContainer.dataset.puzzleHeight = height;
-
-                // Clear existing
-                solverColClues.innerHTML = '';
-                solverRowClues.innerHTML = '';
-                solverPreviewGrid.innerHTML = '';
-                solverPreviewGrid.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
-
-                // Create column clue cells (max 5 clues per column)
-                for (let c = 0; c < width; c++) {
-                    const colDiv = document.createElement('div');
-                    colDiv.className = 'solver-clue-col';
-                    for (let i = 0; i < 5; i++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'solver-clue-cell';
-                        cell.contentEditable = true;
-                        cell.textContent = initialClues && initialClues.colClues[c] && initialClues.colClues[c][i] !== undefined ? initialClues.colClues[c][i] : '';
-                        cell.dataset.col = c;
-                        cell.dataset.idx = i;
-                        cell.dataset.type = 'col';
-                        
-                        cell.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                cell.blur();
-                            }
-                            // Only allow numbers and navigation keys
-                            if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
-                                e.preventDefault();
-                            }
-                        });
-                        
-                        cell.addEventListener('input', () => {
-                            // Remove any non-digit characters
-                            cell.textContent = cell.textContent.replace(/\D/g, '');
-                        });
-                        
-                        cell.addEventListener('focus', () => {
-                            // Select all text on focus for easy replacement
-                            const range = document.createRange();
-                            range.selectNodeContents(cell);
-                            const sel = window.getSelection();
-                            sel.removeAllRanges();
-                            sel.addRange(range);
-                        });
-                        
-                        colDiv.appendChild(cell);
+                    if (width < 1 || height < 1 || maxRow < 1 || maxCol < 1 ) {
+                        alert('Dimensions and max clues must be at least 1.');
+                        return;
                     }
-                    solverColClues.appendChild(colDiv);
-                }
 
-                // Create row clue cells (max 5 clues per row)
-                for (let r = 0; r < height; r++) {
-                    const rowDiv = document.createElement('div');
-                    rowDiv.className = 'solver-clue-row';
-                    for (let i = 0; i < 5; i++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'solver-clue-cell';
-                        cell.contentEditable = true;
-                        cell.textContent = initialClues && initialClues.rowClues[r] && initialClues.rowClues[r][i] !== undefined ? initialClues.rowClues[r][i] : '';
-                        cell.dataset.row = r;
-                        cell.dataset.idx = i;
-                        cell.dataset.type = 'row';
-                        
-                        cell.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                cell.blur();
-                            }
-                            if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
-                                e.preventDefault();
-                            }
-                        });
-                        
-                        cell.addEventListener('input', () => {
-                            cell.textContent = cell.textContent.replace(/\D/g, '');
-                        });
-                        
-                        cell.addEventListener('focus', () => {
-                            const range = document.createRange();
-                            range.selectNodeContents(cell);
-                            const sel = window.getSelection();
-                            sel.removeAllRanges();
-                            sel.addRange(range);
-                        });
-                        
-                        rowDiv.appendChild(cell);
-                    }
-                    solverRowClues.appendChild(rowDiv);
-                }
+                    solverInputArea.innerHTML = `
+                        <div class="solver-corner" style="grid-area: 1 / 1;"></div>
+                        <div class="solver-col-clues-wrapper" style="grid-area: 1 / 2;"></div>
+                        <div class="solver-row-clues-wrapper" style="grid-area: 2 / 1;"></div>
+                        <div class="solver-dummy-grid" style="grid-area: 2 / 2;"></div>
+                    `;
+                    
+                    const colWrapper = solverInputArea.querySelector('.solver-col-clues-wrapper');
+                    const rowWrapper = solverInputArea.querySelector('.solver-row-clues-wrapper');
+                    const dummyGrid = solverInputArea.querySelector('.solver-dummy-grid');
 
-                // Create preview grid
-                for (let r = 0; r < height; r++) {
+                    // Style the wrappers
+                    colWrapper.style.gridTemplateColumns = `repeat(${width}, 30px)`;
+                    rowWrapper.style.gridTemplateRows = `repeat(${height}, 30px)`;
+                    
+                    // Generate column clue inputs
                     for (let c = 0; c < width; c++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'preview-cell';
-                        cell.dataset.row = r;
-                        cell.dataset.col = c;
-                        solverPreviewGrid.appendChild(cell);
+                        const group = document.createElement('div');
+                        group.className = 'solver-col-clue-group';
+                        for (let r = 0; r < maxCol; r++) {
+                             const clueInput = document.createElement('input');
+                            clueInput.type = 'number';
+                            clueInput.className = 'solver-clue-input';
+                            clueInput.dataset.type = 'col';
+                            clueInput.dataset.col = c;
+                            group.appendChild(clueInput);
+                        }
+                        colWrapper.appendChild(group);
+                    }
+
+                    // Generate row clue inputs
+                     for (let r = 0; r < height; r++) {
+                        const group = document.createElement('div');
+                        group.className = 'solver-row-clue-group';
+                        for (let c = 0; c < maxRow; c++) {
+                            const clueInput = document.createElement('input');
+                            clueInput.type = 'number';
+                            clueInput.className = 'solver-clue-input';
+                            clueInput.dataset.type = 'row';
+                            clueInput.dataset.row = r;
+                            group.appendChild(clueInput);
+                        }
+                        rowWrapper.appendChild(group);
+                    }
+
+                    // Style and fill the dummy grid for visual alignment
+                    dummyGrid.style.display = 'grid';
+                    dummyGrid.style.gridTemplateColumns = `repeat(${width}, 30px)`;
+                    dummyGrid.style.gridTemplateRows = `repeat(${height}, 30px)`;
+                    dummyGrid.style.gap = '2px';
+                     for (let i = 0; i < width * height; i++) {
+                        const emptyCell = document.createElement('div');
+                        emptyCell.style.background = '#f0f0f0';
+                        dummyGrid.appendChild(emptyCell);
                     }
                 }
+                createSolverInputsBtn.addEventListener('click', createSolverInputs);
 
-                solveStatus.style.display = 'none';
+                // --- Solver Logic ---
 
-                solverInputContainer.offsetHeight;
-                solverInputContainer.classList.remove('no-transition');
-                scaleBoard('solver-input-container');
-            }, 100);
-        }
+                function parseClues() {
+                    const width = parseInt(solverWidthInput.value);
+                    const height = parseInt(solverHeightInput.value);
+                    let rowClues = Array.from({ length: height }, () => []);
+                    let colClues = Array.from({ length: width }, () => []);
 
-        createSolverGridBtn.addEventListener('click', () => createSolverGrid());
-        
-        clearSolverBtn.addEventListener('click', () => {
-            const cells = document.querySelectorAll('.solver-clue-cell');
-            cells.forEach(cell => cell.textContent = '');
-            const previewCells = document.querySelectorAll('.preview-cell');
-            previewCells.forEach(cell => cell.classList.remove('filled'));
-            solveStatus.style.display = 'none';
-        });
+                    const rowGroups = solverInputArea.querySelectorAll('.solver-row-clue-group');
+                    rowGroups.forEach((group, r) => {
+                        const inputs = group.querySelectorAll('input');
+                        inputs.forEach(input => {
+                             const value = parseInt(input.value);
+                            if (!isNaN(value) && value > 0) {
+                                rowClues[r].push(value);
+                            }
+                        });
+                    });
 
-        // Parse clues from solver inputs
-        function parseSolverClues() {
-            const width = parseInt(solverWidthInput.value);
-            const height = parseInt(solverHeightInput.value);
-            
-            const rowClues = Array.from({ length: height }, () => []);
-            const colClues = Array.from({ length: width }, () => []);
+                    const colGroups = solverInputArea.querySelectorAll('.solver-col-clue-group');
+                    colGroups.forEach((group, c) => {
+                        const inputs = group.querySelectorAll('input');
+                        inputs.forEach(input => {
+                            const value = parseInt(input.value);
+                            if (!isNaN(value) && value > 0) {
+                                colClues[c].push(value);
+                            }
+                        });
+                    });
 
-            // Parse row clues
-            const rowDivs = solverRowClues.querySelectorAll('.solver-clue-row');
-            rowDivs.forEach((rowDiv, r) => {
-                const cells = rowDiv.querySelectorAll('.solver-clue-cell');
-                const row = [];
-                cells.forEach(cell => {
-                    const val = parseInt(cell.textContent);
-                    if (!isNaN(val) && val > 0) {
-                        row.push(val);
-                    }
-                });
-                rowClues[r] = row;
-            });
+                    // If a row/col has no clues, it should be [0]
+                    rowClues = rowClues.map(clueSet => clueSet.length > 0 ? clueSet : [0]);
+                    colClues = colClues.map(clueSet => clueSet.length > 0 ? clueSet : [0]);
 
-            // Parse column clues
-            const colDivs = solverColClues.querySelectorAll('.solver-clue-col');
-            colDivs.forEach((colDiv, c) => {
-                const cells = colDiv.querySelectorAll('.solver-clue-cell');
-                const col = [];
-                cells.forEach(cell => {
-                    const val = parseInt(cell.textContent);
-                    if (!isNaN(val) && val > 0) {
-                        col.push(val);
-                    }
-                });
-                colClues[c] = col;
-            });
-
-            return { rowClues, colClues, width, height };
-        }
-
-        // Save Solver Clues function
-        function saveSolverClues() {
-            const { rowClues, colClues, width, height } = parseSolverClues();
-            const solverPuzzle = {
-                name: "Solver Clues",
-                width: width,
-                height: height,
-                rowClues: rowClues,
-                colClues: colClues
-            };
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(solverPuzzle));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "solver_clues.nonogramsolution");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        saveSolverCluesBtn.addEventListener('click', saveSolverClues);
-
-        // Advanced Nonogram Solver
-        // Helper to apply propagation to a single line (row or column)
-        function propagateLine(line, clues, length) {
-            function generateLinePossibilities(cluesArr, lineLength) {
-                const possibilities = [];
-            
-                function backtrackGenerate(clueIdx, currentLine, currentPos) {
-                    if (clueIdx === cluesArr.length) {
-                        // Fill remaining with empty if not full
-                        while (currentLine.length < lineLength) {
-                            currentLine.push(-1);
-                        }
-                        possibilities.push([...currentLine]);
-                        return;
-                    }
-            
-                    const clue = cluesArr[clueIdx];
-                    // Handle [0] clue specially (entire line is empty)
-                    if (clue === 0 && cluesArr.length === 1) {
-                        possibilities.push(Array(lineLength).fill(-1));
-                        return;
-                    } else if (clue === 0) { // Skip 0 if not the only clue
-                         backtrackGenerate(clueIdx + 1, [...currentLine], currentPos);
-                         return;
-                    }
-            
-                    const remainingCluesSum = cluesArr.slice(clueIdx + 1).reduce((a, b) => a + b, 0);
-                    const minSpaceNeeded = remainingCluesSum + (cluesArr.length - clueIdx - 1); // Sum of remaining clues + spaces between them
-                    const maxStart = lineLength - clue - minSpaceNeeded;
-            
-                    for (let start = currentPos; start <= maxStart; start++) {
-                        const nextLine = [...currentLine];
-                        // Add empty cells up to 'start' position
-                        for (let i = nextLine.length; i < start; i++) {
-                            nextLine.push(-1);
-                        }
-                        // Add filled cells for the current clue
-                        for (let i = 0; i < clue; i++) {
-                            nextLine.push(1);
-                        }
-                        // Add a separator empty cell if it's not the last clue
-                        if (clueIdx < cluesArr.length - 1) {
-                            nextLine.push(-1);
-                        }
-                        backtrackGenerate(clueIdx + 1, nextLine, start + clue + 1);
-                    }
+                    return { rowClues, colClues, width, height };
                 }
-            
-                if (cluesArr.length === 0 || (cluesArr.length === 1 && cluesArr[0] === 0)) {
-                    return [Array(lineLength).fill(-1)];
-                }
-            
-                backtrackGenerate(0, [], 0);
-                return possibilities;
-            }
-            
-            // Filter possibilities based on known cells in the current line
-            function filterPossibilities(possibilities, knownLine) {
-                return possibilities.filter(poss => {
-                    if (poss.length !== knownLine.length) {
-                        console.error("Possibility length mismatch!", poss, knownLine);
-                        return false;
-                    }
-                    for (let i = 0; i < knownLine.length; i++) {
-                        // If a known cell conflicts with a possibility, filter it out
-                        if (knownLine[i] !== 0 && knownLine[i] !== poss[i]) {
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-            }
-            
-            // Generate all valid possibilities for this line based on clues
-            let possibilities = generateLinePossibilities(clues.filter(c => c > 0), length); // Filter out 0 for generation, handled later
 
-            // If the only clue is 0, then the line must be all empty
-            if (clues.length === 1 && clues[0] === 0) {
-                possibilities = [Array(length).fill(-1)];
-            }
-            
-            // Filter possibilities against the current state of the line
-            possibilities = filterPossibilities(possibilities, line);
-            
-            if (possibilities.length === 0) return { newLine: null, changed: false }; // Inconsistent state, no solutions
-            
-            const newLine = [...line];
-            let changed = false;
-            
-            for (let i = 0; i < length; i++) {
-                if (newLine[i] === 0) { // Only update unknown cells
-                    const allFilled = possibilities.every(p => p[i] === 1);
-                    const allEmpty = possibilities.every(p => p[i] === -1);
+                function displaySolvedGrid(grid, clues, width, height) {
+                    const container = document.getElementById('solver-board-container');
+                    const board = document.getElementById('solver-board');
+                    const rowCluesEl = container.querySelector('.row-clues');
+                    const colCluesEl = container.querySelector('.col-clues');
                     
-                    if (allFilled) {
-                        newLine[i] = 1;
-                        changed = true;
-                    } else if (allEmpty) {
-                        newLine[i] = -1;
-                        changed = true;
-                    }
-                }
-            }
-            return { newLine, changed, possibilitiesCount: possibilities.length };
-        }
+                    board.innerHTML = '';
+                    
+                    container.dataset.puzzleWidth = width;
+                    container.dataset.puzzleHeight = height;
+                    board.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
 
-        // Propagates known information on the grid as much as possible
-        function propagateGrid(grid, rowClues, colClues, width, height) {
-            let currentGrid = JSON.parse(JSON.stringify(grid)); // Deep copy
-            let changedGlobal = true;
-            let iterations = 0;
-            const maxIterations = 500;
-            
-            while (changedGlobal && iterations < maxIterations) {
-                changedGlobal = false;
-                iterations++;
-                
-                // Row propagation
-                for (let r = 0; r < height; r++) {
-                    const { newLine, changed } = propagateLine(currentGrid[r], rowClues[r], width);
-                    if (newLine === null) return null; // Inconsistent state
-                    
-                    if (changed) {
-                        currentGrid[r] = newLine;
-                        changedGlobal = true;
+                    // Display the clues
+                    displayClues(clues.rowClues, clues.colClues, rowCluesEl, colCluesEl, width, height, false);
+
+                    // Display the solution grid
+                    for (let r = 0; r < height; r++) {
+                        for (let c = 0; c < width; c++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'cell';
+                            if (grid[r][c] === 1) {
+                                cell.classList.add('filled');
+                            }
+                            board.appendChild(cell);
+                        }
                     }
-                }
-                
-                // Column propagation
-                for (let c = 0; c < width; c++) {
-                    const col = currentGrid.map(row => row[c]);
-                    const { newLine, changed } = propagateLine(col, colClues[c], height);
-                    if (newLine === null) return null; // Inconsistent state
                     
-                    if (changed) {
+                    container.style.visibility = 'visible';
+                    scaleBoard('solver-board-container');
+                }
+
+                function solveNonogram(rowClues, colClues, width, height) {
+                    // Grid states: 1 for filled, 0 for empty, -1 for unknown
+                    let grid = Array.from({ length: height }, () => Array(width).fill(-1));
+                    let changedInLoop = true;
+
+                    // Simple deterministic line solver (based on overlap)
+                    function solveLine(line, clues) {
+                        const n = line.length;
+                        const k = clues.length;
+                        if (k === 1 && clues[0] === 0) return line.map(() => 0); // Line is all empty
+
+                        let newLine = [...line];
+                        const totalClueSum = clues.reduce((sum, val) => sum + val, 0);
+                        const minLength = totalClueSum + k - 1;
+                        const slack = n - minLength;
+
+                        // This is a simplified logic and won't solve all puzzles
+                        // It only fills cells that are certain based on overlap from one side
+                        let currentPos = 0;
+                        for(let i=0; i<k; i++) {
+                            const clue = clues[i];
+                            if (clue > slack) {
+                                for (let j = slack; j < clue; j++) {
+                                    newLine[currentPos + j] = 1;
+                                }
+                            }
+                            currentPos += clue + 1;
+                        }
+                        return newLine;
+                    }
+                    
+                    let iterations = 0;
+                    while(changedInLoop && iterations < 50) { // Add iteration limit to prevent infinite loops
+                        changedInLoop = false;
+
+                        // Process rows
                         for (let r = 0; r < height; r++) {
-                            currentGrid[r][c] = newLine[r];
-                        }
-                        changedGlobal = true;
-                    }
-                }
-            }
-            return currentGrid;
-        }
-
-        // Main Nonogram Solver with Backtracking
-        function solveNonogram(rowClues, colClues, width, height) {
-            let initialGrid = Array.from({ length: height }, () => Array(width).fill(0)); // 0 for unknown, 1 for filled, -1 for empty
-
-            function solveRecursive(currentGrid) {
-                // 1. Propagation Phase
-                let propagatedGrid = propagateGrid(currentGrid, rowClues, colClues, width, height);
-
-                if (propagatedGrid === null) {
-                    return null; // Inconsistent state, this path is invalid
-                }
-
-                // 2. Check for Completion
-                let isSolved = true;
-                let bestGuessCell = null;
-                let minPossibilities = Infinity;
-
-                for (let r = 0; r < height; r++) {
-                    for (let c = 0; c < width; c++) {
-                        if (propagatedGrid[r][c] === 0) {
-                            isSolved = false;
-                            
-                            // Find cell with fewest possibilities for guessing
-                            const rowPoss = propagateLine(propagatedGrid[r], rowClues[r], width).possibilitiesCount;
-                            const colPoss = propagateLine(propagatedGrid.map(row => row[c]), colClues[c], height).possibilitiesCount;
-                            const combinedPoss = rowPoss * colPoss; // Simple heuristic
-
-                            if (combinedPoss < minPossibilities) {
-                                minPossibilities = combinedPoss;
-                                bestGuessCell = { r, c };
+                            const originalLine = grid[r];
+                            const solvedLine = solveLine(originalLine, rowClues[r]);
+                            for (let c = 0; c < width; c++) {
+                                if (grid[r][c] === -1 && solvedLine[c] !== -1) {
+                                    grid[r][c] = solvedLine[c];
+                                    changedInLoop = true;
+                                }
                             }
                         }
+
+                        // Process columns
+                        for (let c = 0; c < width; c++) {
+                            const originalLine = grid.map(row => row[c]);
+                            const solvedLine = solveLine(originalLine, colClues[c]);
+                             for (let r = 0; r < height; r++) {
+                                if (grid[r][c] === -1 && solvedLine[r] !== -1) {
+                                    grid[r][c] = solvedLine[r];
+                                    changedInLoop = true;
+                                }
+                            }
+                        }
+                        iterations++;
                     }
+
+                    // For now, treat any remaining unknown cells as empty
+                    grid = grid.map(row => row.map(cell => cell === 1 ? 1 : 0));
+                    return grid;
                 }
 
-                if (isSolved) {
-                    // Convert -1 (empty) to 0 for final solution display
-                    return propagatedGrid.map(row => row.map(cell => cell === 1 ? 1 : 0));
-                }
 
-                // 3. Backtracking - Make a guess
-                if (bestGuessCell === null) {
-                    // This should not happen if not solved, but as a safeguard
-                    return null;
-                }
-
-                const { r, c } = bestGuessCell;
-
-                // Try filling the cell (1)
-                let guessGridFilled = JSON.parse(JSON.stringify(propagatedGrid));
-                guessGridFilled[r][c] = 1;
-                let solution = solveRecursive(guessGridFilled);
-                if (solution !== null) {
-                    return solution;
-                }
-
-                // Try emptying the cell (-1)
-                let guessGridEmpty = JSON.parse(JSON.stringify(propagatedGrid));
-                guessGridEmpty[r][c] = -1;
-                solution = solveRecursive(guessGridEmpty);
-                if (solution !== null) {
-                    return solution;
-                }
-
-                // No solution found from this branch
-                return null;
-            }
-
-            return solveRecursive(initialGrid);
-        }
-
-        // Solve button handler
-        solvePuzzleBtn.addEventListener('click', () => {
-            solveStatus.className = '';
-            solveStatus.textContent = 'Solving puzzle...';
-            solveStatus.classList.add('solving');
-            
-            setTimeout(() => {
-                try {
-                    const { rowClues, colClues, width, height } = parseSolverClues();
-
-                    // Basic validation for empty clues
-                    const allRowCluesEmpty = rowClues.every(rClue => rClue.length === 0);
-                    const allColCluesEmpty = colClues.every(cClue => cClue.length === 0);
-                    if (allRowCluesEmpty && allColCluesEmpty) {
-                        solveStatus.className = '';
-                        solveStatus.textContent = 'Please enter some clues to solve the puzzle.';
-                        solveStatus.classList.add('error');
+                solvePuzzleBtn.addEventListener('click', () => {
+                    const { rowClues, colClues, width, height } = parseClues();
+                    
+                    if (!rowClues || !colClues || rowClues.length !== height || colClues.length !== width) {
+                        alert('Please fill in all clues for the specified grid dimensions.');
                         return;
                     }
-                    
+
                     const solution = solveNonogram(rowClues, colClues, width, height);
+                    displaySolvedGrid(solution, width, height);
+                });
+        
+                let editorSolution = [];
+                let editorManualClues = { rowClues: [], colClues: [] };
+                let gameSolution = [];
+                let currentPuzzle = {};
+                let isDragging = false;
+                let dragAction = null; // 'toggleFill', 'toggleCross'
+                let isEditorDragging = false;
+                let editorDragMode = null; // 'fill', 'erase'
+        
+                // --- Global Mouse Up Listener ---
+                window.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        dragAction = null;
+                        checkWin(); // Check for win only when drag is complete
+                    }
+                    if (isEditorDragging) {
+                        isEditorDragging = false;
+                        editorDragMode = null;
+                        // Update clues when drag is complete
+                        if(editorSolution.length > 0) {
+                            const width = editorSolution[0].length;
+                            const height = editorSolution.length;
+                            updateEditorClues(width, height);
+                        }
+                    }
+                });
+
+                // --- Navigation ---
+                function showScreen(screen) {
+                    startScreen.classList.remove('active');
+                    gameScreen.classList.remove('active');
+                    editorScreen.classList.remove('active');
+                    solverScreen.classList.remove('active');
+                    screen.classList.add('active');
+                }
+        
+                solverBtn.addEventListener('click', () => showScreen(solverScreen));
+                backToStartBtnSolver.addEventListener('click', () => showScreen(startScreen));
+        
+                startNewGameBtn.addEventListener('click', () => {
+                    const width = parseInt(puzzleWidthInput.value);
+                    const height = parseInt(puzzleHeightInput.value);
                     
-                    if (solution === null) {
-                        solveStatus.className = '';
-                        solveStatus.textContent = 'No solution found for these clues. The puzzle might be invalid or too complex for the current solver logic.';
-                        solveStatus.classList.add('error');
-                        displaySolutionInGrid(Array.from({ length: height }, () => Array(width).fill(0)), width, height); // Clear grid
+                    if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
+                        const solution = Array.from({ length: height }, () => 
+                            Array.from({ length: width }, () => Math.round(Math.random()))
+                        );
+                        const clues = calculateClues(solution, width, height);
+                        const puzzle = {
+                            name: "Random Puzzle",
+                            width: width,
+                            height: height,
+                            solution: solution,
+                            clues: clues
+                        };
+                        startGame(puzzle);
+                    } else {
+                        alert('Board width and height must be between 4 and 20.');
+                    }
+                });
+        
+                createPuzzleBtn.addEventListener('click', () => showScreen(editorScreen));
+                loadPuzzleInput.addEventListener('change', loadPuzzle);
+                backToStartBtnGame.addEventListener('click', () => showScreen(startScreen));
+                backToStartBtnEditor.addEventListener('click', () => showScreen(startScreen));
+        
+        
+                // --- Editor ---
+                createGridBtn.addEventListener('click', () => {
+                    const width = parseInt(boardWidthInput.value);
+                    const height = parseInt(boardHeightInput.value);
+                    if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
+                        createEditorGrid(width, height);
+                    } else {
+                        alert('Board width and height must be between 4 and 20.');
+                    }
+                });
+        
+                function applyEditorAction(cell, mode) {
+                    if (!cell.classList.contains('cell')) return;
+                    const r = parseInt(cell.dataset.row);
+                    const c = parseInt(cell.dataset.col);
+                    if (isNaN(r) || isNaN(c)) return;
+
+                    const isFilled = editorSolution[r][c] === 1;
+
+                    if (mode === 'fill' && !isFilled) {
+                        editorSolution[r][c] = 1;
+                        cell.classList.add('filled');
+                        cell.classList.remove('crossed');
+                    } else if (mode === 'erase' && isFilled) {
+                        editorSolution[r][c] = 0;
+                        cell.classList.remove('filled');
+                    } else if (mode === 'cross') {
+                        if (isFilled) return;
+                        cell.classList.toggle('crossed');
+                    }
+                }
+
+                function createEditorGrid(width, height) {
+                    const editorContainer = document.getElementById('editor-container');
+                    
+                    // 1. Pre-emptively scale down without animation
+                    editorContainer.classList.add('no-transition');
+                    editorContainer.style.transform = 'translate(-50%, -50%) scale(0)';
+
+                    // Use a timeout to allow the browser to apply the above style before rebuilding the DOM
+                    setTimeout(() => {
+                        // 2. Rebuild the DOM while it's scaled down
+                        editorSolution = Array.from({ length: height }, () => Array(width).fill(0));
+                        editorBoard.innerHTML = '';
+                        editorBoard.addEventListener('contextmenu', e => e.preventDefault());
+                        editorContainer.dataset.puzzleWidth = width;
+                        editorContainer.dataset.puzzleHeight = height;
+                        editorBoard.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
+            
+                        for (let r = 0; r < height; r++) {
+                            for (let c = 0; c < width; c++) {
+                                const cell = document.createElement('div');
+                                cell.classList.add('cell');
+                                cell.dataset.row = r;
+                                cell.dataset.col = c;
+                                cell.addEventListener('mousedown', (e) => {
+                                    e.preventDefault();
+                                    isEditorDragging = true;
+                                    if (e.button === 0) { // Left click
+                                        editorDragMode = cell.classList.contains('filled') ? 'erase' : 'fill';
+                                    } else if (e.button === 2) { // Right click
+                                        editorDragMode = 'cross';
+                                    }
+                                    applyEditorAction(cell, editorDragMode);
+                                });
+                                cell.addEventListener('mouseover', () => {
+                                    if (isEditorDragging) {
+                                        applyEditorAction(cell, editorDragMode);
+                                    }
+                                });
+                                editorBoard.appendChild(cell);
+                            }
+                        }
+                        updateEditorClues(width, height);
+
+                        // 3. Force reflow to apply styles, then re-enable transitions
+                        editorContainer.offsetHeight; 
+                        editorContainer.classList.remove('no-transition');
+
+                        // 4. Trigger the final scaling, which will now animate
+                        scaleBoard('editor-container');
+                    }, 100); // A small delay is safer for the pre-emptive scale
+                }
+        
+                function updateEditorClues(width, height) {
+                    const clues = calculateClues(editorSolution, width, height);
+                    editorManualClues = clues; // Keep manual clues in sync initially
+                    displayClues(clues.rowClues, clues.colClues, rowCluesEditor, colCluesEditor, width, height, true);
+                }
+                
+                savePuzzleBtn.addEventListener('click', savePuzzle);
+                testPuzzleBtn.addEventListener('click', () => {
+                    const height = editorSolution.length;
+                    if (height > 0) {
+                        const width = editorSolution[0].length;
+                         const puzzle = {
+                            name: "Custom Puzzle",
+                            width: width,
+                            height: height,
+                            solution: editorSolution, // The drawn grid is the solution
+                            clues: editorManualClues // The manually entered clues are for the game
+                        };
+                        startGame(puzzle);
+                    }
+                });
+                
+                validatePuzzleBtn.addEventListener('click', validatePuzzle);
+        
+                function validatePuzzle() {
+                    if (editorSolution.length === 0) {
+                        alert("Create a grid first!");
                         return;
                     }
-                    
-                    // The new solveNonogram should return a complete solution or null
-                    // So, no need for isComplete check here, just display solution
-                    displaySolutionInGrid(solution, width, height);
-                    
-                    solveStatus.className = '';
-                    solveStatus.textContent = '✓ Puzzle solved successfully!';
-                    solveStatus.classList.add('success');
-                    
-                } catch (error) {
-                    solveStatus.className = '';
-                    solveStatus.textContent = 'Error during solving: ' + error.message;
-                    solveStatus.classList.add('error');
-                    displaySolutionInGrid(Array.from({ length: height }, () => Array(width).fill(0)), width, height); // Clear grid on error
-                }
-            }, 100);
-        });
+                    const height = editorSolution.length;
+                    const width = editorSolution[0].length;
 
-        function displaySolutionInGrid(grid, width, height) {
-            const previewCells = solverPreviewGrid.querySelectorAll('.preview-cell');
-            
-            for (let r = 0; r < height; r++) {
-                for (let c = 0; c < width; c++) {
-                    const idx = r * width + c;
-                    const cell = previewCells[idx];
-                    if (grid[r][c] === 1) {
-                        cell.classList.add('filled');
+                    const calculatedClues = calculateClues(editorSolution, width, height);
+                    
+                    const isValid = JSON.stringify(calculatedClues.rowClues) === JSON.stringify(editorManualClues.rowClues) &&
+                                    JSON.stringify(calculatedClues.colClues) === JSON.stringify(editorManualClues.colClues);
+                    
+                    if (isValid) {
+                        alert('Validation Successful: The drawing matches the clues.');
                     } else {
-                        cell.classList.remove('filled');
+                        alert('Validation Failed: The drawing does not match the clues.');
                     }
                 }
-            }
-        }
+        
+        
+                // --- Game ---
+                function applyToggleAction(cell, action) {
+                    if (!cell.classList.contains('cell')) return;
+                    const r = parseInt(cell.dataset.row);
+                    const c = parseInt(cell.dataset.col);
+                    if (isNaN(r) || isNaN(c)) return;
 
-        function displaySolvedGrid(grid, clues, width, height) {
-            // This function is no longer needed - we display in the same grid
-        }
+                    if (action === 'toggleFill') {
+                        if (cell.classList.contains('crossed')) return; // Ignore crossed cells
+                        const isFilled = cell.classList.toggle('filled');
+                        gameSolution[r][c] = isFilled ? 1 : 0;
+                    } else if (action === 'toggleCross') {
+                        if (cell.classList.contains('filled')) return; // Ignore filled cells
+                        cell.classList.toggle('crossed');
+                        gameSolution[r][c] = 0; // Toggling a cross always results in a non-filled solution cell
+                    }
+                }
 
-        // Editor
-        createGridBtn.addEventListener('click', () => {
-            const width = parseInt(boardWidthInput.value);
-            const height = parseInt(boardHeightInput.value);
-            if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
-                createEditorGrid(width, height);
-            } else {
-                alert('Board width and height must be between 4 and 20.');
-            }
-        });
+                function startGame(puzzle) {
+                    currentPuzzle = puzzle;
+                    const width = puzzle.width || puzzle.size;
+                    const height = puzzle.height || puzzle.size;
+                    const gameContainer = document.getElementById('game-container');
 
-        function applyEditorAction(cell, mode) {
-            if (!cell.classList.contains('cell')) return;
-            const r = parseInt(cell.dataset.row);
-            const c = parseInt(cell.dataset.col);
-            if (isNaN(r) || isNaN(c)) return;
+                    // 1. Pre-emptively scale down without animation
+                    gameContainer.classList.add('no-transition');
+                    gameContainer.style.transform = 'translate(-50%, -50%) scale(0)';
+                    
+                    // Use a timeout to allow the browser to apply the above style before rebuilding the DOM
+                    setTimeout(() => {
+                        gameSolution = Array.from({ length: height }, () => Array(width).fill(0));
+                        
+                        gameBoard.innerHTML = '';
+                        gameBoard.addEventListener('contextmenu', e => e.preventDefault()); // Prevent context menu on the whole board
+                        gameContainer.dataset.puzzleWidth = width;
+                        gameContainer.dataset.puzzleHeight = height;
 
-            const isFilled = editorSolution[r][c] === 1;
-
-            if (mode === 'fill' && !isFilled) {
-                editorSolution[r][c] = 1;
-                cell.classList.add('filled');
-            } else if (mode === 'erase' && isFilled) {
-                editorSolution[r][c] = 0;
-                cell.classList.remove('filled');
-            }
-        }
-
-        function createEditorGrid(width, height) {
-            const editorContainer = document.getElementById('editor-container');
+                        gameBoard.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
             
-            editorContainer.classList.add('no-transition');
-            editorContainer.style.transform = 'scale(0)';
+                        for (let r = 0; r < height; r++) {
+                            for (let c = 0; c < width; c++) {
+                                const cell = document.createElement('div');
+                                cell.classList.add('cell');
+                                cell.dataset.row = r;
+                                cell.dataset.col = c;
+            
+                                cell.addEventListener('mousedown', (e) => {
+                                    e.preventDefault();
+                                    isDragging = true;
+                                    if (e.button === 0) { // Left click
+                                        dragAction = 'toggleFill';
+                                    } else if (e.button === 2) { // Right click
+                                        dragAction = 'toggleCross';
+                                    }
+                                    applyToggleAction(cell, dragAction);
+                                });
 
-            setTimeout(() => {
-                editorSolution = Array.from({ length: height }, () => Array(width).fill(0));
-                editorBoard.innerHTML = '';
-                editorBoard.addEventListener('contextmenu', e => e.preventDefault());
-                editorContainer.dataset.puzzleWidth = width;
-                editorContainer.dataset.puzzleHeight = height;
-                editorBoard.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
-    
-                for (let r = 0; r < height; r++) {
-                    for (let c = 0; c < width; c++) {
-                        const cell = document.createElement('div');
-                        cell.classList.add('cell');
-                        cell.dataset.row = r;
-                        cell.dataset.col = c;
-                        cell.addEventListener('mousedown', (e) => {
-                            e.preventDefault();
-                            isEditorDragging = true;
-                            editorDragMode = cell.classList.contains('filled') ? 'erase' : 'fill';
-                            applyEditorAction(cell, editorDragMode);
-                        });
-                        cell.addEventListener('mouseover', () => {
-                            if (isEditorDragging) {
-                                applyEditorAction(cell, editorDragMode);
+                                cell.addEventListener('mouseover', () => {
+                                    if (isDragging) {
+                                        applyToggleAction(cell, dragAction);
+                                    }
+                                });
+                                gameBoard.appendChild(cell);
                             }
-                        });
-                        editorBoard.appendChild(cell);
-                    }
-                }
-                updateEditorClues(width, height);
-
-                editorContainer.offsetHeight; 
-                editorContainer.classList.remove('no-transition');
-                scaleBoard('editor-container');
-            }, 100);
-        }
-
-        function updateEditorClues(width, height) {
-            const clues = calculateClues(editorSolution, width, height);
-            editorManualClues = clues;
-            displayClues(clues.rowClues, clues.colClues, rowCluesEditor, colCluesEditor, width, height, true);
-        }
-        
-        savePuzzleBtn.addEventListener('click', savePuzzle);
-        testPuzzleBtn.addEventListener('click', () => {
-            const height = editorSolution.length;
-            if (height > 0) {
-                const width = editorSolution[0].length;
-                const puzzle = {
-                    name: "Custom Puzzle",
-                    width: width,
-                    height: height,
-                    solution: editorSolution,
-                    clues: editorManualClues
-                };
-                startGame(puzzle);
-            }
-        });
-        
-        validatePuzzleBtn.addEventListener('click', validatePuzzle);
-
-        function validatePuzzle() {
-            if (editorSolution.length === 0) {
-                alert("Create a grid first!");
-                return;
-            }
-            const height = editorSolution.length;
-            const width = editorSolution[0].length;
-
-            const calculatedClues = calculateClues(editorSolution, width, height);
-            
-            const isValid = JSON.stringify(calculatedClues.rowClues) === JSON.stringify(editorManualClues.rowClues) &&
-                            JSON.stringify(calculatedClues.colClues) === JSON.stringify(editorManualClues.colClues);
-            
-            if (isValid) {
-                alert('Validation Successful: The drawing matches the clues.');
-            } else {
-                alert('Validation Failed: The drawing does not match the clues.');
-            }
-        }
-
-        // Game
-        function applyToggleAction(cell, action) {
-            if (!cell.classList.contains('cell')) return;
-            const r = parseInt(cell.dataset.row);
-            const c = parseInt(cell.dataset.col);
-            if (isNaN(r) || isNaN(c)) return;
-
-            if (action === 'toggleFill') {
-                if (cell.classList.contains('crossed')) return;
-                const isFilled = cell.classList.toggle('filled');
-                gameSolution[r][c] = isFilled ? 1 : 0;
-            } else if (action === 'toggleCross') {
-                if (cell.classList.contains('filled')) return;
-                cell.classList.toggle('crossed');
-                gameSolution[r][c] = 0;
-            }
-        }
-
-        function startGame(puzzle) {
-            currentPuzzle = puzzle;
-            const width = puzzle.width || puzzle.size;
-            const height = puzzle.height || puzzle.size;
-            const gameContainer = document.getElementById('game-container');
-
-            gameContainer.classList.add('no-transition');
-            gameContainer.style.transform = 'scale(0)';
-            
-            setTimeout(() => {
-                gameSolution = Array.from({ length: height }, () => Array(width).fill(0));
-                
-                gameBoard.innerHTML = '';
-                gameBoard.addEventListener('contextmenu', e => e.preventDefault());
-                gameContainer.dataset.puzzleWidth = width;
-                gameContainer.dataset.puzzleHeight = height;
-
-                gameBoard.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
-    
-                for (let r = 0; r < height; r++) {
-                    for (let c = 0; c < width; c++) {
-                        const cell = document.createElement('div');
-                        cell.classList.add('cell');
-                        cell.dataset.row = r;
-                        cell.dataset.col = c;
-    
-                        cell.addEventListener('mousedown', (e) => {
-                            e.preventDefault();
-                            isDragging = true;
-                            if (e.button === 0) {
-                                dragAction = 'toggleFill';
-                            } else if (e.button === 2) {
-                                dragAction = 'toggleCross';
-                            }
-                            applyToggleAction(cell, dragAction);
-                        });
-
-                        cell.addEventListener('mouseover', () => {
-                            if (isDragging) {
-                                applyToggleAction(cell, dragAction);
-                            }
-                        });
-                        gameBoard.appendChild(cell);
-                    }
-                }
-                
-                displayClues(puzzle.clues.rowClues, puzzle.clues.colClues, rowCluesGame, colCluesGame, width, height, false);
-                showScreen(gameScreen);
-
-                gameContainer.offsetHeight;
-                gameContainer.classList.remove('no-transition');
-                scaleBoard('game-container');
-            }, 100);
-        }
-        
-        function checkWin() {
-            const solution = currentPuzzle.solution;
-            if (!solution) return;
-            let isWin = true;
-            const height = solution.length;
-            const width = solution[0].length;
-            for (let r = 0; r < height; r++) {
-                for (let c = 0; c < width; c++) {
-                    if (solution[r][c] !== gameSolution[r][c]) {
-                        isWin = false;
-                        break;
-                    }
-                }
-                if (!isWin) break;
-            }
-
-            if (isWin) {
-                setTimeout(() => {
-                    alert('You Win!');
-                    showScreen(startScreen);
-                }, 100);
-            }
-        }
-
-        // Common Logic
-        function calculateClues(grid, width, height) {
-            const rowClues = [];
-            const colClues = [];
-
-            for (let r = 0; r < height; r++) {
-                rowClues.push(getCluesForLine(grid[r]));
-            }
-
-            for (let c = 0; c < width; c++) {
-                const col = grid.map(row => row[c]);
-                colClues.push(getCluesForLine(col));
-            }
-            return { rowClues, colClues };
-        }
-
-        function getCluesForLine(line) {
-            const clues = [];
-            let count = 0;
-            for (const cell of line) {
-                if (cell === 1) {
-                    count++;
-                } else if (count > 0) {
-                    clues.push(count);
-                    count = 0;
-                }
-            }
-            if (count > 0) {
-                clues.push(count);
-            }
-            return clues.length > 0 ? clues : [0];
-        }
-
-        function displayClues(rowClues, colClues, rowEl, colEl, width, height, isEditable) {
-            rowEl.innerHTML = '';
-            colEl.innerHTML = '';
-
-            for (let i = 0; i < height; i++) {
-                const rClue = document.createElement('div');
-                rClue.textContent = rowClues[i].join(' ') || '0';
-                if (isEditable) {
-                    rClue.contentEditable = true;
-                    rClue.addEventListener('blur', (e) => {
-                        editorManualClues.rowClues[i] = e.target.textContent.split(' ').map(s => parseInt(s, 10) || 0).filter(n => n > 0);
-                        if (editorManualClues.rowClues[i].length === 0) editorManualClues.rowClues[i] = [0];
-                    });
-                }
-                rowEl.appendChild(rClue);
-            }
-
-            for (let i = 0; i < width; i++) {
-                const cClue = document.createElement('div');
-                cClue.classList.add('clue-group');
-                if (isEditable) {
-                    const cClueInner = document.createElement('div');
-                    cClueInner.textContent = colClues[i].join('\n') || '0';
-                    cClueInner.contentEditable = true;
-                    cClueInner.style.whiteSpace = "pre";
-                    cClueInner.addEventListener('blur', (e) => {
-                        editorManualClues.colClues[i] = e.target.textContent.split('\n').map(s => parseInt(s, 10) || 0).filter(n => n > 0);
-                        if (editorManualClues.colClues[i].length === 0) editorManualClues.colClues[i] = [0];
-                    });
-                    cClue.appendChild(cClueInner);
-                } else {
-                    const cClueInner = document.createElement('div');
-                    cClueInner.textContent = colClues[i].join('\n');
-                    cClueInner.style.whiteSpace = "pre";
-                    cClue.appendChild(cClueInner);
-                }
-                colEl.appendChild(cClue);
-            }
-        }
-        
-        function savePuzzle() {
-            const height = editorSolution.length;
-            if (height === 0) {
-                alert("Create a grid first!");
-                return;
-            }
-            const width = editorSolution[0].length;
-            const puzzle = {
-                name: "Custom Puzzle",
-                width: width,
-                height: height,
-                solution: editorSolution,
-                clues: editorManualClues
-            };
-            
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(puzzle));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "puzzle.nonogram");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        function loadSolverClues(puzzleData) {
-            const { width, height, rowClues, colClues } = puzzleData;
-            solverWidthInput.value = width;
-            solverHeightInput.value = height;
-            showScreen(solverScreen);
-            // Pass the loaded clues to createSolverGrid
-            createSolverGrid({ rowClues, colClues });
-        }
-
-        function loadPuzzle(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const puzzle = JSON.parse(e.target.result);
-                    // Check if it's a full puzzle or just solver clues
-                    if (puzzle.solution && puzzle.clues) {
-                        if ((puzzle.size || (puzzle.width && puzzle.height))) {
-                            startGame(puzzle);
-                        } else {
-                            alert('Invalid puzzle file format: missing dimensions.');
                         }
-                    } else if (puzzle.rowClues && puzzle.colClues && puzzle.width && puzzle.height) {
-                        loadSolverClues(puzzle);
-                    } else {
-                        alert('Invalid puzzle file format: not a game puzzle or solver clues.');
-                    }
-                } catch (error) {
-                    alert('Error reading puzzle file: ' + error.message);
+                        
+                        displayClues(puzzle.clues.rowClues, puzzle.clues.colClues, rowCluesGame, colCluesGame, width, height, false);
+                        showScreen(gameScreen);
+
+                        // Force reflow and re-enable transitions
+                        gameContainer.offsetHeight;
+                        gameContainer.classList.remove('no-transition');
+                        
+                        // Trigger the final scaling
+                        scaleBoard('game-container');
+                    }, 100);
                 }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // Clear the input so same file can be loaded again
-        }
-
-        function scaleBoard(containerId) {
-            const container = document.getElementById(containerId);
-            if (!container || !container.parentElement) return;
-
-            const wrapper = container.parentElement;
-            
-            container.style.transform = 'scale(1)';
-
-            const availableWidth = wrapper.clientWidth;
-            const availableHeight = wrapper.clientHeight;
-
-            const currentWidth = container.offsetWidth;
-            const currentHeight = container.offsetHeight;
-
-            if (currentHeight === 0 || currentWidth === 0) return;
-
-            const scale = Math.min(
-                (availableWidth * 0.98) / currentWidth, 
-                (availableHeight * 0.98) / currentHeight
-            );
-
-            container.style.transform = `scale(${scale})`;
-        }
-
-        function debouncedAdjust(containerId) {
-            window.adjustTimers = window.adjustTimers || {};
-            if (window.adjustTimers[containerId]) {
-                clearTimeout(window.adjustTimers[containerId]);
-            }
-            window.adjustTimers[containerId] = setTimeout(() => {
-                scaleBoard(containerId);
-            }, 50);
-        }
-
-        const observerCallback = (mutationsList, observer) => {
-            const containerId = observer.target.id;
-            debouncedAdjust(containerId);
-        };
-
-        const observerConfig = { childList: true, subtree: true, characterData: true };
-
-        const gameContainer = document.getElementById('game-container');
-        const editorContainer = document.getElementById('editor-container');
-        // Check if solverInputContainer exists before creating observer
-        let solverInputObserver;
-        if (solverInputContainer) {
-            solverInputObserver = new MutationObserver(observerCallback);
-        }
-
-        if (gameContainer) {
-            gameObserver.target = gameContainer; 
-            gameObserver.observe(gameContainer, observerConfig);
-        }
-        if (editorContainer) {
-            editorObserver.target = editorContainer;
-            editorObserver.observe(editorContainer, observerConfig);
-        }
-        if (solverInputContainer) { // Observe if it exists
-            solverInputObserver.target = solverInputContainer;
-            solverInputObserver.observe(solverInputContainer, observerConfig);
-        }
-
-        window.addEventListener('resize', () => {
-            if (gameScreen.classList.contains('active')) {
-                scaleBoard('game-container');
-            }
-            if (editorScreen.classList.contains('active')) {
-                scaleBoard('editor-container');
-            }
-            if (solverScreen.classList.contains('active')) {
-                scaleBoard('solver-input-container');
-            }
-        });
+                
+                function checkWin() {
+                    const solution = currentPuzzle.solution;
+                    if (!solution) return;
+                    let isWin = true;
+                    const height = solution.length;
+                    const width = solution[0].length;
+                    for (let r = 0; r < height; r++) {
+                        for (let c = 0; c < width; c++) {
+                            if (solution[r][c] !== gameSolution[r][c]) {
+                                isWin = false;
+                                break;
+                            }
+                        }
+                        if (!isWin) break;
+                    }
         
-        // --- Windows 11 Style Hover Effect ---
-        document.body.addEventListener('mousemove', e => {
-            const el = e.target.closest('.btn');
-            if (el) {
-                const rect = el.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                el.style.setProperty('--x', `${x}px`);
-                el.style.setProperty('--y', `${y}px`);
-            }
-        });
-    </script>
-</body>
+                    if (isWin) {
+                        setTimeout(() => {
+                            alert('You Win!');
+                            showScreen(startScreen);
+                        }, 100);
+                    }
+                }
+        
+        
+                // --- Common Logic ---
+                function calculateClues(grid, width, height) {
+                    const rowClues = [];
+                    const colClues = [];
+        
+                    for (let r = 0; r < height; r++) {
+                        rowClues.push(getCluesForLine(grid[r]));
+                    }
+        
+                    for (let c = 0; c < width; c++) {
+                        const col = grid.map(row => row[c]);
+                        colClues.push(getCluesForLine(col));
+                    }
+                    return { rowClues, colClues };
+                }
+        
+                function getCluesForLine(line) {
+                    const clues = [];
+                    let count = 0;
+                    for (const cell of line) {
+                        if (cell === 1) {
+                            count++;
+                        } else if (count > 0) {
+                            clues.push(count);
+                            count = 0;
+                        }
+                    }
+                    if (count > 0) {
+                        clues.push(count);
+                    }
+                    return clues.length > 0 ? clues : [0];
+                }
+        
+                function displayClues(rowClues, colClues, rowEl, colEl, width, height, isEditable) {
+                    rowEl.innerHTML = '';
+                    colEl.innerHTML = '';
+        
+                    for (let i = 0; i < height; i++) {
+                        const rClue = document.createElement('div');
+                        rClue.textContent = rowClues[i].join(' ') || '0';
+                        if (isEditable) {
+                            rClue.contentEditable = true;
+                            rClue.addEventListener('blur', (e) => {
+                                 editorManualClues.rowClues[i] = e.target.textContent.split(' ').map(s => parseInt(s, 10) || 0);
+                            });
+                        }
+                        rowEl.appendChild(rClue);
+                    }
+        
+                    for (let i = 0; i < width; i++) {
+                        const cClue = document.createElement('div');
+                        cClue.classList.add('clue-group');
+                        if (isEditable) {
+                            const cClueInner = document.createElement('div');
+                            cClueInner.textContent = colClues[i].join('\n') || '0';
+                            cClueInner.contentEditable = true;
+                            cClueInner.style.whiteSpace = "pre";
+                            cClueInner.addEventListener('blur', (e) => {
+                                editorManualClues.colClues[i] = e.target.textContent.split('\n').map(s => parseInt(s, 10) || 0);
+                            });
+                            cClue.appendChild(cClueInner);
+                        } else {
+                             cClue.innerHTML = colClues[i].map(c => `<div>${c}</div>`).join('');
+                             if(colClues[i].length === 0 || colClues[i][0] === 0) cClue.innerHTML = '<div>0</div>';
+                        }
+                        colEl.appendChild(cClue);
+                    }
+                }
+                
+                function savePuzzle() {
+                    const height = editorSolution.length;
+                    if (height === 0) {
+                        alert("Create a grid first!");
+                        return;
+                    }
+                    const width = editorSolution[0].length;
+                    const puzzle = {
+                        name: "Custom Puzzle",
+                        width: width,
+                        height: height,
+                        solution: editorSolution,
+                        clues: editorManualClues
+                    };
+                    
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(puzzle));
+                    const downloadAnchorNode = document.createElement('a');
+                    downloadAnchorNode.setAttribute("href",     dataStr);
+                    downloadAnchorNode.setAttribute("download", "puzzle.nonogram");
+                    document.body.appendChild(downloadAnchorNode);
+                    downloadAnchorNode.click();
+                    downloadAnchorNode.remove();
+                }
+        
+                function loadPuzzle(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+        
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const puzzle = JSON.parse(e.target.result);
+                            if ((puzzle.size || (puzzle.width && puzzle.height)) && puzzle.solution && puzzle.clues) {
+                                startGame(puzzle);
+                            } else {
+                                alert('Invalid puzzle file format.');
+                            }
+                        } catch (error) {
+                            alert('Error reading puzzle file.');
+                        }
+                    };
+                    reader.readAsText(file);
+                    event.target.value = ''; // Reset file input
+                }
+        
+
+        
+
+
+
+                function scaleBoard(containerId) {
+                    const container = document.getElementById(containerId);
+                    if (!container || !container.parentElement) return;
+
+                    const wrapper = container.parentElement;
+                    
+                    // Reset transform to measure the container's natural size
+                    container.style.transform = 'translate(-50%, -50%) scale(1)';
+
+                    const availableWidth = wrapper.clientWidth;
+                    const availableHeight = wrapper.clientHeight;
+
+                    const currentWidth = container.offsetWidth;
+                    const currentHeight = container.offsetHeight;
+
+                    if (currentHeight === 0 || currentWidth === 0) return;
+
+                    // Calculate scale factor, with a small margin
+                    const scale = Math.min(
+                        (availableWidth * 0.95) / currentWidth, 
+                        (availableHeight * 0.95) / currentHeight
+                    );
+
+                    // Apply the new scale
+                    container.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                }
+
+                // --- Observer Logic for Automatic Resizing ---
+                function debouncedAdjust(containerId) {
+                    window.adjustTimers = window.adjustTimers || {};
+                    if (window.adjustTimers[containerId]) {
+                        clearTimeout(window.adjustTimers[containerId]);
+                    }
+                    window.adjustTimers[containerId] = setTimeout(() => {
+                        scaleBoard(containerId);
+                    }, 50); // debounce by 50ms
+                }
+
+                const observerCallback = (mutationsList, observer) => {
+                    const containerId = observer.target.id;
+                    debouncedAdjust(containerId);
+                };
+
+                const observerConfig = { childList: true, subtree: true, characterData: true };
+
+                const gameContainer = document.getElementById('game-container');
+                const editorContainer = document.getElementById('editor-container');
+                const gameObserver = new MutationObserver(observerCallback);
+                const editorObserver = new MutationObserver(observerCallback);
+
+                if (gameContainer) {
+                    gameObserver.target = gameContainer; 
+                    gameObserver.observe(gameContainer, observerConfig);
+                }
+                if (editorContainer) {
+                    editorObserver.target = editorContainer;
+                    editorObserver.observe(editorContainer, observerConfig);
+                }
+
+                 window.addEventListener('resize', () => {
+                    if (gameScreen.classList.contains('active')) {
+                        scaleBoard('game-container');
+                    }
+                    if (editorScreen.classList.contains('active')) {
+                        scaleBoard('editor-container');
+                    }
+                });
+        
+            </script>
+        </body>
+        </html></body>
 </html>
