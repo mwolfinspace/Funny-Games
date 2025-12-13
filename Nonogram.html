@@ -51,7 +51,7 @@
             position: relative; /* Anchor for the absolute positioned child */
         }
 
-        #game-container, #editor-container {
+        #game-container, #editor-container, .game-container {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -65,6 +65,7 @@
             grid-template-rows: auto 1fr;
             border: 2px solid black;
             margin: 0; /* No margin needed with absolute positioning */
+            z-index: 1;
         }
 
         .corner {
@@ -145,6 +146,18 @@
         .clue-group > div {
              line-height: 1.2;
         }
+        /* Solver board specific rules to avoid overlap and ensure spacing */
+        #solver-board {
+            display: grid;
+            gap: 4px;
+            justify-content: center;
+            align-content: center;
+        }
+        #solver-board .cell {
+            width: var(--cell-size) !important;
+            height: var(--cell-size) !important;
+            box-sizing: border-box;
+        }
         
         div[contenteditable="true"] {
             background-color: #f0f0f0;
@@ -196,6 +209,20 @@
             font-size: 16px;
             margin: 5px;
             width: 80px;
+            /* Use textfield appearance so browsers don't show spinner by default */
+            appearance: textfield;
+            -moz-appearance: textfield;
+            -webkit-appearance: none;
+        }
+
+        /* Remove number input spinner arrows (global) so users can type values */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
         }
 
         .no-transition {
@@ -207,21 +234,152 @@
             display: grid;
             grid-template-columns: auto 1fr;
             grid-template-rows: auto 1fr;
-            gap: 5px;
+            gap: 8px;
             margin: 20px auto;
             justify-content: center;
+            align-items: start;
         }
-        .solver-col-clues-wrapper, .solver-row-clues-wrapper, .solver-dummy-grid {
+
+        /* Wrappers for the generated clue groups */
+        .solver-col-clues-wrapper {
+            display: grid;
+            grid-auto-flow: column;
+            gap: 6px;
+            align-items: end;
+            justify-content: center;
+            padding: 4px 0;
+        }
+        .solver-row-clues-wrapper {
+            display: grid;
+            grid-auto-flow: row;
+            gap: 6px;
+            align-items: center;
+            justify-items: end;
+            padding: 0 4px;
+        }
+        .solver-dummy-grid {
             display: grid;
             gap: 2px;
+            align-self: start;
         }
+
+        /* Individual groups created by JS */
+        .solver-col-clue-group {
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            justify-content: center;
+            width: var(--cell-size);
+            box-sizing: border-box;
+            gap: 4px;
+        }
+        .solver-row-clue-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            box-sizing: border-box;
+        }
+
         .solver-clue-input {
             border: 1px solid var(--control-border-color);
             background-color: var(--control-background-color);
-            padding: 5px;
-            width: 30px;
-            height: 30px;
+            padding: 2px;
+            width: var(--cell-size);
+            height: var(--cell-size);
             box-sizing: border-box;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* Ensure the small placeholder cells align with clue inputs */
+        #solver-input-area .solver-dummy-grid > div {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background: transparent;
+            box-sizing: border-box;
+        }
+
+        /* Styles for embedded fedimser solver UI */
+        #fedimser-container {
+            width: min(84vmin, 720px);
+            height: min(84vmin, 720px); /* force square using same expression */
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            border: 2px solid var(--control-border-color);
+            background: var(--control-background-color);
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        .fedimser-settings {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            flex-wrap: nowrap;
+            box-sizing: border-box;
+            margin-bottom: 8px;
+        }
+
+        .fedimser-settings > div {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .fedimser-settings input[type="number"] {
+            width: 64px !important;
+            padding: 6px !important;
+            height: auto !important;
+        }
+
+        .fedimser-settings button, .fedimser-settings .fedimser-solve-btn {
+            width: auto !important;
+            height: auto !important;
+            padding: 8px 14px !important;
+            font-size: 16px !important;
+            border-radius: 6px !important;
+        }
+
+        .fedimser-solution {
+            width: 100%;
+            height: calc(100% - 64px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        .fedimser-solution table {
+            max-width: 100%;
+            max-height: 100%;
+            width: max-content;
+            height: max-content;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+
+        /* Force table cells to match global cell size so grid is square */
+        .fedimser-solution table td, .fedimser-solution table th {
+            width: var(--cell-size) !important;
+            height: var(--cell-size) !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Make numbers / inputs inside fedimser larger */
+        .fedimser-solution input, .fedimser-solution td input {
+            font-size: calc(var(--cell-size) / 2.2) !important;
+            width: 100% !important;
+            height: 100% !important;
+            box-sizing: border-box !important;
             text-align: center;
         }
     </style>
@@ -256,7 +414,10 @@
                 <div id="game-board"></div>
             </div>
         </div>
-        <button id="back-to-start-btn-game">Back to Start</button>
+        <div class="button-group">
+            <button id="check-puzzle-btn">Check Puzzle</button>
+            <button id="back-to-start-btn-game">Back to Start</button>
+        </div>
     </div>
 
     <div id="editor-screen" class="screen">
@@ -286,34 +447,18 @@
 
     <div id="solver-screen" class="screen">
         <h2>Nonogram Solver</h2>
-        <div class="solver-controls">
-            <label for="solver-width">Width:</label>
-            <input type="number" id="solver-width" min="1" max="30" value="5">
-            <label for="solver-height">Height:</label>
-            <input type="number" id="solver-height" min="1" max="30" value="5">
-            <br>
-            <label for="solver-max-row-clues">Max Row Clues:</label>
-            <input type="number" id="solver-max-row-clues" min="1" max="30" value="3">
-            <label for="solver-max-col-clues">Max Col Clues:</label>
-            <input type="number" id="solver-max-col-clues" min="1" max="30" value="3">
-            <button id="create-solver-inputs-btn">Set Grid</button>
-        </div>
-        <div id="solver-input-area">
-            <!-- clue inputs will be generated here -->
-        </div>
         <div class="button-group">
-            <button id="solve-puzzle-btn">Solve</button>
+            <button id="export-solver-btn">Export Puzzle</button>
+            <label style="display:inline-block; margin:0 8px;">
+                Import Puzzle:
+                <input id="import-solver-input" type="file" accept=".nonogram" style="display:inline-block; margin-left:6px;">
+            </label>
             <button id="back-to-start-btn-solver">Back to Start</button>
         </div>
-        <div class="game-area-wrapper">
-            <div id="solver-board-container" class="game-container" style="visibility: hidden;">
-                <div class="corner"></div>
-                <div class="col-clues"></div>
-                <div class="row-clues"></div>
-                <div id="solver-board"></div>
-            </div>
-        </div>
+        <div id="fedimser-container"></div>
     </div>
+
+        <script src="Nonogram.js"></script>
 
             <script>
                 const startScreen = document.getElementById('start-screen');
@@ -379,9 +524,13 @@
                     const rowWrapper = solverInputArea.querySelector('.solver-row-clues-wrapper');
                     const dummyGrid = solverInputArea.querySelector('.solver-dummy-grid');
 
-                    // Style the wrappers
-                    colWrapper.style.gridTemplateColumns = `repeat(${width}, 30px)`;
-                    rowWrapper.style.gridTemplateRows = `repeat(${height}, 30px)`;
+                    // Read the CSS variable for cell size so solver aligns with board
+                    const cssCellSize = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
+                    const cellSize = parseInt(cssCellSize, 10) || 30;
+
+                    // Style the wrappers using the computed cell size
+                    colWrapper.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+                    rowWrapper.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
                     
                     // Generate column clue inputs
                     for (let c = 0; c < width; c++) {
@@ -393,6 +542,10 @@
                             clueInput.className = 'solver-clue-input';
                             clueInput.dataset.type = 'col';
                             clueInput.dataset.col = c;
+                            // Ensure input matches cell size explicitly for older browsers
+                            clueInput.style.width = `${cellSize}px`;
+                            clueInput.style.height = `${cellSize}px`;
+                            group.style.width = `${cellSize}px`;
                             group.appendChild(clueInput);
                         }
                         colWrapper.appendChild(group);
@@ -408,6 +561,8 @@
                             clueInput.className = 'solver-clue-input';
                             clueInput.dataset.type = 'row';
                             clueInput.dataset.row = r;
+                            clueInput.style.width = `${cellSize}px`;
+                            clueInput.style.height = `${cellSize}px`;
                             group.appendChild(clueInput);
                         }
                         rowWrapper.appendChild(group);
@@ -415,8 +570,8 @@
 
                     // Style and fill the dummy grid for visual alignment
                     dummyGrid.style.display = 'grid';
-                    dummyGrid.style.gridTemplateColumns = `repeat(${width}, 30px)`;
-                    dummyGrid.style.gridTemplateRows = `repeat(${height}, 30px)`;
+                    dummyGrid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+                    dummyGrid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
                     dummyGrid.style.gap = '2px';
                      for (let i = 0; i < width * height; i++) {
                         const emptyCell = document.createElement('div');
@@ -424,7 +579,7 @@
                         dummyGrid.appendChild(emptyCell);
                     }
                 }
-                createSolverInputsBtn.addEventListener('click', createSolverInputs);
+                if (createSolverInputsBtn) createSolverInputsBtn.addEventListener('click', createSolverInputs);
 
                 // --- Solver Logic ---
 
@@ -561,16 +716,35 @@
                 }
 
 
-                solvePuzzleBtn.addEventListener('click', () => {
+                if (solvePuzzleBtn) solvePuzzleBtn.addEventListener('click', () => {
                     const { rowClues, colClues, width, height } = parseClues();
-                    
+
                     if (!rowClues || !colClues || rowClues.length !== height || colClues.length !== width) {
                         alert('Please fill in all clues for the specified grid dimensions.');
                         return;
                     }
 
-                    const solution = solveNonogram(rowClues, colClues, width, height);
-                    displaySolvedGrid(solution, width, height);
+                    // Use the robust solver from Nonogram.js if available
+                    if (typeof Nonogram === 'function') {
+                        try {
+                            const solver = new Nonogram(rowClues, colClues);
+                            const status = solver.solveAndCheck();
+                            if (status === 'Solved') {
+                                displaySolvedGrid(solver.matrix, { rowClues, colClues }, width, height);
+                            } else {
+                                // show partial matrix if available and inform user
+                                if (solver.matrix) displaySolvedGrid(solver.matrix, { rowClues, colClues }, width, height);
+                                alert(status);
+                            }
+                        } catch (err) {
+                            console.error('Nonogram.js solver error', err);
+                            alert('Solver error: ' + err.message);
+                        }
+                    } else {
+                        // Fallback to builtin simple solver
+                        const solution = solveNonogram(rowClues, colClues, width, height);
+                        displaySolvedGrid(solution, { rowClues, colClues }, width, height);
+                    }
                 });
         
                 let editorSolution = [];
@@ -587,7 +761,11 @@
                     if (isDragging) {
                         isDragging = false;
                         dragAction = null;
-                        checkWin(); // Check for win only when drag is complete
+                        // Delay the win check slightly so any pending mouseover handlers
+                        // that applied the last cell during drag have time to run.
+                        setTimeout(() => {
+                            try { checkWin(); } catch (e) { console.warn('checkWin error', e); }
+                        }, 50);
                     }
                     if (isEditorDragging) {
                         isEditorDragging = false;
@@ -610,7 +788,279 @@
                     screen.classList.add('active');
                 }
         
-                solverBtn.addEventListener('click', () => showScreen(solverScreen));
+                let fedimserInstance = null;
+                solverBtn.addEventListener('click', () => {
+                    showScreen(solverScreen);
+                    // Instantiate the fedimser GUI once when opening solver
+                    if (!fedimserInstance) {
+                        const container = document.getElementById('fedimser-container');
+                        if (container && typeof NonogramGUI === 'function') {
+                            fedimserInstance = new NonogramGUI(container);
+                            // Increase fedimser cell size to match our CSS --cell-size
+                            try {
+                                const cssCell = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
+                                const fedSize = parseInt(cssCell, 10) || 24;
+                                fedimserInstance.cellSize = fedSize + 'px';
+                                // re-render to apply new cell size
+                                if (typeof fedimserInstance.updateTableSize === 'function') fedimserInstance.updateTableSize();
+                                else if (typeof fedimserInstance.displayTable === 'function') fedimserInstance.displayTable();
+                            } catch (e) {
+                                console.warn('Could not set fedimser cell size', e);
+                            }
+                            // assign friendly class names so we can style the generated DOM
+                            try {
+                                if (fedimserInstance.settingsDiv) fedimserInstance.settingsDiv.className = 'fedimser-settings';
+                                if (fedimserInstance.tableDiv) fedimserInstance.tableDiv.className = 'fedimser-solution';
+                                // mark Solve button if present
+                                if (fedimserInstance.settingsDiv) {
+                                    const btn = fedimserInstance.settingsDiv.querySelector('button');
+                                    if (btn) btn.classList.add('fedimser-solve-btn');
+                                }
+                            } catch (e) {
+                                console.warn('Could not apply fedimser UI classes', e);
+                            }
+                            // Wrap the fedimser solve to show a congratulation alert on success
+                            try {
+                                if (typeof fedimserInstance.solve === 'function') {
+                                    const origSolve = fedimserInstance.solve.bind(fedimserInstance);
+                                    fedimserInstance.solve = function() {
+                                        origSolve();
+                                        try {
+                                            const status = (fedimserInstance.ansText && (fedimserInstance.ansText.textContent || fedimserInstance.ansText.innerText)) || '';
+                                            if (status.indexOf && status.indexOf('Solved') !== -1) {
+                                                setTimeout(() => alert('Solved — congratulations!'), 50);
+                                            }
+                                        } catch (e) {}
+                                    };
+                                }
+                            } catch (e) {
+                                console.warn('Could not wrap fedimser solve()', e);
+                            }
+                        }
+                    }
+                
+                    // Export/Import handlers for solver mode
+                    const exportSolverBtn = document.getElementById('export-solver-btn');
+                    const importSolverInput = document.getElementById('import-solver-input');
+
+                    function buildSolverPuzzleObject() {
+                        if (!fedimserInstance) return null;
+                        // Use fedimserInstance.prepareGroups if available to get cleaned clues
+                        let rowClues = [];
+                        let colClues = [];
+                        if (typeof fedimserInstance.prepareGroups === 'function') {
+                            rowClues = fedimserInstance.prepareGroups(fedimserInstance.groupsHor || []);
+                            colClues = fedimserInstance.prepareGroups(fedimserInstance.groupsVert || []);
+                        } else {
+                            // Fallback: try to read table inputs
+                            const rows = fedimserInstance.height || 5;
+                            const cols = fedimserInstance.width || 5;
+                            rowClues = Array.from({ length: rows }, () => [0]);
+                            colClues = Array.from({ length: cols }, () => [0]);
+                        }
+
+                        const width = fedimserInstance.width || (colClues.length || 0);
+                        const height = fedimserInstance.height || (rowClues.length || 0);
+
+                        // Try to solve the puzzle and include the solution
+                        let solution = Array.from({ length: height }, () => Array(width).fill(0));
+                        try {
+                            if (typeof Nonogram === 'function' && rowClues.length > 0 && colClues.length > 0) {
+                                const solver = new Nonogram(rowClues, colClues);
+                                const status = solver.solveAndCheck();
+                                if (status === 'Solved' && solver.matrix) {
+                                    solution = solver.matrix.map(row => row.map(v => v === 1 ? 1 : 0));
+                                    console.log('[DEBUG] buildSolverPuzzleObject: solution computed');
+                                } else {
+                                    console.log('[DEBUG] buildSolverPuzzleObject: solver status =', status);
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('[DEBUG] buildSolverPuzzleObject: solver error', err);
+                        }
+
+                        return {
+                            name: 'Solver Puzzle',
+                            width: width,
+                            height: height,
+                            solution: solution,
+                            clues: { rowClues: rowClues, colClues: colClues }
+                        };
+                    }
+
+                    if (exportSolverBtn) exportSolverBtn.addEventListener('click', () => {
+                        if (!fedimserInstance) {
+                            alert('Open the Solver UI first.');
+                            return;
+                        }
+                        const puzzle = buildSolverPuzzleObject();
+                        if (!puzzle) { alert('No puzzle to export'); return; }
+                        // Pad clues into fixed group arrays to preserve ordering on import
+                        try {
+                            const rowGroups = puzzle.clues.rowClues || [];
+                            const colGroups = puzzle.clues.colClues || [];
+                            const maxRow = Math.max(1, ...rowGroups.map(r => (r ? r.length : 0)));
+                            const maxCol = Math.max(1, ...colGroups.map(c => (c ? c.length : 0)));
+                            const maxGroup = Math.max(maxRow, maxCol);
+                            const groupsHor = rowGroups.map(r => {
+                                const pad = Array(maxGroup - r.length).fill(0);
+                                return pad.concat(r);
+                            });
+                            const groupsVert = colGroups.map(c => {
+                                const pad = Array(maxGroup - c.length).fill(0);
+                                return pad.concat(c);
+                            });
+                            puzzle.clues.groupsHor = groupsHor;
+                            puzzle.clues.groupsVert = groupsVert;
+                        } catch (e) {}
+                        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(puzzle));
+                        const a = document.createElement('a');
+                        a.setAttribute('href', dataStr);
+                        a.setAttribute('download', 'puzzle.nonogram');
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                    });
+
+                    function populateFedimserFromPuzzle(puzzle) {
+                        if (!puzzle || !puzzle.width || !puzzle.height || !puzzle.clues) return false;
+                        if (!fedimserInstance) {
+                            // instantiate if not present
+                            const container = document.getElementById('fedimser-container');
+                            if (container && typeof NonogramGUI === 'function') {
+                                fedimserInstance = new NonogramGUI(container);
+                            } else return false;
+                        }
+
+                        // Prefer padded group arrays if available (preserves layout and zeros)
+                        let rowClues = puzzle.clues.rowClues || [];
+                        let colClues = puzzle.clues.colClues || [];
+                        if (Array.isArray(puzzle.clues.groupsHor) && puzzle.clues.groupsHor.length) {
+                            // convert groupsHor (padded arrays) back to clue arrays by stripping leading zeros
+                            rowClues = puzzle.clues.groupsHor.map(g => g.filter(v => v > 0));
+                        }
+                        if (Array.isArray(puzzle.clues.groupsVert) && puzzle.clues.groupsVert.length) {
+                            colClues = puzzle.clues.groupsVert.map(g => g.filter(v => v > 0));
+                        }
+                        const width = puzzle.width;
+                        const height = puzzle.height;
+                        const maxRow = Math.max(1, ...rowClues.map(r => (r ? r.length : 0)));
+                        const maxCol = Math.max(1, ...colClues.map(c => (c ? c.length : 0)));
+                        const maxGroup = Math.max(maxRow, maxCol);
+
+                        // Prepare groups arrays right-aligned into size [height][maxGroup] and [width][maxGroup]
+                        let groupsHor = Array.from({ length: height }, () => Array(maxGroup).fill(0));
+                        let groupsVert = Array.from({ length: width }, () => Array(maxGroup).fill(0));
+
+                        // If padded groups were provided, prefer using them directly (they already
+                        // include zeros to preserve visual alignment).
+                        if (Array.isArray(puzzle.clues.groupsHor) && puzzle.clues.groupsHor.length === height) {
+                            groupsHor = puzzle.clues.groupsHor.map(row => row.slice(0, maxGroup));
+                        } else {
+                            for (let r = 0; r < height; r++) {
+                                const clues = rowClues[r] || [];
+                                const offset = maxGroup - clues.length;
+                                for (let i = 0; i < clues.length; i++) groupsHor[r][offset + i] = clues[i];
+                            }
+                        }
+
+                        if (Array.isArray(puzzle.clues.groupsVert) && puzzle.clues.groupsVert.length === width) {
+                            groupsVert = puzzle.clues.groupsVert.map(col => col.slice(0, maxGroup));
+                        } else {
+                            for (let c = 0; c < width; c++) {
+                                const clues = colClues[c] || [];
+                                const offset = maxGroup - clues.length;
+                                for (let i = 0; i < clues.length; i++) groupsVert[c][offset + i] = clues[i];
+                            }
+                        }
+
+                        // Apply to fedimser instance and re-render (don't call updateTableSize(), it resets groups)
+                        fedimserInstance.width = width;
+                        fedimserInstance.height = height;
+                        fedimserInstance.maxGroup = maxGroup;
+                        fedimserInstance.groupsHor = groupsHor;
+                        fedimserInstance.groupsVert = groupsVert;
+                        if (typeof fedimserInstance.displayTable === 'function') fedimserInstance.displayTable();
+                        else if (typeof fedimserInstance.updateTableSize === 'function') fedimserInstance.updateTableSize();
+                        // ensure cell size consistent
+                        try {
+                            const cssCell = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
+                            const fedSize = parseInt(cssCell, 10) || 24;
+                            fedimserInstance.cellSize = fedSize + 'px';
+                        } catch (e) {}
+                        return true;
+                    }
+
+                    let lastImportedPuzzle = null;
+                    const loadIntoGameBtn = document.createElement('button');
+                    loadIntoGameBtn.textContent = 'Load into Game';
+                    loadIntoGameBtn.style.marginLeft = '8px';
+                    loadIntoGameBtn.addEventListener('click', () => {
+                        if (!lastImportedPuzzle) { alert('No imported puzzle to load.'); return; }
+                        // Rebuild puzzle from current fedimser state (clues may have been edited)
+                        const currentPuzzle = buildSolverPuzzleObject();
+                        if (!currentPuzzle) { alert('Error building puzzle.'); return; }
+                        // Try to solve using the current clues
+                        try {
+                            if (currentPuzzle.clues && typeof Nonogram === 'function') {
+                                const solver = new Nonogram(currentPuzzle.clues.rowClues, currentPuzzle.clues.colClues);
+                                const status = solver.solveAndCheck();
+                                console.log('[DEBUG] Load into Game: solver status =', status);
+                                if (status === 'Solved' && solver.matrix) {
+                                    currentPuzzle.solution = solver.matrix.map(row => row.map(v => v === 1 ? 1 : 0));
+                                    console.log('[DEBUG] Load into Game: solution computed from clues');
+                                } else {
+                                    console.warn('[DEBUG] Load into Game: puzzle unsolvable or multiple solutions');
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('[DEBUG] Load into Game: solver error', err);
+                        }
+                        startGame(currentPuzzle);
+                    });
+                    const exportBtnParent = document.getElementById('export-solver-btn');
+                    if (exportBtnParent && exportBtnParent.parentElement) exportBtnParent.parentElement.appendChild(loadIntoGameBtn);
+
+                    if (importSolverInput) importSolverInput.addEventListener('change', (e) => {
+                        const file = e.target.files && e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            try {
+                                const puzzle = JSON.parse(evt.target.result);
+                                // Try computing solution from clues using Nonogram solver
+                                try {
+                                    if (puzzle && puzzle.clues && typeof Nonogram === 'function') {
+                                        const solver = new Nonogram(puzzle.clues.rowClues, puzzle.clues.colClues);
+                                        const status = solver.solveAndCheck();
+                                        if (status === 'Solved' && solver.matrix) {
+                                            // Normalize solver.matrix values to 1 (filled) and 0 (empty)
+                                            puzzle.solution = solver.matrix.map(row => row.map(v => v === 1 ? 1 : 0));
+                                        } else {
+                                            // Create proper empty solution: 2D array of zeros, not empty arrays
+                                            const h = puzzle.height || 0;
+                                            const w = puzzle.width || 0;
+                                            puzzle.solution = Array.from({ length: h }, () => Array(w).fill(0));
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.warn('Error computing solution on import', err);
+                                }
+
+                                if (populateFedimserFromPuzzle(puzzle)) {
+                                    lastImportedPuzzle = puzzle;
+                                    showScreen(solverScreen);
+                                } else {
+                                    alert('Invalid puzzle file.');
+                                }
+                            } catch (err) {
+                                alert('Error reading puzzle file.');
+                            }
+                        };
+                        reader.readAsText(file);
+                        e.target.value = '';
+                    });
+                });
                 backToStartBtnSolver.addEventListener('click', () => showScreen(startScreen));
         
                 startNewGameBtn.addEventListener('click', () => {
@@ -792,6 +1242,26 @@
                     currentPuzzle = puzzle;
                     const width = puzzle.width || puzzle.size;
                     const height = puzzle.height || puzzle.size;
+                    console.log('[DEBUG] startGame called with puzzle:', puzzle);
+                    console.log('[DEBUG] incoming solution (raw):', puzzle.solution);
+                    
+                    // Normalize and ensure solution is a 2D array of 0/1 with correct dims
+                    if (puzzle.solution && Array.isArray(puzzle.solution) && puzzle.solution.length > 0) {
+                        const sol = [];
+                        for (let r = 0; r < height; r++) {
+                            const row = Array.from({ length: width }, () => 0);
+                            if (puzzle.solution[r] && Array.isArray(puzzle.solution[r])) {
+                                for (let c = 0; c < width; c++) {
+                                    row[c] = Number(puzzle.solution[r][c]) === 1 ? 1 : 0;
+                                }
+                            }
+                            sol.push(row);
+                        }
+                        currentPuzzle.solution = sol;
+                    } else {
+                        currentPuzzle.solution = Array.from({ length: height }, () => Array(width).fill(0));
+                    }
+                    console.log('[DEBUG] startGame: width=' + width + ', height=' + height + ', normalized solution:', currentPuzzle.solution);
                     const gameContainer = document.getElementById('game-container');
 
                     // 1. Pre-emptively scale down without animation
@@ -847,29 +1317,73 @@
                         scaleBoard('game-container');
                     }, 100);
                 }
+
+                // Check button handler for game screen
+                const checkPuzzleBtn = document.getElementById('check-puzzle-btn');
+                if (checkPuzzleBtn) checkPuzzleBtn.addEventListener('click', () => {
+                    const ok = checkWin();
+                    if (!ok) alert('Not solved yet.');
+                });
                 
                 function checkWin() {
-                    const solution = currentPuzzle.solution;
-                    if (!solution) return;
-                    let isWin = true;
+                    const solution = currentPuzzle && currentPuzzle.solution;
+                    if (!solution || !Array.isArray(solution) || solution.length === 0) {
+                        console.warn('[DEBUG] checkWin: no solution or empty', solution);
+                        return false;
+                    }
+
                     const height = solution.length;
-                    const width = solution[0].length;
+                    const width = solution[0] ? solution[0].length : 0;
+                    if (width === 0 || height === 0) {
+                        console.warn('[DEBUG] checkWin: invalid dimensions', height, 'x', width);
+                        return false;
+                    }
+
+                    // Reconstruct player's current grid from DOM using data-row/data-col
+                    const board = document.getElementById('game-board');
+                    if (!board) { console.warn('[DEBUG] checkWin: no board found'); return false; }
+                    const cells = Array.from(board.querySelectorAll('.cell'));
+                    if (!cells || cells.length === 0) { console.warn('[DEBUG] checkWin: no cells found'); return false; }
+                    
+                    console.log('[DEBUG] checkWin: found ' + cells.length + ' cells, expected ' + (height * width));
+
+                    const player = Array.from({ length: height }, () => Array(width).fill(0));
+                    for (const el of cells) {
+                        const r = Number(el.dataset.row);
+                        const c = Number(el.dataset.col);
+                        if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
+                        if (r >= 0 && r < height && c >= 0 && c < width) {
+                            player[r][c] = el.classList.contains('filled') ? 1 : 0;
+                        }
+                    }
+
+                    console.log('[DEBUG] checkWin: solution grid =', solution);
+                    console.log('[DEBUG] checkWin: player grid =', player);
+
+                    // Compare normalized numeric arrays
+                    let mismatchCount = 0;
                     for (let r = 0; r < height; r++) {
                         for (let c = 0; c < width; c++) {
-                            if (solution[r][c] !== gameSolution[r][c]) {
-                                isWin = false;
-                                break;
+                            const sol = (solution[r] && Number(solution[r][c]) === 1) ? 1 : 0;
+                            const plyr = player[r][c] ? 1 : 0;
+                            if (sol !== plyr) {
+                                if (mismatchCount < 5) console.log('[DEBUG] Mismatch at (' + r + ',' + c + '): solution=' + sol + ', player=' + plyr);
+                                mismatchCount++;
                             }
                         }
-                        if (!isWin) break;
                     }
-        
-                    if (isWin) {
-                        setTimeout(() => {
-                            alert('You Win!');
-                            showScreen(startScreen);
-                        }, 100);
+                    
+                    if (mismatchCount > 0) {
+                        console.log('[DEBUG] checkWin: found ' + mismatchCount + ' mismatches, not a win');
+                        return false;
                     }
+
+                    console.log('[DEBUG] checkWin: ALL CELLS MATCH! Win!');
+                    setTimeout(() => {
+                        alert('You Win!');
+                        showScreen(startScreen);
+                    }, 100);
+                    return true;
                 }
         
         
@@ -935,8 +1449,15 @@
                             });
                             cClue.appendChild(cClueInner);
                         } else {
-                             cClue.innerHTML = colClues[i].map(c => `<div>${c}</div>`).join('');
-                             if(colClues[i].length === 0 || colClues[i][0] === 0) cClue.innerHTML = '<div>0</div>';
+                            // Render column clues in reverse order so the first clue in the array
+                            // appears closest to the grid (top of the clue column). This compensates
+                            // for the CSS `flex-direction: column-reverse` used in the layout.
+                            const reversed = (colClues[i] || []).slice().reverse();
+                            if (reversed.length === 0 || (reversed.length === 1 && reversed[0] === 0)) {
+                                cClue.innerHTML = '<div>0</div>';
+                            } else {
+                                cClue.innerHTML = reversed.map(c => `<div>${c}</div>`).join('');
+                            }
                         }
                         colEl.appendChild(cClue);
                     }
