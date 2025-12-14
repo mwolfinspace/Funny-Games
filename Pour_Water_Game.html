@@ -78,6 +78,15 @@
   .found-answer { text-decoration: line-through; color: #ef4444; font-weight: 700; }
     .status-clickable { cursor: pointer; text-decoration: underline; }
 
+    .poured .visual-canvas {
+      filter: grayscale(80%);
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .poured input {
+      background-color: #f3f4f6;
+    }
+
     /* responsive */
     @media(max-width:880px){.layout{flex-direction:column}.right{width:auto}}
   </style>
@@ -211,21 +220,36 @@
 
   function renderAll(){
     containers.innerHTML = '';
+    const pouredIndices = new Set(targetParts.map(p => p.from));
+
     cylinders.forEach((c, i)=>{
+        const isPoured = pouredIndices.has(i);
         const el = document.createElement('div'); el.className='cyl';
+        if (isPoured) {
+            el.classList.add('poured');
+        }
         // top label + color swatch
         const head = document.createElement('div'); head.style.display='flex'; head.style.gap='8px'; head.style.alignItems='center';
         const lbl = document.createElement('div'); lbl.className='label'; lbl.textContent = (i+1);
-  const swatch = document.createElement('div'); swatch.className='color-swatch'; swatch.style.background = c.color || '#2563eb'; swatch.title = c.colorName || 'Change water color';
+        const swatch = document.createElement('div'); swatch.className='color-swatch'; swatch.style.background = c.color || '#2563eb'; swatch.title = c.colorName || 'Change water color';
         // hidden color input
         const colorInput = document.createElement('input'); colorInput.type='color'; colorInput.value = c.color || '#2563eb'; colorInput.style.display='none';
-  colorInput.addEventListener('input', ()=>{ cylinders[i].color = colorInput.value; cylinders[i].colorName = null; swatch.style.background = colorInput.value; updateCylinder(i); });
-        swatch.addEventListener('click', ()=> colorInput.click());
+        colorInput.addEventListener('input', ()=>{ cylinders[i].color = colorInput.value; cylinders[i].colorName = null; swatch.style.background = colorInput.value; updateCylinder(i); });
+        swatch.addEventListener('click', ()=> {
+            if (!isPoured) {
+                colorInput.click();
+            }
+        });
+        if (isPoured) {
+            swatch.style.cursor = 'not-allowed';
+        }
 
         head.appendChild(lbl); head.appendChild(swatch); head.appendChild(colorInput);
 
         // visual as canvas for nicer 3D drawing
-        const canvas = document.createElement('canvas'); canvas.className='visual-canvas draggable'; canvas.setAttribute('width', 172); canvas.setAttribute('height', 280); canvas.draggable = true; canvas.dataset.index = i;
+        const canvas = document.createElement('canvas'); canvas.className='visual-canvas draggable'; canvas.setAttribute('width', 172); canvas.setAttribute('height', 280);
+        canvas.draggable = !isPoured;
+        canvas.dataset.index = i;
         // draw initial cylinder visual
         const frac = safeFraction(c.num,c.den);
         drawCylinderCanvas(canvas, fillHeight(frac.n, frac.d)/100, c.color || '#2563eb');
@@ -233,13 +257,19 @@
         // inputs below visual: numerator, small bar, denominator
         const inputs = document.createElement('div'); inputs.className='inputs';
         const num = document.createElement('input'); num.type='number'; num.value = c.num; num.min=0; num.title='numerator';
+        num.disabled = isPoured;
         const bar = document.createElement('div'); bar.className='frac-bar';
         const den = document.createElement('input'); den.type='number'; den.value = c.den; den.min=1; den.title='denominator';
+        den.disabled = isPoured;
         num.addEventListener('input', ()=>{cylinders[i].num = parseInt(num.value)||0; updateCylinder(i)});
         den.addEventListener('input', ()=>{cylinders[i].den = Math.max(1, parseInt(den.value)||1); updateCylinder(i)});
 
         // drag handlers on canvas
         canvas.addEventListener('dragstart', (ev)=>{
+          if (isPoured) {
+            ev.preventDefault();
+            return;
+          }
           ev.dataTransfer.setData('text/plain', String(i));
           ev.dataTransfer.effectAllowed = 'move';
           canvas.classList.add('dragging');
