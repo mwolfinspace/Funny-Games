@@ -75,6 +75,9 @@
     .draggable{cursor:grab}
     .draggable:active{cursor:grabbing}
 
+  .found-answer { text-decoration: line-through; color: #ef4444; font-weight: 700; }
+    .status-clickable { cursor: pointer; text-decoration: underline; }
+
     /* responsive */
     @media(max-width:880px){.layout{flex-direction:column}.right{width:auto}}
   </style>
@@ -124,6 +127,8 @@
 
       <!-- right rules card removed; rules moved to a modal to free horizontal space -->
     </div>
+
+    <div id="completionStatus" class="info" style="margin-top:16px;text-align:center;"></div>
   </div>
 
   <!-- rules modal -->
@@ -134,6 +139,17 @@
         <button class="close" id="closeRules">Close</button>
       </div>
       <div id="rulesBody" class="small" style="margin-top:8px">Each cylinder is sized equally. Enter numerator and denominator; the fill follows the ratio. Drag a cylinder onto the target to pour its full amount into the target (source becomes empty). The equation shows combined fractions. If total &gt; 1, target and text turn red (overflow). Use Reset to return poured amounts to their sources.</div>
+    </div>
+  </div>
+
+  <!-- answers modal -->
+  <div id="answersModal" class="modal-backdrop" role="dialog" aria-modal="true" style="display:none">
+    <div class="modal" role="document">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="answersTitle">Possible Combinations</h3>
+        <button class="close" id="closeAnswers">Close</button>
+      </div>
+      <div id="answersBody" class="small" style="margin-top:8px; display: flex; flex-direction: column; gap: 8px;"></div>
     </div>
   </div>
 
@@ -169,9 +185,16 @@
   const targetTitleEl = document.getElementById('targetTitle');
   const rulesTitleEl = document.getElementById('rulesTitle');
   const rulesBodyEl = document.getElementById('rulesBody');
+  const completionStatusEl = document.getElementById('completionStatus');
+  const answersModal = document.getElementById('answersModal');
+  const closeAnswers = document.getElementById('closeAnswers');
+  const answersBody = document.getElementById('answersBody');
+  const answersTitle = document.getElementById('answersTitle');
 
   let cylinders = []; // {num, den}
   let targetParts = []; // array of {n,d,fromIndex}
+  let solvableCombinations = new Set();
+  let foundCombinations = new Set();
 
   function createCylinder(initial){
     const idx = cylinders.length;
@@ -293,7 +316,14 @@
     // new overflow event
     if(isOverflow && !lastOverflowState){ playExplosion(); }
     // full exactly 1 event
-    if(isFull && !lastFullState && !isOverflow){ playDing(); }
+    if(isFull && !lastFullState && !isOverflow){
+        playDing();
+        // User found a combination, record it.
+        const foundIndices = targetParts.map(p => p.from).sort((a,b)=>a-b);
+        const key = JSON.stringify(foundIndices);
+        foundCombinations.add(key);
+        updateCompletionStatus();
+    }
     lastOverflowState = isOverflow;
     lastFullState = isFull;
   }
@@ -429,12 +459,16 @@
       en: {
         add: '➕ Add', remove: '➖ Remove', random: '🎲 Randomize', restore: '♻️ Restore', langLabel: '🇬🇧 ENG', help: '❓', menu: '🏠 Menu', reset: '🔄 Reset',
         dragHint: '💧 Drag a cylinder into the target below to pour its entire amount.', targetTitle: 'Target Container', dropHint: '📥 Drop cylinders here', cylinderAdded: '📌 Cylinder added: —', current: 'Current:', overflow: 'Overflow: total > 1',
-        rulesTitle: 'Game rules', rulesBody: 'Each cylinder is sized equally. Enter numerator and denominator; the fill follows the ratio. Drag a cylinder onto the target to pour its full amount into the target (source becomes empty). The equation shows combined fractions. If total > 1, target and text turn red (overflow). Use Reset to return poured amounts to their sources.'
+        rulesTitle: 'Game rules', rulesBody: 'Each cylinder is sized equally. Enter numerator and denominator; the fill follows the ratio. Drag a cylinder onto the target to pour its full amount into the target (source becomes empty). The equation shows combined fractions. If total > 1, target and text turn red (overflow). Use Reset to return poured amounts to their sources.',
+        completionStatus: 'Found: {found} / {total} combinations that sum to 1',
+        answersTitle: 'Possible Combinations'
       },
       vi: {
         add: '➕ Thêm', remove: '➖ Xóa', random: '🎲 Ngẫu nhiên', restore: '♻️ Khôi phục', langLabel: '🇻🇳 VIE', help: '❓', menu: '🏠 Menu', reset: '🔄 Làm mới',
         dragHint: '💧 Kéo một bình vào mục dưới để đổ lượng nước của nó.', targetTitle: 'Bình đích', dropHint: '📥 Thả các bình vào đây', cylinderAdded: '📌 Thêm bình: —', current: 'Hiện tại:', overflow: 'Tràn: tổng > 1',
-        rulesTitle: 'Luật chơi', rulesBody: 'Mỗi bình có cùng kích thước. Nhập tử số và mẫu số; mực nước theo tỉ lệ. Kéo bình vào đích để đổ hết lượng (bình nguồn thành 0). Phép tính hiển thị tổng phân số. Nếu tổng > 1, sẽ báo tràn.'
+        rulesTitle: 'Luật chơi', rulesBody: 'Mỗi bình có cùng kích thước. Nhập tử số và mẫu số; mực nước theo tỉ lệ. Kéo bình vào đích để đổ hết lượng (bình nguồn thành 0). Phép tính hiển thị tổng phân số. Nếu tổng > 1, sẽ báo tràn.',
+        completionStatus: 'Tìm thấy: {found} / {total} kết hợp có tổng bằng 1',
+        answersTitle: 'Các kết hợp có thể'
       }
     };
 
@@ -453,10 +487,12 @@
       if(addedListEl) addedListEl.textContent = t.cylinderAdded;
       // update rules modal
       if(rulesTitleEl) rulesTitleEl.textContent = t.rulesTitle; if(rulesBodyEl) rulesBodyEl.textContent = t.rulesBody;
+      if(answersTitle) answersTitle.textContent = t.answersTitle;
       // overflow text
       if(overflowText) overflowText.textContent = t.overflow;
       // current label (we keep fraction element after it)
       const infoEl = document.querySelector('.info'); if(infoEl) infoEl.childNodes[0].textContent = t.current + ' ';
+      updateCompletionStatus(); // also update status text on lang change
       localStorage.setItem('pour_lang', currentLang);
     }
     function toggleLanguage(){ currentLang = (currentLang==='en')? 'vi':'en'; applyLanguage(); }
@@ -500,6 +536,56 @@
       }catch(e){}
     }
 
+    // --- Completion status ---
+    function updateCompletionStatus() {
+      const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+      if (completionStatusEl) {
+        if (solvableCombinations.size > 0) {
+          completionStatusEl.textContent = t.completionStatus
+            .replace('{found}', foundCombinations.size)
+            .replace('{total}', solvableCombinations.size);
+          completionStatusEl.classList.add('status-clickable');
+          completionStatusEl.title = (currentLang === 'vi') ? 'Bấm để xem đáp án' : 'Click to see answers';
+        } else {
+          completionStatusEl.textContent = '';
+          completionStatusEl.classList.remove('status-clickable');
+          completionStatusEl.title = '';
+        }
+      }
+    }
+
+    function findAllSolvableCombinations() {
+      solvableCombinations.clear();
+      const n = cylinders.length;
+      if (n < 2) return;
+
+      // a recursive helper to find subsets
+      function findSubsets(startIndex, currentSum, currentCombo) {
+        // use a tolerance for floating point comparison
+        if (Math.abs(currentSum - 1) < 1e-9) {
+          const key = JSON.stringify(currentCombo.sort((a,b)=>a-b));
+          solvableCombinations.add(key);
+          return; // continue searching for other combinations
+        }
+        if (currentSum > 1 || startIndex >= n) {
+          return;
+        }
+
+        for (let i = startIndex; i < n; i++) {
+          const cyl = cylinders[i];
+          const cylValue = cyl.den === 0 ? 0 : cyl.num / cyl.den;
+          if (cylValue > 0) {
+            currentCombo.push(i);
+            findSubsets(i + 1, currentSum + cylValue, currentCombo);
+            currentCombo.pop(); // backtrack
+          }
+        }
+      }
+
+      findSubsets(0, 0, []);
+    }
+
+
     // --- randomize / restore ---
     let savedSnapshot = null;
     const NAMED_COLORS = [
@@ -514,22 +600,30 @@
       const n = cylinders.length;
       if(n===0) return;
 
+      // shuffle array in place
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+      
       // helpers
       function fracEqual(a,b){ return a.n * b.d === b.n * a.d; }
       function containsFrac(list, f){ return list.some(x=> fracEqual(x,f)); }
 
-      // try to build k-part decomposition summing to 1, with k between 2 and min(4,n)
-      const maxK = Math.min(4, n);
-      const minK = Math.max(2, Math.min(2, maxK));
+      const k = (n > 6) ? 3 : 2; // how many cylinders should sum to 1
       let success = false;
       let result = null;
       const ATTEMPTS = 800;
+
       for(let attempt=0; attempt<ATTEMPTS && !success; attempt++){
-        const k = Math.floor(Math.random()*(maxK - minK + 1)) + minK; // random k in [minK,maxK]
-        // pick k-1 random fractions
         const parts = [];
         let ok = true;
-        for(let i=0;i<k-1;i++){
+        
+        // 1. Create k-1 random, distinct fractions
+        for(let i=0; i<k-1; i++){
           let innerAttempts = 0; let picked = null;
           while(innerAttempts++ < 120){
             const d = Math.floor(Math.random()*11)+2; const num = Math.floor(Math.random()*(d-1))+1;
@@ -540,25 +634,28 @@
           parts.push(picked);
         }
         if(!ok) continue;
-        // compute sum using common denom
+
+        // 2. Calculate the last fraction to make the sum = 1
         let common = 1; for(const p of parts) common = lcm(common, p.d);
         let sumN = parts.reduce((acc,p)=> acc + p.n*(common/p.d), 0);
-        const remN = common - sumN; // remaining numerator over common
-        if(remN <=0) continue; // can't complete to 1
-        // try to find a denominator 2..12 making remaining representable exactly
+        const remN = common - sumN;
+        if(remN <=0) continue; // sum is already >= 1
+
         let lastFound = null;
+        // Find a denominator that works for the remainder
         for(let d=2; d<=12; d++){
-          // check if remN * d is divisible by common
-          if((remN * d) % common !== 0) continue;
-          const nLast = (remN * d) / common;
-          if(nLast >=1 && nLast < d){
-            const candidate = {n: nLast, d: d};
-            if(!containsFrac(parts, candidate)) { lastFound = candidate; break; }
+          if((remN * d) % common === 0){
+            const nLast = (remN * d) / common;
+            if(nLast >=1 && nLast < d){
+              const candidate = {n: nLast, d: d};
+              if(!containsFrac(parts, candidate)) { lastFound = candidate; break; }
+            }
           }
         }
         if(!lastFound) continue;
         parts.push(lastFound);
-        // now we have k parts summing to 1; build remaining distinct fractions
+
+        // 3. Generate the rest of the fractions
         const allParts = parts.slice();
         for(let j=parts.length; j<n; j++){
           let inner=0; let picked=null;
@@ -570,47 +667,54 @@
           allParts.push(picked);
         }
         if(!ok) continue;
-        // success
-        success = true; result = allParts;
-      }
 
-      // fallback: if couldn't find, produce simple pair 1/3 + 2/3 etc.
+        success = true;
+        result = allParts;
+      }
+      
+      // Fallback: if the algorithm fails, create a simple pair
       if(!success){
-        const parts = [];
-        // try denominators from 2..12 to find a complementary pair
-        outer: for(let d1=2; d1<=12; d1++){
-          for(let n1=1;n1<d1;n1++){
-            const rem = 1 - n1/d1;
-            for(let d2=2; d2<=12; d2++){
-              const n2 = rem * d2;
-              if(Math.abs(n2 - Math.round(n2))<1e-9){ const nn2=Math.round(n2); if(nn2>=1 && nn2<d2){ parts.push({n:n1,d:d1}); parts.push({n:nn2,d:d2}); break outer; } }
-            }
-          }
+        result = [];
+        const d1 = Math.floor(Math.random() * 5) + 2;
+        const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
+        result.push({n: n1, d: d1});
+        result.push({n: d1-n1, d: d1});
+        while(result.length < n){
+          const d = Math.floor(Math.random()*11)+2; const num = Math.floor(Math.random()*(d-1))+1; const f={n:num,d:d};
+          if(!containsFrac(result,f)) { result.push(f); }
         }
-        // fill rest with distinct fractions
-        const allParts = parts.slice();
-        while(allParts.length < n){
-          for(let d=2; d<=12; d++){
-            for(let num=1; num<d; num++){
-              const f={n:num,d:d}; if(!containsFrac(allParts,f)){ allParts.push(f); break; }
-            }
-            if(allParts.length>=n) break;
-          }
-          if(allParts.length>=n) break;
-        }
-        result = allParts.slice(0,n);
       }
 
-      // assign to cylinders ensuring distinct values and assign colors from palette (no name duplicate preference)
+      // 4. Shuffle the results and assign colors
+      const finalFractions = shuffle(result);
       const usedColors = new Set();
-      cylinders = result.map((f,i)=>{
-        // pick a color not used yet, rotate through NAMED_COLORS
+      cylinders = finalFractions.map((f,i)=>{
         const colObj = NAMED_COLORS[i % NAMED_COLORS.length]; usedColors.add(colObj.name);
         return { num: f.n, den: f.d, color: colObj.hex, colorName: colObj.name };
       });
-      renderAll(); recomputeTarget();
+
+      // 5. Reset progress and find all combinations
+      foundCombinations.clear();
+      findAllSolvableCombinations();
+      updateCompletionStatus();
+
+      renderAll();
+      recomputeTarget();
     }
-    function restoreCylinders(){ if(savedSnapshot){ cylinders = JSON.parse(JSON.stringify(savedSnapshot)); savedSnapshot = null; renderAll(); recomputeTarget(); } }
+    function restoreCylinders(){ 
+        if(savedSnapshot){ 
+            cylinders = JSON.parse(JSON.stringify(savedSnapshot)); 
+            savedSnapshot = null; 
+            
+            // Reset progress and find combinations for the restored state
+            foundCombinations.clear();
+            findAllSolvableCombinations();
+            updateCompletionStatus();
+
+            renderAll(); 
+            recomputeTarget(); 
+        } 
+    }
     if(randomBtn) randomBtn.addEventListener('click', randomizeCylinders);
     if(restoreBtn) restoreBtn.addEventListener('click', restoreCylinders);
 
@@ -666,8 +770,45 @@
     helpBtn.addEventListener('click', ()=>{ rulesModal.style.display='flex'; });
     closeRules.addEventListener('click', ()=>{ rulesModal.style.display='none'; });
     rulesModal.addEventListener('click', (ev)=>{ if(ev.target === rulesModal) rulesModal.style.display='none'; });
-    window.addEventListener('keydown', (ev)=>{ if(ev.key==='Escape') rulesModal.style.display='none'; });
   }
+
+  // --- Answers Modal ---
+  function showAnswersModal(){
+    if (solvableCombinations.size === 0) return;
+    // build content
+    answersBody.innerHTML = '';
+    const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+    
+    // Use a convention for the 'Cylinder' label that works with translation
+    const cylinderLabel = (currentLang === 'vi') ? 'Bình' : 'Cylinder';
+
+    solvableCombinations.forEach(key => {
+      const indices = JSON.parse(key);
+      const answerEl = document.createElement('div');
+      const hasFound = foundCombinations.has(key);
+      if(hasFound){
+        answerEl.className = 'found-answer';
+      }
+      const cylText = indices.map(i => `${cylinderLabel} ${i + 1}`).join(' + ');
+      answerEl.textContent = cylText;
+      answersBody.appendChild(answerEl);
+    });
+    
+    answersModal.style.display='flex';
+  }
+  if(completionStatusEl) completionStatusEl.addEventListener('click', showAnswersModal);
+  if(answersModal){
+    closeAnswers.addEventListener('click', ()=>{ answersModal.style.display='none'; });
+    answersModal.addEventListener('click', (ev)=>{ if(ev.target === answersModal) answersModal.style.display='none'; });
+  }
+
+  // global keydown handler for modals
+  window.addEventListener('keydown', (ev)=>{ 
+      if(ev.key==='Escape') {
+        if(rulesModal) rulesModal.style.display='none';
+        if(answersModal) answersModal.style.display='none';
+      }
+  });
 
   // back to menu
   if(backBtn){ backBtn.addEventListener('click', ()=>{ window.location.href = 'index.html'; }); }
