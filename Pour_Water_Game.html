@@ -129,6 +129,7 @@
     </div>
 
     <div id="completionStatus" class="info" style="margin-top:16px;text-align:center;"></div>
+    <div id="emojiPopup" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5rem; display: none; z-index: 100;"></div>
   </div>
 
   <!-- rules modal -->
@@ -311,13 +312,25 @@
     // play ding/explosion on state changes
     const isOverflow = decimal>1;
     const isFull = Math.abs(decimal - 1) < 1e-9 || Math.round(decimal*1000)===1000; // treat very close to 1 as full
-    if(isOverflow){ overflowText.style.display='block'; overflowMark.style.display='block'; if(targetCanvas) targetCanvas.classList.add('overflow'); }
-    else { overflowText.style.display='none'; overflowMark.style.display='none'; if(targetCanvas) targetCanvas.classList.remove('overflow'); }
+    if(isOverflow){ 
+        overflowText.style.display='block'; 
+        overflowMark.textContent = '😭';
+        overflowMark.style.display='block'; 
+        if(targetCanvas) targetCanvas.classList.add('overflow'); 
+    }
+    else { 
+        overflowText.style.display='none'; 
+        overflowMark.style.display='none'; 
+        if(targetCanvas) targetCanvas.classList.remove('overflow'); 
+    }
     // new overflow event
-    if(isOverflow && !lastOverflowState){ playExplosion(); }
+    if(isOverflow && !lastOverflowState){ 
+        playOverflowSound(); 
+    }
     // full exactly 1 event
     if(isFull && !lastFullState && !isOverflow){
-        playDing();
+        playSuccessSound();
+        showEmojiPopup('🎉');
         // User found a combination, record it.
         const foundIndices = targetParts.map(p => p.from).sort((a,b)=>a-b);
         const key = JSON.stringify(foundIndices);
@@ -512,28 +525,29 @@
       }catch(e){/* ignore if not available */}
     }
 
-    function playDing(){
+    function playSuccessSound(){
       try{
-        const C = window.__pourAudioCtx = window.__pourAudioCtx || new (window.AudioContext||window.webkitAudioContext)();
-        const o = C.createOscillator(); const g = C.createGain();
-        o.type = 'sine'; o.frequency.setValueAtTime(880, C.currentTime); o.frequency.exponentialRampToValueAtTime(1320, C.currentTime+0.15);
-        g.gain.setValueAtTime(0.0001, C.currentTime); g.gain.exponentialRampToValueAtTime(0.18, C.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.0001, C.currentTime+0.45);
-        o.connect(g); g.connect(C.destination); o.start(); o.stop(C.currentTime+0.45);
+        const audio = new Audio('kid_yeah.wav');
+        audio.play();
       }catch(e){}
     }
 
-    function playExplosion(){
+    function playOverflowSound(){
       try{
-        const C = window.__pourAudioCtx = window.__pourAudioCtx || new (window.AudioContext||window.webkitAudioContext)();
-        // create short noise buffer
-        const bufferSize = C.sampleRate * 0.35;
-        const buffer = C.createBuffer(1, bufferSize, C.sampleRate);
-        const data = buffer.getChannelData(0);
-        for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufferSize); }
-        const src = C.createBufferSource(); src.buffer = buffer;
-        const g = C.createGain(); g.gain.setValueAtTime(0.0001, C.currentTime); g.gain.exponentialRampToValueAtTime(0.6, C.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.0001, C.currentTime+0.35);
-        src.connect(g); g.connect(C.destination); src.start();
+        const audio = new Audio('Ohh.wav');
+        audio.play();
       }catch(e){}
+    }
+
+    function showEmojiPopup(emoji, duration = 1500) {
+        const popup = document.getElementById('emojiPopup');
+        if (popup) {
+            popup.textContent = emoji;
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, duration);
+        }
     }
 
     // --- Completion status ---
