@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nonogram</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
     <style>
         :root {
-            --cell-size: 40px;
+            --cell-size: 25px;
             --font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
             --background-color: #f3f3f3;
             --control-background-color: #ffffff;
@@ -71,6 +74,10 @@
         .corner {
             grid-column: 1;
             grid-row: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
         }
 
         #game-board, #editor-board { 
@@ -542,6 +549,7 @@
             <label for="puzzle-height-input" data-en="Height:" data-vi="Chiều cao:">Height:</label>
             <input type="number" id="puzzle-height-input" min="4" max="20" value="5">
             <button id="start-new-game-btn" data-en="🎮 Start New Game" data-vi="🎮 Bắt đầu trò chơi mới">🎮 Start New Game</button>
+            <button id="start-android-puzzle-btn" data-en="🤖 Android Puzzle" data-vi="🤖 Câu đố Android">🤖 Câu đố Android</button>
             <button id="difficulty-btn" data-en="Difficulty ⭐" data-vi="Độ khó ⭐">Difficulty ⭐</button>
         </div>
         <hr>
@@ -583,6 +591,7 @@
             <button id="solve-btn">💡 Solve</button>
             <button id="hint-btn" data-en="❓ Hint" data-vi="❓ Gợi ý">❓ Hint</button>
             <button id="check-puzzle-btn">✓ Check Puzzle</button>
+            <button id="new-android-puzzle-btn" data-en="New Puzzle" data-vi="Câu đố mới" style="display: none;">New Puzzle</button>
             <button id="back-to-start-btn-game">🏠 Back to Start</button>
             <button class="help-btn" onclick="showHelp('game')">?</button>
         </div>
@@ -626,6 +635,7 @@
         <div id="fedimser-container"></div>
     </div>
 
+        <script src="android_puzzles.js"></script>
         <script src="Nonogram.js"></script>
 
             <script>
@@ -889,10 +899,13 @@
                 const loadPuzzleInput = document.getElementById('load-puzzle-input');
                 
                 const startNewGameBtn = document.getElementById('start-new-game-btn');
+                const startAndroidPuzzleBtn = document.getElementById('start-android-puzzle-btn');
                 const puzzleWidthInput = document.getElementById('puzzle-width-input');
                 const puzzleHeightInput = document.getElementById('puzzle-height-input');
                 const difficultyBtn = document.getElementById('difficulty-btn');
                 let currentDifficulty = 1;
+
+                const newAndroidPuzzleBtn = document.getElementById('new-android-puzzle-btn');
         
                 const backToStartBtnGame = document.getElementById('back-to-start-btn-game');
                 const backToStartBtnEditor = document.getElementById('back-to-start-btn-editor');
@@ -1537,6 +1550,34 @@
                     }
                 });
         
+                startAndroidPuzzleBtn.addEventListener('click', () => {
+                    const puzzleData = androidPuzzles[Math.floor(Math.random() * androidPuzzles.length)];
+                    const clues = calculateClues(puzzleData.solution, puzzleData.size, puzzleData.size);
+                    const puzzle = {
+                        name: puzzleData.name,
+                        width: puzzleData.size,
+                        height: puzzleData.size,
+                        solution: puzzleData.solution,
+                        clues: clues,
+                        emoji: puzzleData.emoji
+                    };
+                    startGame(puzzle);
+                });
+
+                newAndroidPuzzleBtn.addEventListener('click', () => {
+                    const puzzleData = androidPuzzles[Math.floor(Math.random() * androidPuzzles.length)];
+                    const clues = calculateClues(puzzleData.solution, puzzleData.size, puzzleData.size);
+                    const puzzle = {
+                        name: puzzleData.name,
+                        width: puzzleData.size,
+                        height: puzzleData.size,
+                        solution: puzzleData.solution,
+                        clues: clues,
+                        emoji: puzzleData.emoji
+                    };
+                    startGame(puzzle);
+                });
+
                 createPuzzleBtn.addEventListener('click', () => showScreen(editorScreen));
                 
                 // Language toggle
@@ -1752,6 +1793,15 @@
                     }
                     console.log('[DEBUG] startGame: width=' + width + ', height=' + height + ', normalized solution:', currentPuzzle.solution);
                     const gameContainer = document.getElementById('game-container');
+                    const corner = gameContainer.querySelector('.corner');
+                    if (corner) {
+                        corner.textContent = puzzle.emoji || '';
+                    }
+                    if (puzzle.emoji) {
+                        newAndroidPuzzleBtn.style.display = 'inline-block';
+                    } else {
+                        newAndroidPuzzleBtn.style.display = 'none';
+                    }
 
                     // 1. Pre-emptively scale down without animation
                     gameContainer.classList.add('no-transition');
