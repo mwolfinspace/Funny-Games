@@ -132,6 +132,7 @@ class Nonogram {
 		this.matrix = zero2D(this.height, this.width);
 		this.rows = [];
 		this.columns = [];
+        this.nodes = 0;
 		
 		for(var i=0; i < this.height; i++) this.rows.push(new Line(groupsHor[i])); 
 		for(var i=0; i < this.width; i++) this.columns.push(new Line(groupsVert[i]));
@@ -176,85 +177,86 @@ class Nonogram {
     }
 	
 	solveAndCheck() {
-			// First try deterministic solving
-			this.solve();
-			if (this.isComplete()) return "Solved";
+        this.nodes = 0;
+        // First try deterministic solving
+        this.solve();
+        if (this.isComplete()) return { status: "Solved", nodes: this.nodes };
 
-			// If deterministic solving didn't finish, attempt a constrained
-			// backtracking search with heuristics and a node limit.
-			const horGroups = this.rows.map(r => r.groups.slice());
-			const vertGroups = this.columns.map(c => c.groups.slice());
+        // If deterministic solving didn't finish, attempt a constrained
+        // backtracking search with heuristics and a node limit.
+        const horGroups = this.rows.map(r => r.groups.slice());
+        const vertGroups = this.columns.map(c => c.groups.slice());
+        const self = this; // reference to 'this' for inner function
 
-			function cloneMatrix(m) { return m.map(row => row.slice()); }
+        function cloneMatrix(m) { return m.map(row => row.slice()); }
 
-			let found = null;
-			let nodes = 0;
-			const MAX_NODES = 200000; // cap to avoid pathological runtimes
+        let found = null;
+        const MAX_NODES = 200000; // cap to avoid pathological runtimes
 
-			function backtrack(mat) {
-				if (nodes++ > MAX_NODES) return false;
-				const n = new Nonogram(horGroups, vertGroups);
-				n.matrix = cloneMatrix(mat);
-				// Propagate deterministically
-				if (!n.solve()) return false;
-				if (n.isComplete()) { found = n.matrix; return true; }
+        function backtrack(mat) {
+            if (self.nodes++ > MAX_NODES) return false;
+            const n = new Nonogram(horGroups, vertGroups);
+            n.matrix = cloneMatrix(mat);
+            // Propagate deterministically
+            if (!n.solve()) return false;
+            if (n.isComplete()) { found = n.matrix; return true; }
 
-				// Choose branching cell using heuristic: pick unknown cell with minimal
-				// feasible choices (most constrained). If tie, prefer middle.
-				let best = null;
-				let bestChoices = 3;
-				for (let i = 0; i < n.height; i++) {
-					n.rows[i].setCells(n.matrix[i]);
-				}
-				for (let j = 0; j < n.width; j++) {
-					n.columns[j].setCells(n.getColumn(j));
-				}
-				for (let i = 0; i < n.height; i++) {
-					for (let j = 0; j < n.width; j++) {
-						if (n.matrix[i][j] !== 0) continue;
-						let count = 0;
-						if (n.rows[i].isModificationFeasible(j, 1) && n.columns[j].isModificationFeasible(i, 1)) count++;
-						if (n.rows[i].isModificationFeasible(j, -1) && n.columns[j].isModificationFeasible(i, -1)) count++;
-						if (count === 0) return false; // dead end
-						if (count < bestChoices) { bestChoices = count; best = {i, j}; }
-					}
-				}
+            // Choose branching cell using heuristic: pick unknown cell with minimal
+            // feasible choices (most constrained). If tie, prefer middle.
+            let best = null;
+            let bestChoices = 3;
+            for (let i = 0; i < n.height; i++) {
+                n.rows[i].setCells(n.matrix[i]);
+            }
+            for (let j = 0; j < n.width; j++) {
+                n.columns[j].setCells(n.getColumn(j));
+            }
+            for (let i = 0; i < n.height; i++) {
+                for (let j = 0; j < n.width; j++) {
+                    if (n.matrix[i][j] !== 0) continue;
+                    let count = 0;
+                    if (n.rows[i].isModificationFeasible(j, 1) && n.columns[j].isModificationFeasible(i, 1)) count++;
+                    if (n.rows[i].isModificationFeasible(j, -1) && n.columns[j].isModificationFeasible(i, -1)) count++;
+                    if (count === 0) return false; // dead end
+                    if (count < bestChoices) { bestChoices = count; best = {i, j}; }
+                }
+            }
 
-				if (!best) return false;
+            if (!best) return false;
 
-				// Order tries: try value that is more constrained first (if one option)
-				const tryVals = [];
-				const i = best.i, j = best.j;
-				const can1 = n.rows[i].isModificationFeasible(j, 1) && n.columns[j].isModificationFeasible(i, 1);
-				const canM1 = n.rows[i].isModificationFeasible(j, -1) && n.columns[j].isModificationFeasible(i, -1);
-				if (can1 && !canM1) tryVals.push(1);
-				else if (!can1 && canM1) tryVals.push(-1);
-				else tryVals.push(1, -1);
+            // Order tries: try value that is more constrained first (if one option)
+            const tryVals = [];
+            const i = best.i, j = best.j;
+            const can1 = n.rows[i].isModificationFeasible(j, 1) && n.columns[j].isModificationFeasible(i, 1);
+            const canM1 = n.rows[i].isModificationFeasible(j, -1) && n.columns[j].isModificationFeasible(i, -1);
+            if (can1 && !canM1) tryVals.push(1);
+            else if (!can1 && canM1) tryVals.push(-1);
+            else tryVals.push(1, -1);
 
-				for (const val of tryVals) {
-					const mat2 = cloneMatrix(n.matrix);
-					mat2[i][j] = val;
-					if (backtrack(mat2)) return true;
-					if (nodes > MAX_NODES) return false;
-				}
-				return false;
-			}
+            for (const val of tryVals) {
+                const mat2 = cloneMatrix(n.matrix);
+                mat2[i][j] = val;
+                if (backtrack(mat2)) return true;
+                if (self.nodes > MAX_NODES) return false;
+            }
+            return false;
+        }
 
-			const startMatrix = cloneMatrix(this.matrix);
-			if (backtrack(startMatrix) && found) {
-				this.matrix = found;
-				return "Solved";
-			}
+        const startMatrix = cloneMatrix(this.matrix);
+        if (backtrack(startMatrix) && found) {
+            this.matrix = found;
+            return { status: "Solved", nodes: this.nodes };
+        }
 
-			// Final checks: if deterministic propagation finds the puzzle feasible but
-			// incomplete, report multiple solutions; otherwise impossible.
-			const check = new Nonogram(horGroups, vertGroups);
-			check.matrix = cloneMatrix(this.matrix);
-			if (check.solve()) {
-				if (!check.isComplete()) return "Multiple solutions.";
-				return "Solved";
-			}
-			return "Impossible.";
+        // Final checks: if deterministic propagation finds the puzzle feasible but
+        // incomplete, report multiple solutions; otherwise impossible.
+        const check = new Nonogram(horGroups, vertGroups);
+        check.matrix = cloneMatrix(this.matrix);
+        if (check.solve()) {
+            if (!check.isComplete()) return { status: "Multiple solutions.", nodes: this.nodes };
+            return { status: "Solved", nodes: this.nodes };
+        }
+        return { status: "Impossible.", nodes: this.nodes };
 	}
 
 }
@@ -436,7 +438,8 @@ class NonogramGUI {
 	
 	solve() { 
 		var nonogram = new Nonogram(this.prepareGroups(this.groupsHor), this.prepareGroups(this.groupsVert));
-		this.ansText.innerHTML = nonogram.solveAndCheck();
+		const result = nonogram.solveAndCheck();
+		this.ansText.innerHTML = result.status;
 		this.cells = nonogram.matrix;
 		this.displayTable();
 	}
