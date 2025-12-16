@@ -110,26 +110,6 @@
         .cell:hover .cell-feedback {
             opacity: 1;
         }
-        
-        #difficulty-selector {
-            display: inline-flex;
-            align-items: center;
-            vertical-align: middle;
-            margin-left: 15px;
-        }
-
-        #difficulty-selector .star {
-            font-size: 28px;
-            color: #ccc;
-            cursor: pointer;
-            transition: color 0.2s;
-            margin: 0 2px;
-        }
-
-        #difficulty-selector .star:hover,
-        #difficulty-selector .star.active {
-            color: #f8d64e;
-        }
 
         @keyframes hint-highlight {
             0% { background-color: rgba(255, 255, 0, 0.8); }
@@ -562,6 +542,7 @@
             <label for="puzzle-height-input" data-en="Height:" data-vi="Chiều cao:">Height:</label>
             <input type="number" id="puzzle-height-input" min="4" max="20" value="5">
             <button id="start-new-game-btn" data-en="🎮 Start New Game" data-vi="🎮 Bắt đầu trò chơi mới">🎮 Start New Game</button>
+            <button id="difficulty-btn" data-en="Difficulty ⭐" data-vi="Độ khó ⭐">Difficulty ⭐</button>
         </div>
         <hr>
         <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px;">
@@ -910,6 +891,8 @@
                 const startNewGameBtn = document.getElementById('start-new-game-btn');
                 const puzzleWidthInput = document.getElementById('puzzle-width-input');
                 const puzzleHeightInput = document.getElementById('puzzle-height-input');
+                const difficultyBtn = document.getElementById('difficulty-btn');
+                let currentDifficulty = 1;
         
                 const backToStartBtnGame = document.getElementById('back-to-start-btn-game');
                 const backToStartBtnEditor = document.getElementById('back-to-start-btn-editor');
@@ -1512,14 +1495,37 @@
                 startNewGameBtn.addEventListener('click', () => {
                     const width = parseInt(puzzleWidthInput.value);
                     const height = parseInt(puzzleHeightInput.value);
-                    
+                    let density;
+
+                    // Difficulty now controls density. Lower density = more sparse = harder.
+                    switch (currentDifficulty) {
+                        case 1: // Easiest
+                            density = 0.60; 
+                            break;
+                        case 2:
+                            density = 0.55;
+                            break;
+                        case 3: // Medium
+                            density = 0.50;
+                            break;
+                        case 4:
+                            density = 0.40;
+                            break;
+                        case 5: // Hardest
+                            density = 0.30;
+                            break;
+                        default: // Fallback to medium
+                            density = 0.50;
+                            break;
+                    }
+
                     if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
                         const solution = Array.from({ length: height }, () => 
-                            Array.from({ length: width }, () => Math.round(Math.random()))
+                            Array.from({ length: width }, () => (Math.random() < density ? 1 : 0))
                         );
                         const clues = calculateClues(solution, width, height);
                         const puzzle = {
-                            name: "Random Puzzle",
+                            name: `Level ${currentDifficulty} Puzzle`,
                             width: width,
                             height: height,
                             solution: solution,
@@ -1546,6 +1552,19 @@
                 if (backToMenuBtn) {
                     backToMenuBtn.addEventListener('click', () => {
                         window.location.href = 'index.html';
+                    });
+                }
+
+                if (difficultyBtn) {
+                    difficultyBtn.addEventListener('click', () => {
+                        currentDifficulty++;
+                        if (currentDifficulty > 5) {
+                            currentDifficulty = 1;
+                        }
+                        const stars = '⭐'.repeat(currentDifficulty);
+                        difficultyBtn.dataset.en = `Difficulty ${stars}`;
+                        difficultyBtn.dataset.vi = `Độ khó ${stars}`;
+                        setLanguage(currentLanguage); // Update the button text
                     });
                 }
                 
