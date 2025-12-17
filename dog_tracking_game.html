@@ -160,6 +160,7 @@
         .btn {
             padding: 15px 25px;
             font-size: 1.1em;
+            font-family: 'Cabin', sans-serif;
             font-weight: 600;
             border: 1px solid var(--border-color);
             border-radius: 6px;
@@ -173,6 +174,8 @@
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 10px var(--shadow-color);
+            border-color: var(--direction-color);
+            background: var(--bg-card-current);
         }
         
         .btn:active {
@@ -241,6 +244,11 @@
             width: 30px; height: 30px; font-size: 1.2em; cursor: pointer; margin: 0 10px;
         }
         
+        .location-name {
+            font-weight: bold;
+            color: var(--title-color);
+        }
+
         .direction {
             font-weight: bold;
             text-transform: uppercase;
@@ -270,8 +278,8 @@
         
         <div class="control-panel">
             <div class="game-title">🎮 Điều Khiển</div>
-            <button id="btnStart" class="btn btn-primary">Bắt Đầu Trò Chơi</button>
-            <button id="btnNext" class="btn btn-primary" style="display: none;" disabled>Gợi Ý Tiếp Theo</button>
+            <button id="btnStart" class="btn btn-primary">▶️ Bắt Đầu Trò Chơi</button>
+            <button id="btnNext" class="btn btn-primary" style="display: none;" disabled>➡️ Gợi Ý Tiếp Theo</button>
             <button id="btnNight" class="btn btn-secondary" style="display: none;" disabled>🌙 Trời Tối</button>
             <button id="btnHistory" class="btn btn-success" style="display: none;" disabled>📜 Lịch Sử Gợi Ý</button>
             <button id="btnAnswer" class="btn btn-warning" style="display: none;" disabled>📍 Xác Định Vị Trí</button>
@@ -279,13 +287,14 @@
             <div class="divider"></div>
 
             <!-- New Buttons -->
-            <button id="btnToggleTheme" class="btn">Chế Độ Sáng/Tối</button>
-            <button id="btnChangeColor" class="btn">Đổi Màu Flashcard</button>
-            <button id="btnRestart" class="btn">Bắt Đầu Mới</button>
-            <a href="index.html" id="btnMenu" class="btn">Về Menu</a>
+            <button id="btnHelp" class="btn">❓ Trợ giúp</button>
+            <button id="btnToggleTheme" class="btn">🌗 Chế Độ Sáng/Tối</button>
+            <button id="btnChangeColor" class="btn">🎨 Đổi Màu Flashcard</button>
+            <button id="btnRestart" class="btn">🔄 Bắt Đầu Mới</button>
+            <a href="index.html" id="btnMenu" class="btn">↩️ Về Menu</a>
 
             <div id="autoHintControls" style="display: none; margin-top: 15px; text-align: center;">
-                <button id="btnAutoHint" class="btn">Gợi Ý Tự Động</button>
+                <button id="btnAutoHint" class="btn">⏱️ Gợi Ý Tự Động</button>
                 <div id="countdown" style="font-size: 1.5em; margin-top: 10px;">
                     <button id="btnDecrement">-</button>
                     <span id="countdown-timer">10</span>s
@@ -299,7 +308,7 @@
         <div class="modal-content">
             <h2 class="modal-title" id="modalTitle"></h2>
             <div id="modalBody"></div>
-            <button class="close-modal" onclick="closeModal()">Đóng</button>
+            <button class="close-modal" onclick="closeModal()">❌ Đóng</button>
         </div>
     </div>
 
@@ -387,6 +396,7 @@
         const btnNight = document.getElementById('btnNight');
         const btnHistory = document.getElementById('btnHistory');
         const btnAnswer = document.getElementById('btnAnswer');
+        const btnHelp = document.getElementById('btnHelp');
         const btnToggleTheme = document.getElementById('btnToggleTheme');
         const btnChangeColor = document.getElementById('btnChangeColor');
         const btnRestart = document.getElementById('btnRestart');
@@ -474,7 +484,7 @@
         function startGame() {
             const startLocation = getRandomLocation();
             dogPosition = [...locations[startLocation]];
-            hints = [{ text: `📍 Chú chó lần cuối được nhìn thấy ở ${startLocation}.`, direction: null, distance: null }];
+            hints = [{ text: `📍 Chú chó lần cuối được nhìn thấy ở <span class="location-name">${startLocation}</span>.`, direction: null, distance: null }];
             currentHintIndex = 0;
             isNight = false;
             gameStarted = true;
@@ -541,7 +551,7 @@
             currentHintIndex = index;
 
             // Recalculate position from start
-            const locationMatch = hints[0].text.match(/ở (.+)\./);
+            const locationMatch = hints[0].text.match(/ở <span class="location-name">([^<]+)<\/span>\./);
             if (locationMatch && locations[locationMatch[1]]) {
                 dogPosition = [...locations[locationMatch[1]]];
             }
@@ -646,7 +656,7 @@
                     const absDx = Math.round(Math.abs(loc.dx));
                     const absDy = Math.round(Math.abs(loc.dy));
 
-                    let instruction = `📍 Từ ${loc.name}`;
+                    let instruction = `📍 Từ <span class="location-name">${loc.name}</span>`;
 
                     if (absDx === 0 && absDy === 0) {
                         instruction += ', chú chó đang ở ngay đây!';
@@ -667,6 +677,29 @@
             }
 
             document.getElementById('modalTitle').textContent = '📍 Vị Trí Chú Chó';
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function showHelp() {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div class="answer-list" style="line-height: 2;">
+                    <h3>🐕 Mục Tiêu Trò Chơi</h3>
+                    <p>Chú chó cưng của Molly đã đi lạc. Dựa vào các gợi ý về hướng đi và quãng đường, bạn hãy theo dõi hành trình của chú chó.</p>
+                    <br>
+                    <h3>🎮 Cách Chơi</h3>
+                    <p><strong>1. Bắt Đầu:</strong> Trò chơi bắt đầu tại vị trí cuối cùng nhìn thấy chú chó.</p>
+                    <p><strong>2. Gợi Ý:</strong> Nhấn "Gợi Ý Tiếp Theo" để nhận thông tin về bước di chuyển mới của chú chó.</p>
+                    <p><strong>3. Trời Tối:</strong> Khi bạn cảm thấy đã đủ thông tin, nhấn "Trời Tối" để kết thúc hành trình của chú chó trong ngày.</p>
+                    <p><strong>4. Xác Định Vị Trí:</strong> Sau khi trời tối, nhấn "Xác Định Vị Trí" để xem chú chó đang ở gần địa điểm nào nhất.</p>
+                    <br>
+                    <h3>✨ Tính Năng Khác</h3>
+                    <p><strong>Lịch Sử:</strong> Xem lại tất cả các gợi ý đã nhận.</p>
+                    <p><strong>Gợi Ý Tự Động:</strong> Tự động nhận gợi ý sau một khoảng thời gian.</p>
+                    <p><strong>Chế Độ Sáng/Tối:</strong> Thay đổi giao diện.</p>
+                </div>
+            `;
+            document.getElementById('modalTitle').textContent = '❓ Trợ Giúp';
             document.getElementById('modal').classList.add('active');
         }
 
@@ -738,7 +771,7 @@
                 autoHintInterval = null;
             }
             isAutoHinting = false;
-            btnAutoHint.textContent = 'Gợi Ý Tự Động';
+            btnAutoHint.textContent = '⏱️ Gợi Ý Tự Động';
             if(gameStarted && !isNight) {
                 btnNext.disabled = false;
             }
@@ -753,6 +786,7 @@
         btnHistory.onclick = showHistory;
         btnAnswer.onclick = showAnswer;
         btnRestart.onclick = restartGame;
+        btnHelp.onclick = showHelp;
         btnToggleTheme.onclick = toggleTheme;
         btnChangeColor.onclick = changeCardColor;
         btnAutoHint.onclick = toggleAutoHint;
