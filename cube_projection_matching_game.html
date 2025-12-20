@@ -475,7 +475,7 @@
                 { pos: [0, 5, 11], name: 'pure-north' },         // Thuần Bắc
             ];
             const selectedAngle = cameraAngles[Math.floor(Math.random() * cameraAngles.length)];
-            const distance = size * 1.8; 
+            const distance = size * 1.4; 
             const direction = new THREE.Vector3(...selectedAngle.pos).normalize();
             camera.position.copy(center).add(direction.multiplyScalar(distance));
             camera.lookAt(center);
@@ -519,10 +519,27 @@
                 cube.position.copy(pos);
                 scene.add(cube);
 
-                const edges = new THREE.LineSegments(
-                    new THREE.EdgesGeometry(geo),
-                    new THREE.LineBasicMaterial({color:0x444444})
-                );
+                const edges = new THREE.Group();
+                const edgeRadius = 0.02; // Thicker edges
+                const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Black edges
+                const half = CUBE_SIZE / 2;
+                const points = [
+                    new THREE.Vector3(-half, -half, -half), new THREE.Vector3(half, -half, -half),
+                    new THREE.Vector3(half, half, -half), new THREE.Vector3(-half, half, -half),
+                    new THREE.Vector3(-half, -half, half), new THREE.Vector3(half, -half, half),
+                    new THREE.Vector3(half, half, half), new THREE.Vector3(-half, half, half)
+                ];
+                const edgePairs = [
+                    [0, 1], [1, 2], [2, 3], [3, 0],
+                    [4, 5], [5, 6], [6, 7], [7, 4],
+                    [0, 4], [1, 5], [2, 6], [3, 7]
+                ];
+                edgePairs.forEach(pair => {
+                    const path = new THREE.LineCurve3(points[pair[0]], points[pair[1]]);
+                    const geo = new THREE.TubeGeometry(path, 1, edgeRadius, 4, false);
+                    const tube = new THREE.Mesh(geo, edgeMaterial);
+                    edges.add(tube);
+                });
                 edges.position.copy(pos);
                 scene.add(edges);
             });
