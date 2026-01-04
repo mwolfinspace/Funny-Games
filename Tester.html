@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentomino Reveal Puzzle Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; margin: 0; padding: 20px; }
+        h1 { margin-bottom: 10px; }
+        canvas { border: 3px solid #333; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        button { padding: 10px 20px; margin: 8px; font-size: 16px; cursor: pointer; border-radius: 6px; }
+        button:hover { opacity: 0.9; }
+        #controls { margin: 20px auto; max-width: 900px; }
+        #status, #generateStatus, #gameStatus { font-size: 18px; margin: 15px; font-weight: bold; }
+        #targets { display: flex; justify-content: center; flex-wrap: wrap; margin: 20px; }
+        .target-circle { 
+            width: 44px; height: 44px; border-radius: 50%; background: orange; 
+            margin: 6px; display: flex; align-items: center; justify-content: center; 
+            color: white; font-weight: bold; font-size: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .target-found { background: #4CAF50; }
+    </style>
+</head>
+<body>
+    <h1>Pentomino Reveal Puzzle</h1>
+
+    <div id="step1">
+        <h2>Step 1: Choose Board Size</h2>
+        <button onclick="setSize(3,20)">3×20</button>
+        <button onclick="setSize(4,15)">4×15</button>
+        <button onclick="setSize(5,12)">5×12</button>
+        <button onclick="setSize(6,10)">6×10</button>
+        <br><br>
+        <label>Custom Rows: <input id="customRows" type="number" min="3" max="20" value="5"></label>
+        <label> Columns: <input id="customCols" type="number" min="10" max="30" value="12"></label>
+        <button onclick="setCustomSize()">Set Custom</button>
+    </div>
+
+    <div id="step2" style="display:none;">
+        <h2>Step 2: Place Target Circles</h2>
+        <p>Left click: place circle  Right click: remove circle</p>
+        <div id="status">Targets placed: 0  (Max: <span id="maxTargets">60</span>)</div>
+        <button onclick="nextToStep3()">Proceed to Generate Covering</button>
+    </div>
+
+    <div id="step3" style="display:none;">
+        <h2>Step 3: Generate Board Covering</h2>
+        <button onclick="generateCovering()">Random Fill Board</button>
+        <p id="generateStatus">Click the button to generate a covering with pentominoes.</p>
+        <button onclick="startGame()" id="startBtn" disabled style="background:#4CAF50; color:white;">Start Game</button>
+        <button onclick="backToStep2()">← Back to Edit Targets</button>
+    </div>
+
+    <div id="step4" style="display:none;">
+        <h2>Game Play</h2>
+        <div id="gameStatus">Targets remaining: <span id="remaining">0</span></div>
+        <div id="targets"></div>
+        <button onclick="undo()">Undo</button>
+        <button onclick="redo()">Redo</button>
+        <button onclick="quickReveal()">Quick Reveal (End Game)</button>
+        <button onclick="backToStep3()">← New Covering</button>
+    </div>
+
+    <div id="controls">
+        <canvas id="canvas" width="900" height="600"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let cellSize = 30;
+        let rows = 0, cols = 0;
+        let step = 1;
+
+        // 12 classic pentominoes (one fixed orientation each)
+        const basePentominoes = [
+            {name: 'I', shape: [[0,0],[0,1],[0,2],[0,3],[0,4]]},
+            {name: 'X', shape: [[0,1],[1,0],[1,1],[1,2],[2,1]]},
+            {name: 'V', shape: [[0,0],[0,1],[0,2],[1,2],[2,2]]},
+            {name: 'W', shape: [[0,0],[0,1],[1,1],[1,2],[2,2]]},
+            {name: 'U', shape: [[0,0],[0,2],[1,0],[1,1],[1,2]]},
+            {name: 'T', shape: [[0,0],[0,1],[0,2],[0,3],[1,2]]},
+            {name: 'Z', shape: [[0,0],[1,0],[1,1],[1,2],[2,2]]},
+            {name: 'F', shape: [[0,1],[1,0],[1,1],[1,2],[2,1]]},
+            {name: 'Y', shape: [[0,0],[0,1],[0,2],[0,3],[1,1]]},
+            {name: 'L', shape: [[0,0],[0,1],[0,2],[0,3],[1,3]]},
+            {name: 'P', shape: [[0,0],[0,1],[0,2],[1,0],[1,1]]},
+            {name: 'N', shape: [[0,0],[0,1],[1,1],[1,2],[1,3]]},
+        ];
+
+        const colors = ['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#fabebe','#008080','#e6beff'];
+
+        function normalize(shape) {
+            const minX = Math.min(...shape.map(p => p[0]));
+            const minY = Math.min(...shape.map(p => p[1]));
+            return shape.map(p => [p[0] - minX, p[1] - minY]);
+        }
+
+        function rotate90(shape) {
+            return shape.map(p => [p[1], -p[0]]);
+        }
+
+        function getAllVariants(baseShape) {
+            const variants = new Set();
+            let shape = baseShape.map(p => [...p]);
+            for (let r = 0; r < 4; r++) {
+                shape = normalize(shape);
+                variants.add(JSON.stringify(shape));
+                // reflection
+                let reflected = shape.map(p => [p[0], -p[1]]);
+                reflected = normalize(reflected);
+                variants.add(JSON.stringify(reflected));
+                shape = rotate90(shape);
+            }
+            return Array.from(variants).map(s => JSON.parse(s));
+        }
+
+        const allPentominoes = basePentominoes.map((p, i) => ({
+            name: p.name,
+            color: colors[i],
+            variants: getAllVariants(p.shape)
+        }));
+
+        let targets = new Set(); // strings 'x,y'
+        let placedPieces = [];
+        let selectedPiece = null;
+        let shadowPos = null;
+        let history = [];
+        let redoStack = [];
+
+        function setSize(r, c) {
+            rows = r; cols = c;
+            initBoard();
+        }
+
+        function setCustomSize() {
+            rows = parseInt(document.getElementById('customRows').value);
+            cols = parseInt(document.getElementById('customCols').value);
+            if (rows < 3 || cols < 10 || rows * cols < 20) {
+                alert('Board too small. Minimum reasonable size is around 30 cells.');
+                return;
+            }
+            initBoard();
+        }
+
+        function initBoard() {
+            cellSize = Math.min(900 / cols, 600 / rows);
+            canvas.width = cols * cellSize;
+            canvas.height = rows * cellSize;
+            targets = new Set();
+            placedPieces = [];
+            history = [];
+            redoStack = [];
+            document.getElementById('maxTargets').textContent = rows * cols;
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+            document.getElementById('step3').style.display = 'none';
+            document.getElementById('step4').style.display = 'none';
+            step = 2;
+            drawBoard();
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.strokeStyle = '#ddd';
+            for (let i = 0; i <= cols; i++) {
+                ctx.beginPath(); ctx.moveTo(i * cellSize, 0); ctx.lineTo(i * cellSize, rows * cellSize); ctx.stroke();
+            }
+            for (let i = 0; i <= rows; i++) {
+                ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(cols * cellSize, i * cellSize); ctx.stroke();
+            }
+
+            // Draw placed pentominoes
+            placedPieces.forEach(piece => {
+                ctx.fillStyle = piece.color + 'E6'; // slight transparency
+                piece.variant.forEach(cell => {
+                    ctx.fillRect((piece.x + cell[0]) * cellSize, (piece.y + cell[1]) * cellSize, cellSize, cellSize);
+                });
+            });
+
+            // Draw targets (only in step 2 or when won)
+            if (step === 2 || (step === 4 && placedPieces.length === 0)) {
+                let count = 1;
+                targets.forEach(t => {
+                    const [x, y] = t.split(',').map(Number);
+                    ctx.fillStyle = 'orange';
+                    ctx.beginPath();
+                    ctx.arc((x + 0.5) * cellSize, (y + 0.5) * cellSize, cellSize * 0.38, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'white';
+                    ctx.font = `bold ${cellSize * 0.5}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(count++, (x + 0.5) * cellSize, (y + 0.5) * cellSize);
+                });
+            }
+
+            // Selected piece shadow and lifted piece
+            if (selectedPiece && shadowPos) {
+                const valid = isValidPlacement(selectedPiece, shadowPos.x, shadowPos.y);
+                ctx.fillStyle = valid ? '#00000040' : '#ff000040';
+                selectedPiece.variant.forEach(cell => {
+                    ctx.fillRect((shadowPos.x + cell[0]) * cellSize, (shadowPos.y + cell[1]) * cellSize, cellSize, cellSize);
+                });
+
+                // Lifted piece effect
+                ctx.fillStyle = selectedPiece.color;
+                selectedPiece.variant.forEach(cell => {
+                    const px = (shadowPos.x + cell[0]) * cellSize + 4;
+                    const py = (shadowPos.y + cell[1]) * cellSize + 4;
+                    ctx.fillRect(px, py, cellSize - 8, cellSize - 8);
+                });
+            }
+        }
+
+        // Input handling
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const gridX = Math.floor((e.clientX - rect.left) / cellSize);
+            const gridY = Math.floor((e.clientY - rect.top) / cellSize);
+            if (gridX < 0 || gridX >= cols || gridY < 0 || gridY >= rows) return;
+
+            if (step === 2) {
+                const key = `${gridX},${gridY}`;
+                if (targets.has(key)) targets.delete(key);
+                else if (targets.size < rows * cols) targets.add(key);
+                document.getElementById('status').innerHTML = `Targets placed: ${targets.size}  (Max: ${rows * cols})`;
+                drawBoard();
+            } else if (step === 4) {
+                if (selectedPiece) {
+                    // Try to place
+                    const offsetX = gridX - selectedPiece.anchorX;
+                    const offsetY = gridY - selectedPiece.anchorY;
+                    const newX = selectedPiece.x + offsetX;
+                    const newY = selectedPiece.y + offsetY;
+                    if (isValidPlacement(selectedPiece, newX, newY)) {
+                        saveHistory();
+                        selectedPiece.x = newX;
+                        selectedPiece.y = newY;
+                        checkRevealed();
+                    }
+                    selectedPiece = null;
+                    shadowPos = null;
+                    drawBoard();
+                } else {
+                    // Pick up a piece
+                    for (let p of placedPieces) {
+                        let covers = false;
+                        for (let cell of p.variant) {
+                            if (p.x + cell[0] === gridX && p.y + cell[1] === gridY) {
+                                covers = true;
+                                break;
+                            }
+                        }
+                        if (covers) {
+                            selectedPiece = p;
+                            // Store anchor for better dragging feel
+                            selectedPiece.anchorX = gridX - p.x;
+                            selectedPiece.anchorY = gridY - p.y;
+                            shadowPos = {x: p.x, y: p.y};
+                            break;
+                        }
+                    }
+                    drawBoard();
+                }
+            }
+        });
+
+        canvas.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            if (step !== 4 || !selectedPiece) return;
+            // Rotate selected piece 90° clockwise
+            selectedPiece.variant = rotate90(selectedPiece.variant);
+            selectedPiece.variant = normalize(selectedPiece.variant);
+            drawBoard();
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (!selectedPiece) return;
+            const rect = canvas.getBoundingClientRect();
+            const gridX = Math.floor((e.clientX - rect.left) / cellSize);
+            const gridY = Math.floor((e.clientY - rect.top) / cellSize);
+            const newX = gridX - selectedPiece.anchorX;
+            const newY = gridY - selectedPiece.anchorY;
+            shadowPos = {x: newX, y: newY};
+            drawBoard();
+        });
+
+        function isValidPlacement(piece, px, py) {
+            for (let cell of piece.variant) {
+                const cx = px + cell[0];
+                const cy = py + cell[1];
+                if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) return false;
+                for (let other of placedPieces) {
+                    if (other === piece) continue;
+                    for (let oc of other.variant) {
+                        if (other.x + oc[0] === cx && other.y + oc[1] === cy) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function nextToStep3() {
+            if (targets.size === 0) {
+                alert('Please place at least one target circle.');
+                return;
+            }
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step3').style.display = 'block';
+            step = 3;
+        }
+
+        function backToStep2() {
+            document.getElementById('step3').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+            step = 2;
+            drawBoard();
+        }
+
+        function backToStep3() {
+            document.getElementById('step4').style.display = 'none';
+            document.getElementById('step3').style.display = 'block';
+            step = 3;
+            drawBoard();
+        }
+
+        function generateCovering() {
+            placedPieces = [];
+            let uncoveredTargets = new Set(targets);
+            let availablePieces = allPentominoes.map(p => ({
+                name: p.name,
+                color: p.color,
+                variants: p.variants.slice()
+            }));
+            shuffle(availablePieces);
+
+            let attempts = 0;
+            const maxAttempts = 600;
+
+            // Greedy covering phase
+            while (uncoveredTargets.size > 0 && attempts < maxAttempts && availablePieces.length > 0) {
+                let bestPiece = null;
+                let bestVariant = null;
+                let bestX = -1, bestY = -1;
+                let bestCovered = 0;
+
+                for (let pi = availablePieces.length - 1; pi >= 0; pi--) {
+                    const piece = availablePieces[pi];
+                    for (let variant of piece.variants) {
+                        for (let y = 0; y <= rows - 5; y++) {
+                            for (let x = 0; x <= cols - 5; x++) {
+                                if (!isValidPlacementTemp({variant}, x, y)) continue;
+                                let coveredCount = 0;
+                                for (let cell of variant) {
+                                    const tx = x + cell[0];
+                                    const ty = y + cell[1];
+                                    if (uncoveredTargets.has(`${tx},${ty}`)) coveredCount++;
+                                }
+                                if (coveredCount > bestCovered) {
+                                    bestCovered = coveredCount;
+                                    bestPiece = piece;
+                                    bestVariant = variant;
+                                    bestX = x;
+                                    bestY = y;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (bestCovered === 0) break; // can't cover any more
+
+                placedPieces.push({
+                    name: bestPiece.name,
+                    color: bestPiece.color,
+                    variant: bestVariant,
+                    x: bestX,
+                    y: bestY
+                });
+
+                for (let cell of bestVariant) {
+                    uncoveredTargets.delete(`${bestX + cell[0]},${bestY + cell[1]}`);
+                }
+
+                availablePieces = availablePieces.filter(p => p.name !== bestPiece.name);
+                attempts++;
+            }
+
+            // Add a few extra random pieces for space and aesthetics
+            shuffle(availablePieces);
+            for (let i = 0; i < Math.min(3, availablePieces.length); i++) {
+                const piece = availablePieces[i];
+                const variant = piece.variants[Math.floor(Math.random() * piece.variants.length)];
+                let placed = false;
+                for (let t = 0; t < 80; t++) {
+                    const x = Math.floor(Math.random() * (cols - 5));
+                    const y = Math.floor(Math.random() * (rows - 5));
+                    if (isValidPlacementTemp({variant}, x, y)) {
+                        placedPieces.push({name: piece.name, color: piece.color, variant, x, y});
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+
+            // Status
+            if (uncoveredTargets.size > 0) {
+                document.getElementById('generateStatus').innerHTML = 
+                    `<span style="color:red;">Could only cover ${targets.size - uncoveredTargets.size} of ${targets.size} targets.</span><br>Try again or go back to adjust targets.`;
+                document.getElementById('startBtn').disabled = true;
+            } else {
+                document.getElementById('generateStatus').innerHTML = 
+                    `<span style="color:green;">Success! All ${targets.size} targets fully covered with ${placedPieces.length} pentomino pieces.</span><br>There's room to move pieces around.`;
+                document.getElementById('startBtn').disabled = false;
+            }
+
+            drawBoard();
+        }
+
+        function isValidPlacementTemp(testPiece, px, py) {
+            for (let cell of testPiece.variant) {
+                const cx = px + cell[0];
+                const cy = py + cell[1];
+                if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) return false;
+                for (let other of placedPieces) {
+                    for (let oc of other.variant) {
+                        if (other.x + oc[0] === cx && other.y + oc[1] === cy) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function startGame() {
+            document.getElementById('step3').style.display = 'none';
+            document.getElementById('step4').style.display = 'block';
+            step = 4;
+            createTargetsList();
+            checkRevealed();
+            drawBoard();
+        }
+
+        function createTargetsList() {
+            const div = document.getElementById('targets');
+            div.innerHTML = '';
+            let i = 1;
+            targets.forEach(() => {
+                const c = document.createElement('div');
+                c.className = 'target-circle';
+                c.textContent = i++;
+                div.appendChild(c);
+            });
+        }
+
+        function checkRevealed() {
+            const circles = document.querySelectorAll('.target-circle');
+            let remaining = 0;
+            let idx = 0;
+            targets.forEach(t => {
+                const [x, y] = t.split(',').map(Number);
+                let covered = false;
+                placedPieces.forEach(p => {
+                    p.variant.forEach(cell => {
+                        if (p.x + cell[0] === x && p.y + cell[1] === y) covered = true;
+                    });
+                });
+                if (covered) {
+                    circles[idx].classList.add('target-found');
+                } else {
+                    circles[idx].classList.remove('target-found');
+                    remaining++;
+                }
+                idx++;
+            });
+            document.getElementById('remaining').textContent = remaining;
+            if (remaining === 0) {
+                setTimeout(() => {
+                    alert('🎉 Congratulations! You revealed all targets!');
+                    // Fade pieces to reveal targets
+                    placedPieces.forEach(p => p.color += '80');
+                    drawBoard();
+                }, 200);
+            }
+        }
+
+        function saveHistory() {
+            history.push(placedPieces.map(p => ({
+                name: p.name, color: p.color, variant: p.variant.map(c => [...c]), x: p.x, y: p.y
+            })));
+            redoStack = [];
+        }
+
+        function undo() {
+            if (history.length > 0) {
+                redoStack.push(placedPieces.map(p => ({
+                    name: p.name, color: p.color, variant: p.variant.map(c => [...c]), x: p.x, y: p.y
+                })));
+                placedPieces = history.pop().map(p => ({
+                    name: p.name, color: p.color, variant: p.variant, x: p.x, y: p.y
+                }));
+                checkRevealed();
+                drawBoard();
+            }
+        }
+
+        function redo() {
+            if (redoStack.length > 0) {
+                history.push(placedPieces.map(p => ({
+                    name: p.name, color: p.color, variant: p.variant.map(c => [...c]), x: p.x, y: p.y
+                })));
+                placedPieces = redoStack.pop().map(p => ({
+                    name: p.name, color: p.color, variant: p.variant, x: p.x, y: p.y
+                }));
+                checkRevealed();
+                drawBoard();
+            }
+        }
+
+        function quickReveal() {
+            if (confirm('Quick reveal will clear all pieces and end the game. Continue?')) {
+                saveHistory();
+                placedPieces = [];
+                drawBoard();
+                checkRevealed();
+            }
+        }
+
+        // Initial draw
+        drawBoard();
+    </script>
+</body>
+</html>

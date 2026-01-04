@@ -190,132 +190,155 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function drawPieces() {
         const piecesContainer = document.getElementById('pieces-container');
+        // Clear everything except the floating piece
+        const floatingPiece = document.getElementById('floating-piece');
         piecesContainer.innerHTML = '';
+        if (floatingPiece) {
+            piecesContainer.appendChild(floatingPiece);
+        }
+
         if (!boardState.placedPieces) return;
 
-        boardState.placedPieces.forEach(piece => {
+        // Draw only the pieces that are on the board
+        boardState.placedPieces.filter(p => p.row !== -1).forEach(piece => {
             const pieceDiv = createPieceElement(piece);
             piecesContainer.appendChild(pieceDiv);
         });
     }
 
     // --- Step 6: Gameplay Logic ---
-    let draggedPiece = null;
-    let dragOffsetX, dragOffsetY;
+    let selectedPiece = null; // This will hold the state of the piece, not the element
     let originalRow, originalCol;
 
-    // Use event delegation on the container for pieces
-    document.getElementById('pieces-container').addEventListener('mousedown', (e) => {
+    // Remove old listeners and add new ones
+    document.getElementById('pieces-container').innerHTML = ''; // Clear pieces to re-add with new listeners
+    
+    document.addEventListener('click', handleLeftClick);
+    document.addEventListener('contextmenu', handleRightClick);
+    document.addEventListener('mousemove', handleMouseMove);
+
+
+    function handleLeftClick(e) {
+        if (gameWon) return;
         const pieceElement = e.target.closest('.pentomino-piece');
-        if (pieceElement) {
-            e.preventDefault();
-            startDrag(e, pieceElement);
+        
+        if (selectedPiece) {
+            // Try to place the piece
+            const boardRect = gameBoard.getBoundingClientRect();
+            const x = e.clientX - boardRect.left;
+            const y = e.clientY - boardRect.top;
+
+            const newCol = Math.floor(x / 30);
+            const newRow = Math.floor(y / 30);
+
+            if (canPlace(boardState.grid, selectedPiece, newRow, newCol)) {
+                // Valid placement
+                placePiece(boardState.grid, selectedPiece, newRow, newCol);
+                const placedPieceState = boardState.placedPieces.find(p => p.id === selectedPiece.id);
+                placedPieceState.row = newRow;
+                placedPieceState.col = newCol;
+                placedPieceState.shape = selectedPiece.shape;
+                
+                selectedPiece = null;
+                drawPieces();
+                checkTargets();
+                saveState();
+            } else {
+                // Invalid placement - return to original
+                soundOhh.play();
+                const originalPieceState = boardState.placedPieces.find(p => p.id === selectedPiece.id);
+                originalPieceState.row = originalRow;
+                originalPieceState.col = originalCol;
+                placePiece(boardState.grid, originalPieceState, originalRow, originalCol);
+                selectedPiece = null;
+                drawPieces();
+            }
+
+        } else if (pieceElement) {
+            // Pick up a piece
+            const pieceId = pieceElement.dataset.id;
+            const pieceState = boardState.placedPieces.find(p => p.id === pieceId);
+            
+            // Set the state for the selected piece
+            selectedPiece = { ...pieceState };
+            originalRow = pieceState.row;
+            originalCol = pieceState.col;
+
+            // Remove from board and state
+            removePiece(boardState.grid, pieceState, pieceState.row, pieceState.col);
+            pieceState.row = -1; // Mark as off-board
+            
+            drawPieces(); // Redraw to remove the piece from its static position
+            
+            // Create a floating piece to follow the mouse
+            const floatingPiece = createPieceElement(selectedPiece);
+            floatingPiece.id = 'floating-piece';
+            floatingPiece.style.pointerEvents = 'none';
+            document.getElementById('pieces-container').appendChild(floatingPiece);
+            
+            // Position it
+            handleMouseMove(e);
         }
-    });
+    }
 
-    function startDrag(e, pieceElement) {
-        if (draggedPiece || gameWon) return; // Prevent multiple drags or drag after win
+    function handleRightClick(e) {
+        e.preventDefault();
+        if (gameWon) return;
 
-        const pieceId = pieceElement.dataset.id;
-        const pieceState = boardState.placedPieces.find(p => p.id === pieceId);
-        
-        // Temporarily remove piece from the grid for collision detection
-        removePiece(boardState.grid, pieceState, pieceState.row, pieceState.col);
+        if (selectedPiece) {
+             // Rotate the selected piece
+            const rotatedShape = rotateMatrix(selectedPiece.shape);
+            selectedPiece.shape = rotatedShape;
 
-        draggedPiece = pieceElement;
-        originalRow = pieceState.row;
-        originalCol = pieceState.col;
-        
-        const rect = draggedPiece.getBoundingClientRect();
-        dragOffsetX = e.clientX - rect.left;
-        dragOffsetY = e.clientY - rect.top;
+            // Update the floating piece display
+            const floatingPiece = document.getElementById('floating-piece');
+            if(floatingPiece) {
+                const newFloating = createPieceElement(selectedPiece);
+                newFloating.id = 'floating-piece';
+                newFloating.style.pointerEvents = 'none';
+                floatingPiece.replaceWith(newFloating);
+                handleMouseMove(e);
+            }
 
-        draggedPiece.classList.add('dragging');
-        
-        // Create a shadow piece
-        const shadow = createPieceElement(pieceState);
-        shadow.classList.add('shadow-piece');
-        document.getElementById('pieces-container').appendChild(shadow);
+        } else {
+            // Rotate a piece on the board
+            const pieceElement = e.target.closest('.pentomino-piece');
+            if (pieceElement) {
+                const pieceId = pieceElement.dataset.id;
+                const pieceState = boardState.placedPieces.find(p => p.id === pieceId);
+                
+                // Temporarily remove to check for valid rotation
+                removePiece(boardState.grid, pieceState, pieceState.row, pieceState.col);
 
-        document.addEventListener('mousemove', onDrag);
-        document.addEventListener('mouseup', onDrop);
-        document.addEventListener('contextmenu', onRotate);
+                const rotatedShape = rotateMatrix(pieceState.shape);
+                
+                if (canPlace(boardState.grid, { ...pieceState, shape: rotatedShape }, pieceState.row, pieceState.col)) {
+                    pieceState.shape = rotatedShape;
+                    // Place it back
+                    placePiece(boardState.grid, pieceState, pieceState.row, pieceState.col);
+                    drawPieces();
+                    saveState();
+                } else {
+                    // Put it back as it was
+                    placePiece(boardState.grid, pieceState, pieceState.row, pieceState.col);
+                    soundOhh.play();
+                }
+            }
+        }
     }
     
-    function onDrag(e) {
-        if (!draggedPiece) return;
+    function handleMouseMove(e) {
+        if (!selectedPiece) return;
         
-        const boardRect = gameBoard.getBoundingClientRect();
-        const x = e.clientX - boardRect.left - dragOffsetX;
-        const y = e.clientY - boardRect.top - dragOffsetY;
-
-        draggedPiece.style.left = `${x}px`;
-        draggedPiece.style.top = `${y}px`;
-    }
-
-    function onDrop(e) {
-        if (!draggedPiece) return;
-
-        const boardRect = gameBoard.getBoundingClientRect();
-        const x = e.clientX - boardRect.left - dragOffsetX;
-        const y = e.clientY - boardRect.top - dragOffsetY;
-
-        // Snap to grid
-        const newCol = Math.round(x / 30);
-        const newRow = Math.round(y / 30);
-
-        const pieceId = draggedPiece.dataset.id;
-        const pieceState = boardState.placedPieces.find(p => p.id === pieceId);
-        const currentShape = JSON.parse(draggedPiece.dataset.shape);
-        const newPieceState = {...pieceState, shape: currentShape};
-
-        // Check if placement is valid
-        if (canPlace(boardState.grid, newPieceState, newRow, newCol)) {
-            // Valid placement
-            pieceState.row = newRow;
-            pieceState.col = newCol;
-            pieceState.shape = currentShape;
-
-            placePiece(boardState.grid, pieceState, newRow, newCol);
-        } else {
-            // Invalid placement, return to original position
-            soundOhh.play();
-            placePiece(boardState.grid, pieceState, originalRow, originalCol);
+        const floatingPiece = document.getElementById('floating-piece');
+        if (floatingPiece) {
+            const boardRect = gameBoard.getBoundingClientRect();
+            // Center the piece roughly on the cursor
+            const x = e.clientX - boardRect.left - 15;
+            const y = e.clientY - boardRect.top - 15;
+            floatingPiece.style.left = `${x}px`;
+            floatingPiece.style.top = `${y}px`;
         }
-        
-        // Clean up
-        draggedPiece.classList.remove('dragging');
-        document.removeEventListener('mousemove', onDrag);
-        document.removeEventListener('mouseup', onDrop);
-        document.removeEventListener('contextmenu', onRotate);
-        draggedPiece = null;
-        
-        // Redraw everything to be safe
-        drawPieces();
-        document.querySelector('.shadow-piece')?.remove();
-        
-        checkTargets();
-        saveState();
-    }
-
-    function onRotate(e) {
-        e.preventDefault();
-        if (!draggedPiece) return;
-
-        const currentShape = JSON.parse(draggedPiece.dataset.shape);
-        const rotatedShape = rotateMatrix(currentShape);
-        
-        // Re-create the element with the new shape
-        const pieceId = draggedPiece.dataset.id;
-        const pieceColor = getPieceColor(pieceId);
-        
-        const newPieceDiv = createPieceElement({ id: pieceId, shape: rotatedShape, color: pieceColor });
-        newPieceDiv.classList.add('dragging');
-        newPieceDiv.style.left = draggedPiece.style.left;
-        newPieceDiv.style.top = draggedPiece.style.top;
-        
-        draggedPiece.replaceWith(newPieceDiv);
-        draggedPiece = newPieceDiv;
     }
 
     function createPieceElement(piece) {
@@ -422,17 +445,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateTargetList() {
-        const remainingTargets = boardState.targets.filter(t => !t.found).length;
-        targetCountSpan.textContent = `${remainingTargets} / ${boardState.targets.length}`;
+        const remainingTargets = boardState.targets.filter(t => !t.found);
+        targetCountSpan.textContent = `${boardState.targets.length - remainingTargets.length} / ${boardState.targets.length}`;
         
         targetListDiv.innerHTML = '<h3>Targets:</h3>';
-        const list = document.createElement('ul');
+        const list = document.createElement('div'); // Changed from ul
+        list.style.display = 'flex';
+        list.style.flexWrap = 'wrap';
+        list.style.gap = '5px';
+    
         boardState.targets.forEach(target => {
-            const item = document.createElement('li');
-            item.textContent = `Target ${target.id}`;
+            const item = document.createElement('span'); // Changed from li
+            item.textContent = target.id;
+            item.style.padding = '2px 5px';
+            item.style.border = '1px solid #ccc';
+            item.style.borderRadius = '3px';
+    
             if (target.found) {
                 item.style.textDecoration = 'line-through';
-                item.style.color = 'green';
+                item.style.backgroundColor = '#d4edda'; // A light green
+                item.style.borderColor = '#c3e6cb';
+            } else {
+                 item.style.backgroundColor = '#f8d7da'; // A light red
+                 item.style.borderColor = '#f5c6cb';
             }
             list.appendChild(item);
         });
