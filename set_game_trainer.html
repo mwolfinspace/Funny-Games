@@ -89,6 +89,10 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
         }
 
         .symbol-option:hover {
@@ -421,6 +425,37 @@
             color: #999;
             margin-top: 5px;
         }
+
+        .setup-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .setup-left {
+            flex: 1;
+        }
+
+        .setup-right {
+            width: 350px;
+            padding-left: 30px;
+            border-left: 2px solid #eee;
+        }
+        
+        .demo-area {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .demo-card {
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            width: 100px;
+            height: 140px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -456,13 +491,34 @@
                     <div class="setup-group">
                         <label>Choose 3 Symbols:</label>
                         <div class="symbol-select">
-                            <div class="symbol-option selected" data-symbol="diamond">Diamond</div>
-                            <div class="symbol-option selected" data-symbol="circle">Circle</div>
-                            <div class="symbol-option selected" data-symbol="pill">Pill</div>
-                            <div class="symbol-option" data-symbol="wave">Wave</div>
-                            <div class="symbol-option" data-symbol="triangle">Triangle</div>
-                            <div class="symbol-option" data-symbol="square">Square</div>
-                            <div class="symbol-option" data-symbol="star">Star</div>
+                            <div class="symbol-option selected" data-symbol="diamond">
+                                <div></div>
+                                <span>Diamond</span>
+                            </div>
+                            <div class="symbol-option selected" data-symbol="circle">
+                                <div></div>
+                                <span>Circle</span>
+                            </div>
+                            <div class="symbol-option selected" data-symbol="pill">
+                                <div></div>
+                                <span>Pill</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="wave">
+                                <div></div>
+                                <span>Wave</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="triangle">
+                                <div></div>
+                                <span>Triangle</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="square">
+                                <div></div>
+                                <span>Square</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="star">
+                                <div></div>
+                                <span>Star</span>
+                            </div>
                         </div>
                         <div class="symbol-count">Selected: 3 symbols</div>
                     </div>
@@ -545,8 +601,65 @@
                 document.querySelectorAll('.orientation-option').forEach(o => o.classList.remove('selected'));
                 this.classList.add('selected');
                 settings.orientation = this.dataset.orientation;
+                updateDemo();
             });
         });
+
+        function updateSymbolOptions() {
+            document.querySelectorAll('.symbol-option').forEach(opt => {
+                const symbol = opt.dataset.symbol;
+                const svg = drawShape(symbol, '#333', 'solid', 40);
+                opt.querySelector('div').innerHTML = '';
+                opt.querySelector('div').appendChild(svg);
+            });
+        }
+
+        function updateDemo() {
+            const demoArea = document.getElementById('demoArea');
+            demoArea.innerHTML = '';
+
+            const colors = [
+                document.getElementById('color1').value,
+                document.getElementById('color2').value,
+                document.getElementById('color3').value
+            ];
+            const cardBg = document.getElementById('cardBg').value;
+            const selectedSymbols = Array.from(document.querySelectorAll('.symbol-option.selected'))
+                .map(opt => opt.dataset.symbol);
+
+            if (selectedSymbols.length === 0) return;
+
+            const shadings = ['solid', 'striped', 'outline'];
+
+            for (let i = 0; i < 9; i++) {
+                const card = document.createElement('div');
+                card.className = 'demo-card';
+                card.style.background = cardBg;
+                
+                const cardContent = document.createElement('div');
+                cardContent.className = 'card-content';
+
+                const symbol = selectedSymbols[i % selectedSymbols.length];
+                const color = colors[Math.floor(i / 3) % colors.length];
+                const shading = shadings[i % shadings.length];
+                const count = (i % 3) + 1;
+
+                for (let j = 0; j < count; j++) {
+                    const shape = drawShape(symbol, color, shading, 20);
+                    cardContent.appendChild(shape);
+                }
+
+                card.appendChild(cardContent);
+                demoArea.appendChild(card);
+            }
+        }
+
+        document.querySelectorAll('.color-input input').forEach(input => input.addEventListener('input', updateDemo));
+        document.querySelectorAll('.symbol-option').forEach(opt => opt.addEventListener('click', updateDemo));
+        document.getElementById('cardBg').addEventListener('input', updateDemo);
+
+        updateSymbolOptions();
+        updateDemo();
 
         function createDeck() {
             deck = [];
