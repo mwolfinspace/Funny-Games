@@ -141,6 +141,66 @@
             transition: all 0.3s;
         }
 
+        .card {
+            background: white;
+            border: 3px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            width: 140px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .card.horizontal {
+            width: 200px;
+            height: 140px;
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .card-info {
+            margin-top: 10px;
+            font-size: 11px;
+            text-align: center;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .wrong-mark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: red;
+            font-weight: bold;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .wrong-mark.show {
+            opacity: 1;
+        }
+
         .game-area {
             display: flex;
             justify-content: space-between;
@@ -195,9 +255,7 @@
         .path {
             fill: none;
             stroke: #333;
-            stroke-width: 5;
-            stroke-dasharray: 10;
-            animation: dash 1s linear infinite;
+            stroke-width: 10;
         }
 
         @keyframes dash {
@@ -565,6 +623,11 @@
 
             card.appendChild(content);
 
+            const info = document.createElement('div');
+            info.className = 'card-info';
+            info.innerHTML = getCardInfoText(cardData);
+            card.appendChild(info);
+
             const wrongMark = document.createElement('div');
             wrongMark.className = 'wrong-mark';
             wrongMark.textContent = '✗';
@@ -572,6 +635,24 @@
 
             wrapper.appendChild(card);
             return wrapper;
+        }
+
+        function getCardInfoText(cardData) {
+            const countText = `${cardData.count}`;
+            const colorText = `Color ${cardData.color + 1}`;
+            const shadingText = cardData.shading;
+            const shapeText = symbolNames[settings.symbols[cardData.shape]];
+
+            return `${countText} ${shapeText}<br>${colorText}, ${shadingText}`;
+        }
+
+        function getCardInfoText(cardData) {
+            const countText = `${cardData.count}`;
+            const colorText = `Color ${cardData.color + 1}`;
+            const shadingText = cardData.shading;
+            const shapeText = symbolNames[settings.symbols[cardData.shape]];
+
+            return `${countText} ${shapeText}<br>${colorText}, ${shadingText}`;
         }
 
         function drawPath() {
@@ -590,19 +671,19 @@
 
             // Visible paths
             svg.innerHTML = `
-                <path d="M ${startX} ${startY} L ${int1X} ${int1Y}" class="path" />
-                <path d="M ${int1X} ${int1Y} L ${int2X} ${int2Y}" class="path" />
-                <path d="M ${int2X} ${int2Y} L ${slotAX} ${slotAY}" class="path" />
-                <path d="M ${int1X} ${int1Y} L ${mergeX} ${mergeY}" class="path" />
-                <path d="M ${int2X} ${int2Y} L ${mergeX} ${mergeY}" class="path" />
-                <path d="M ${mergeX} ${mergeY} L ${slotBX} ${slotBY}" class="path" />
+                <path d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y}" class="path" />
+                <path d="M ${int1X},${int1Y} C ${int1X + (int2X-int1X)/2},${int1Y} ${int1X + (int2X-int1X)/2},${int2Y} ${int2X},${int2Y}" class="path" />
+                <path d="M ${int2X},${int2Y} C ${int2X + (slotAX-int2X)/2},${int2Y} ${int2X + (slotAX-int2X)/2},${slotAY} ${slotAX},${slotAY}" class="path" />
+                <path d="M ${int1X},${int1Y} C ${int1X + (mergeX-int1X)/4},${int1Y} ${int1X + (mergeX-int1X)/2},${mergeY} ${mergeX},${mergeY}" class="path" />
+                <path d="M ${int2X},${int2Y} C ${int2X},${int2Y+(mergeY-int2Y)/2} ${mergeX},${int2Y+(mergeY-int2Y)/2} ${mergeX},${mergeY}" class="path" />
+                <path d="M ${mergeX},${mergeY} C ${mergeX+(slotBX-mergeX)/2},${mergeY} ${mergeX+(slotBX-mergeX)/2},${slotBY} ${slotBX},${slotBY}" class="path" />
             `;
 
             // Invisible animation paths
             svg.innerHTML += `
-                <path id="animation-path-a" d="M ${startX} ${startY} L ${int1X} ${int1Y} L ${int2X} ${int2Y} L ${slotAX} ${slotAY}" style="stroke:none; fill:none;" />
-                <path id="animation-path-b1" d="M ${startX} ${startY} L ${int1X} ${int1Y} L ${mergeX} ${mergeY} L ${slotBX} ${slotBY}" style="stroke:none; fill:none;" />
-                <path id="animation-path-b2" d="M ${startX} ${startY} L ${int1X} ${int1Y} L ${int2X} ${int2Y} L ${mergeX} ${mergeY} L ${slotBX} ${slotBY}" style="stroke:none; fill:none;" />
+                <path id="animation-path-a" d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y} C ${int1X + (int2X-int1X)/2},${int1Y} ${int1X + (int2X-int1X)/2},${int2Y} ${int2X},${int2Y} C ${int2X + (slotAX-int2X)/2},${int2Y} ${int2X + (slotAX-int2X)/2},${slotAY} ${slotAX},${slotAY}" style="stroke:none; fill:none;" />
+                <path id="animation-path-b1" d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y} C ${int1X + (mergeX-int1X)/4},${int1Y} ${int1X + (mergeX-int1X)/2},${mergeY} ${mergeX},${mergeY} C ${mergeX+(slotBX-mergeX)/2},${mergeY} ${mergeX+(slotBX-mergeX)/2},${slotBY} ${slotBX},${slotBY}" style="stroke:none; fill:none;" />
+                <path id="animation-path-b2" d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y} C ${int1X + (int2X-int1X)/2},${int1Y} ${int1X + (int2X-int1X)/2},${int2Y} ${int2X},${int2Y} C ${int2X},${int2Y+(mergeY-int2Y)/2} ${mergeX},${int2Y+(mergeY-int2Y)/2} ${mergeX},${mergeY} C ${mergeX+(slotBX-mergeX)/2},${mergeY} ${mergeX+(slotBX-mergeX)/2},${slotBY} ${slotBX},${slotBY}" style="stroke:none; fill:none;" />
             `;
             
             const sign1 = document.getElementById('sign1');
@@ -622,12 +703,37 @@
             return false;
         }
 
-        function getFeatureText(feature) {
-            if(feature.type === 'color') return `Color ${feature.value + 1}`;
-            if(feature.type === 'shape') return symbolNames[settings.symbols[feature.value]];
-            if(feature.type === 'shading') return feature.value;
-            if(feature.type === 'count') return `${feature.value} shape(s)`;
-            return '';
+        function getFeatureElement(feature) {
+            const el = document.createElement('div');
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.gap = '5px';
+
+            if (feature.type === 'color') {
+                const colorBox = document.createElement('div');
+                colorBox.style.width = '20px';
+                colorBox.style.height = '20px';
+                colorBox.style.backgroundColor = settings.colors[feature.value];
+                el.appendChild(colorBox);
+                const text = document.createElement('span');
+                text.textContent = `Color ${feature.value + 1}`;
+                el.appendChild(text);
+            } else if (feature.type === 'shape') {
+                const svg = drawShape(settings.symbols[feature.value], '#333', 'solid', 30);
+                el.appendChild(svg);
+                const text = document.createElement('span');
+                text.textContent = symbolNames[settings.symbols[feature.value]];
+                el.appendChild(text);
+            } else {
+                const text = document.createElement('span');
+                if (feature.type === 'shading') {
+                    text.textContent = feature.value;
+                } else if (feature.type === 'count') {
+                    text.textContent = `${feature.value} shape(s)`;
+                }
+                el.appendChild(text);
+            }
+            return el;
         }
 
         function drawCard() {
@@ -642,38 +748,6 @@
             }
         }
         
-        function animateCard(cardEl, pathId) {
-            const path = document.getElementById(pathId);
-            if (!path) return;
-            const pathLength = path.getTotalLength();
-            const duration = 2000;
-
-            const gameArea = document.querySelector('.game-area');
-            gameArea.appendChild(cardEl);
-            cardEl.style.position = 'absolute';
-            
-            let start = null;
-
-            function step(timestamp) {
-                if (!start) start = timestamp;
-                const elapsed = timestamp - start;
-                const progress = elapsed / duration;
-                const point = path.getPointAtLength(progress * pathLength);
-                
-                cardEl.style.left = `${point.x - cardEl.offsetWidth / 2}px`;
-                cardEl.style.top = `${point.y - cardEl.offsetHeight / 2}px`;
-
-                if (progress < 1) {
-                    requestAnimationFrame(step);
-                } else {
-                    cardEl.remove();
-                    drawCard();
-                }
-            }
-
-            requestAnimationFrame(step);
-        }
-
         function handleChoice(slot) {
             const goesToB = hasFeature(currentCard, feature1) || hasFeature(currentCard, feature2);
             const correctSlot = goesToB ? 'b' : 'a';
@@ -681,21 +755,7 @@
             if (slot === correctSlot) {
                 score++;
                 new Audio('kid_yeah.wav').play();
-                
-                const cardEl = document.querySelector('#card-slot .card-wrapper');
-                
-                let pathId;
-                if (goesToB) {
-                    if(hasFeature(currentCard, feature1)){
-                       pathId = 'animation-path-b1';
-                    } else {
-                       pathId = 'animation-path-b2';
-                    }
-                } else {
-                    pathId = 'animation-path-a';
-                }
-                animateCard(cardEl, pathId);
-
+                drawCard();
             } else {
                 const cardSlot = document.getElementById('card-slot');
                 const wrongMark = cardSlot.querySelector('.wrong-mark');
@@ -743,8 +803,14 @@
             feature1 = features.splice(Math.floor(Math.random() * features.length), 1)[0];
             feature2 = features.splice(Math.floor(Math.random() * features.length), 1)[0];
             
-            document.getElementById('sign1').textContent = getFeatureText(feature1);
-            document.getElementById('sign2').textContent = getFeatureText(feature2);
+            const sign1El = document.getElementById('sign1');
+            sign1El.innerHTML = '';
+            sign1El.appendChild(getFeatureElement(feature1));
+
+            const sign2El = document.getElementById('sign2');
+            sign2El.innerHTML = '';
+            sign2El.appendChild(getFeatureElement(feature2));
+
 
             document.querySelector('.setup-screen').classList.remove('active');
             document.querySelector('.game-screen').classList.add('active');
