@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SET Completion Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 1600px;
+            width: 100%;
+            min-height: 95vh;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .setup-screen, .game-screen, .end-screen {
+            display: none;
+        }
+
+        .setup-screen.active, .game-screen.active, .end-screen.active {
+            display: block;
+        }
+        
+        .game-screen.active {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .setup-group { margin-bottom: 25px; }
+        .setup-group label { display: block; font-weight: bold; margin-bottom: 10px; color: #555; }
+        .color-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 10px; }
+        .color-input { display: flex; align-items: center; gap: 10px; }
+        .color-input input[type="color"] { width: 50px; height: 50px; border: none; border-radius: 8px; cursor: pointer; }
+        .symbol-select { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+        .symbol-option { padding: 10px; border: 2px solid #ddd; border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .symbol-option:hover { border-color: #667eea; }
+        .symbol-option.selected { border-color: #667eea; background: #667eea; color: white; }
+        .orientation-select { display: flex; gap: 20px; }
+        .orientation-option { padding: 15px 30px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .orientation-option:hover { border-color: #667eea; }
+        .orientation-option.selected { border-color: #667eea; background: #667eea; color: white; }
+        .start-btn { width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: all 0.3s; }
+        .start-btn:hover { background: #5568d3; transform: translateY(-2px); }
+        .setup-container { display: flex; gap: 30px; }
+        .setup-left { flex: 1; }
+        .setup-right { width: 350px; padding-left: 30px; border-left: 2px solid #eee; }
+        .demo-area { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .demo-card { border: 2px solid #ccc; border-radius: 5px; width: 100px; height: 140px; display: flex; justify-content: center; align-items: center; }
+        .symbol-count { font-size: 12px; color: #999; margin-top: 5px; }
+
+        .game-container {
+            display: flex;
+            flex-grow: 1;
+            gap: 20px;
+        }
+
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .top-zone {
+            flex-grow: 1;
+            background: #f0f4f8;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            padding: 20px;
+        }
+
+        .bottom-zone-wrapper {
+            background: #fff8e1;
+            border: 3px solid #ffa726;
+            border-radius: 15px;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .bottom-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s; }
+        .control-btn:hover { background: #5568d3; }
+        .control-btn:disabled { background: #ccc; cursor: not-allowed; }
+        #nextPuzzleBtn { background: #4caf50; }
+        #nextPuzzleBtn:hover { background: #45a049; }
+
+        .bottom-zone {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .card-wrapper {
+            position: relative;
+        }
+
+        .card-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            z-index: 10;
+        }
+
+        .card {
+            background: white;
+            border: 3px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            width: 180px;
+            height: 250px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .card.horizontal { width: 250px; height: 180px; }
+        .card-content { display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; flex: 1; }
+        .card.horizontal .card-content { flex-direction: row; }
+        .shape { transition: all 0.3s; }
+
+        .empty-slot {
+            width: 180px;
+            height: 250px;
+            border: 5px dashed #aaa;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 100px;
+            color: #ccc;
+        }
+        .card.horizontal + .empty-slot { width: 250px; height: 180px; }
+
+        .wrong-mark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            color: red;
+            font-weight: bold;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .wrong-mark.show { opacity: 1; }
+
+        .history-panel {
+            width: 280px;
+            flex-shrink: 0;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .history-panel h2 { text-align: center; margin-bottom: 15px; color: #555;}
+        .history-set {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            padding: 5px;
+            background: #eee;
+            border-radius: 5px;
+        }
+        .history-card {
+            width: 80px;
+            height: 110px;
+            border: 1px solid #999;
+            border-radius: 5px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            padding: 4px;
+        }
+        .history-set.horizontal .history-card { width: 110px; height: 80px; flex-direction: row;}
+
+        .scoreboard {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #e3f2fd;
+            color: #1e88e5;
+            border-radius: 8px;
+        }
+
+        .end-screen { text-align: center; }
+        .stats { text-align: center; font-size: 24px; margin: 30px 0; color: #333; line-height: 1.6; }
+        .restart-btn { padding: 15px 30px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .restart-btn:hover { background: #5568d3; }
+
+        a.return-to-menu {
+            position: fixed; top: 10px; left: 10px; font-size: 24px; background-color: rgba(0,0,0,0.2);
+            color: white; padding: 10px; border-radius: 5px; text-decoration: none; opacity: 0.5;
+            transition: opacity 0.3s, background-color 0.3s; z-index: 1000;
+        }
+        a.return-to-menu:hover { opacity: 1; background-color: rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+    <a class="return-to-menu" href="index.html">🏠</a>
+    <div class="container">
+        <h1>SET Completion Game</h1>
+        
+        <div class="setup-screen active">
+            <div class="setup-container">
+                <div class="setup-left">
+                    <div class="setup-group">
+                        <label>Choose 3 Colors:</label>
+                        <div class="color-inputs">
+                            <div class="color-input"><input type="color" id="color1" value="#FF0000"><span>Color 1</span></div>
+                            <div class="color-input"><input type="color" id="color2" value="#00FF00"><span>Color 2</span></div>
+                            <div class="color-input"><input type="color" id="color3" value="#0000FF"><span>Color 3</span></div>
+                        </div>
+                    </div>
+                    <div class="setup-group"><label>Card Background Color:</label><input type="color" id="cardBg" value="#FFFFFF"></div>
+                    <div class="setup-group">
+                        <label>Choose 3 Symbols:</label>
+                        <div class="symbol-select">
+                            <div class="symbol-option selected" data-symbol="diamond"><div></div><span>Diamond</span></div>
+                            <div class="symbol-option selected" data-symbol="circle"><div></div><span>Circle</span></div>
+                            <div class="symbol-option selected" data-symbol="pill"><div></div><span>Pill</span></div>
+                            <div class="symbol-option" data-symbol="wave"><div></div><span>Wave</span></div>
+                            <div class="symbol-option" data-symbol="triangle"><div></div><span>Triangle</span></div>
+                            <div class="symbol-option" data-symbol="square"><div></div><span>Square</span></div>
+                            <div class="symbol-option" data-symbol="star"><div></div><span>Star</span></div>
+                        </div>
+                        <div class="symbol-count">Selected: 3 symbols</div>
+                    </div>
+                    <div class="setup-group">
+                        <label>Card Orientation:</label>
+                        <div class="orientation-select">
+                            <div class="orientation-option selected" data-orientation="vertical">Vertical</div>
+                            <div class="orientation-option" data-orientation="horizontal">Horizontal</div>
+                        </div>
+                    </div>
+                    <div class="setup-group">
+                        <label>Answer Label Style:</label>
+                        <select id="labelStyle" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+                            <option value="numbers">Numbers (1, 2, 3..)</option>
+                            <option value="letters" selected>Letters (A, B, C..)</option>
+                        </select>
+                    </div>
+                    <button class="start-btn" onclick="startGame()">Start Game</button>
+                </div>
+                <div class="setup-right">
+                    <label>Live Preview</label>
+                    <div class="demo-area" id="demoArea"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-screen">
+            <div id="scoreboard"></div>
+            <div class="game-container">
+                <div class="game-area">
+                    <div class="top-zone" id="topZone"></div>
+                    <div class="bottom-zone-wrapper">
+                        <div class="bottom-controls">
+                            <button class="control-btn" id="removeBtn" onclick="removeCard()">− Remove Choice</button>
+                            <button class="control-btn" id="addBtn" onclick="addCard()">+ Add Choice</button>
+                            <button class="control-btn" id="nextPuzzleBtn" onclick="nextPuzzle()" style="display:none;">Next Puzzle →</button>
+                        </div>
+                        <div class="bottom-zone" id="bottomZone"></div>
+                    </div>
+                </div>
+                <div class="history-panel" id="historyPanel">
+                    <h2>History</h2>
+                    <div id="historySets"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="end-screen">
+            <h2>Game Over!</h2>
+            <div class="stats" id="stats"></div>
+            <button class="restart-btn" onclick="location.reload()">Play Again</button>
+        </div>
+    </div>
+    
+    <audio id="correctSound" src="kid_yeah.wav" preload="auto"></audio>
+    <audio id="wrongSound" src="Ohh.wav" preload="auto"></audio>
+
+    <script>
+        let settings = {};
+        let deck = [];
+        let score = 0;
+        let mistakes = 0;
+        let puzzleCards = [];
+        let correctCard = null;
+        let completedSets = [];
+        let bottomCardCount = 4;
+        let puzzleSolved = false;
+
+        const symbolNames = {'diamond':'Diamond','circle':'Circle','pill':'Pill','wave':'Wave','triangle':'Triangle','square':'Square','star':'Star'};
+        const correctSound = document.getElementById('correctSound');
+        const wrongSound = document.getElementById('wrongSound');
+
+        // --- SETUP SCREEN ---
+        document.querySelectorAll('.symbol-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                this.classList.toggle('selected');
+                document.querySelector('.symbol-count').textContent = `Selected: ${document.querySelectorAll('.symbol-option.selected').length} symbols`;
+                updateDemo();
+            });
+        });
+        document.querySelectorAll('.orientation-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                document.querySelectorAll('.orientation-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                updateDemo();
+            });
+        });
+        document.querySelectorAll('.color-input input, #cardBg').forEach(input => input.addEventListener('input', updateDemo));
+        
+        function updateSymbolOptions() {
+            document.querySelectorAll('.symbol-option').forEach(opt => {
+                const symbol = opt.dataset.symbol;
+                const svgContainer = opt.querySelector('div');
+                svgContainer.innerHTML = '';
+                svgContainer.appendChild(drawShape(symbol, '#333', 'solid', 40));
+            });
+        }
+
+        function updateDemo() {
+            const demoArea = document.getElementById('demoArea');
+            demoArea.innerHTML = '';
+            const colors = [document.getElementById('color1').value, document.getElementById('color2').value, document.getElementById('color3').value];
+            const cardBg = document.getElementById('cardBg').value;
+            const selectedSymbols = Array.from(document.querySelectorAll('.symbol-option.selected')).map(o => o.dataset.symbol);
+            if (selectedSymbols.length === 0) return;
+            
+            const shadings = ['solid', 'striped', 'outline'];
+            const orientation = document.querySelector('.orientation-option.selected').dataset.orientation;
+
+            for (let i = 0; i < 9; i++) {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'demo-card';
+                cardEl.style.background = cardBg;
+                if (orientation === 'horizontal') {
+                    cardEl.style.height = '100px';
+                    cardEl.style.width = '140px';
+                }
+                const cardContent = document.createElement('div');
+                cardContent.className = 'card-content';
+                const symbol = selectedSymbols[i % selectedSymbols.length];
+                const color = colors[Math.floor(i / 3) % colors.length];
+                const shading = shadings[i % shadings.length];
+                const count = (i % 3) + 1;
+                for (let j = 0; j < count; j++) {
+                    cardContent.appendChild(drawShape(symbol, color, shading, 20));
+                }
+                cardEl.appendChild(cardContent);
+                demoArea.appendChild(cardEl);
+            }
+        }
+        updateSymbolOptions();
+        updateDemo();
+
+        // --- GAME LOGIC ---
+        function findSetInDeck(deck) {
+            for (let i = 0; i < deck.length; i++) {
+                for (let j = i + 1; j < deck.length; j++) {
+                    const c1 = deck[i];
+                    const c2 = deck[j];
+                    const required = getThirdCard(c1, c2);
+                    // Find the third card *after* the current pair
+                    const foundIndex = deck.findIndex((card, index) => 
+                        index > j &&
+                        card.count === required.count && 
+                        card.color === required.color && 
+                        card.shading === required.shading && 
+                        card.shape === required.shape
+                    );
+                    if (foundIndex !== -1) {
+                        return [c1, c2, deck[foundIndex]];
+                    }
+                }
+            }
+            return null;
+        }
+
+        function getThirdCard(c1, c2) {
+            const getProp = (p, sum) => (c1[p] === c2[p]) ? c1[p] : (sum - c1[p] - c2[p]);
+            const getPropStr = (p) => {
+                if (c1[p] === c2[p]) return c1[p];
+                const props = ['solid', 'striped', 'outline'];
+                return props.find(val => val !== c1[p] && val !== c2[p]);
+            }
+            return {
+                count: getProp('count', 6), // 1+2+3 = 6
+                color: getProp('color', 3), // 0+1+2 = 3
+                shading: getPropStr('shading'),
+                shape: getProp('shape', 3)  // 0+1+2 = 3
+            };
+        }
+
+        function generatePuzzle() {
+            const set = findSetInDeck(deck);
+            if (!set) {
+                // End game if score is over 20 OR if deck is too small to make a set anyway
+                if (score > 20 || deck.length < 3) {
+                   endGame();
+                   return;
+                }
+            }
+
+            // Remove set from deck
+            set.forEach(c => {
+                const index = deck.findIndex(dc => JSON.stringify(dc) === JSON.stringify(c));
+                if (index > -1) deck.splice(index, 1);
+            });
+
+            for (let i = set.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [set[i], set[j]] = [set[j], set[i]];
+            }
+            
+            puzzleCards = [set[0], set[1]];
+            correctCard = set[2];
+            puzzleSolved = false;
+
+            updateTopZone();
+            updateBottomZone();
+            updateScoreboard();
+            document.getElementById('nextPuzzleBtn').style.display = 'none';
+        }
+
+        function handleCardClick(wrapper, cardEl, cardData) {
+            if (puzzleSolved) return;
+
+            if (JSON.stringify(cardData) === JSON.stringify(correctCard)) {
+                score++;
+                correctSound.play();
+                puzzleSolved = true;
+                puzzleCards.push(correctCard);
+                updateTopZone();
+                document.getElementById('nextPuzzleBtn').style.display = 'inline-block';
+                document.getElementById('bottomZone').style.opacity = 0.5;
+            } else {
+                mistakes++;
+                wrongSound.play();
+                const wrongMark = cardEl.querySelector('.wrong-mark');
+                wrongMark.classList.add('show');
+                setTimeout(() => wrongMark.classList.remove('show'), 1000);
+            }
+            updateScoreboard();
+        }
+
+        function nextPuzzle() {
+            if (!puzzleSolved) return;
+            completedSets.push(puzzleCards);
+            updateHistory();
+            generatePuzzle();
+        }
+
+        function createDeck() {
+            deck = [];
+            const counts = [1, 2, 3];
+            const colors = [0, 1, 2];
+            const shadings = ['solid', 'striped', 'outline'];
+            const shapes = [0, 1, 2];
+            for (let count of counts) for (let color of colors) for (let shading of shadings) for (let shape of shapes) {
+                deck.push({ count, color, shading, shape });
+            }
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+        
+        function startGame() {
+            settings = {
+                colors: [document.getElementById('color1').value, document.getElementById('color2').value, document.getElementById('color3').value],
+                cardBg: document.getElementById('cardBg').value,
+                symbols: Array.from(document.querySelectorAll('.symbol-option.selected')).map(opt => opt.dataset.symbol),
+                orientation: document.querySelector('.orientation-option.selected').dataset.orientation,
+                labelStyle: document.getElementById('labelStyle').value
+            };
+            if (settings.symbols.length !== 3) { alert('Please select exactly 3 symbols'); return; }
+
+            document.querySelector('.setup-screen').classList.remove('active');
+            document.querySelector('.game-screen').classList.add('active');
+            
+            createDeck();
+            generatePuzzle();
+        }
+        
+        function endGame() {
+            document.querySelector('.game-screen').classList.remove('active');
+            document.querySelector('.end-screen').classList.add('active');
+            const ratio = mistakes === 0 ? score : (score / mistakes).toFixed(2);
+            document.getElementById('stats').innerHTML = `Correct: ${score}<br>Mistakes: ${mistakes}<br>Ratio: ${ratio}`;
+        }
+        
+        // --- UI UPDATE FUNCTIONS ---
+        function updateTopZone() {
+            const topZone = document.getElementById('topZone');
+            topZone.innerHTML = '';
+            puzzleCards.forEach(cardData => {
+                const cardEl = createCardElement(cardData, false);
+                topZone.appendChild(cardEl);
+            });
+            if (!puzzleSolved) {
+                const emptySlot = document.createElement('div');
+                emptySlot.className = 'empty-slot';
+                if(settings.orientation === 'horizontal') emptySlot.style.height = '180px';
+                emptySlot.textContent = '?';
+                topZone.appendChild(emptySlot);
+            }
+        }
+
+        function updateBottomZone() {
+            const bottomZone = document.getElementById('bottomZone');
+            bottomZone.innerHTML = '';
+            bottomZone.style.opacity = 1;
+
+            let answerChoices = [correctCard];
+            let distractors = deck.filter(c => JSON.stringify(c) !== JSON.stringify(correctCard));
+            
+            while(answerChoices.length < bottomCardCount && distractors.length > 0) {
+                const randomIndex = Math.floor(Math.random() * distractors.length);
+                answerChoices.push(distractors.splice(randomIndex, 1)[0]);
+            }
+            
+            for (let i = answerChoices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [answerChoices[i], answerChoices[j]] = [answerChoices[j], answerChoices[i]];
+            }
+
+            answerChoices.forEach((card, index) => {
+                let label;
+                if (settings.labelStyle === 'numbers') {
+                    label = index + 1;
+                } else {
+                    label = String.fromCharCode(65 + index);
+                }
+                const cardEl = createCardElement(card, true, label);
+                bottomZone.appendChild(cardEl);
+            });
+            updateControls();
+        }
+        
+        function createCardElement(cardData, isClickable, label = '') {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'card-wrapper';
+
+            if (label) {
+                const labelEl = document.createElement('div');
+                labelEl.className = 'card-label';
+                labelEl.textContent = label;
+                wrapper.appendChild(labelEl);
+            }
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            if (settings.orientation === 'horizontal') card.classList.add('horizontal');
+            card.style.background = settings.cardBg;
+
+            const content = document.createElement('div');
+            content.className = 'card-content';
+            const color = settings.colors[cardData.color];
+            const symbol = settings.symbols[cardData.shape];
+            const size = (settings.orientation === 'vertical') ? 45 : 40;
+            for (let i = 0; i < cardData.count; i++) {
+                content.appendChild(drawShape(symbol, color, cardData.shading, size));
+            }
+            card.appendChild(content);
+
+            const wrongMark = document.createElement('div');
+            wrongMark.className = 'wrong-mark';
+            wrongMark.textContent = '✗';
+            card.appendChild(wrongMark);
+
+            if (isClickable) {
+                card.addEventListener('click', () => handleCardClick(wrapper, card, cardData));
+            }
+            wrapper.appendChild(card);
+            return wrapper;
+        }
+        
+        function drawShape(symbol, color, shading, size = 30) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            svg.classList.add('shape');
+            let shape;
+            const fillColor = shading === 'solid' ? color : 'none';
+            const strokeColor = color;
+            const strokeWidth = 2;
+            switch (symbol) {
+                case 'circle': shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); shape.setAttribute('cx', size / 2); shape.setAttribute('cy', size / 2); shape.setAttribute('r', size / 2 - 2); break;
+                case 'square': shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); shape.setAttribute('x', 2); shape.setAttribute('y', 2); shape.setAttribute('width', size - 4); shape.setAttribute('height', size - 4); break;
+                case 'diamond': shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); shape.setAttribute('points', `${size/2},2 ${size-2},${size/2} ${size/2},${size-2} 2,${size/2}`); break;
+                case 'triangle': shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); shape.setAttribute('points', `${size/2},2 ${size-2},${size-2} 2,${size-2}`); break;
+                case 'pill': shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); shape.setAttribute('x', 2); shape.setAttribute('y', size / 4); shape.setAttribute('width', size - 4); shape.setAttribute('height', size / 2); shape.setAttribute('rx', size / 4); break;
+                case 'star': shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon'); const points = []; for (let i = 0; i < 10; i++) { const angle = (i * Math.PI) / 5 - Math.PI / 2; const r = i % 2 === 0 ? size / 2 - 2 : size / 4; points.push(`${size/2 + r*Math.cos(angle)},${size/2 + r*Math.sin(angle)}`); } shape.setAttribute('points', points.join(' ')); break;
+                case 'wave': shape = document.createElementNS('http://www.w3.org/2000/svg', 'path'); const waveHeight = size / 4; shape.setAttribute('d', ` M 2,${size/2 - waveHeight/2} Q ${size/4},${size/2 - waveHeight*1.5} ${size/2},${size/2 - waveHeight/2} T ${size-2},${size/2 - waveHeight/2} L ${size-2},${size/2 + waveHeight/2} Q ${size*3/4},${size/2 + waveHeight*2} ${size/2},${size/2 + waveHeight/2} T 2,${size/2 + waveHeight/2} Z`); break;
+            }
+            shape.setAttribute('fill', fillColor);
+            shape.setAttribute('stroke', strokeColor);
+            shape.setAttribute('stroke-width', strokeWidth);
+            if (shading === 'striped') {
+                const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+                pattern.setAttribute('id', `stripe-${Math.random()}`);
+                pattern.setAttribute('width', '4');
+                pattern.setAttribute('height', '4');
+                pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', '0'); line.setAttribute('y1', '0'); line.setAttribute('x2', '0'); line.setAttribute('y2', '4');
+                line.setAttribute('stroke', color); line.setAttribute('stroke-width', '2');
+                pattern.appendChild(line);
+                svg.appendChild(pattern);
+                shape.setAttribute('fill', `url(#${pattern.getAttribute('id')})`);
+            }
+            svg.appendChild(shape);
+            return svg;
+        }
+
+        function updateScoreboard() {
+            document.getElementById('scoreboard').textContent = `Correct: ${score} | Mistakes: ${mistakes} | Cards Left: ${deck.length}`;
+        }
+
+        function updateHistory() {
+            const historySets = document.getElementById('historySets');
+            historySets.innerHTML = '';
+            completedSets.slice().reverse().forEach(set => {
+                const setEl = document.createElement('div');
+                setEl.className = 'history-set';
+                if (settings.orientation === 'horizontal') setEl.classList.add('horizontal');
+                set.forEach(cardData => {
+                    const cardEl = document.createElement('div');
+                    cardEl.className = 'history-card';
+                    const color = settings.colors[cardData.color];
+                    const symbol = settings.symbols[cardData.shape];
+                    for (let i = 0; i < cardData.count; i++) {
+                        cardEl.appendChild(drawShape(symbol, color, cardData.shading, 15));
+                    }
+                    setEl.appendChild(cardEl);
+                });
+                historySets.appendChild(setEl);
+            });
+        }
+        
+        function updateControls() {
+            document.getElementById('removeBtn').disabled = bottomCardCount <= 2;
+            document.getElementById('addBtn').disabled = bottomCardCount >= 8;
+        }
+
+        function addCard() {
+            if (bottomCardCount < 8) { bottomCardCount++; updateBottomZone(); }
+        }
+
+        function removeCard() {
+            if (bottomCardCount > 2) { bottomCardCount--; updateBottomZone(); }
+        }
+
+    </script>
