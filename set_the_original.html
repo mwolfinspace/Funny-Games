@@ -117,8 +117,10 @@
 
         #cardGrid {
             flex-grow: 1;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: flex-start;
             gap: 15px;
             padding: 15px;
             background: #f0f4f8;
@@ -139,7 +141,8 @@
             justify-content: center;
             align-items: center;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            aspect-ratio: 2 / 3; /* Maintain aspect ratio */
+            width: 140px;
+            height: 210px;
         }
         .card:hover {
             transform: translateY(-4px);
@@ -150,8 +153,23 @@
             box-shadow: 0 0 15px #667eea;
             transform: scale(1.03);
         }
+        @keyframes hint-glow-anim {
+            0% {
+                box-shadow: 0 0 0px 0px rgba(0, 255, 0, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 20px 5px rgba(0, 255, 0, 0.8);
+            }
+            100% {
+                box-shadow: 0 0 0px 0px rgba(0, 255, 0, 0.1);
+            }
+        }
+        .card.hint-glowing {
+            animation: hint-glow-anim 1s ease-in-out;
+        }
         .card.horizontal {
-            aspect-ratio: 3 / 2;
+            width: 210px;
+            height: 140px;
         }
         .card-content {
             display: flex;
@@ -371,7 +389,7 @@
         let deck = [];
         let boardCards = [];
         let selectedCards = [];
-        let numberOfSlots = 12; // Default for original game
+        let numberOfSlots = 4; // Default for original game
         let score = 0;
         let mistakes = 0;
         let completedSets = [];
@@ -465,6 +483,82 @@
             return check('count') && check('color') && check('shading') && check('shape');
         }
 
+        function getThirdCard(card1, card2) {
+            const card3 = {};
+            const props = {
+                count: [1, 2, 3],
+                color: [0, 1, 2],
+                shading: ['solid', 'striped', 'outline'],
+                shape: [0, 1, 2]
+            };
+            for (const p of Object.keys(props)) {
+                if (card1[p] === card2[p]) {
+                    card3[p] = card1[p];
+                } else {
+                    card3[p] = props[p].find(v => v !== card1[p] && v !== card2[p]);
+                }
+            }
+            return card3;
+        }
+
+        function createInitialBoard(cardCount) {
+            if (deck.length < cardCount) cardCount = deck.length;
+            if (cardCount < 3) return dealCards(cardCount);
+
+            let setCards = [];
+            let attempts = 0;
+            while(attempts < 100 && setCards.length < 3) { // Avoid infinite loop
+                attempts++;
+                // 1. Pick two random cards from deck
+                const i1 = Math.floor(Math.random() * deck.length);
+                let i2 = Math.floor(Math.random() * deck.length);
+                if (i1 === i2) continue;
+
+                const c1 = deck[i1];
+                const c2 = deck[i2];
+
+                // 2. Calculate the third card
+                const c3_template = getThirdCard(c1, c2);
+
+                // 3. Find the third card in the deck
+                const i3 = deck.findIndex(card => 
+                    card.id !== c1.id && card.id !== c2.id &&
+                    card.count === c3_template.count &&
+                    card.color === c3_template.color &&
+                    card.shading === c3_template.shading &&
+                    card.shape === c3_template.shape
+                );
+
+                if (i3 !== -1) {
+                    const c3 = deck[i3];
+                    setCards = [c1, c2, c3];
+                    
+                    const ids = setCards.map(c => c.id);
+                    deck = deck.filter(c => !ids.includes(c.id));
+                    break;
+                }
+            }
+
+            if (setCards.length < 3) {
+                console.warn("Could not create a guaranteed set, dealing random cards.");
+                return dealCards(cardCount);
+            }
+            
+            let board = [...setCards];
+            const remainingCardsNeeded = cardCount - 3;
+            if (remainingCardsNeeded > 0) {
+                board.push(...dealCards(remainingCardsNeeded));
+            }
+
+            // Shuffle board
+            for (let i = board.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [board[i], board[j]] = [board[j], board[i]];
+            }
+
+            return board;
+        }
+
         function findAllSetsOnBoard() {
             const sets = [];
             if (boardCards.length < 3) return sets;
@@ -519,13 +613,12 @@
             boardCards = [];
             selectedCards = [];
             completedSets = [];
-            numberOfSlots = 12; // Start with 12
+            numberOfSlots = 4; // Start with 4
             score = 0;
             mistakes = 0;
             isChecking = false;
 
-            boardCards.push(...dealCards(numberOfSlots));
-            checkAndDealUntilSetExists();
+            boardCards = createInitialBoard(numberOfSlots);
             
             updateCardGrid();
             updateStatus();
@@ -561,17 +654,46 @@
                 selectedElements.forEach(el => showResultMark(el, true));
 
                 setTimeout(() => {
-                    // Remove found cards from the board
+                    const oldNumberOfSlots = numberOfSlots;
+                    // Get leftover cards
                     boardCards = boardCards.filter(bc => !selectedCards.find(sc => sc.id === bc.id));
-
-                    // Standard SET rule: If board was 12 or less (and we're not out of cards), replace. If more, just shrink.
-                    if (numberOfSlots <= 12 && deck.length > 0) {
-                        const replacementCards = dealCards(3);
-                        boardCards.push(...replacementCards);
+                    
+                    let cardsToDeal = (oldNumberOfSlots > 12) ? 0 : 3;
+                    
+                    // When playing with 4 cards, try to build a new set with the leftover card.
+                    if (oldNumberOfSlots === 4 && boardCards.length === 1 && deck.length >= 2) {
+                        const leftoverCard = boardCards[0];
+                        
+                        // Find two cards in the deck that form a SET with the leftover card.
+                        for (let i = 0; i < deck.length; i++) {
+                            if (deck.length < 2) break;
+                            const c1 = deck[i];
+                            const c2_template = getThirdCard(leftoverCard, c1);
+                            const c2_idx = deck.findIndex(card => card.id !== c1.id && card.count === c2_template.count && card.color === c2_template.color && card.shading === c2_template.shading && card.shape === c2_template.shape);
+                            
+                            if (c2_idx !== -1) {
+                                const c2 = deck[c2_idx];
+                                boardCards.push(c1, c2); // board is now a set of 3
+                                
+                                const idsToRemove = [c1.id, c2.id];
+                                deck = deck.filter(c => !idsToRemove.includes(c.id));
+                                cardsToDeal = 1; // Only need one more card to make 4
+                                break; // Exit loop once we've found our new set
+                            }
+                        }
                     }
-                    numberOfSlots = boardCards.length;
 
-                    checkAndDealUntilSetExists();
+                    if (deck.length > 0 && cardsToDeal > 0) {
+                        boardCards.push(...dealCards(Math.min(cardsToDeal, deck.length)));
+                    }
+                    
+                    // Shuffle the new board to mix the cards
+                    for (let i = boardCards.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [boardCards[i], boardCards[j]] = [boardCards[j], boardCards[i]];
+                    }
+
+                    numberOfSlots = boardCards.length;
                     
                     selectedCards = [];
                     updateCardGrid();
@@ -615,13 +737,12 @@
         }
 
         function shuffleBoard() {
-            deck.push(...boardCards);
-            boardCards = [];
-            for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[deck[i], deck[j]] = [deck[j], deck[i]]; }
-            boardCards = dealCards(numberOfSlots);
-            checkAndDealUntilSetExists();
+            // Shuffle only the cards on the board, don't add or remove any.
+            for (let i = boardCards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [boardCards[i], boardCards[j]] = [boardCards[j], boardCards[i]];
+            }
             updateCardGrid();
-            updateStatus();
         }
 
         function showHint() {
@@ -635,8 +756,10 @@
                 hintSet.forEach(cardToHint => {
                     const cardEl = document.querySelector(`[data-card-id="${cardToHint.id}"]`);
                     if (cardEl) {
-                        cardEl.classList.add('selected');
-                        setTimeout(() => cardEl.classList.remove('selected'), 1500);
+                        cardEl.classList.add('hint-glowing');
+                        cardEl.addEventListener('animationend', () => {
+                            cardEl.classList.remove('hint-glowing');
+                        }, { once: true });
                     }
                 });
             }
@@ -709,8 +832,8 @@
             const svgNS = 'http://www.w3.org/2000/svg';
             const svg = document.createElementNS(svgNS, 'svg');
             svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
-            svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '100%');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
             svg.classList.add('shape');
             let shape;
             const fillColor = shading === 'solid' ? color : 'none';
