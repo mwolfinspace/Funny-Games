@@ -44,6 +44,21 @@
             display: block;
         }
 
+        .setup-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .setup-left {
+            flex: 1;
+        }
+
+        .setup-right {
+            width: 350px;
+            padding-left: 30px;
+            border-left: 2px solid #eee;
+        }
+
         .setup-group {
             margin-bottom: 25px;
         }
@@ -139,6 +154,11 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .start-btn:hover {
+            background: #5568d3;
         }
 
         .card {
@@ -149,8 +169,8 @@
             cursor: pointer;
             transition: all 0.3s;
             position: relative;
-            width: 140px;
-            height: 200px;
+            width: 200px;
+            height: 280px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -163,8 +183,8 @@
         }
 
         .card.horizontal {
-            width: 200px;
-            height: 140px;
+            width: 280px;
+            height: 200px;
         }
 
         .card-content {
@@ -214,11 +234,12 @@
             justify-content: center;
             align-items: center;
             position: relative;
+            height: 500px;
         }
 
         .card-slot {
-            width: 150px;
-            height: 210px;
+            width: 210px;
+            height: 290px;
             border: 3px dashed #667eea;
             border-radius: 10px;
             display: flex;
@@ -230,6 +251,9 @@
         .slot-a, .slot-b {
             cursor: pointer;
             transition: all 0.3s;
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
         }
 
         .slot-a:hover, .slot-b:hover {
@@ -255,7 +279,8 @@
         .path {
             fill: none;
             stroke: #333;
-            stroke-width: 10;
+            stroke-width: 6;
+            stroke-dasharray: 10, 5;
         }
 
         @keyframes dash {
@@ -275,6 +300,89 @@
             border-radius: 5px;
             padding: 5px 10px;
             font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .demo-area {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+            min-height: 300px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        .demo-card {
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            width: 100px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .demo-card.horizontal {
+            width: 140px;
+            height: 100px;
+        }
+
+        .demo-card .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .end-screen {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .end-screen h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            font-size: 20px;
+            margin-bottom: 30px;
+            color: #555;
+        }
+
+        .restart-btn {
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .restart-btn:hover {
+            background: #5568d3;
+        }
+
+        .symbol-count {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -354,7 +462,7 @@
                     <button class="start-btn" onclick="startGame()">Start The Game</button>
                 </div>
                 <div class="setup-right">
-                    <label>Live Preview</label>
+                    <label style="display: block; font-weight: bold; margin-bottom: 10px; color: #555;">Live Preview</label>
                     <div class="demo-area" id="demoArea"></div>
                 </div>
             </div>
@@ -392,8 +500,8 @@
 
         let deck = [];
         let currentCard = null;
-        let feature1 = null;
-        let feature2 = null;
+        let sign1Feature = null;
+        let sign2Feature = null;
         let score = 0;
 
         const symbolNames = {
@@ -429,7 +537,7 @@
         function updateSymbolOptions() {
             document.querySelectorAll('.symbol-option').forEach(opt => {
                 const symbol = opt.dataset.symbol;
-                const svg = drawShape(symbol, '#333', 'solid', 40);
+                const svg = drawShape(symbol, '#333', 'solid', 30);
                 opt.querySelector('div').innerHTML = '';
                 opt.querySelector('div').appendChild(svg);
             });
@@ -451,11 +559,16 @@
             if (selectedSymbols.length === 0) return;
 
             const shadings = ['solid', 'striped', 'outline'];
+            const counts = [1, 2, 3];
 
             for (let i = 0; i < 9; i++) {
                 const card = document.createElement('div');
                 card.className = 'demo-card';
                 card.style.background = cardBg;
+                
+                if (settings.orientation === 'horizontal') {
+                    card.classList.add('horizontal');
+                }
                 
                 const cardContent = document.createElement('div');
                 cardContent.className = 'card-content';
@@ -463,10 +576,10 @@
                 const symbol = selectedSymbols[i % selectedSymbols.length];
                 const color = colors[Math.floor(i / 3) % colors.length];
                 const shading = shadings[i % shadings.length];
-                const count = (i % 3) + 1;
+                const count = counts[i % counts.length];
 
                 for (let j = 0; j < count; j++) {
-                    const shape = drawShape(symbol, color, shading, 20);
+                    const shape = drawShape(symbol, color, shading, 25);
                     cardContent.appendChild(shape);
                 }
 
@@ -617,7 +730,7 @@
             const symbol = settings.symbols[cardData.shape];
             
             for (let i = 0; i < cardData.count; i++) {
-                const shape = drawShape(symbol, color, cardData.shading);
+                const shape = drawShape(symbol, color, cardData.shading, 40);
                 content.appendChild(shape);
             }
 
@@ -646,15 +759,6 @@
             return `${countText} ${shapeText}<br>${colorText}, ${shadingText}`;
         }
 
-        function getCardInfoText(cardData) {
-            const countText = `${cardData.count}`;
-            const colorText = `Color ${cardData.color + 1}`;
-            const shadingText = cardData.shading;
-            const shapeText = symbolNames[settings.symbols[cardData.shape]];
-
-            return `${countText} ${shapeText}<br>${colorText}, ${shadingText}`;
-        }
-
         function drawPath() {
             const svg = document.getElementById('path-svg');
             svg.innerHTML = '';
@@ -662,37 +766,49 @@
             const width = pathArea.offsetWidth;
             const height = pathArea.offsetHeight;
 
-            const startX = 0, startY = height / 2;
-            const int1X = width / 3, int1Y = height / 2;
-            const int2X = width * 2 / 3, int2Y = height / 4;
-            const slotAX = width, slotAY = height / 4;
-            const slotBX = width, slotBY = height * 3 / 4;
-            const mergeX = width * 2 / 3, mergeY = height * 3/4;
+            const startX = 50;
+            const startY = height / 2;
+            
+            const int1X = width / 3;
+            const int1Y = height / 2;
+            
+            const int2X = width * 2 / 3;
+            const int2Y = height / 3;
+            
+            const mergeX = width * 3 / 4;
+            const mergeY = height * 2 / 3;
+            
+            const slotAX = width - 50;
+            const slotAY = height / 4;
+            
+            const slotBX = width - 50;
+            const slotBY = height * 3 / 4;
 
-            // Visible paths
             svg.innerHTML = `
-                <path d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y}" class="path" />
-                <path d="M ${int1X},${int1Y} C ${int1X + (int2X-int1X)/2},${int1Y} ${int1X + (int2X-int1X)/2},${int2Y} ${int2X},${int2Y}" class="path" />
-                <path d="M ${int2X},${int2Y} C ${int2X + (slotAX-int2X)/2},${int2Y} ${int2X + (slotAX-int2X)/2},${slotAY} ${slotAX},${slotAY}" class="path" />
-                <path d="M ${int1X},${int1Y} C ${int1X + (mergeX-int1X)/4},${int1Y} ${int1X + (mergeX-int1X)/2},${mergeY} ${mergeX},${mergeY}" class="path" />
-                <path d="M ${int2X},${int2Y} C ${int2X},${int2Y+(mergeY-int2Y)/2} ${mergeX},${int2Y+(mergeY-int2Y)/2} ${mergeX},${mergeY}" class="path" />
-                <path d="M ${mergeX},${mergeY} C ${mergeX+(slotBX-mergeX)/2},${mergeY} ${mergeX+(slotBX-mergeX)/2},${slotBY} ${slotBX},${slotBY}" class="path" />
+                <path d="M ${startX},${startY} L ${int1X},${int1Y}" class="path" />
+                <path d="M ${int1X},${int1Y} L ${int2X},${int2Y}" class="path" />
+                <path d="M ${int1X},${int1Y} L ${mergeX},${mergeY}" class="path" />
+                <path d="M ${int2X},${int2Y} L ${slotAX},${slotAY}" class="path" />
+                <path d="M ${int2X},${int2Y} L ${mergeX},${mergeY}" class="path" />
+                <path d="M ${mergeX},${mergeY} L ${slotBX},${slotBY}" class="path" />
+                <circle cx="${int1X}" cy="${int1Y}" r="8" fill="#667eea" stroke="#333" stroke-width="2" />
+                <circle cx="${int2X}" cy="${int2Y}" r="8" fill="#667eea" stroke="#333" stroke-width="2" />
+                <circle cx="${mergeX}" cy="${mergeY}" r="8" fill="#ff6b6b" stroke="#333" stroke-width="2" />
             `;
 
-            // Invisible animation paths
-            svg.innerHTML += `
-                <path id="animation-path-a" d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y} C ${int1X + (int2X-int1X)/2},${int1Y} ${int1X + (int2X-int1X)/2},${int2Y} ${int2X},${int2Y} C ${int2X + (slotAX-int2X)/2},${int2Y} ${int2X + (slotAX-int2X)/2},${slotAY} ${slotAX},${slotAY}" style="stroke:none; fill:none;" />
-                <path id="animation-path-b1" d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y} C ${int1X + (mergeX-int1X)/4},${int1Y} ${int1X + (mergeX-int1X)/2},${mergeY} ${mergeX},${mergeY} C ${mergeX+(slotBX-mergeX)/2},${mergeY} ${mergeX+(slotBX-mergeX)/2},${slotBY} ${slotBX},${slotBY}" style="stroke:none; fill:none;" />
-                <path id="animation-path-b2" d="M ${startX},${startY} C ${int1X/2},${startY} ${int1X/2},${int1Y} ${int1X},${int1Y} C ${int1X + (int2X-int1X)/2},${int1Y} ${int1X + (int2X-int1X)/2},${int2Y} ${int2X},${int2Y} C ${int2X},${int2Y+(mergeY-int2Y)/2} ${mergeX},${int2Y+(mergeY-int2Y)/2} ${mergeX},${mergeY} C ${mergeX+(slotBX-mergeX)/2},${mergeY} ${mergeX+(slotBX-mergeX)/2},${slotBY} ${slotBX},${slotBY}" style="stroke:none; fill:none;" />
-            `;
+            const sign1X = (int1X + int2X) / 2;
+            const sign1Y = (int1Y + int2Y) / 2 - 40;
+            
+            const sign2X = (int2X + slotAX) / 2;
+            const sign2Y = (int2Y + slotAY) / 2 - 40;
             
             const sign1 = document.getElementById('sign1');
-            sign1.style.left = `${int1X + 20}px`;
-            sign1.style.top = `${int1Y + 20}px`;
-
+            sign1.style.left = `${sign1X - 40}px`;
+            sign1.style.top = `${sign1Y}px`;
+            
             const sign2 = document.getElementById('sign2');
-            sign2.style.left = `${int2X + 20}px`;
-            sign2.style.top = `${int2Y + 20}px`;
+            sign2.style.left = `${sign2X - 40}px`;
+            sign2.style.top = `${sign2Y}px`;
         }
 
         function hasFeature(card, feature) {
@@ -714,12 +830,13 @@
                 colorBox.style.width = '20px';
                 colorBox.style.height = '20px';
                 colorBox.style.backgroundColor = settings.colors[feature.value];
+                colorBox.style.border = '1px solid #333';
                 el.appendChild(colorBox);
                 const text = document.createElement('span');
                 text.textContent = `Color ${feature.value + 1}`;
                 el.appendChild(text);
             } else if (feature.type === 'shape') {
-                const svg = drawShape(settings.symbols[feature.value], '#333', 'solid', 30);
+                const svg = drawShape(settings.symbols[feature.value], '#333', 'solid', 25);
                 el.appendChild(svg);
                 const text = document.createElement('span');
                 text.textContent = symbolNames[settings.symbols[feature.value]];
@@ -749,18 +866,33 @@
         }
         
         function handleChoice(slot) {
-            const goesToB = hasFeature(currentCard, feature1) || hasFeature(currentCard, feature2);
-            const correctSlot = goesToB ? 'b' : 'a';
+            const hasSign1Feature = sign1Feature ? hasFeature(currentCard, sign1Feature) : false;
+            
+            let goesToSlotA = false;
+            
+            if (hasSign1Feature) {
+                const hasSign2Feature = sign2Feature ? hasFeature(currentCard, sign2Feature) : false;
+                
+                if (hasSign2Feature) {
+                    goesToSlotA = true;
+                } else {
+                    goesToSlotA = false;
+                }
+            } else {
+                goesToSlotA = false;
+            }
+            
+            const correctSlot = goesToSlotA ? 'a' : 'b';
 
             if (slot === correctSlot) {
                 score++;
-                new Audio('kid_yeah.wav').play();
+                playSuccessSound();
                 drawCard();
             } else {
+                playErrorSound();
                 const cardSlot = document.getElementById('card-slot');
                 const wrongMark = cardSlot.querySelector('.wrong-mark');
                 wrongMark.classList.add('show');
-                new Audio('Ohh.wav').play();
                 setTimeout(() => {
                     wrongMark.classList.remove('show');
                 }, 1000);
@@ -771,6 +903,42 @@
             document.querySelector('.game-screen').classList.remove('active');
             document.querySelector('.end-screen').classList.add('active');
             document.getElementById('stats').textContent = `You sorted ${score} out of 81 cards correctly!`;
+        }
+
+        function playSuccessSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 523.25;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function playErrorSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 200;
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
         }
 
         function startGame() {
@@ -793,34 +961,66 @@
 
             createDeck();
             
-            // Choose 2 random features
-            const features = [
-                { type: 'color', value: Math.floor(Math.random() * 3) },
-                { type: 'shape', value: Math.floor(Math.random() * 3) },
-                { type: 'shading', value: ['solid', 'striped', 'outline'][Math.floor(Math.random() * 3)] },
-                { type: 'count', value: Math.floor(Math.random() * 3) + 1 }
-            ];
-            feature1 = features.splice(Math.floor(Math.random() * features.length), 1)[0];
-            feature2 = features.splice(Math.floor(Math.random() * features.length), 1)[0];
+            const allFeatures = [];
+            
+            for (let i = 0; i < 3; i++) {
+                allFeatures.push({ type: 'color', value: i });
+            }
+            
+            for (let i = 0; i < 3; i++) {
+                allFeatures.push({ type: 'shape', value: i });
+            }
+            
+            const shadings = ['solid', 'striped', 'outline'];
+            for (let i = 0; i < 3; i++) {
+                allFeatures.push({ type: 'shading', value: shadings[i] });
+            }
+            
+            for (let i = 1; i <= 3; i++) {
+                allFeatures.push({ type: 'count', value: i });
+            }
+            
+            for (let i = allFeatures.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allFeatures[i], allFeatures[j]] = [allFeatures[j], allFeatures[i]];
+            }
+            
+            const possibleFeatures = allFeatures.slice(0, 4);
+            
+            sign1Feature = Math.random() < 0.5 ? possibleFeatures[0] : possibleFeatures[1];
+            sign2Feature = Math.random() < 0.5 ? possibleFeatures[2] : possibleFeatures[3];
             
             const sign1El = document.getElementById('sign1');
             sign1El.innerHTML = '';
-            sign1El.appendChild(getFeatureElement(feature1));
-
+            sign1El.appendChild(getFeatureElement(sign1Feature));
+            
             const sign2El = document.getElementById('sign2');
             sign2El.innerHTML = '';
-            sign2El.appendChild(getFeatureElement(feature2));
-
+            sign2El.appendChild(getFeatureElement(sign2Feature));
+            
+            sign1El.style.borderColor = '#ff0000';
+            sign1El.style.borderWidth = '3px';
+            
+            sign2El.style.borderColor = '#ff0000';
+            sign2El.style.borderWidth = '3px';
 
             document.querySelector('.setup-screen').classList.remove('active');
             document.querySelector('.game-screen').classList.add('active');
             
-            drawPath();
-            drawCard();
+            setTimeout(() => {
+                drawPath();
+                drawCard();
+            }, 100);
 
             document.getElementById('slot-a').addEventListener('click', () => handleChoice('a'));
             document.getElementById('slot-b').addEventListener('click', () => handleChoice('b'));
         }
+
+        window.addEventListener('resize', function() {
+            if (document.querySelector('.game-screen').classList.contains('active')) {
+                drawPath();
+            }
+        });
     </script>
 </body>
 </html>
