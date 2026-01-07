@@ -96,6 +96,10 @@
         }
         #gameControls button:hover { background: #5568d3; }
         #gameControls button:disabled { background: #ccc; cursor: not-allowed; }
+        #gameControls #hintBtn.active {
+            background: #ff9800;
+            box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
+        }
 
         #statusBar {
             text-align: center;
@@ -243,15 +247,20 @@
         #historySets {
             overflow-y: auto;
             flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         .history-panel h2 { text-align: center; margin-bottom: 15px; color: #555;}
         .history-set {
             display: flex;
             gap: 5px;
             margin-bottom: 10px;
-            padding: 5px;
+            padding: 8px;
             background: #eee;
             border-radius: 5px;
+            transition: opacity 0.5s ease;
+            position: relative;
         }
         .history-card {
             width: 80px;
@@ -267,6 +276,32 @@
             padding: 4px;
         }
         .history-set.horizontal .history-card { width: 110px; height: 80px; flex-direction: row;}
+
+        /* Fading effects for older sets */
+        .history-set.recent-0 {
+            opacity: 1;
+            transform: scale(1);
+            background: #e8f5e8;
+            border-left: 4px solid #4CAF50;
+        }
+        .history-set.recent-1 {
+            opacity: 0.7;
+            transform: scale(0.95);
+            background: #f0f0f0;
+            border-left: 4px solid #2196F3;
+        }
+        .history-set.recent-2 {
+            opacity: 0.4;
+            transform: scale(0.9);
+            background: #f8f8f8;
+            border-left: 4px solid #9E9E9E;
+        }
+        .history-set.older {
+            opacity: 0.2;
+            transform: scale(0.85);
+            background: #fafafa;
+            border-left: 4px solid #BDBDBD;
+        }
 
         .end-screen {
             display: none;
@@ -349,6 +384,27 @@
             line-height: 20px;
             margin: 0 2px;
         }
+        
+        /* History counter */
+        .history-counter {
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 10px;
+        }
+        
+        /* Hint counter */
+        .hint-counter {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            font-size: 10px;
+            color: #ff9800;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 3px;
+            padding: 1px 3px;
+        }
     </style>
 </head>
 <body>
@@ -421,6 +477,7 @@
                 <div id="cardGrid"></div>
                 <div class="history-panel" id="historyPanel">
                     <h2>History</h2>
+                    <div class="history-counter" id="historyCounter">Recent sets: 0/3</div>
                     <div id="historySets"></div>
                 </div>
             </div>
@@ -450,6 +507,12 @@
         let isChecking = false;
         let hintTimeout = null;
         let cardLabels = []; // Array to store current card labels
+        const MAX_HISTORY_SETS = 3; // Maximum number of sets to show in history
+        
+        // Hint system variables
+        let hintSets = []; // All available sets on the board
+        let currentHintIndex = 0; // Current hint index to cycle through
+        let isHintActive = false; // Whether hint is currently showing
 
         const correctSound = document.getElementById('correctSound');
         const wrongSound = document.getElementById('wrongSound');
@@ -788,6 +851,11 @@
             mistakes = 0;
             isChecking = false;
             cardLabels = [];
+            
+            // Reset hint system
+            hintSets = [];
+            currentHintIndex = 0;
+            isHintActive = false;
 
             // Create initial board with guaranteed set
             boardCards = createInitialBoard(numberOfSlots);
@@ -870,6 +938,11 @@
                     // Update card labels
                     updateCardLabels();
                     
+                    // Reset hint system since board changed
+                    clearHint();
+                    hintSets = findAllSetsOnBoard();
+                    currentHintIndex = 0;
+                    
                     selectedCards = [];
                     updateCardGrid();
                     updateHistory();
@@ -931,6 +1004,11 @@
                     // Update card labels
                     updateCardLabels();
                     
+                    // Reset hint system since board changed
+                    clearHint();
+                    hintSets = findAllSetsOnBoard();
+                    currentHintIndex = 0;
+                    
                     updateCardGrid();
                     updateStatus();
                 }
@@ -959,6 +1037,11 @@
                 // Update card labels
                 updateCardLabels();
                 
+                // Reset hint system since board changed
+                clearHint();
+                hintSets = findAllSetsOnBoard();
+                currentHintIndex = 0;
+                
                 updateCardGrid();
                 updateStatus();
             }
@@ -974,43 +1057,85 @@
             // Update card labels after shuffle
             updateCardLabels();
             
+            // Reset hint system since board changed
+            clearHint();
+            hintSets = findAllSetsOnBoard();
+            currentHintIndex = 0;
+            
             updateCardGrid();
         }
 
+        function clearHint() {
+            // Clear any existing hint timeout
+            if (hintTimeout) {
+                clearTimeout(hintTimeout);
+                hintTimeout = null;
+            }
+            
+            // Clear any previous hints
+            document.querySelectorAll('.card.hint-glowing').forEach(card => {
+                card.classList.remove('hint-glowing');
+            });
+            
+            // Reset hint button state
+            document.getElementById('hintBtn').classList.remove('active');
+            isHintActive = false;
+        }
+
         function showHint() {
-            const sets = findAllSetsOnBoard();
-            if (sets.length > 0) {
-                // Clear any existing hint timeout
-                if (hintTimeout) {
-                    clearTimeout(hintTimeout);
+            // If hint is already active, clear it first
+            if (isHintActive) {
+                clearHint();
+                return;
+            }
+            
+            // Find all available sets on the board
+            hintSets = findAllSetsOnBoard();
+            
+            if (hintSets.length === 0) {
+                alert("No sets available on the board!");
+                return;
+            }
+            
+            // Make sure currentHintIndex is within bounds
+            if (currentHintIndex >= hintSets.length) {
+                currentHintIndex = 0;
+            }
+            
+            // Get the current hint set
+            const hintSet = hintSets[currentHintIndex];
+            
+            // Show the hint
+            hintSet.forEach(cardToHint => {
+                const cardEl = document.querySelector(`[data-card-id="${cardToHint.id}"]`);
+                if (cardEl) {
+                    cardEl.classList.add('hint-glowing');
+                }
+            });
+            
+            // Mark hint button as active
+            document.getElementById('hintBtn').classList.add('active');
+            isHintActive = true;
+            
+            // Show hint counter
+            const hintCounter = document.createElement('div');
+            hintCounter.className = 'hint-counter';
+            hintCounter.textContent = `${currentHintIndex + 1}/${hintSets.length}`;
+            document.getElementById('hintBtn').appendChild(hintCounter);
+            
+            // Auto-remove hint after 3 seconds
+            hintTimeout = setTimeout(() => {
+                clearHint();
+                
+                // Remove hint counter
+                const existingCounter = document.getElementById('hintBtn').querySelector('.hint-counter');
+                if (existingCounter) {
+                    existingCounter.remove();
                 }
                 
-                const hintSet = sets[0];
-                
-                // Clear any previous hints
-                document.querySelectorAll('.card.hint-glowing').forEach(card => {
-                    card.classList.remove('hint-glowing');
-                });
-                
-                // Show hint for 3 seconds
-                hintSet.forEach(cardToHint => {
-                    const cardEl = document.querySelector(`[data-card-id="${cardToHint.id}"]`);
-                    if (cardEl) {
-                        cardEl.classList.add('hint-glowing');
-                    }
-                });
-                
-                // Auto-remove hint after 3 seconds
-                hintTimeout = setTimeout(() => {
-                    hintSet.forEach(cardToHint => {
-                        const cardEl = document.querySelector(`[data-card-id="${cardToHint.id}"]`);
-                        if (cardEl) {
-                            cardEl.classList.remove('hint-glowing');
-                        }
-                    });
-                    hintTimeout = null;
-                }, 3000);
-            }
+                // Move to next hint for next click
+                currentHintIndex = (currentHintIndex + 1) % hintSets.length;
+            }, 3000);
         }
 
         function endGame() {
@@ -1138,6 +1263,14 @@
             document.getElementById('addCardBtn').disabled = boardCards.length >= 15 || deck.length === 0;
             document.getElementById('removeCardBtn').disabled = boardCards.length <= 4;
             
+            // Update hint button text based on available sets
+            const hintBtn = document.getElementById('hintBtn');
+            if (setsCount > 0) {
+                hintBtn.textContent = `Hint (${setsCount} sets)`;
+            } else {
+                hintBtn.textContent = 'Hint (0 sets)';
+            }
+            
             // If no sets and we can't add more cards, end the game
             if (setsCount === 0 && deck.length === 0) {
                 setTimeout(endGame, 1000);
@@ -1147,10 +1280,39 @@
         function updateHistory() {
             const historySetsEl = document.getElementById('historySets');
             historySetsEl.innerHTML = '';
-            completedSets.slice().reverse().forEach(set => {
+            
+            // Get only the most recent sets (up to MAX_HISTORY_SETS)
+            const recentSets = completedSets.slice(-MAX_HISTORY_SETS);
+            
+            // Update the history counter
+            const historyCounter = document.getElementById('historyCounter');
+            historyCounter.textContent = `Recent sets: ${recentSets.length}/${MAX_HISTORY_SETS}`;
+            
+            // If no sets yet, show a message
+            if (recentSets.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.className = 'history-set';
+                emptyMessage.innerHTML = '<div style="text-align: center; width: 100%; padding: 20px; color: #999;">No sets found yet</div>';
+                historySetsEl.appendChild(emptyMessage);
+                return;
+            }
+            
+            // Display each set with appropriate fading class
+            recentSets.forEach((set, index) => {
                 const setEl = document.createElement('div');
                 setEl.className = 'history-set';
+                
+                // Add fading class based on age (most recent = recent-0, oldest = recent-2 or older)
+                if (index === recentSets.length - 1) {
+                    setEl.classList.add('recent-0'); // Most recent
+                } else if (index === recentSets.length - 2) {
+                    setEl.classList.add('recent-1'); // Middle
+                } else {
+                    setEl.classList.add('recent-2'); // Oldest
+                }
+                
                 if (settings.orientation === 'horizontal') setEl.classList.add('horizontal');
+                
                 set.forEach(cardData => {
                     const cardEl = document.createElement('div');
                     cardEl.className = 'history-card';
