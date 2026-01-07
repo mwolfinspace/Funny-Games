@@ -31,6 +31,8 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             display: flex;
             flex-direction: column;
+            position: relative;
+            overflow: hidden;
         }
 
         h1 {
@@ -206,7 +208,6 @@
             background: #f8f9fa;
             border-radius: 15px;
             padding: 20px;
-            overflow-y: auto;
         }
         .history-panel h2 { text-align: center; margin-bottom: 15px; color: #555;}
         .history-set {
@@ -243,8 +244,53 @@
             border-radius: 8px;
         }
 
-        .end-screen { text-align: center; }
-        .stats { text-align: center; font-size: 24px; margin: 30px 0; color: #333; line-height: 1.6; }
+        .end-screen {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px;
+            gap: 20px;
+            flex-grow: 1;
+        }
+        .end-screen.active {
+            display: flex;
+        }
+        .end-screen-icon {
+            font-size: 100px;
+            animation: icon-pop 0.5s ease-out;
+        }
+        #end-compliment {
+            font-size: 48px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .stats {
+            text-align: center;
+            font-size: 22px;
+            color: #555;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .percentage {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        @keyframes icon-pop {
+            0% { transform: scale(0); }
+            80% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0.7;
+        }
         .restart-btn { padding: 15px 30px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
         .restart-btn:hover { background: #5568d3; }
 
@@ -331,8 +377,10 @@
         </div>
 
         <div class="end-screen">
-            <h2>Game Over!</h2>
+            <div class="end-screen-icon"></div>
+            <h2 id="end-compliment"></h2>
             <div class="stats" id="stats"></div>
+            <div class="percentage" id="percentage"></div>
             <button class="restart-btn" onclick="location.reload()">Play Again</button>
         </div>
     </div>
@@ -509,6 +557,9 @@
         function nextPuzzle() {
             if (!puzzleSolved) return;
             completedSets.push(puzzleCards);
+            if (completedSets.length > 5) {
+                completedSets.shift(); // remove the oldest
+            }
             updateHistory();
             generatePuzzle();
         }
@@ -548,8 +599,69 @@
         function endGame() {
             document.querySelector('.game-screen').classList.remove('active');
             document.querySelector('.end-screen').classList.add('active');
-            const ratio = mistakes === 0 ? score : (score / mistakes).toFixed(2);
-            document.getElementById('stats').innerHTML = `Correct: ${score}<br>Mistakes: ${mistakes}<br>Ratio: ${ratio}`;
+            
+            createConfetti();
+
+            const total = score + mistakes;
+            const accuracy = total > 0 ? Math.round((score / total) * 100) : 0;
+            
+            let compliment = '';
+            let icon = '🤔';
+
+            if (accuracy === 100) {
+                compliment = "You're a SET Master! Perfect Score!";
+                icon = '🏆';
+            } else if (accuracy >= 90) {
+                compliment = 'Outstanding!';
+                icon = '🎉';
+            } else if (accuracy >= 75) {
+                compliment = 'Great Job!';
+                icon = '👍';
+            } else if (accuracy >= 50) {
+                compliment = 'Good Effort!';
+                icon = '😊';
+            } else {
+                compliment = 'Keep Practicing!';
+                icon = '💪';
+            }
+
+            document.querySelector('.end-screen-icon').textContent = icon;
+            document.getElementById('end-compliment').textContent = compliment;
+            document.getElementById('stats').innerHTML = `Correct: ${score} | Mistakes: ${mistakes}`;
+            document.getElementById('percentage').textContent = `Accuracy: ${accuracy}%`;
+        }
+
+        function createConfetti() {
+            const confettiContainer = document.querySelector('.container');
+            const colors = settings.colors;
+
+            for (let i = 0; i < 150; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = (Math.random() * 100) + '%';
+                confetti.style.top = (-20 + Math.random() * 20) + 'px';
+                confetti.style.backgroundColor = colors[i % colors.length];
+                confetti.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
+                confettiContainer.appendChild(confetti);
+
+                animateConfetti(confetti);
+            }
+        }
+
+        function animateConfetti(confetti) {
+            const duration = 3000 + Math.random() * 2000;
+            const x = Math.random() * 200 - 100; // sideways motion
+            
+            confetti.animate([
+                { transform: `translate(0, 0) rotate(${Math.random() * 360}deg)`, opacity: 1 },
+                { transform: `translate(${x}px, ${window.innerHeight}px) rotate(${Math.random() * 720}deg)`, opacity: 0 }
+            ], {
+                duration: duration,
+                easing: 'ease-out',
+                fill: 'forwards'
+            }).onfinish = () => {
+                confetti.remove();
+            };
         }
         
         // --- UI UPDATE FUNCTIONS ---
@@ -683,10 +795,15 @@
         function updateHistory() {
             const historySets = document.getElementById('historySets');
             historySets.innerHTML = '';
-            completedSets.slice().reverse().forEach(set => {
+            completedSets.slice().reverse().forEach((set, index) => {
                 const setEl = document.createElement('div');
                 setEl.className = 'history-set';
                 if (settings.orientation === 'horizontal') setEl.classList.add('horizontal');
+                
+                const opacity = 1 - (index * 0.18); // A bit more fading
+                setEl.style.opacity = Math.max(0.2, opacity);
+                setEl.style.transition = 'opacity 0.5s ease-in-out';
+
                 set.forEach(cardData => {
                     const cardEl = document.createElement('div');
                     cardEl.className = 'history-card';
