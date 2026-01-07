@@ -224,6 +224,7 @@
             justify-content: center;
             gap: 10px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
 
         .control-btn {
@@ -236,6 +237,7 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            min-width: 140px;
         }
 
         .control-btn:hover {
@@ -245,6 +247,14 @@
         .control-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
+        }
+
+        .control-btn.end-game {
+            background: #ff6b6b;
+        }
+
+        .control-btn.end-game:hover {
+            background: #ff5252;
         }
 
         .bottom-zone {
@@ -395,6 +405,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: transform 0.2s, left 0.1s, top 0.1s;
+        }
+
+        .snake-card.head {
+            border-color: #ff6b6b;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+            z-index: 100;
         }
 
         .restart-btn {
@@ -577,6 +594,7 @@
                     <div class="bottom-controls">
                         <button class="control-btn" id="removeBtn" onclick="removeCard()">− Remove Card</button>
                         <button class="control-btn" id="addBtn" onclick="addCard()">+ Add Card</button>
+                        <button class="control-btn end-game" id="endBtn" onclick="endGame()">End Game</button>
                     </div>
                     <div class="bottom-zone" id="bottomZone"></div>
                 </div>
@@ -584,7 +602,7 @@
         </div>
 
         <div class="end-screen">
-            <h2>Congratulations! 🎉</h2>
+            <h2>Game Over!</h2>
             <div class="stats" id="stats"></div>
             <div class="train-animation" id="trainAnimation"></div>
             <button class="restart-btn" onclick="location.reload()">Play Again</button>
@@ -605,6 +623,7 @@
         let bottomCards = [];
         let usedCards = new Set();
         let bottomCardCount = 4;
+        let gameActive = true;
 
         const symbolNames = {
             'diamond': 'Diamond',
@@ -904,6 +923,25 @@
             return deck.filter(card => !usedCards.has(JSON.stringify(card)) && hasOneDifference(card, lastCard)).length;
         }
 
+        function checkGameOver() {
+            if (train.length === 0) return false;
+            
+            const lastCard = train[train.length - 1];
+            const available = deck.filter(card => !usedCards.has(JSON.stringify(card)));
+            const validCards = available.filter(card => hasOneDifference(card, lastCard));
+            
+            return validCards.length === 0;
+        }
+
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
         function updateBottomZone() {
             const bottomZone = document.getElementById('bottomZone');
             bottomZone.innerHTML = '';
@@ -912,24 +950,54 @@
             const available = deck.filter(card => !usedCards.has(JSON.stringify(card)));
             
             if (train.length === 0) {
+                // For the first card, any card is valid
                 for (let i = 0; i < Math.min(bottomCardCount, available.length); i++) {
                     bottomCards.push(available[i]);
                 }
             } else {
                 const lastCard = train[train.length - 1];
                 const validCards = available.filter(card => hasOneDifference(card, lastCard));
+                const invalidCards = available.filter(card => !hasOneDifference(card, lastCard));
                 
-                if (validCards.length > 0) {
-                    bottomCards.push(validCards[Math.floor(Math.random() * validCards.length)]);
+                // Check for game over condition
+                if (validCards.length === 0) {
+                    endGame();
+                    return;
                 }
                 
-                while (bottomCards.length < bottomCardCount && available.length > bottomCards.length) {
-                    const card = available[Math.floor(Math.random() * available.length)];
-                    if (!bottomCards.some(c => JSON.stringify(c) === JSON.stringify(card))) {
-                        bottomCards.push(card);
+                // Always include at least one valid card
+                if (validCards.length > 0) {
+                    const randomValidCard = validCards[Math.floor(Math.random() * validCards.length)];
+                    bottomCards.push(randomValidCard);
+                }
+                
+                // Fill the rest with random cards (could be valid or invalid)
+                const remainingSlots = bottomCardCount - 1;
+                const allCards = [...validCards, ...invalidCards].filter(card => 
+                    !bottomCards.some(bc => JSON.stringify(bc) === JSON.stringify(card))
+                );
+                
+                // Shuffle all available cards
+                const shuffledCards = shuffleArray(allCards);
+                
+                for (let i = 0; i < Math.min(remainingSlots, shuffledCards.length); i++) {
+                    bottomCards.push(shuffledCards[i]);
+                }
+                
+                // If we still don't have enough cards, add any available
+                if (bottomCards.length < bottomCardCount) {
+                    const remaining = available.filter(card => 
+                        !bottomCards.some(bc => JSON.stringify(bc) === JSON.stringify(card))
+                    );
+                    const needed = bottomCardCount - bottomCards.length;
+                    for (let i = 0; i < Math.min(needed, remaining.length); i++) {
+                        bottomCards.push(remaining[i]);
                     }
                 }
             }
+            
+            // Shuffle the final bottomCards array so the valid card isn't always first
+            bottomCards = shuffleArray(bottomCards);
 
             bottomCards.forEach((card, index) => {
                 let label;
@@ -944,6 +1012,11 @@
 
             updateHint();
             updateControls();
+            
+            // Check if game should end
+            if (train.length > 0 && checkGameOver()) {
+                endGame();
+            }
         }
 
         function updateControls() {
@@ -971,6 +1044,8 @@
         }
 
         function handleCardClick(wrapper, cardEl, cardData) {
+            if (!gameActive) return;
+            
             if (train.length === 0) {
                 train.push(cardData);
                 usedCards.add(JSON.stringify(cardData));
@@ -992,6 +1067,7 @@
                         updateTopZone();
                         updateBottomZone();
                         
+                        // Check for win condition
                         if (train.length === 81) {
                             endGame();
                         }
@@ -1059,41 +1135,146 @@
         }
 
         function endGame() {
+            if (!gameActive) return;
+            
+            gameActive = false;
             document.querySelector('.game-screen').classList.remove('active');
             document.querySelector('.end-screen').classList.add('active');
             
-            document.getElementById('stats').textContent = `You completed the train with all 81 cards!`;
+            let message;
+            if (train.length === 81) {
+                message = "🎉 Congratulations! You completed the entire deck of 81 cards!";
+            } else if (train.length === 0) {
+                message = "Game ended. Your train length: 0";
+            } else {
+                message = `Game Over! No more valid cards available.<br>Your train length: ${train.length}`;
+            }
             
+            document.getElementById('stats').innerHTML = message;
             animateSnake();
+        }
+
+        function createSnakeCard(cardData, isHead = false) {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'snake-card';
+            if (isHead) {
+                cardEl.classList.add('head');
+            }
+            cardEl.style.background = settings.cardBg;
+            
+            const color = settings.colors[cardData.color];
+            const symbol = settings.symbols[cardData.shape];
+            const shape = drawShape(symbol, color, cardData.shading, 20);
+            cardEl.appendChild(shape);
+            
+            return cardEl;
         }
 
         function animateSnake() {
             const container = document.getElementById('trainAnimation');
-            const cards = train.map((card, i) => {
-                const cardEl = document.createElement('div');
-                cardEl.className = 'snake-card';
-                cardEl.style.background = settings.cardBg;
+            container.innerHTML = '';
+            
+            if (train.length === 0) return;
+            
+            // Create snake cards (use all cards in train)
+            const snakeCards = [];
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            // Create one snake card for each train card
+            for (let i = 0; i < train.length; i++) {
+                const cardData = train[i];
+                const isHead = (i === 0);
+                const cardEl = createSnakeCard(cardData, isHead);
                 
-                const color = settings.colors[card.color];
-                const symbol = settings.symbols[card.shape];
-                const shape = drawShape(symbol, color, card.shading, 20);
-                cardEl.appendChild(shape);
+                // Position cards in a line initially
+                const x = containerWidth / 2;
+                const y = containerHeight / 2;
+                
+                // Random velocity (2-4 pixels per frame)
+                const speed = 2 + Math.random() * 2;
+                const angle = Math.random() * Math.PI * 2;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                
+                cardEl.style.left = x + 'px';
+                cardEl.style.top = y + 'px';
                 
                 container.appendChild(cardEl);
-                return { el: cardEl, angle: (i * 10) };
-            });
-
-            let time = 0;
-            setInterval(() => {
-                time += 0.02;
-                cards.forEach((card, i) => {
-                    const angle = time + (i * 0.2);
-                    const x = 200 + Math.cos(angle) * 150;
-                    const y = 200 + Math.sin(angle) * 100;
-                    card.el.style.left = x + 'px';
-                    card.el.style.top = y + 'px';
+                
+                snakeCards.push({
+                    el: cardEl,
+                    x: x,
+                    y: y,
+                    vx: vx,
+                    vy: vy,
+                    trail: []
                 });
-            }, 20);
+            }
+            
+            // Animation function
+            function animate() {
+                snakeCards.forEach((card, index) => {
+                    if (index === 0) {
+                        // Head card - move freely
+                        card.x += card.vx;
+                        card.y += card.vy;
+                        
+                        // Bounce off walls (DVD screensaver style)
+                        if (card.x <= 0) {
+                            card.x = 0;
+                            card.vx = Math.abs(card.vx);
+                        } else if (card.x >= containerWidth - 60) {
+                            card.x = containerWidth - 60;
+                            card.vx = -Math.abs(card.vx);
+                        }
+                        
+                        if (card.y <= 0) {
+                            card.y = 0;
+                            card.vy = Math.abs(card.vy);
+                        } else if (card.y >= containerHeight - 80) {
+                            card.y = containerHeight - 80;
+                            card.vy = -Math.abs(card.vy);
+                        }
+                        
+                        // Store position in trail
+                        card.trail.unshift({x: card.x, y: card.y});
+                        if (card.trail.length > 100) {
+                            card.trail.pop();
+                        }
+                    } else {
+                        // Body cards - follow the previous card's trail with delay
+                        const prevCard = snakeCards[index - 1];
+                        const trailIndex = Math.min(index * 5, prevCard.trail.length - 1);
+                        
+                        if (prevCard.trail[trailIndex]) {
+                            card.x = prevCard.trail[trailIndex].x;
+                            card.y = prevCard.trail[trailIndex].y;
+                        }
+                        
+                        // Store position in own trail
+                        card.trail.unshift({x: card.x, y: card.y});
+                        if (card.trail.length > 50) {
+                            card.trail.pop();
+                        }
+                    }
+                    
+                    // Update position
+                    card.el.style.left = card.x + 'px';
+                    card.el.style.top = card.y + 'px';
+                    
+                    // Scale body cards based on position
+                    if (index > 0) {
+                        const scale = 1 - (index * 0.02);
+                        card.el.style.transform = `scale(${scale})`;
+                        card.el.style.zIndex = (100 - index).toString();
+                    }
+                });
+                
+                requestAnimationFrame(animate);
+            }
+            
+            animate();
         }
 
         function startGame() {
@@ -1114,6 +1295,7 @@
             }
             
             settings.symbols = selectedSymbols;
+            gameActive = true;
 
             createDeck();
             
