@@ -389,11 +389,12 @@
         let deck = [];
         let boardCards = [];
         let selectedCards = [];
-        let numberOfSlots = 4; // Default for original game
+        let numberOfSlots = 4; // Start with 4 cards as requested
         let score = 0;
         let mistakes = 0;
         let completedSets = [];
         let isChecking = false;
+        let hintTimeout = null;
 
         const correctSound = document.getElementById('correctSound');
         const wrongSound = document.getElementById('wrongSound');
@@ -401,9 +402,13 @@
         // --- SETUP SCREEN ---
         document.querySelectorAll('.symbol-option').forEach(opt => {
             opt.addEventListener('click', function() {
-                this.classList.toggle('selected');
                 const selectedCount = document.querySelectorAll('.symbol-option.selected').length;
-                document.querySelector('.symbol-count').textContent = `Selected: ${selectedCount} symbols`;
+                if (selectedCount >= 3 && !this.classList.contains('selected')) {
+                    return; // Don't allow more than 3 symbols
+                }
+                this.classList.toggle('selected');
+                const newSelectedCount = document.querySelectorAll('.symbol-option.selected').length;
+                document.querySelector('.symbol-count').textContent = `Selected: ${newSelectedCount} symbols`;
                 updateDemo();
             });
         });
@@ -501,26 +506,88 @@
             return card3;
         }
 
-        function createInitialBoard(cardCount) {
-            if (deck.length < cardCount) cardCount = deck.length;
-            if (cardCount < 3) return dealCards(cardCount);
+        // New function to find a card that's NOT part of any set
+        function findNonSetCard() {
+            if (boardCards.length < 3) return -1;
+            
+            // For each card, check if it's part of any set
+            for (let i = 0; i < boardCards.length; i++) {
+                let isPartOfSet = false;
+                
+                // Check all possible trios including this card
+                for (let j = 0; j < boardCards.length && !isPartOfSet; j++) {
+                    if (j === i) continue;
+                    for (let k = j + 1; k < boardCards.length && !isPartOfSet; k++) {
+                        if (k === i) continue;
+                        const trio = [boardCards[i], boardCards[j], boardCards[k]];
+                        if (isSet(trio)) {
+                            isPartOfSet = true;
+                        }
+                    }
+                }
+                
+                // If this card is NOT part of any set, return its index
+                if (!isPartOfSet) {
+                    return i;
+                }
+            }
+            
+            // If all cards are part of at least one set, return a random card
+            return Math.floor(Math.random() * boardCards.length);
+        }
 
-            let setCards = [];
+        // New function to find a card that WILL create more sets when added
+        function findGoodCardToAdd() {
+            if (deck.length === 0) return null;
+            
+            // Try to find a card that completes a set with two existing cards
+            for (let i = 0; i < boardCards.length; i++) {
+                for (let j = i + 1; j < boardCards.length; j++) {
+                    const neededCard = getThirdCard(boardCards[i], boardCards[j]);
+                    
+                    // Look for this card in the deck
+                    const deckIndex = deck.findIndex(card => 
+                        card.count === neededCard.count &&
+                        card.color === neededCard.color &&
+                        card.shading === neededCard.shading &&
+                        card.shape === neededCard.shape
+                    );
+                    
+                    if (deckIndex !== -1) {
+                        return deck[deckIndex];
+                    }
+                }
+            }
+            
+            // If no set-completing card found, return a random card from deck
+            return deck[deck.length - 1];
+        }
+
+        function createInitialBoard(cardCount) {
+            if (cardCount < 3) cardCount = 3;
+            
+            // Start with an empty board
+            let board = [];
+            
+            // Create a guaranteed set
             let attempts = 0;
-            while(attempts < 100 && setCards.length < 3) { // Avoid infinite loop
+            let setCards = [];
+            
+            while (attempts < 100 && setCards.length < 3) {
                 attempts++;
-                // 1. Pick two random cards from deck
+                
+                // Pick two random cards from deck
                 const i1 = Math.floor(Math.random() * deck.length);
                 let i2 = Math.floor(Math.random() * deck.length);
-                if (i1 === i2) continue;
-
+                while (i2 === i1 && deck.length > 1) {
+                    i2 = Math.floor(Math.random() * deck.length);
+                }
+                
                 const c1 = deck[i1];
                 const c2 = deck[i2];
-
-                // 2. Calculate the third card
                 const c3_template = getThirdCard(c1, c2);
-
-                // 3. Find the third card in the deck
+                
+                // Find the third card in the deck
                 const i3 = deck.findIndex(card => 
                     card.id !== c1.id && card.id !== c2.id &&
                     card.count === c3_template.count &&
@@ -528,34 +595,39 @@
                     card.shading === c3_template.shading &&
                     card.shape === c3_template.shape
                 );
-
+                
                 if (i3 !== -1) {
                     const c3 = deck[i3];
                     setCards = [c1, c2, c3];
                     
+                    // Remove these cards from deck
                     const ids = setCards.map(c => c.id);
                     deck = deck.filter(c => !ids.includes(c.id));
+                    board = [...setCards];
                     break;
                 }
             }
-
-            if (setCards.length < 3) {
-                console.warn("Could not create a guaranteed set, dealing random cards.");
-                return dealCards(cardCount);
+            
+            // If we couldn't create a set (shouldn't happen with full deck), use random cards
+            if (board.length === 0) {
+                board = deck.splice(0, Math.min(3, deck.length));
             }
             
-            let board = [...setCards];
-            const remainingCardsNeeded = cardCount - 3;
-            if (remainingCardsNeeded > 0) {
-                board.push(...dealCards(remainingCardsNeeded));
+            // Add more cards to reach the desired count
+            const cardsNeeded = cardCount - board.length;
+            if (cardsNeeded > 0) {
+                // Add cards that don't create too many sets (to keep it easy)
+                for (let i = 0; i < cardsNeeded && deck.length > 0; i++) {
+                    board.push(deck.pop());
+                }
             }
-
-            // Shuffle board
+            
+            // Shuffle the board
             for (let i = board.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [board[i], board[j]] = [board[j], board[i]];
             }
-
+            
             return board;
         }
 
@@ -575,26 +647,22 @@
             return sets;
         }
 
-        function dealCards(count) {
-            const newCards = [];
-            for(let i=0; i<count; i++){
-                if(deck.length > 0) {
-                    newCards.push(deck.pop());
-                }
-            }
-            return newCards;
-        }
-        
         function checkAndDealUntilSetExists() {
-            while (findAllSetsOnBoard().length === 0) {
-                if (deck.length === 0) {
-                    endGame(); // No more cards to deal and no sets on board
-                    return;
-                }
-                const newCards = dealCards(3);
-                boardCards.push(...newCards);
-                numberOfSlots = boardCards.length;
+            let sets = findAllSetsOnBoard();
+            
+            // Keep adding cards until we have at least one set OR reach max cards OR deck is empty
+            while (sets.length === 0 && boardCards.length < 15 && deck.length > 0) {
+                const newCard = deck.pop();
+                boardCards.push(newCard);
+                sets = findAllSetsOnBoard();
             }
+            
+            // If we still don't have a set and deck is empty, game is over
+            if (sets.length === 0 && deck.length === 0) {
+                endGame();
+            }
+            
+            return sets.length > 0;
         }
 
         function startGame() {
@@ -604,7 +672,10 @@
                 symbols: Array.from(document.querySelectorAll('.symbol-option.selected')).map(opt => opt.dataset.symbol),
                 orientation: document.querySelector('.orientation-option.selected').dataset.orientation
             };
-            if (settings.symbols.length !== 3) { alert('Please select exactly 3 symbols'); return; }
+            if (settings.symbols.length !== 3) { 
+                alert('Please select exactly 3 symbols'); 
+                return; 
+            }
 
             document.querySelector('.setup-screen').classList.remove('active');
             document.querySelector('.game-screen').classList.add('active');
@@ -613,12 +684,19 @@
             boardCards = [];
             selectedCards = [];
             completedSets = [];
-            numberOfSlots = 4; // Start with 4
+            numberOfSlots = 4; // Start with 4 cards
             score = 0;
             mistakes = 0;
             isChecking = false;
 
+            // Create initial board with guaranteed set
             boardCards = createInitialBoard(numberOfSlots);
+            
+            // Ensure we have at least one set
+            if (findAllSetsOnBoard().length === 0) {
+                // This shouldn't happen, but just in case
+                checkAndDealUntilSetExists();
+            }
             
             updateCardGrid();
             updateStatus();
@@ -633,8 +711,10 @@
                 selectedCards.splice(cardIndex, 1);
                 cardEl.classList.remove('selected');
             } else {
-                selectedCards.push(cardData);
-                cardEl.classList.add('selected');
+                if (selectedCards.length < 3) {
+                    selectedCards.push(cardData);
+                    cardEl.classList.add('selected');
+                }
             }
 
             if (selectedCards.length === 3) {
@@ -644,7 +724,9 @@
         }
 
         function checkSelectedCards() {
-            const selectedElements = selectedCards.map(cardData => document.querySelector(`[data-card-id="${cardData.id}"]`));
+            const selectedElements = selectedCards.map(cardData => 
+                document.querySelector(`[data-card-id="${cardData.id}"]`)
+            );
             selectedElements.forEach(el => el.classList.add('processing'));
 
             if (isSet(selectedCards)) {
@@ -654,46 +736,23 @@
                 selectedElements.forEach(el => showResultMark(el, true));
 
                 setTimeout(() => {
-                    const oldNumberOfSlots = numberOfSlots;
-                    // Get leftover cards
-                    boardCards = boardCards.filter(bc => !selectedCards.find(sc => sc.id === bc.id));
+                    // Remove the set from board
+                    boardCards = boardCards.filter(bc => 
+                        !selectedCards.find(sc => sc.id === bc.id)
+                    );
                     
-                    let cardsToDeal = (oldNumberOfSlots > 12) ? 0 : 3;
-                    
-                    // When playing with 4 cards, try to build a new set with the leftover card.
-                    if (oldNumberOfSlots === 4 && boardCards.length === 1 && deck.length >= 2) {
-                        const leftoverCard = boardCards[0];
-                        
-                        // Find two cards in the deck that form a SET with the leftover card.
-                        for (let i = 0; i < deck.length; i++) {
-                            if (deck.length < 2) break;
-                            const c1 = deck[i];
-                            const c2_template = getThirdCard(leftoverCard, c1);
-                            const c2_idx = deck.findIndex(card => card.id !== c1.id && card.count === c2_template.count && card.color === c2_template.color && card.shading === c2_template.shading && card.shape === c2_template.shape);
-                            
-                            if (c2_idx !== -1) {
-                                const c2 = deck[c2_idx];
-                                boardCards.push(c1, c2); // board is now a set of 3
-                                
-                                const idsToRemove = [c1.id, c2.id];
-                                deck = deck.filter(c => !idsToRemove.includes(c.id));
-                                cardsToDeal = 1; // Only need one more card to make 4
-                                break; // Exit loop once we've found our new set
+                    // Deal new cards if needed
+                    if (boardCards.length < 12 && deck.length > 0) {
+                        const cardsToDeal = Math.min(3, deck.length);
+                        for (let i = 0; i < cardsToDeal; i++) {
+                            if (deck.length > 0) {
+                                boardCards.push(deck.pop());
                             }
                         }
                     }
-
-                    if (deck.length > 0 && cardsToDeal > 0) {
-                        boardCards.push(...dealCards(Math.min(cardsToDeal, deck.length)));
-                    }
                     
-                    // Shuffle the new board to mix the cards
-                    for (let i = boardCards.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [boardCards[i], boardCards[j]] = [boardCards[j], boardCards[i]];
-                    }
-
-                    numberOfSlots = boardCards.length;
+                    // Ensure we still have at least one set
+                    checkAndDealUntilSetExists();
                     
                     selectedCards = [];
                     updateCardGrid();
@@ -717,51 +776,100 @@
         }
         
         function bindControlEvents() {
-            document.getElementById('addCardBtn').onclick = () => changeCardSlots(3); // Add 3 cards
-            document.getElementById('removeCardBtn').onclick = () => {}; // For now disabled
+            document.getElementById('addCardBtn').onclick = addCard;
+            document.getElementById('removeCardBtn').onclick = removeCard;
             document.getElementById('shuffleBtn').onclick = shuffleBoard;
             document.getElementById('hintBtn').onclick = showHint;
             document.getElementById('endGameBtn').onclick = endGame;
         }
 
-        function changeCardSlots(amount) {
-            const newSize = numberOfSlots + amount;
-            if (newSize < 3 || newSize > 15 || deck.length === 0) return;
+        function addCard() {
+            if (boardCards.length >= 15 || deck.length === 0) return;
             
-            const newCards = dealCards(amount);
-            boardCards.push(...newCards);
-            numberOfSlots = boardCards.length;
+            // Find a good card to add (one that creates more sets)
+            const cardToAdd = findGoodCardToAdd();
+            
+            if (cardToAdd) {
+                // Remove from deck
+                const cardIndex = deck.findIndex(c => c.id === cardToAdd.id);
+                if (cardIndex !== -1) {
+                    deck.splice(cardIndex, 1);
+                    boardCards.push(cardToAdd);
+                    numberOfSlots = boardCards.length;
+                    
+                    updateCardGrid();
+                    updateStatus();
+                }
+            }
+        }
 
-            updateCardGrid();
-            updateStatus();
+        function removeCard() {
+            if (boardCards.length <= 4) return;
+            
+            // Find a card that's NOT part of any set (or least useful)
+            const cardIndex = findNonSetCard();
+            
+            if (cardIndex !== -1) {
+                // Put the card back in the deck (at a random position)
+                const removedCard = boardCards.splice(cardIndex, 1)[0];
+                deck.splice(Math.floor(Math.random() * deck.length), 0, removedCard);
+                numberOfSlots = boardCards.length;
+                
+                // If we removed too many cards and now have no sets, add one back
+                if (findAllSetsOnBoard().length === 0 && deck.length > 0) {
+                    const newCard = deck.pop();
+                    boardCards.push(newCard);
+                    numberOfSlots = boardCards.length;
+                }
+                
+                updateCardGrid();
+                updateStatus();
+            }
         }
 
         function shuffleBoard() {
-            // Shuffle only the cards on the board, don't add or remove any.
+            // Simple shuffle - just randomize positions
             for (let i = boardCards.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [boardCards[i], boardCards[j]] = [boardCards[j], boardCards[i]];
             }
+            
             updateCardGrid();
         }
 
         function showHint() {
             const sets = findAllSetsOnBoard();
-            if(sets.length > 0) {
+            if (sets.length > 0) {
+                // Clear any existing hint timeout
+                if (hintTimeout) {
+                    clearTimeout(hintTimeout);
+                }
+                
                 const hintSet = sets[0];
-                // Deselect any selected cards before showing hint
-                selectedCards.forEach(c => document.querySelector(`[data-card-id="${c.id}"]`).classList.remove('selected'));
-                selectedCards = [];
-                // Highlight all 3 cards in the hint
+                
+                // Clear any previous hints
+                document.querySelectorAll('.card.hint-glowing').forEach(card => {
+                    card.classList.remove('hint-glowing');
+                });
+                
+                // Show hint for 3 seconds
                 hintSet.forEach(cardToHint => {
                     const cardEl = document.querySelector(`[data-card-id="${cardToHint.id}"]`);
                     if (cardEl) {
                         cardEl.classList.add('hint-glowing');
-                        cardEl.addEventListener('animationend', () => {
-                            cardEl.classList.remove('hint-glowing');
-                        }, { once: true });
                     }
                 });
+                
+                // Auto-remove hint after 3 seconds
+                hintTimeout = setTimeout(() => {
+                    hintSet.forEach(cardToHint => {
+                        const cardEl = document.querySelector(`[data-card-id="${cardToHint.id}"]`);
+                        if (cardEl) {
+                            cardEl.classList.remove('hint-glowing');
+                        }
+                    });
+                    hintTimeout = null;
+                }, 3000);
             }
         }
 
@@ -875,12 +983,19 @@
         }
 
         function updateStatus() {
-            document.getElementById('setsCount').textContent = findAllSetsOnBoard().length;
+            const setsCount = findAllSetsOnBoard().length;
+            document.getElementById('setsCount').textContent = setsCount;
             document.getElementById('correctCount').textContent = score;
             document.getElementById('wrongCount').textContent = mistakes;
             
-            document.getElementById('addCardBtn').disabled = numberOfSlots >= 15 || deck.length === 0;
-            document.getElementById('removeCardBtn').disabled = true; // Disabled for now
+            // Update button states
+            document.getElementById('addCardBtn').disabled = boardCards.length >= 15 || deck.length === 0;
+            document.getElementById('removeCardBtn').disabled = boardCards.length <= 4;
+            
+            // If no sets and we can't add more cards, end the game
+            if (setsCount === 0 && deck.length === 0) {
+                setTimeout(endGame, 1000);
+            }
         }
 
         function updateHistory() {
@@ -933,3 +1048,5 @@
         }
 
     </script>
+</body>
+</html>
