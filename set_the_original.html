@@ -187,6 +187,29 @@
             transition: all 0.3s;
         }
 
+        /* Card label styles */
+        .card-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 25px;
+            height: 25px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .card.horizontal .card-label {
+            top: 5px;
+            left: 5px;
+        }
+
         .result-mark {
             position: absolute;
             top: 50%;
@@ -301,12 +324,43 @@
             transition: opacity 0.3s, background-color 0.3s; z-index: 1000;
         }
         a.return-to-menu:hover { opacity: 1; background-color: rgba(0,0,0,0.5); }
+        
+        /* Game instructions with label reference */
+        .game-instructions {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            font-style: italic;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .label-guide {
+            display: inline-block;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 20px;
+            margin: 0 2px;
+        }
     </style>
 </head>
 <body>
     <a class="return-to-menu" href="index.html">🏠</a>
     <div class="container">
         <h1>The Original SET Game</h1>
+        
+        <!-- Game instructions with label reference -->
+        <div class="game-instructions">
+            Find sets of 3 cards where each feature (color, shape, shading, count) is either all the same or all different.
+            Each card is labeled (e.g., <span class="label-guide">1</span>, <span class="label-guide">A</span>) for easy reference!
+        </div>
         
         <div class="setup-screen active">
             <div class="setup-container">
@@ -395,9 +449,29 @@
         let completedSets = [];
         let isChecking = false;
         let hintTimeout = null;
+        let cardLabels = []; // Array to store current card labels
 
         const correctSound = document.getElementById('correctSound');
         const wrongSound = document.getElementById('wrongSound');
+
+        // Function to get label for card index (1-9 then A-Z)
+        function getCardLabel(index) {
+            if (index < 9) {
+                return (index + 1).toString(); // 1-9
+            } else {
+                // A-Z for indices 9-34 (supports up to 35 cards, more than we need)
+                return String.fromCharCode(65 + (index - 9)); // 10->A, 11->B, etc.
+            }
+        }
+
+        // Update card labels when board changes
+        function updateCardLabels() {
+            cardLabels = [];
+            boardCards.forEach((card, index) => {
+                card.label = getCardLabel(index);
+                cardLabels.push(card.label);
+            });
+        }
 
         // --- SETUP SCREEN ---
         document.querySelectorAll('.symbol-option').forEach(opt => {
@@ -536,31 +610,56 @@
             return Math.floor(Math.random() * boardCards.length);
         }
 
-        // New function to find a card that WILL create more sets when added
-        function findGoodCardToAdd() {
-            if (deck.length === 0) return null;
+        // New function to find 3 cards from deck that maximize the number of possible sets
+        function findBestCardsToAdd() {
+            if (deck.length === 0) return [];
+            if (deck.length <= 3) return [...deck];
             
-            // Try to find a card that completes a set with two existing cards
-            for (let i = 0; i < boardCards.length; i++) {
-                for (let j = i + 1; j < boardCards.length; j++) {
-                    const neededCard = getThirdCard(boardCards[i], boardCards[j]);
-                    
-                    // Look for this card in the deck
-                    const deckIndex = deck.findIndex(card => 
-                        card.count === neededCard.count &&
-                        card.color === neededCard.color &&
-                        card.shading === neededCard.shading &&
-                        card.shape === neededCard.shape
-                    );
-                    
-                    if (deckIndex !== -1) {
-                        return deck[deckIndex];
+            let bestCards = [];
+            let bestSetCount = -1;
+            
+            // If we have too many cards in deck, we need to sample to avoid performance issues
+            const maxSampleSize = 20;
+            const sampleDeck = deck.length > maxSampleSize ? 
+                deck.slice(0, maxSampleSize) : [...deck];
+            
+            // Try all combinations of 3 cards from the sample
+            for (let i = 0; i < sampleDeck.length; i++) {
+                for (let j = i + 1; j < sampleDeck.length; j++) {
+                    for (let k = j + 1; k < sampleDeck.length; k++) {
+                        const candidateCards = [sampleDeck[i], sampleDeck[j], sampleDeck[k]];
+                        
+                        // Create temporary board with these cards added
+                        const tempBoard = [...boardCards, ...candidateCards];
+                        
+                        // Count how many sets are possible with this combination
+                        const setCount = countSetsOnBoard(tempBoard);
+                        
+                        if (setCount > bestSetCount) {
+                            bestSetCount = setCount;
+                            bestCards = candidateCards;
+                        }
                     }
                 }
             }
             
-            // If no set-completing card found, return a random card from deck
-            return deck[deck.length - 1];
+            return bestCards;
+        }
+
+        // Helper function to count sets on a board
+        function countSetsOnBoard(cards) {
+            let count = 0;
+            if (cards.length < 3) return 0;
+            for (let i = 0; i < cards.length; i++) {
+                for (let j = i + 1; j < cards.length; j++) {
+                    for (let k = j + 1; k < cards.length; k++) {
+                        if (isSet([cards[i], cards[j], cards[k]])) {
+                            count++;
+                        }
+                    }
+                }
+            }
+            return count;
         }
 
         function createInitialBoard(cardCount) {
@@ -688,6 +787,7 @@
             score = 0;
             mistakes = 0;
             isChecking = false;
+            cardLabels = [];
 
             // Create initial board with guaranteed set
             boardCards = createInitialBoard(numberOfSlots);
@@ -697,6 +797,9 @@
                 // This shouldn't happen, but just in case
                 checkAndDealUntilSetExists();
             }
+            
+            // Update card labels
+            updateCardLabels();
             
             updateCardGrid();
             updateStatus();
@@ -741,18 +844,31 @@
                         !selectedCards.find(sc => sc.id === bc.id)
                     );
                     
-                    // Deal new cards if needed
-                    if (boardCards.length < 12 && deck.length > 0) {
-                        const cardsToDeal = Math.min(3, deck.length);
-                        for (let i = 0; i < cardsToDeal; i++) {
-                            if (deck.length > 0) {
-                                boardCards.push(deck.pop());
+                    // Add exactly 3 new cards from deck (if available) that maximize possible sets
+                    if (deck.length > 0) {
+                        const cardsToAdd = findBestCardsToAdd();
+                        
+                        // Remove these cards from deck
+                        cardsToAdd.forEach(card => {
+                            const index = deck.findIndex(c => c.id === card.id);
+                            if (index !== -1) {
+                                deck.splice(index, 1);
+                                boardCards.push(card);
                             }
+                        });
+                        
+                        // If we couldn't get 3 optimal cards, add random ones to make 3
+                        while (cardsToAdd.length < 3 && deck.length > 0) {
+                            const randomCard = deck.pop();
+                            boardCards.push(randomCard);
                         }
                     }
                     
                     // Ensure we still have at least one set
                     checkAndDealUntilSetExists();
+                    
+                    // Update card labels
+                    updateCardLabels();
                     
                     selectedCards = [];
                     updateCardGrid();
@@ -787,15 +903,33 @@
             if (boardCards.length >= 15 || deck.length === 0) return;
             
             // Find a good card to add (one that creates more sets)
-            const cardToAdd = findGoodCardToAdd();
+            // For single card addition, we'll use a simpler approach
+            let bestCard = null;
+            let bestSetCount = -1;
             
-            if (cardToAdd) {
+            // Sample some cards from deck to find one that increases set count
+            const sampleSize = Math.min(10, deck.length);
+            for (let i = 0; i < sampleSize; i++) {
+                const card = deck[i];
+                const tempBoard = [...boardCards, card];
+                const setCount = countSetsOnBoard(tempBoard);
+                
+                if (setCount > bestSetCount) {
+                    bestSetCount = setCount;
+                    bestCard = card;
+                }
+            }
+            
+            if (bestCard) {
                 // Remove from deck
-                const cardIndex = deck.findIndex(c => c.id === cardToAdd.id);
+                const cardIndex = deck.findIndex(c => c.id === bestCard.id);
                 if (cardIndex !== -1) {
                     deck.splice(cardIndex, 1);
-                    boardCards.push(cardToAdd);
+                    boardCards.push(bestCard);
                     numberOfSlots = boardCards.length;
+                    
+                    // Update card labels
+                    updateCardLabels();
                     
                     updateCardGrid();
                     updateStatus();
@@ -822,6 +956,9 @@
                     numberOfSlots = boardCards.length;
                 }
                 
+                // Update card labels
+                updateCardLabels();
+                
                 updateCardGrid();
                 updateStatus();
             }
@@ -833,6 +970,9 @@
                 const j = Math.floor(Math.random() * (i + 1));
                 [boardCards[i], boardCards[j]] = [boardCards[j], boardCards[i]];
             }
+            
+            // Update card labels after shuffle
+            updateCardLabels();
             
             updateCardGrid();
         }
@@ -901,18 +1041,24 @@
         function updateCardGrid() {
             const grid = document.getElementById('cardGrid');
             grid.innerHTML = '';
-            boardCards.forEach(cardData => {
-                const cardEl = createCardElement(cardData);
+            boardCards.forEach((cardData, index) => {
+                const cardEl = createCardElement(cardData, index);
                 grid.appendChild(cardEl);
             });
         }
 
-        function createCardElement(cardData) {
+        function createCardElement(cardData, index) {
             const card = document.createElement('div');
             card.className = 'card';
             card.dataset.cardId = cardData.id;
             if (settings.orientation === 'horizontal') card.classList.add('horizontal');
             card.style.background = settings.cardBg;
+
+            // Add label to card
+            const label = document.createElement('div');
+            label.className = 'card-label';
+            label.textContent = cardData.label || getCardLabel(index);
+            card.appendChild(label);
 
             const content = document.createElement('div');
             content.className = 'card-content';
