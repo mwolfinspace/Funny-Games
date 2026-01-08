@@ -257,6 +257,11 @@
             background: #ff5252;
         }
 
+        .control-btn.hard-mode.active {
+            background: #ffa726;
+            color: white;
+        }
+
         .bottom-zone {
             display: flex;
             justify-content: center;
@@ -594,6 +599,7 @@
                     <div class="bottom-controls">
                         <button class="control-btn" id="removeBtn" onclick="removeCard()">− Remove Card</button>
                         <button class="control-btn" id="addBtn" onclick="addCard()">+ Add Card</button>
+                        <button class="control-btn" id="hardModeBtn" onclick="toggleHardMode()">Hard Mode: OFF</button>
                         <button class="control-btn end-game" id="endBtn" onclick="endGame()">End Game</button>
                     </div>
                     <div class="bottom-zone" id="bottomZone"></div>
@@ -608,6 +614,9 @@
             <button class="restart-btn" onclick="location.reload()">Play Again</button>
         </div>
     </div>
+
+    <audio id="correctSound" src="kid_yeah.wav"></audio>
+    <audio id="wrongSound" src="Ohh.wav"></audio>
 
     <script>
         let settings = {
@@ -624,6 +633,18 @@
         let usedCards = new Set();
         let bottomCardCount = 4;
         let gameActive = true;
+        let isHardMode = false;
+        let score = 0;
+        let gameHasEnded = false;
+
+        function toggleHardMode() {
+            isHardMode = !isHardMode;
+            const hardModeBtn = document.getElementById('hardModeBtn');
+            hardModeBtn.textContent = `Hard Mode: ${isHardMode ? 'ON' : 'OFF'}`;
+            hardModeBtn.classList.toggle('active', isHardMode);
+            hardModeBtn.classList.toggle('hard-mode', isHardMode);
+            updateBottomZone();
+        }
 
         const symbolNames = {
             'diamond': 'Diamond',
@@ -882,7 +903,7 @@
 
             card.appendChild(content);
 
-            if (showInfo) {
+            if (showInfo && !isHardMode) {
                 const info = document.createElement('div');
                 info.className = 'card-info';
                 const lastCard = train.length > 0 ? train[train.length - 1] : null;
@@ -914,6 +935,15 @@
             if (card1.shading === card2.shading) similarities++;
             if (card1.shape === card2.shape) similarities++;
             return similarities === 1;
+        }
+
+        function getDifference(card1, card2) {
+            const differences = [];
+            if (card1.count === card2.count) differences.push('count');
+            if (card1.color === card2.color) differences.push('color');
+            if (card1.shading === card2.shading) differences.push('shading');
+            if (card1.shape === card2.shape) differences.push('shape');
+            return differences;
         }
 
         function getAvailableCards() {
@@ -1045,11 +1075,17 @@
 
         function handleCardClick(wrapper, cardEl, cardData) {
             if (!gameActive) return;
+
+            const correctSound = document.getElementById('correctSound');
+            const wrongSound = document.getElementById('wrongSound');
             
             if (train.length === 0) {
+                correctSound.currentTime = 0;
+                correctSound.play();
                 train.push(cardData);
                 usedCards.add(JSON.stringify(cardData));
                 cardEl.classList.add('flying');
+                score += 10;
                 
                 setTimeout(() => {
                     updateTopZone();
@@ -1059,6 +1095,9 @@
                 const lastCard = train[train.length - 1];
                 
                 if (hasOneDifference(cardData, lastCard)) {
+                    correctSound.currentTime = 0;
+                    correctSound.play();
+                    score += 10;
                     train.push(cardData);
                     usedCards.add(JSON.stringify(cardData));
                     cardEl.classList.add('flying');
@@ -1069,16 +1108,37 @@
                         
                         // Check for win condition
                         if (train.length === 81) {
-                            endGame();
+                            endGame(true);
                         }
                     }, 500);
                 } else {
-                    const wrongMark = cardEl.querySelector('.wrong-mark');
-                    wrongMark.classList.add('show');
-                    
-                    setTimeout(() => {
-                        wrongMark.classList.remove('show');
-                    }, 1000);
+                    wrongSound.currentTime = 0;
+                    wrongSound.play();
+                    if (isHardMode) {
+                        gameActive = false;
+                        const wrongMark = cardEl.querySelector('.wrong-mark');
+                        const differences = getDifference(lastCard, cardData);
+                        let message = 'Wrong! Duplicates: ' + differences.join(', ');
+
+                        const info = document.createElement('div');
+                        info.className = 'card-info';
+                        info.style.color = 'red';
+                        info.innerHTML = message;
+                        cardEl.appendChild(info);
+
+                        wrongMark.classList.add('show');
+                        
+                        document.getElementById('removeBtn').disabled = true;
+                        document.getElementById('addBtn').disabled = true;
+                        document.getElementById('hardModeBtn').disabled = true;
+                    } else {
+                        const wrongMark = cardEl.querySelector('.wrong-mark');
+                        wrongMark.classList.add('show');
+                        
+                        setTimeout(() => {
+                            wrongMark.classList.remove('show');
+                        }, 1000);
+                    }
                 }
             }
         }
@@ -1134,22 +1194,47 @@
             topZone.appendChild(cardContainer);
         }
 
-        function endGame() {
-            if (!gameActive) return;
-            
+        function endGame(won = false) {
+            if (gameHasEnded) return;
+            gameHasEnded = true;
+
             gameActive = false;
             document.querySelector('.game-screen').classList.remove('active');
-            document.querySelector('.end-screen').classList.add('active');
-            
+            const endScreen = document.querySelector('.end-screen');
+            endScreen.classList.add('active');
+
             let message;
-            if (train.length === 81) {
-                message = "🎉 Congratulations! You completed the entire deck of 81 cards!";
-            } else if (train.length === 0) {
-                message = "Game ended. Your train length: 0";
+            let compliment = '';
+            const length = train.length;
+
+            if (won || length === 81) {
+                message = "🎉 Congratulations! You completed the entire deck of 81 cards! 🎉";
+                compliment = 'You are a SET master! 🧠';
+                endScreen.style.background = 'linear-gradient(135deg, #a8ff78, #78ffd6)';
+            } else if (length > 60) {
+                compliment = 'Incredible run! So close! 😮';
+                endScreen.style.background = 'linear-gradient(135deg, #a8ff78, #78ffd6)';
+            } else if (length > 40) {
+                compliment = 'Excellent job! You have a great eye for detail! 👀';
+                endScreen.style.background = 'linear-gradient(135deg, #ffe259, #ffa751)';
+            } else if (length > 20) {
+                compliment = 'A solid attempt! Keep practicing! 👍';
+                endScreen.style.background = 'linear-gradient(135deg, #ff9a9e, #fecfef)';
+            } else if (length > 0) {
+                compliment = 'A good start! Every long train starts with a single card. 🚂';
+                endScreen.style.background = 'linear-gradient(135deg, #ff9a9e, #fecfef)';
             } else {
-                message = `Game Over! No more valid cards available.<br>Your train length: ${train.length}`;
+                compliment = 'A tough game! Try again! 💪';
+                endScreen.style.background = 'linear-gradient(135deg, #ff9a9e, #fecfef)';
             }
-            
+
+            if (!won) {
+                message = `Game Over! Your train had ${length} cards.`;
+            }
+
+            message += `<br><strong>${compliment}</strong>`;
+            message += `<br>Total Score: ${score}`;
+
             document.getElementById('stats').innerHTML = message;
             animateSnake();
         }
@@ -1170,12 +1255,24 @@
             return cardEl;
         }
 
+        let shapeInterval = null;
+
         function animateSnake() {
             const container = document.getElementById('trainAnimation');
             container.innerHTML = '';
             
+            if (shapeInterval) clearInterval(shapeInterval);
+
             if (train.length === 0) return;
             
+            shapeInterval = setInterval(() => {
+                const r1 = Math.random() * 100;
+                const r2 = Math.random() * 100;
+                const r3 = Math.random() * 100;
+                const r4 = Math.random() * 100;
+                container.style.borderRadius = `${r1}% ${100-r1}% ${r2}% ${100-r2}% / ${r3}% ${r4}% ${100-r4}% ${100-r3}%`;
+            }, 10000);
+
             // Create snake cards (use all cards in train)
             const snakeCards = [];
             const containerWidth = container.clientWidth;
@@ -1296,6 +1393,11 @@
             
             settings.symbols = selectedSymbols;
             gameActive = true;
+            gameHasEnded = false;
+
+            document.getElementById('removeBtn').disabled = false;
+            document.getElementById('addBtn').disabled = false;
+            document.getElementById('hardModeBtn').disabled = false;
 
             createDeck();
             
