@@ -1277,6 +1277,8 @@
             const snakeCards = [];
             const containerWidth = container.clientWidth;
             const containerHeight = container.clientHeight;
+            const centerX = containerWidth / 2;
+            const centerY = containerHeight / 2;
             
             // Create one snake card for each train card
             for (let i = 0; i < train.length; i++) {
@@ -1316,22 +1318,42 @@
                         // Head card - move freely
                         card.x += card.vx;
                         card.y += card.vy;
-                        
-                        // Bounce off walls (DVD screensaver style)
-                        if (card.x <= 0) {
-                            card.x = 0;
-                            card.vx = Math.abs(card.vx);
-                        } else if (card.x >= containerWidth - 60) {
-                            card.x = containerWidth - 60;
-                            card.vx = -Math.abs(card.vx);
+
+                        let collided = false;
+                        if (card.x <= 0 || card.x >= containerWidth - 60 || card.y <= 0 || card.y >= containerHeight - 80) {
+                            collided = true;
                         }
-                        
-                        if (card.y <= 0) {
-                            card.y = 0;
-                            card.vy = Math.abs(card.vy);
-                        } else if (card.y >= containerHeight - 80) {
-                            card.y = containerHeight - 80;
-                            card.vy = -Math.abs(card.vy);
+
+                        if (collided) {
+                            // Clamp position to be inside the box
+                            card.x = Math.max(0, Math.min(card.x, containerWidth - 60));
+                            card.y = Math.max(0, Math.min(card.y, containerHeight - 80));
+
+                            // Calculate normal vector from center to card's edge position
+                            let normalX = card.x + 30 - centerX;
+                            let normalY = card.y + 40 - centerY;
+                            
+                            // Normalize the vector
+                            const len = Math.sqrt(normalX * normalX + normalY * normalY);
+                            if (len > 0) {
+                                normalX /= len;
+                                normalY /= len;
+                            }
+
+                            // Velocity vector
+                            const vx = card.vx;
+                            const vy = card.vy;
+
+                            // Dot product
+                            const dot = vx * normalX + vy * normalY;
+
+                            // Reflected velocity
+                            card.vx = vx - 2 * dot * normalX;
+                            card.vy = vy - 2 * dot * normalY;
+                            
+                            // Add a little fuzz to prevent getting stuck
+                            card.vx += (Math.random() - 0.5) * 0.1;
+                            card.vy += (Math.random() - 0.5) * 0.1;
                         }
                         
                         // Store position in trail
