@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Balance Scale Game</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
         @keyframes rainbow {
             0% { background-position: 0% 50%; }
@@ -45,11 +46,11 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 min-h-screen flex flex-col items-center p-5 sm:p-8">
+<body class="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 h-screen flex flex-col items-center">
 <a class="return-to-menu" href="index.html">🏠</a>
-    <h1 class="text-5xl sm:text-6xl font-extrabold text-white mb-6 sm:mb-8">🎯 Balance Scale 🎯</h1>
+    <p class="text-xl text-white font-bold my-2 text-center">🎯 Balance Scale 🎯</p>
     
-    <div class="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-full">
+    <div class="bg-white rounded-t-3xl p-4 w-full flex-1 flex flex-col justify-around">
         <!-- Scale Container -->
         <div class="relative h-[350px] mb-8">
             <!-- Stand -->
@@ -75,6 +76,10 @@
             <!-- Chains (hidden) -->
             <div id="chainA" class="chain absolute left-[140px] w-0.5 transition-all duration-500 hidden"></div>
             <div id="chainB" class="chain absolute right-[140px] w-0.5 transition-all duration-500 hidden"></div>
+
+            <!-- Disk Labels -->
+            <div id="labelA" class="absolute text-4xl font-bold text-black transition-all duration-500" style="text-shadow: 0 0 3px #FFF, 0 0 5px #FFF; z-index: 2; top: 0px;">A</div>
+            <div id="labelB" class="absolute text-4xl font-bold text-black transition-all duration-500" style="text-shadow: 0 0 3px #FFF, 0 0 5px #FFF; z-index: 2; top: 0px;">B</div>
             
             <!-- Disks -->
             <div id="diskA" class="disk-bg absolute left-12 w-48 min-h-32 border-4 border-orange-500 rounded-2xl transition-all duration-500 flex flex-wrap p-2.5 gap-1 content-start z-[1]"></div>
@@ -132,6 +137,9 @@
         let diskBWeights = [];
         let showDifference = false;
         let showEquation = false;
+
+        const weightsPerRowOnPhone = 3;
+        const weightsPerRowOnDesktop = 10;
 
         const colors = [
             'bg-red-500', 'bg-teal-500', 'bg-sky-500', 'bg-orange-400', 'bg-emerald-400',
@@ -216,6 +224,15 @@
                     
                     if (draggedElement) {
                         if (draggedElement.classList.contains('on-disk')) {
+                            return;
+                        }
+
+                        const isPhone = window.innerWidth < 768;
+                        const weightsPerRow = isPhone ? weightsPerRowOnPhone : weightsPerRowOnDesktop;
+                        const maxItems = 3 * weightsPerRow;
+
+                        if (disk.querySelectorAll('.weight').length >= maxItems) {
+                            alert("Maximum number of weights on the disk reached (3 rows).");
                             return;
                         }
                         
@@ -327,6 +344,7 @@
             }
             
             updateEquation();
+            updateLabels();
         }
         
         function updateEquation() {
@@ -367,11 +385,13 @@
         }
 
         function expandDisk(disk) {
+            const isPhone = window.innerWidth < 768;
             const weightCount = disk.querySelectorAll('.weight').length;
-            const weightsPerRow = 5;
-            const weightSize = 49;
+            const weightSize = 52; // 48px weight + 4px gap
             const padding = 20;
-            
+
+            const weightsPerRow = isPhone ? weightsPerRowOnPhone : weightsPerRowOnDesktop;
+
             let newWidth;
             if (weightCount === 0) {
                 newWidth = 180;
@@ -380,9 +400,31 @@
             } else {
                 newWidth = (weightsPerRow * weightSize) + padding;
             }
-            
-            newWidth = Math.min(newWidth, 400);
+
+            const maxDiskWidth = isPhone ? (weightsPerRowOnPhone * weightSize) + padding : 600;
+            newWidth = Math.min(newWidth, maxDiskWidth);
+
             disk.style.width = newWidth + 'px';
+            updateLabels();
+        }
+
+        function updateLabels() {
+            const diskA = document.getElementById('diskA');
+            const diskB = document.getElementById('diskB');
+            const labelA = document.getElementById('labelA');
+            const labelB = document.getElementById('labelB');
+
+            if (!labelA || !labelB) return;
+
+            // For disk A
+            const leftA = diskA.offsetLeft + diskA.offsetWidth / 2;
+            labelA.style.left = leftA + 'px';
+            labelA.style.transform = 'translateX(-50%)';
+
+            // For disk B
+            const leftB = diskB.offsetLeft + diskB.offsetWidth / 2;
+            labelB.style.left = leftB + 'px';
+            labelB.style.transform = 'translateX(-50%)';
         }
 
         function checkMysteryOnDisk() {
@@ -507,14 +549,42 @@
                 return;
             }
             
-            if (guess === mysteryWeight) {
-                alert(`🎉 Congratulations! You guessed it right! The mystery weight is ${mysteryWeight}! 🎊`);
-            } else {
-                const hint = guess < mysteryWeight ? 'higher' : 'lower';
-                alert(`❌ Sorry, that's not correct. The mystery weight is ${hint} than ${guess}. Try again!`);
-            }
-            
             document.getElementById('guessModal').classList.add('hidden');
+
+            if (guess === mysteryWeight) {
+                new Audio('kid_yeah.wav').play();
+                confetti({
+                    particleCount: 150,
+                    spread: 180,
+                    origin: { y: 0.6 }
+                });
+            } else {
+                new Audio('Ohh.wav').play();
+                const cross = document.createElement('div');
+                cross.innerHTML = '&#x274C;'; // Red X emoji
+                cross.style.position = 'fixed';
+                cross.style.top = '50%';
+                cross.style.left = '50%';
+                cross.style.transform = 'translate(-50%, -50%)';
+                cross.style.fontSize = '10rem';
+                cross.style.color = 'red';
+                cross.style.textShadow = '0 0 10px white';
+                cross.style.opacity = '1';
+                cross.style.transition = 'opacity 1s ease-out, transform 1s ease-out';
+                cross.style.zIndex = '2000';
+                cross.style.pointerEvents = 'none';
+                document.body.appendChild(cross);
+
+                setTimeout(() => {
+                    cross.style.opacity = '0';
+                    cross.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                    setTimeout(() => {
+                        if (cross.parentNode) {
+                            cross.parentNode.removeChild(cross);
+                        }
+                    }, 1000);
+                }, 100);
+            }
         }
 
         document.getElementById('resetBtn').addEventListener('click', reset);
