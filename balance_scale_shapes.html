@@ -238,153 +238,237 @@
             star: '#f97316'
         };
 
-        const scales = [];
-        const shapeValues = { x: null, y: null, z: null, w: null, v: null };
-        let draggedElement = null;
-        let showEquations = false;
-
-        function createScales() {
-            const container = document.getElementById('scalesContainer');
-            for (let i = 0; i < 6; i++) {
-                const scale = {
-                    id: i,
-                    locked: false,
-                    diskA: [],
-                    diskB: []
-                };
-                scales.push(scale);
-
-                const scaleDiv = document.createElement('div');
-                scaleDiv.className = 'scale-container';
-                scaleDiv.id = `scale-${i}`;
-                scaleDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-sm font-bold">Scale ${i + 1}</h3>
-                        <button class="lock-btn px-3 py-1 bg-gray-400 text-white font-semibold rounded-lg hover:bg-gray-500 transition text-sm" data-scale="${i}">
-                            🔓 Unlock
-                        </button>
-                    </div>
-                    <div class="equation-display text-center mb-2 text-xs font-mono text-gray-700" id="eq-${i}" style="display: none;"></div>
-                    <div class="beam" id="beam-${i}">
-                        <div class="pivot"></div>
-                    </div>
-                    <div class="flex justify-between mt-3 gap-3">
-                        <div>
-                            <div class="text-xs font-semibold mb-1 text-center">Disk A</div>
-                            <div class="disk-zone" id="diskA-${i}" data-scale="${i}" data-disk="A"></div>
-                        </div>
-                        <div>
-                            <div class="text-xs font-semibold mb-1 text-center">Disk B</div>
-                            <div class="disk-zone" id="diskB-${i}" data-scale="${i}" data-disk="B"></div>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(scaleDiv);
-            }
-        }
-
-        function setupDragAndDrop() {
-            // Palette shapes
-            document.querySelectorAll('.shape[draggable="true"]').forEach(shape => {
-                shape.addEventListener('dragstart', handleDragStart);
-            });
-
-            // Disk zones
-            document.querySelectorAll('.disk-zone').forEach(zone => {
-                zone.addEventListener('dragover', handleDragOver);
-                zone.addEventListener('dragleave', handleDragLeave);
-                zone.addEventListener('drop', handleDrop);
-            });
-
-            // Remove zone (outside disks)
-            document.body.addEventListener('dragover', (e) => {
-                if (!e.target.closest('.disk-zone')) {
+                const scales = [];
+                const shapeValues = { x: null, y: null, z: null, w: null, v: null };
+                const varToShapeMap = { x: 'circle', y: 'square', z: 'triangle', w: 'diamond', v: 'star' };
+                let draggedElement = null;
+                let showEquations = false;
+        
+                function createScales() {
+                    const container = document.getElementById('scalesContainer');
+                    for (let i = 0; i < 6; i++) {
+                        const scale = {
+                            id: i,
+                            locked: false,
+                            diskA: [],
+                            diskB: []
+                        };
+                        scales.push(scale);
+        
+                        const scaleDiv = document.createElement('div');
+                        scaleDiv.className = 'scale-container';
+                        scaleDiv.id = `scale-${i}`;
+                        scaleDiv.innerHTML = `
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-sm font-bold">Scale ${i + 1}</h3>
+                                <button class="lock-btn px-3 py-1 bg-gray-400 text-white font-semibold rounded-lg hover:bg-gray-500 transition text-sm" data-scale="${i}">
+                                    🔓 Unlock
+                                </button>
+                            </div>
+                            <div class="equation-display text-center mb-2 text-xs font-mono text-gray-700" id="eq-${i}" style="display: none;"></div>
+                            <div class="beam" id="beam-${i}">
+                                <div class="pivot"></div>
+                            </div>
+                            <div class="flex justify-between mt-3 gap-3">
+                                <div>
+                                    <div class="text-xs font-semibold mb-1 text-center">Disk A</div>
+                                    <div class="disk-zone" id="diskA-${i}" data-scale="${i}" data-disk="A" draggable="true"></div>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-semibold mb-1 text-center">Disk B</div>
+                                    <div class="disk-zone" id="diskB-${i}" data-scale="${i}" data-disk="B" draggable="true"></div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(scaleDiv);
+                    }
+                }
+        
+                function setupDragAndDrop() {
+                    // Palette shapes
+                    document.querySelectorAll('.shape[draggable="true"]').forEach(shape => {
+                        shape.addEventListener('dragstart', handleDragStart);
+                    });
+        
+                    // Disk zones
+                    document.querySelectorAll('.disk-zone').forEach(zone => {
+                        zone.addEventListener('dragstart', handleDiskDragStart);
+                        zone.addEventListener('dragend', handleDiskDragEnd);
+                        zone.addEventListener('dragover', handleDragOver);
+                        zone.addEventListener('dragleave', handleDragLeave);
+                        zone.addEventListener('drop', handleDrop);
+                    });
+        
+                    // Remove zone (outside disks)
+                    document.body.addEventListener('dragover', (e) => {
+                        if (!e.target.closest('.disk-zone')) {
+                            e.preventDefault();
+                        }
+                    });
+                    document.body.addEventListener('drop', handleRemoveDrop);
+                }
+        
+                function handleDiskDragStart(e) {
+                    if (e.target.classList.contains('disk-zone')) {
+                        draggedElement = e.target;
+                        const scaleId = e.target.dataset.scale;
+                        const disk = e.target.dataset.disk;
+        
+                        const payload = {
+                            type: 'disk',
+                            scaleId: scaleId,
+                            disk: disk,
+                        };
+                        e.dataTransfer.setData('application/json', JSON.stringify(payload));
+                        e.dataTransfer.effectAllowed = 'copy';
+                        e.target.style.opacity = '0.5';
+                    }
+                }
+                
+                function handleDiskDragEnd(e) {
+                    if (e.target.classList.contains('disk-zone')) {
+                        e.target.style.opacity = '1';
+                    }
+                }
+        
+                function handleDragStart(e) {
+                    draggedElement = e.target;
+                    e.target.style.opacity = '0.5';
+        
+                    const payload = {
+                        type: 'shape',
+                        shape: draggedElement.dataset.shape,
+                        variable: draggedElement.dataset.var,
+                        isSmall: draggedElement.classList.contains('small'),
+                    };
+                    e.dataTransfer.setData('application/json', JSON.stringify(payload));
+                    e.stopPropagation(); // Stop propagation to prevent disk drag handler from firing
+                }
+        
+                function handleDragOver(e) {
                     e.preventDefault();
+                    e.currentTarget.classList.add('drag-over');
                 }
-            });
-            document.body.addEventListener('drop', handleRemoveDrop);
-        }
-
-        function handleDragStart(e) {
-            draggedElement = e.target;
-            e.target.style.opacity = '0.5';
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('drag-over');
-        }
-
-        function handleDragLeave(e) {
-            e.currentTarget.classList.remove('drag-over');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('drag-over');
-            
-            const scaleId = parseInt(e.currentTarget.dataset.scale);
-            const disk = e.currentTarget.dataset.disk;
-            
-            if (scales[scaleId].locked) {
-                alert('⚠️ This scale is locked! Unlock it first.');
-                return;
-            }
-
-            if (draggedElement) {
-                const shape = draggedElement.dataset.shape;
-                const variable = draggedElement.dataset.var;
-                
-                // Create clone
-                const clone = createShapeElement(shape, variable, true);
-                e.currentTarget.appendChild(clone);
-                
-                // Add to scale data
-                if (disk === 'A') {
-                    scales[scaleId].diskA.push(variable);
-                } else {
-                    scales[scaleId].diskB.push(variable);
+        
+                function handleDragLeave(e) {
+                    e.currentTarget.classList.remove('drag-over');
                 }
-                
-                draggedElement.style.opacity = '1';
-                updateScale(scaleId);
-            }
-        }
-
+        
+                function handleDrop(e) {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('drag-over');
+                    
+                    const targetScaleId = parseInt(e.currentTarget.dataset.scale);
+                    const targetDisk = e.currentTarget.dataset.disk;
+                    const targetElement = e.currentTarget;
+        
+                    if (scales[targetScaleId].locked) {
+                        alert('⚠️ This scale is locked! Unlock it first.');
+                        if (draggedElement) draggedElement.style.opacity = '1';
+                        return;
+                    }
+                    
+                    const data = e.dataTransfer.getData('application/json');
+                    if (!data) {
+                        if (draggedElement) draggedElement.style.opacity = '1';
+                        return;
+                    }
+                    
+                    const payload = JSON.parse(data);
+        
+                    if (payload.type === 'shape') {
+                        const clone = createShapeElement(payload.shape, payload.variable, true);
+                        targetElement.appendChild(clone);
+                        
+                        const targetDiskArray = targetDisk === 'A' ? scales[targetScaleId].diskA : scales[targetScaleId].diskB;
+                        targetDiskArray.push(payload.variable);
+        
+                    } else if (payload.type === 'disk') {
+                        const sourceScaleId = parseInt(payload.scaleId);
+                        const sourceDisk = payload.disk;
+        
+                        if (sourceScaleId === targetScaleId && sourceDisk === targetDisk) {
+                             if (draggedElement) draggedElement.style.opacity = '1';
+                            return; // Don't drop a disk on itself
+                        }
+                        
+                        const sourceDiskArray = sourceDisk === 'A' ? scales[sourceScaleId].diskA : scales[sourceScaleId].diskB;
+                        const targetDiskArray = targetDisk === 'A' ? scales[targetScaleId].diskA : scales[targetScaleId].diskB;
+                        
+                        sourceDiskArray.forEach(variable => {
+                            const shape = varToShapeMap[variable];
+                            const clone = createShapeElement(shape, variable, true);
+                            targetElement.appendChild(clone);
+                            targetDiskArray.push(variable);
+                        });
+                    }
+                    
+                    if (draggedElement) {
+                        draggedElement.style.opacity = '1';
+                    }
+        
+                    updateScale(targetScaleId);
+                }
         function handleRemoveDrop(e) {
+            // Don't do anything if dropping on a valid zone
             if (e.target.closest('.disk-zone') || e.target.closest('.shape[draggable="true"]')) {
+                if (draggedElement) draggedElement.style.opacity = '1';
                 return;
             }
             e.preventDefault();
+        
+            const data = e.dataTransfer.getData('application/json');
+            if (!data) {
+                if (draggedElement) draggedElement.style.opacity = '1';
+                return;
+            }
+            const payload = JSON.parse(data);
             
-            if (draggedElement && draggedElement.classList.contains('small')) {
+            if (!draggedElement) return;
+
+            // Logic for removing a single shape
+            if (payload.type === 'shape' && payload.isSmall && draggedElement.classList.contains('small')) {
                 const parent = draggedElement.parentElement;
                 const scaleId = parseInt(parent.dataset.scale);
                 const disk = parent.dataset.disk;
                 
                 if (scales[scaleId].locked) {
                     alert('⚠️ This scale is locked! Unlock it first.');
-                    draggedElement.style.opacity = '1';
-                    return;
-                }
-                
-                const variable = draggedElement.dataset.var;
-                
-                if (disk === 'A') {
-                    const idx = scales[scaleId].diskA.indexOf(variable);
-                    if (idx > -1) scales[scaleId].diskA.splice(idx, 1);
                 } else {
-                    const idx = scales[scaleId].diskB.indexOf(variable);
-                    if (idx > -1) scales[scaleId].diskB.splice(idx, 1);
+                    const variable = draggedElement.dataset.var;
+                    
+                    if (disk === 'A') {
+                        const idx = scales[scaleId].diskA.indexOf(variable);
+                        if (idx > -1) scales[scaleId].diskA.splice(idx, 1);
+                    } else {
+                        const idx = scales[scaleId].diskB.indexOf(variable);
+                        if (idx > -1) scales[scaleId].diskB.splice(idx, 1);
+                    }
+                    
+                    draggedElement.remove();
+                    updateScale(scaleId);
                 }
-                
-                draggedElement.remove();
-                updateScale(scaleId);
+            // Logic for clearing an entire disk
+            } else if (payload.type === 'disk' && draggedElement.classList.contains('disk-zone')) {
+                const scaleId = parseInt(draggedElement.dataset.scale);
+                const disk = draggedElement.dataset.disk;
+
+                if (scales[scaleId].locked) {
+                    alert('⚠️ This scale is locked! Unlock it first.');
+                } else {
+                    if (disk === 'A') {
+                        scales[scaleId].diskA = [];
+                    } else {
+                        scales[scaleId].diskB = [];
+                    }
+
+                    draggedElement.innerHTML = '';
+                    updateScale(scaleId);
+                }
             }
             
-            if (draggedElement) {
-                draggedElement.style.opacity = '1';
-            }
+            draggedElement.style.opacity = '1';
+            draggedElement = null;
         }
 
         function createShapeElement(shape, variable, isSmall = false) {
