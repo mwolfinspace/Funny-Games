@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance Scale Shape Puzzle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .shape {
+            width: 40px;
+            height: 40px;
+            display: inline-block;
+            cursor: grab;
+            flex-shrink: 0;
+        }
+        .shape.small {
+            width: 30px;
+            height: 30px;
+        }
+        .shape-circle {
+            border-radius: 50%;
+        }
+        .shape-square {
+            border-radius: 4px;
+        }
+        .shape-triangle {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 35px solid;
+            background: transparent !important;
+        }
+        .shape-triangle.small {
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 26px solid;
+        }
+        .shape-diamond {
+            transform: rotate(45deg);
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .shape-diamond.small {
+            margin: 3px;
+        }
+        .shape-star {
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+        .disk-zone {
+            min-height: 80px;
+            min-width: 120px;
+            border: 3px dashed #ccc;
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: flex-start;
+            align-content: flex-start;
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .disk-zone.drag-over {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+        .scale-container {
+            position: relative;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            margin-bottom: 12px;
+        }
+        .scale-container.locked {
+            border-color: #2196F3;
+            background: #E3F2FD;
+        }
+        .scale-container.balanced {
+            border-color: #22c55e;
+            background: #dcfce7;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+            animation: glow 2s ease-in-out infinite;
+        }
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(34, 197, 94, 0.8);
+            }
+        }
+        .beam {
+            width: 200px;
+            height: 4px;
+            background: #666;
+            position: relative;
+            margin: 0 auto;
+            transition: transform 0.3s;
+            transform-origin: center;
+        }
+        .pivot {
+            width: 12px;
+            height: 12px;
+            background: #FFD700;
+            border-radius: 50%;
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .color-display {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid #333;
+            display: inline-block;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .color-display:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .color-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen p-4">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-2xl font-bold text-center mb-2 text-gray-800">🎯 Balance Scale Shape Puzzle</h1>
+        
+        <!-- Control Buttons Row -->
+        <div class="text-center mb-3 flex gap-3 justify-center items-center flex-wrap">
+            <button id="toggleEquationBtn" class="px-4 py-2 bg-indigo-500 text-white font-bold rounded-lg hover:bg-indigo-600 transition text-sm">
+                👁️ Show Equations
+            </button>
+            <button id="statusBtn" class="px-3 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600 transition text-xl" title="Click to see solution">
+                <span id="statusIcon">❓</span>
+            </button>
+            <button id="resetBtn" class="px-4 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition text-sm">
+                🔄 Reset All
+            </button>
+        </div>
+
+        <!-- Solution Modal -->
+        <div id="solutionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1000] flex items-center justify-center">
+            <div class="bg-white mx-auto p-8 rounded-3xl w-11/12 max-w-2xl text-center max-h-[80vh] overflow-y-auto">
+                <h2 class="text-3xl font-extrabold text-gray-800 mb-6">🎯 Shape Values & Examples</h2>
+                <div id="solutionContent" class="text-left space-y-4"></div>
+                <button id="closeSolutionModal" class="mt-6 px-8 py-3 bg-gray-400 text-white font-extrabold rounded-xl hover:-translate-y-1 transition-transform shadow-lg">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <!-- Shape Palette with Color Pickers -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="text-lg font-bold mb-3">Shape Palette</h2>
+            <div class="flex flex-wrap gap-6 justify-center items-start">
+                <!-- Circle -->
+                <div class="text-center">
+                    <div class="mb-2 flex items-center justify-center" style="height: 50px;">
+                        <div class="shape shape-circle bg-red-500" draggable="true" data-shape="circle" data-var="x"></div>
+                    </div>
+                    <div class="text-sm font-semibold mb-2">Circle (x)</div>
+                    <div class="color-display bg-red-500" data-shape="circle">
+                        <input type="color" class="color-input" value="#ef4444" data-shape="circle">
+                    </div>
+                </div>
+
+                <!-- Square -->
+                <div class="text-center">
+                    <div class="mb-2 flex items-center justify-center" style="height: 50px;">
+                        <div class="shape shape-square bg-yellow-500" draggable="true" data-shape="square" data-var="y"></div>
+                    </div>
+                    <div class="text-sm font-semibold mb-2">Square (y)</div>
+                    <div class="color-display bg-yellow-500" data-shape="square">
+                        <input type="color" class="color-input" value="#eab308" data-shape="square">
+                    </div>
+                </div>
+
+                <!-- Triangle -->
+                <div class="text-center">
+                    <div class="mb-2 flex items-center justify-center" style="height: 50px;">
+                        <div class="shape shape-triangle" draggable="true" data-shape="triangle" data-var="z" style="border-bottom-color: #22c55e;"></div>
+                    </div>
+                    <div class="text-sm font-semibold mb-2">Triangle (z)</div>
+                    <div class="color-display" data-shape="triangle" style="background-color: #22c55e;">
+                        <input type="color" class="color-input" value="#22c55e" data-shape="triangle">
+                    </div>
+                </div>
+
+                <!-- Diamond -->
+                <div class="text-center">
+                    <div class="mb-2 flex items-center justify-center" style="height: 50px;">
+                        <div class="shape shape-diamond bg-blue-500" draggable="true" data-shape="diamond" data-var="w"></div>
+                    </div>
+                    <div class="text-sm font-semibold mb-2">Diamond (w)</div>
+                    <div class="color-display bg-blue-500" data-shape="diamond">
+                        <input type="color" class="color-input" value="#3b82f6" data-shape="diamond">
+                    </div>
+                </div>
+
+                <!-- Star -->
+                <div class="text-center">
+                    <div class="mb-2 flex items-center justify-center" style="height: 50px;">
+                        <div class="shape shape-star bg-orange-500" draggable="true" data-shape="star" data-var="v"></div>
+                    </div>
+                    <div class="text-sm font-semibold mb-2">Star (v)</div>
+                    <div class="color-display bg-orange-500" data-shape="star">
+                        <input type="color" class="color-input" value="#f97316" data-shape="star">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scales -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="scalesContainer">
+            <!-- Scales will be generated here -->
+        </div>
+    </div>
+
+    <script>
+        const shapeColors = {
+            circle: '#ef4444',
+            square: '#eab308',
+            triangle: '#22c55e',
+            diamond: '#3b82f6',
+            star: '#f97316'
+        };
+
+        const scales = [];
+        const shapeValues = { x: null, y: null, z: null, w: null, v: null };
+        let draggedElement = null;
+        let showEquations = false;
+
+        function createScales() {
+            const container = document.getElementById('scalesContainer');
+            for (let i = 0; i < 6; i++) {
+                const scale = {
+                    id: i,
+                    locked: false,
+                    diskA: [],
+                    diskB: []
+                };
+                scales.push(scale);
+
+                const scaleDiv = document.createElement('div');
+                scaleDiv.className = 'scale-container';
+                scaleDiv.id = `scale-${i}`;
+                scaleDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-sm font-bold">Scale ${i + 1}</h3>
+                        <button class="lock-btn px-3 py-1 bg-gray-400 text-white font-semibold rounded-lg hover:bg-gray-500 transition text-sm" data-scale="${i}">
+                            🔓 Unlock
+                        </button>
+                    </div>
+                    <div class="equation-display text-center mb-2 text-xs font-mono text-gray-700" id="eq-${i}" style="display: none;"></div>
+                    <div class="beam" id="beam-${i}">
+                        <div class="pivot"></div>
+                    </div>
+                    <div class="flex justify-between mt-3 gap-3">
+                        <div>
+                            <div class="text-xs font-semibold mb-1 text-center">Disk A</div>
+                            <div class="disk-zone" id="diskA-${i}" data-scale="${i}" data-disk="A"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs font-semibold mb-1 text-center">Disk B</div>
+                            <div class="disk-zone" id="diskB-${i}" data-scale="${i}" data-disk="B"></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(scaleDiv);
+            }
+        }
+
+        function setupDragAndDrop() {
+            // Palette shapes
+            document.querySelectorAll('.shape[draggable="true"]').forEach(shape => {
+                shape.addEventListener('dragstart', handleDragStart);
+            });
+
+            // Disk zones
+            document.querySelectorAll('.disk-zone').forEach(zone => {
+                zone.addEventListener('dragover', handleDragOver);
+                zone.addEventListener('dragleave', handleDragLeave);
+                zone.addEventListener('drop', handleDrop);
+            });
+
+            // Remove zone (outside disks)
+            document.body.addEventListener('dragover', (e) => {
+                if (!e.target.closest('.disk-zone')) {
+                    e.preventDefault();
+                }
+            });
+            document.body.addEventListener('drop', handleRemoveDrop);
+        }
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.target.style.opacity = '0.5';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const scaleId = parseInt(e.currentTarget.dataset.scale);
+            const disk = e.currentTarget.dataset.disk;
+            
+            if (scales[scaleId].locked) {
+                alert('⚠️ This scale is locked! Unlock it first.');
+                return;
+            }
+
+            if (draggedElement) {
+                const shape = draggedElement.dataset.shape;
+                const variable = draggedElement.dataset.var;
+                
+                // Create clone
+                const clone = createShapeElement(shape, variable, true);
+                e.currentTarget.appendChild(clone);
+                
+                // Add to scale data
+                if (disk === 'A') {
+                    scales[scaleId].diskA.push(variable);
+                } else {
+                    scales[scaleId].diskB.push(variable);
+                }
+                
+                draggedElement.style.opacity = '1';
+                updateScale(scaleId);
+            }
+        }
+
+        function handleRemoveDrop(e) {
+            if (e.target.closest('.disk-zone') || e.target.closest('.shape[draggable="true"]')) {
+                return;
+            }
+            e.preventDefault();
+            
+            if (draggedElement && draggedElement.classList.contains('small')) {
+                const parent = draggedElement.parentElement;
+                const scaleId = parseInt(parent.dataset.scale);
+                const disk = parent.dataset.disk;
+                
+                if (scales[scaleId].locked) {
+                    alert('⚠️ This scale is locked! Unlock it first.');
+                    draggedElement.style.opacity = '1';
+                    return;
+                }
+                
+                const variable = draggedElement.dataset.var;
+                
+                if (disk === 'A') {
+                    const idx = scales[scaleId].diskA.indexOf(variable);
+                    if (idx > -1) scales[scaleId].diskA.splice(idx, 1);
+                } else {
+                    const idx = scales[scaleId].diskB.indexOf(variable);
+                    if (idx > -1) scales[scaleId].diskB.splice(idx, 1);
+                }
+                
+                draggedElement.remove();
+                updateScale(scaleId);
+            }
+            
+            if (draggedElement) {
+                draggedElement.style.opacity = '1';
+            }
+        }
+
+        function createShapeElement(shape, variable, isSmall = false) {
+            const div = document.createElement('div');
+            const sizeClass = isSmall ? 'small' : '';
+            div.className = `shape shape-${shape} ${sizeClass}`;
+            div.draggable = true;
+            div.dataset.shape = shape;
+            div.dataset.var = variable;
+            
+            const color = shapeColors[shape];
+            
+            if (shape === 'triangle') {
+                div.style.borderBottomColor = color;
+            } else {
+                div.style.backgroundColor = color;
+            }
+            
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragend', (e) => { e.target.style.opacity = '1'; });
+            
+            return div;
+        }
+
+        function updateScale(scaleId) {
+            const scale = scales[scaleId];
+            const beam = document.getElementById(`beam-${scaleId}`);
+            const eqDisplay = document.getElementById(`eq-${scaleId}`);
+            const scaleDiv = document.getElementById(`scale-${scaleId}`);
+            
+            // Build simplified equation with combined terms
+            const leftCounts = {};
+            const rightCounts = {};
+            
+            scale.diskA.forEach(v => {
+                leftCounts[v] = (leftCounts[v] || 0) + 1;
+            });
+            
+            scale.diskB.forEach(v => {
+                rightCounts[v] = (rightCounts[v] || 0) + 1;
+            });
+            
+            const formatSide = (counts) => {
+                const terms = Object.entries(counts)
+                    .map(([v, count]) => count > 1 ? `${count}${v}` : v)
+                    .join(' + ');
+                return terms || '0';
+            };
+            
+            const leftSide = formatSide(leftCounts);
+            const rightSide = formatSide(rightCounts);
+            
+            if (scale.locked) {
+                eqDisplay.textContent = `${leftSide} = ${rightSide}`;
+                scaleDiv.classList.remove('balanced');
+            } else {
+                // Calculate values if shapes are solved
+                if (shapeValues.x !== null) {
+                    // Use matrix-based verification: check if equation is satisfied
+                    // Build equation vector for this scale
+                    const varList = ['x', 'y', 'z', 'w', 'v'];
+                    const coefficients = {};
+                    
+                    // Left side gets positive coefficients
+                    scale.diskA.forEach(v => {
+                        coefficients[v] = (coefficients[v] || 0) + 1;
+                    });
+                    
+                    // Right side gets negative coefficients
+                    scale.diskB.forEach(v => {
+                        coefficients[v] = (coefficients[v] || 0) - 1;
+                    });
+                    
+                    // Calculate: sum of (coefficient * value) should equal 0 for balanced equation
+                    let equationSum = 0;
+                    for (let v of varList) {
+                        if (coefficients[v] && shapeValues[v] !== null) {
+                            equationSum += coefficients[v] * shapeValues[v];
+                        }
+                    }
+                    
+                    // The equation is balanced if sum is very close to 0
+                    const isBalanced = Math.abs(equationSum) < 0.01;
+                    
+                    // Also calculate actual sums for display
+                    const sumA = scale.diskA.reduce((sum, v) => sum + (shapeValues[v] || 0), 0);
+                    const sumB = scale.diskB.reduce((sum, v) => sum + (shapeValues[v] || 0), 0);
+                    const diff = sumA - sumB;
+                    
+                    // Rotate beam based on difference
+                    const rotation = Math.max(-15, Math.min(15, -diff * 3));
+                    beam.style.transform = `rotate(${rotation}deg)`;
+                    
+                    let operator = '=';
+                    if (Math.abs(diff) < 0.01) {
+                        operator = '=';
+                    } else if (sumA > sumB) {
+                        operator = '>';
+                    } else {
+                        operator = '<';
+                    }
+                    
+                    eqDisplay.textContent = `${leftSide} ${operator} ${rightSide}`;
+                    
+                    // Use matrix-based balance check
+                    if (isBalanced && (sumA > 0 || sumB > 0)) {
+                        eqDisplay.style.color = '#22c55e';
+                        scaleDiv.classList.add('balanced');
+                    } else {
+                        eqDisplay.style.color = '#ef4444';
+                        scaleDiv.classList.remove('balanced');
+                    }
+                } else {
+                    beam.style.transform = 'rotate(0deg)';
+                    eqDisplay.textContent = `${leftSide} ? ${rightSide}`;
+                    eqDisplay.style.color = '#6b7280';
+                    scaleDiv.classList.remove('balanced');
+                }
+            }
+            
+            // Show/hide equation based on toggle
+            eqDisplay.style.display = showEquations ? 'block' : 'none';
+            
+            solveShapeValues();
+        }
+
+        function toggleLock(scaleId) {
+            const scale = scales[scaleId];
+            const scaleDiv = document.getElementById(`scale-${scaleId}`);
+            const btn = scaleDiv.querySelector('.lock-btn');
+            
+            if (scale.diskA.length === 0 && scale.diskB.length === 0) {
+                alert('⚠️ Add shapes to both disks before locking!');
+                return;
+            }
+            
+            scale.locked = !scale.locked;
+            
+            if (scale.locked) {
+                scaleDiv.classList.add('locked');
+                btn.textContent = '🔒 Locked';
+                btn.className = 'lock-btn px-3 py-1 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition text-sm';
+            } else {
+                scaleDiv.classList.remove('locked');
+                btn.textContent = '🔓 Unlock';
+                btn.className = 'lock-btn px-3 py-1 bg-gray-400 text-white font-semibold rounded-lg hover:bg-gray-500 transition text-sm';
+            }
+            
+            updateScale(scaleId);
+        }
+
+        function solveShapeValues() {
+            const lockedScales = scales.filter(s => s.locked);
+            
+            if (lockedScales.length < 2) {
+                // Reset values
+                Object.keys(shapeValues).forEach(k => shapeValues[k] = null);
+                updateStatus();
+                return;
+            }
+            
+            // Build equations: diskA = diskB -> diskA - diskB = 0
+            const equations = [];
+            const variables = new Set();
+            
+            lockedScales.forEach(scale => {
+                const eq = {};
+                scale.diskA.forEach(v => {
+                    eq[v] = (eq[v] || 0) + 1;
+                    variables.add(v);
+                });
+                scale.diskB.forEach(v => {
+                    eq[v] = (eq[v] || 0) - 1;
+                    variables.add(v);
+                });
+                equations.push(eq);
+            });
+            
+            const varArray = Array.from(variables).sort(); // Sort for consistency
+            
+            if (varArray.length === 0) {
+                updateStatus();
+                return;
+            }
+            
+            // Handle overdetermined or underdetermined systems
+            // We need at least as many independent equations as variables
+            // Try multiple base values to find positive solutions
+            
+            for (let baseValue = 0.5; baseValue <= 30; baseValue += 0.5) {
+                // Try setting first variable to baseValue
+                const numVars = varArray.length;
+                const numEqs = equations.length;
+                
+                // Build coefficient matrix and constant vector
+                // For overdetermined systems, we'll use least squares approach
+                const A = []; // Coefficient matrix
+                const b = []; // Constants
+                
+                for (let eq of equations) {
+                    const row = [];
+                    for (let v of varArray) {
+                        row.push(eq[v] || 0);
+                    }
+                    A.push(row);
+                    b.push(0); // All equations equal 0
+                }
+                
+                // Set first variable = baseValue by modifying equations
+                const solution = new Array(numVars);
+                solution[0] = baseValue;
+                
+                // Adjust constants based on first variable
+                const modifiedA = [];
+                const modifiedB = [];
+                
+                for (let i = 0; i < numEqs; i++) {
+                    const row = [];
+                    for (let j = 1; j < numVars; j++) {
+                        row.push(A[i][j]);
+                    }
+                    modifiedA.push(row);
+                    modifiedB.push(-A[i][0] * baseValue);
+                }
+                
+                if (numVars === 1) {
+                    // Only one variable, already set
+                    const allValid = equations.every(eq => {
+                        const sum = (eq[varArray[0]] || 0) * baseValue;
+                        return Math.abs(sum) < 0.001; // Strict tolerance
+                    });
+                    
+                    if (allValid && baseValue > 0) {
+                        Object.keys(shapeValues).forEach(k => shapeValues[k] = null);
+                        shapeValues[varArray[0]] = Math.round(baseValue * 1000) / 1000;
+                        updateStatus();
+                        updateAllScales();
+                        return;
+                    }
+                } else {
+                    // Solve for remaining variables
+                    const solved = solveLinearSystem(modifiedA, modifiedB);
+                    
+                    if (solved) {
+                        let allPositive = true;
+                        for (let i = 0; i < solved.length; i++) {
+                            solution[i + 1] = Math.round(solved[i] * 1000) / 1000; // Round to 3 decimals
+                            if (solved[i] <= 0.001) {
+                                allPositive = false;
+                                break;
+                            }
+                        }
+                        
+                        if (allPositive) {
+                            // Verify all equations
+                            let allValid = true;
+                            for (let eq of equations) {
+                                let sum = 0;
+                                for (let j = 0; j < numVars; j++) {
+                                    const v = varArray[j];
+                                    sum += (eq[v] || 0) * solution[j];
+                                }
+                                if (Math.abs(sum) > 0.15) {
+                                    allValid = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (allValid) {
+                                // Found valid solution!
+                                Object.keys(shapeValues).forEach(k => shapeValues[k] = null);
+                                for (let j = 0; j < numVars; j++) {
+                                    shapeValues[varArray[j]] = solution[j];
+                                }
+                                updateStatus();
+                                updateAllScales();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // No solution found
+            Object.keys(shapeValues).forEach(k => shapeValues[k] = null);
+            updateStatus();
+        }
+        
+        function solveLinearSystem(A, b) {
+            // Solve Ax = b using Gaussian elimination with partial pivoting
+            const n = A.length;
+            if (n === 0) return null;
+            
+            const m = A[0].length;
+            if (m === 0) return null;
+            
+            // Create augmented matrix
+            const aug = A.map((row, i) => [...row, b[i]]);
+            
+            // Forward elimination with partial pivoting
+            for (let col = 0; col < Math.min(n, m); col++) {
+                // Find pivot
+                let maxRow = col;
+                for (let row = col + 1; row < n; row++) {
+                    if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) {
+                        maxRow = row;
+                    }
+                }
+                
+                // Swap rows
+                [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+                
+                // Check for zero pivot
+                if (Math.abs(aug[col][col]) < 1e-10) {
+                    // Try to continue with other columns
+                    continue;
+                }
+                
+                // Eliminate below
+                for (let row = col + 1; row < n; row++) {
+                    const factor = aug[row][col] / aug[col][col];
+                    for (let c = col; c <= m; c++) {
+                        aug[row][c] -= factor * aug[col][c];
+                    }
+                }
+            }
+            
+            // Back substitution
+            const x = new Array(m).fill(0);
+            
+            for (let i = Math.min(n, m) - 1; i >= 0; i--) {
+                // Find non-zero diagonal element
+                let diag = -1;
+                for (let j = i; j < m; j++) {
+                    if (Math.abs(aug[i][j]) > 1e-10) {
+                        diag = j;
+                        break;
+                    }
+                }
+                
+                if (diag === -1) {
+                    // Underdetermined, set to 1
+                    x[i] = 1;
+                    continue;
+                }
+                
+                let sum = aug[i][m];
+                for (let j = diag + 1; j < m; j++) {
+                    sum -= aug[i][j] * x[j];
+                }
+                x[diag] = sum / aug[i][diag];
+            }
+            
+            return x;
+        }
+        
+        function updateAllScales() {
+            scales.forEach((scale, i) => {
+                if (!scale.locked) {
+                    updateScale(i);
+                }
+            });
+        }
+
+        function updateStatus() {
+            const lockedCount = scales.filter(s => s.locked).length;
+            const statusIcon = document.getElementById('statusIcon');
+            
+            if (!statusIcon) return; // Safety check
+            
+            if (lockedCount < 2) {
+                statusIcon.textContent = '❓';
+                statusIcon.title = 'Lock 2+ scales to solve';
+                statusIcon.style.display = 'inline-block';
+                return;
+            }
+            
+            const solvedVars = Object.keys(shapeValues).filter(k => shapeValues[k] !== null);
+            
+            if (solvedVars.length === 0) {
+                statusIcon.textContent = '❌';
+                statusIcon.title = 'Cannot solve - try different combinations';
+                statusIcon.style.display = 'inline-block';
+            } else {
+                statusIcon.textContent = '✅';
+                statusIcon.title = 'Click to see solution';
+                statusIcon.style.display = 'inline-block';
+            }
+        }
+        
+        function showSolutionModal() {
+            const lockedCount = scales.filter(s => s.locked).length;
+            
+            if (lockedCount < 2) {
+                alert('⚠️ Please lock 2 or more scales first to solve the puzzle!');
+                return;
+            }
+            
+            const solvedVars = Object.keys(shapeValues).filter(k => shapeValues[k] !== null);
+            
+            if (solvedVars.length === 0) {
+                alert('⚠️ No solution found. Try different combinations on the locked scales.');
+                return;
+            }
+            
+            const modal = document.getElementById('solutionModal');
+            const content = document.getElementById('solutionContent');
+            
+            const varNames = { x: 'Circle', y: 'Square', z: 'Triangle', w: 'Diamond', v: 'Star' };
+            
+            let html = '<div class="bg-blue-50 p-4 rounded-lg mb-4">';
+            html += '<h3 class="text-xl font-bold mb-3 text-blue-900">📊 Solved Values:</h3>';
+            
+            for (let v of solvedVars) {
+                html += `<div class="text-lg mb-2"><strong>${varNames[v]} (${v}):</strong> ${shapeValues[v]}</div>`;
+            }
+            html += '</div>';
+            
+            // Generate example combinations
+            html += '<div class="bg-green-50 p-4 rounded-lg">';
+            html += '<h3 class="text-xl font-bold mb-3 text-green-900">💡 Example Balanced Combinations:</h3>';
+            
+            const examples = generateExampleCombinations(solvedVars);
+            examples.forEach((ex, i) => {
+                html += `<div class="mb-3 p-3 bg-white rounded border-2 border-green-300">`;
+                html += `<div class="font-semibold text-gray-700">Example ${i + 1}:</div>`;
+                html += `<div class="text-lg">${ex.left} = ${ex.right}</div>`;
+                html += `<div class="text-sm text-gray-600">Value: ${ex.value}</div>`;
+                html += `</div>`;
+            });
+            
+            html += '</div>';
+            
+            content.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+        
+        function generateExampleCombinations(solvedVars) {
+            const examples = [];
+            const varNames = { x: 'Circle', y: 'Square', z: 'Triangle', w: 'Diamond', v: 'Star' };
+            
+            // Generate 5 random balanced combinations
+            for (let i = 0; i < 5; i++) {
+                const leftSide = {};
+                const rightSide = {};
+                
+                // Randomly pick 2-4 shapes for each side
+                const numLeft = Math.floor(Math.random() * 3) + 2; // 2-4
+                const numRight = Math.floor(Math.random() * 3) + 2; // 2-4
+                
+                // Add shapes to left side
+                for (let j = 0; j < numLeft; j++) {
+                    const randomVar = solvedVars[Math.floor(Math.random() * solvedVars.length)];
+                    leftSide[randomVar] = (leftSide[randomVar] || 0) + 1;
+                }
+                
+                // Calculate left value
+                let leftValue = 0;
+                for (let v in leftSide) {
+                    leftValue += leftSide[v] * shapeValues[v];
+                }
+                
+                // Create right side to match
+                let rightValue = 0;
+                const attempts = [];
+                
+                // Try to build right side with random shapes
+                while (rightValue < leftValue && attempts.length < 20) {
+                    const randomVar = solvedVars[Math.floor(Math.random() * solvedVars.length)];
+                    const varValue = shapeValues[randomVar];
+                    
+                    if (rightValue + varValue <= leftValue + 0.01) {
+                        rightSide[randomVar] = (rightSide[randomVar] || 0) + 1;
+                        rightValue += varValue;
+                    }
+                    attempts.push(1);
+                }
+                
+                // Only add if reasonably close
+                if (Math.abs(leftValue - rightValue) < 0.5) {
+                    const formatSide = (side) => {
+                        return Object.entries(side)
+                            .map(([v, count]) => count > 1 ? `${count} ${varNames[v]}s` : `${count} ${varNames[v]}`)
+                            .join(' + ');
+                    };
+                    
+                    examples.push({
+                        left: formatSide(leftSide),
+                        right: formatSide(rightSide),
+                        value: leftValue.toFixed(2)
+                    });
+                }
+            }
+            
+            return examples.slice(0, 3); // Return top 3
+        }
+
+        function setupColorPickers() {
+            document.querySelectorAll('.color-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const shape = e.target.dataset.shape;
+                    const color = e.target.value;
+                    
+                    // Update stored color
+                    shapeColors[shape] = color;
+                    
+                    // Update color display box
+                    const display = e.target.parentElement;
+                    display.style.backgroundColor = color;
+                    
+                    // Update palette shape
+                    const paletteShape = document.querySelector(`.shape[data-shape="${shape}"][draggable="true"]`);
+                    if (paletteShape) {
+                        if (shape === 'triangle') {
+                            paletteShape.style.borderBottomColor = color;
+                        } else {
+                            paletteShape.style.backgroundColor = color;
+                        }
+                    }
+                    
+                    // Update all shapes on scales
+                    document.querySelectorAll(`.shape.small[data-shape="${shape}"]`).forEach(s => {
+                        if (shape === 'triangle') {
+                            s.style.borderBottomColor = color;
+                        } else {
+                            s.style.backgroundColor = color;
+                        }
+                    });
+                });
+            });
+        }
+
+        function setupLockButtons() {
+            document.querySelectorAll('.lock-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const scaleId = parseInt(e.target.dataset.scale);
+                    toggleLock(scaleId);
+                });
+            });
+        }
+
+        function toggleEquations() {
+            showEquations = !showEquations;
+            const btn = document.getElementById('toggleEquationBtn');
+            
+            if (showEquations) {
+                btn.textContent = '🙈 Hide Equations';
+            } else {
+                btn.textContent = '👁️ Show Equations';
+            }
+            
+            // Update all equation displays
+            document.querySelectorAll('.equation-display').forEach(eq => {
+                eq.style.display = showEquations ? 'block' : 'none';
+            });
+        }
+
+        function resetAll() {
+            scales.forEach((scale, i) => {
+                scale.locked = false;
+                scale.diskA = [];
+                scale.diskB = [];
+                
+                document.getElementById(`diskA-${i}`).innerHTML = '';
+                document.getElementById(`diskB-${i}`).innerHTML = '';
+                
+                const scaleDiv = document.getElementById(`scale-${i}`);
+                scaleDiv.classList.remove('locked');
+                const btn = scaleDiv.querySelector('.lock-btn');
+                btn.textContent = '🔓 Unlock';
+                btn.className = 'lock-btn px-3 py-1 bg-gray-400 text-white font-semibold rounded-lg hover:bg-gray-500 transition text-sm';
+                
+                updateScale(i);
+            });
+            
+            Object.keys(shapeValues).forEach(k => shapeValues[k] = null);
+            updateStatus();
+        }
+
+        // Initialize
+        createScales();
+        setupDragAndDrop();
+        setupColorPickers();
+        setupLockButtons();
+        updateStatus();
+        
+        document.getElementById('resetBtn').addEventListener('click', resetAll);
+        document.getElementById('toggleEquationBtn').addEventListener('click', toggleEquations);
+        document.getElementById('statusBtn').addEventListener('click', showSolutionModal);
+        document.getElementById('closeSolutionModal').addEventListener('click', () => {
+            document.getElementById('solutionModal').classList.add('hidden');
+        });
+        
+        // Close modal when clicking outside
+        document.getElementById('solutionModal').addEventListener('click', (e) => {
+            if (e.target.id === 'solutionModal') {
+                document.getElementById('solutionModal').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
