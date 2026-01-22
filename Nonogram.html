@@ -569,8 +569,7 @@
             <input type="number" id="puzzle-width-input" min="4" max="20" value="5">
             <label for="puzzle-height-input" data-en="Height:" data-vi="Chiều cao:">Height:</label>
             <input type="number" id="puzzle-height-input" min="4" max="20" value="5">
-            <button id="start-new-game-btn" data-en="🎮 Start New Game" data-vi="🎮 Bắt đầu trò chơi mới">🎮 Start New Game</button>
-            <button id="start-android-puzzle-btn" data-en="🤖 Android Puzzle" data-vi="🤖 Câu đố Android">🤖 Câu đố Android</button>
+            <button id="start-random-puzzle-btn" data-en="🖼️ Random Icon Puzzle" data-vi="🖼️ Biểu tượng ngẫu nhiên">🖼️ Random Icon Puzzle</button>
             <button id="difficulty-btn" data-en="Difficulty ⭐" data-vi="Độ khó ⭐">Difficulty ⭐</button>
         </div>
         <hr>
@@ -612,7 +611,7 @@
             <button id="solve-btn">💡 Solve</button>
             <button id="hint-btn" data-en="❓ Hint" data-vi="❓ Gợi ý">❓ Hint</button>
             <button id="check-puzzle-btn">✓ Check Puzzle</button>
-            <button id="new-android-puzzle-btn" data-en="New Puzzle" data-vi="Câu đố mới" style="display: none;">New Puzzle</button>
+            <button id="new-random-puzzle-btn" data-en="New Random Puzzle" data-vi="Câu đố ngẫu nhiên mới" style="display: none;">New Random Puzzle</button>
             <button id="back-to-start-btn-game">🏠 Back to Start</button>
             <button class="help-btn" onclick="showHelp('game')">?</button>
         </div>
@@ -656,7 +655,6 @@
         <div id="fedimser-container"></div>
     </div>
 
-        <script src="android_puzzles.js"></script>
         <script src="Nonogram.js"></script>
 
             <script>
@@ -1571,46 +1569,6 @@
                     }
                 });
         
-                startAndroidPuzzleBtn.addEventListener('click', () => {
-                    const puzzleData = androidPuzzles[Math.floor(Math.random() * androidPuzzles.length)];
-                    const clues = calculateClues(puzzleData.solution, puzzleData.size, puzzleData.size);
-                    const puzzle = {
-                        name: puzzleData.name,
-                        width: puzzleData.size,
-                        height: puzzleData.size,
-                        solution: puzzleData.solution,
-                        clues: clues,
-                        emoji: puzzleData.emoji
-                    };
-                    startGame(puzzle);
-                });
-
-                newAndroidPuzzleBtn.addEventListener('click', () => {
-                    const puzzleData = androidPuzzles[Math.floor(Math.random() * androidPuzzles.length)];
-                    const clues = calculateClues(puzzleData.solution, puzzleData.size, puzzleData.size);
-                    const puzzle = {
-                        name: puzzleData.name,
-                        width: puzzleData.size,
-                        height: puzzleData.size,
-                        solution: puzzleData.solution,
-                        clues: clues,
-                        emoji: puzzleData.emoji
-                    };
-                    startGame(puzzle);
-                });
-
-                createPuzzleBtn.addEventListener('click', () => showScreen(editorScreen));
-                
-                // Language toggle
-                const langToggle = document.getElementById('lang-toggle');
-                if (langToggle) {
-                    langToggle.addEventListener('click', () => {
-                        setLanguage(currentLanguage === 'en' ? 'vi' : 'en');
-                    });
-                }
-                
-                // Back to Menu button
-                const backToMenuBtn = document.getElementById('back-to-menu-btn');
                 if (backToMenuBtn) {
                     backToMenuBtn.addEventListener('click', () => {
                         window.location.href = 'index.html';
@@ -1627,6 +1585,63 @@
                         difficultyBtn.dataset.en = `Difficulty ${stars}`;
                         difficultyBtn.dataset.vi = `Độ khó ${stars}`;
                         setLanguage(currentLanguage); // Update the button text
+                    });
+                }
+
+                function generatePuzzleFromImage(url, size) {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous"; // Important for cross-origin images
+                    img.src = url;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = size;
+                        canvas.height = size;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, size, size);
+                        const imageData = ctx.getImageData(0, 0, size, size);
+                        const data = imageData.data;
+                        const solution = [];
+                        for (let i = 0; i < size; i++) {
+                            const row = [];
+                            for (let j = 0; j < size; j++) {
+                                const index = (i * size + j) * 4;
+                                // If pixel is not transparent, consider it filled
+                                const isFilled = data[index + 3] > 128 ? 1 : 0;
+                                row.push(isFilled);
+                            }
+                            solution.push(row);
+                        }
+
+                        const clues = calculateClues(solution, size, size);
+                        const puzzle = {
+                            name: "Random Icon Puzzle",
+                            width: size,
+                            height: size,
+                            solution: solution,
+                            clues: clues
+                        };
+                        startGame(puzzle);
+                    };
+                    img.onerror = () => {
+                        alert('Failed to load a random icon. Please try again.');
+                    };
+                }
+
+                const startRandomPuzzleBtn = document.getElementById('start-random-puzzle-btn');
+                if (startRandomPuzzleBtn) {
+                    startRandomPuzzleBtn.addEventListener('click', () => {
+                        const randomString = Math.random().toString(36).substring(7);
+                        const url = `https://robohash.org/${randomString}.png`;
+                        generatePuzzleFromImage(url, 16); // Using a 16x16 grid for icons
+                    });
+                }
+
+                const newRandomPuzzleBtn = document.getElementById('new-random-puzzle-btn');
+                if (newRandomPuzzleBtn) {
+                    newRandomPuzzleBtn.addEventListener('click', () => {
+                        const randomString = Math.random().toString(36).substring(7);
+                        const url = `https://robohash.org/${randomString}.png`;
+                        generatePuzzleFromImage(url, 16);
                     });
                 }
                 

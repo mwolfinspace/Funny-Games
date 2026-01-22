@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tetris Pattern Detective: Expert Expansion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1e293b' }
+                    },
+                    animation: {
+                        'pop-in': 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                    },
+                    keyframes: {
+                        popIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.5)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { touch-action: manipulation; }
+        
+        /* Card Flip & 3D */
+        .card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-face {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* Color Picker Input Hidden */
+        .color-input {
+            opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer;
+        }
+
+        /* 3D Dice Styles */
+        .scene { perspective: 600px; width: 100px; height: 100px; }
+        .cube {
+            width: 100%; height: 100%; position: relative;
+            transform-style: preserve-3d; transform: translateZ(-50px);
+            transition: transform 1s ease-out;
+        }
+        .cube-face {
+            position: absolute; width: 100px; height: 100px;
+            border: 2px solid #333; background: white;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 8px;
+        }
+        .dark .cube-face { border-color: #000; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }
+        
+        .cube-face-1 { transform: rotateY(0deg) translateZ(50px); }
+        .cube-face-2 { transform: rotateY(90deg) translateZ(50px); }
+        .cube-face-3 { transform: rotateY(180deg) translateZ(50px); }
+        .cube-face-4 { transform: rotateY(-90deg) translateZ(50px); }
+        .cube-face-5 { transform: rotateX(90deg) translateZ(50px); }
+        .cube-face-6 { transform: rotateX(-90deg) translateZ(50px); }
+
+        .dot { 
+            width: 18px; height: 18px; background: #333; border-radius: 50%; 
+            align-self: center; justify-self: center;
+        }
+        
+        /* Face Layouts */
+        .cube-face-1 .dot:nth-child(1) { grid-column: 2; grid-row: 2; }
+        .cube-face-2 .dot:nth-child(1) { grid-column: 1; grid-row: 1; }
+        .cube-face-2 .dot:nth-child(2) { grid-column: 3; grid-row: 3; }
+        .cube-face-3 .dot:nth-child(1) { grid-column: 1; grid-row: 1; }
+        .cube-face-3 .dot:nth-child(2) { grid-column: 2; grid-row: 2; }
+        .cube-face-3 .dot:nth-child(3) { grid-column: 3; grid-row: 3; }
+        .cube-face-4 .dot:nth-child(1) { grid-column: 1; grid-row: 1; }
+        .cube-face-4 .dot:nth-child(2) { grid-column: 3; grid-row: 1; }
+        .cube-face-4 .dot:nth-child(3) { grid-column: 1; grid-row: 3; }
+        .cube-face-4 .dot:nth-child(4) { grid-column: 3; grid-row: 3; }
+        .cube-face-5 .dot:nth-child(1) { grid-column: 1; grid-row: 1; }
+        .cube-face-5 .dot:nth-child(2) { grid-column: 3; grid-row: 1; }
+        .cube-face-5 .dot:nth-child(3) { grid-column: 1; grid-row: 3; }
+        .cube-face-5 .dot:nth-child(4) { grid-column: 3; grid-row: 3; }
+        .cube-face-5 .dot:nth-child(5) { grid-column: 2; grid-row: 2; }
+        .cube-face-6 .dot:nth-child(1) { grid-column: 1; grid-row: 1; }
+        .cube-face-6 .dot:nth-child(2) { grid-column: 1; grid-row: 2; }
+        .cube-face-6 .dot:nth-child(3) { grid-column: 1; grid-row: 3; }
+        .cube-face-6 .dot:nth-child(4) { grid-column: 3; grid-row: 1; }
+        .cube-face-6 .dot:nth-child(5) { grid-column: 3; grid-row: 2; }
+        .cube-face-6 .dot:nth-child(6) { grid-column: 3; grid-row: 3; }
+
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 h-screen w-screen flex flex-col overflow-hidden font-sans select-none transition-colors duration-300">
+
+    <header class="bg-white dark:bg-slate-800 p-3 shadow-md z-20 shrink-0 border-b border-slate-200 dark:border-slate-700 transition-colors duration-300">
+        <div class="flex flex-col gap-3 max-w-full mx-auto">
+            
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                
+                <div class="flex flex-wrap gap-3 items-center">
+                    
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 p-2 rounded-xl border border-slate-300 dark:border-slate-600">
+                        <span class="font-bold px-1 text-base hidden sm:inline">COLORS</span>
+                        <button onclick="adjustSetting('color', -1)" class="w-10 h-10 text-xl bg-white dark:bg-slate-600 rounded-lg shadow font-bold hover:bg-slate-50 border border-slate-300 dark:border-slate-500">-</button>
+                        <div id="active-colors-container" class="flex gap-1 px-1"></div>
+                        <button onclick="adjustSetting('color', 1)" class="w-10 h-10 text-xl bg-white dark:bg-slate-600 rounded-lg shadow font-bold hover:bg-slate-50 border border-slate-300 dark:border-slate-500">+</button>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 p-2 rounded-xl border border-slate-300 dark:border-slate-600">
+                        <span class="font-bold px-1 text-base hidden sm:inline">SHAPES</span>
+                        <button onclick="adjustSetting('shape', -1)" class="w-10 h-10 text-xl bg-white dark:bg-slate-600 rounded-lg shadow font-bold hover:bg-slate-50 border border-slate-300 dark:border-slate-500">-</button>
+                        <span id="shape-count-display" class="w-8 text-center font-mono font-bold text-xl">3</span>
+                        <button onclick="adjustSetting('shape', 1)" class="w-10 h-10 text-xl bg-white dark:bg-slate-600 rounded-lg shadow font-bold hover:bg-slate-50 border border-slate-300 dark:border-slate-500">+</button>
+                    </div>
+
+                    <button onclick="toggleRotation()" id="rotation-btn" class="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 transition-all h-14">
+                        <div id="rot-indicator" class="w-4 h-4 rounded-full bg-slate-400"></div>
+                        <span class="font-bold text-sm md:text-base">Rotation</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center bg-slate-100 dark:bg-slate-700 p-2 rounded-xl border border-slate-300 dark:border-slate-600">
+                        <button onclick="changeZoom(-0.1)" class="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-600 rounded-lg shadow mx-0.5 border border-slate-300 dark:border-slate-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" /></svg>
+                        </button>
+                        <button onclick="changeZoom(0.1)" class="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-600 rounded-lg shadow mx-0.5 border border-slate-300 dark:border-slate-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" /></svg>
+                        </button>
+                    </div>
+                    <button onclick="toggleTheme()" class="w-14 h-14 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-xl border border-slate-300 dark:border-slate-600 shadow transition-colors">
+                        <svg id="sun-icon" class="w-8 h-8 hidden dark:block text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        <svg id="moon-icon" class="w-8 h-8 block dark:hidden text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-3 justify-center mt-2 flex-wrap">
+                <div class="flex gap-2 mr-2">
+                    <button onclick="setMode('easy')" class="px-4 py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-xl font-bold text-sm md:text-base border-2 border-emerald-300 transition">
+                        Easy Random
+                    </button>
+                    <button onclick="setMode('hard')" class="px-4 py-3 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-xl font-bold text-sm md:text-base border-2 border-purple-300 transition">
+                        Hard Random
+                    </button>
+                </div>
+
+                <button onclick="newGame()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black shadow-lg transition flex-1 min-w-[100px] text-base md:text-lg tracking-wide">
+                    New Game
+                </button>
+                <button onclick="rollDice()" class="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white rounded-xl font-black shadow-lg transition flex-1 min-w-[100px] text-base md:text-lg tracking-wide">
+                    Random
+                </button>
+                <button onclick="revealTarget()" class="px-6 py-3 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black shadow-lg transition flex-1 min-w-[100px] text-base md:text-lg tracking-wide">
+                    Answer
+                </button>
+            </div>
+            
+            <div id="mode-badge" class="hidden w-full text-center mt-1">
+                <span class="inline-block px-4 py-1 rounded-full text-xs md:text-sm font-bold tracking-wider bg-purple-600 text-white shadow-md">
+                    🔥 5+ EXPERT MODE (15 Cards)
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 relative flex items-center justify-center p-4 w-full overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+        <div id="card-container" class="flex flex-wrap items-center justify-center content-center w-full h-full gap-4 md:gap-6 transition-all duration-300 ease-in-out pt-6">
+            </div>
+
+        <div id="dice-overlay" class="fixed inset-0 bg-black/60 dark:bg-black/80 z-50 hidden flex flex-col items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
+            <div class="scene">
+                <div class="cube" id="cube">
+                    <div class="cube-face cube-face-1"><div class="dot"></div></div>
+                    <div class="cube-face cube-face-2"><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube-face cube-face-3"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube-face cube-face-4"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube-face cube-face-5"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                    <div class="cube-face cube-face-6"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                </div>
+            </div>
+            <div id="digital-dice" class="hidden text-9xl font-black text-amber-400 drop-shadow-2xl animate-pulse">0</div>
+        </div>
+    </main>
+
+    <footer class="bg-white dark:bg-slate-800 p-3 text-center text-slate-600 dark:text-slate-300 shadow-[0_-4px_12px_rgba(0,0,0,0.1)] shrink-0 z-10 border-t border-slate-200 dark:border-slate-700 transition-colors duration-300">
+        <p class="text-sm md:text-lg font-bold">
+            🎯 Guess card <span class="text-rose-500 font-black text-2xl px-1" id="target-label">7</span>
+        </p>
+    </footer>
+
+    <script>
+        // --- Configuration ---
+        const DEFAULT_COLORS = [
+            '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', 
+            '#EC4899', '#F97316', '#06B6D4', '#84CC16', '#6366F1'
+        ];
+
+        const SHAPES = {
+            'I': { coords: [[0,1], [1,1], [2,1], [3,1]], family: 'I' },
+            'O': { coords: [[1,1], [2,1], [1,2], [2,2]], family: 'O' },
+            'T': { coords: [[1,1], [0,2], [1,2], [2,2]], family: 'T' },
+            'L': { coords: [[2,1], [0,2], [1,2], [2,2]], family: 'Hook' }, 
+            'J': { coords: [[0,1], [0,2], [1,2], [2,2]], family: 'Hook' }, 
+            'S': { coords: [[1,1], [2,1], [0,2], [1,2]], family: 'Snake' },
+            'Z': { coords: [[0,1], [1,1], [1,2], [2,2]], family: 'Snake' }
+        };
+        const ALL_SHAPE_KEYS = Object.keys(SHAPES);
+
+        // --- State ---
+        let state = {
+            numColors: 3,
+            numShapes: 3,
+            activeColors: [],
+            rotationMode: false,
+            hardMode: false,
+            cards: [],
+            revealed: new Set(),
+            targetIndex: 6,
+            isGameActive: false,
+            isRolling: false,
+            zoom: 1.0 
+        };
+
+        // --- Init ---
+        function init() {
+            state.activeColors = DEFAULT_COLORS.slice(0, state.numColors);
+            updateControls();
+            newGame();
+        }
+
+        // --- Logic: Modes & Buttons ---
+        function toggleRotation() {
+            state.rotationMode = !state.rotationMode;
+            updateControls();
+        }
+
+        function setMode(mode) {
+            if (mode === 'easy') {
+                state.numColors = 3;
+                state.numShapes = 3;
+                state.rotationMode = false;
+                state.hardMode = false;
+            } else if (mode === 'hard') {
+                // Hard = 5 colors, 5 shapes, Rotation ON
+                state.numColors = 5;
+                state.numShapes = 5;
+                state.rotationMode = true;
+                state.hardMode = true;
+            }
+            state.activeColors = DEFAULT_COLORS.slice(0, state.numColors);
+            updateControls();
+            newGame();
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function changeZoom(delta) {
+            state.zoom = Math.max(0.6, Math.min(2.0, state.zoom + delta));
+            renderCards();
+        }
+
+        function adjustSetting(type, delta) {
+            state.hardMode = false; 
+            
+            if (type === 'color') {
+                const newCount = Math.max(2, Math.min(10, state.numColors + delta));
+                if (newCount !== state.numColors) {
+                    state.numColors = newCount;
+                    if (state.activeColors.length < newCount) {
+                        state.activeColors.push(DEFAULT_COLORS[state.activeColors.length]);
+                    } else {
+                        state.activeColors.pop();
+                    }
+                }
+            } else {
+                state.numShapes = Math.max(2, Math.min(7, state.numShapes + delta));
+            }
+            updateControls();
+        }
+
+        function updateColor(index, newColor) {
+            state.activeColors[index] = newColor;
+            updateControls();
+            if (state.isGameActive) {
+                state.cards.forEach(card => {
+                    if (card.colorIndex === index) {
+                        card.color = newColor;
+                    }
+                });
+                renderCards(false);
+            }
+        }
+
+        function updateControls() {
+            const colorContainer = document.getElementById('active-colors-container');
+            colorContainer.innerHTML = '';
+            state.activeColors.forEach((color, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = "relative w-8 h-8 rounded-full shadow-sm border-2 border-slate-300 dark:border-slate-500 overflow-hidden hover:scale-110 transition cursor-pointer";
+                wrapper.style.backgroundColor = color;
+                
+                const input = document.createElement('input');
+                input.type = 'color';
+                input.value = color;
+                input.className = "color-input";
+                input.oninput = (e) => updateColor(idx, e.target.value);
+                wrapper.appendChild(input);
+                colorContainer.appendChild(wrapper);
+            });
+
+            document.getElementById('shape-count-display').textContent = state.numShapes;
+            
+            const rotBtn = document.getElementById('rotation-btn');
+            const rotInd = document.getElementById('rot-indicator');
+            if(state.rotationMode) {
+                rotBtn.classList.add('bg-purple-100', 'border-purple-300', 'text-purple-700');
+                rotBtn.classList.remove('bg-slate-100', 'dark:bg-slate-700');
+                rotInd.classList.replace('bg-slate-400', 'bg-purple-600');
+            } else {
+                rotBtn.classList.remove('bg-purple-100', 'border-purple-300', 'text-purple-700');
+                rotBtn.classList.add('bg-slate-100', 'dark:bg-slate-700');
+                rotInd.classList.replace('bg-purple-600', 'bg-slate-400');
+            }
+
+            const badge = document.getElementById('mode-badge');
+            // Check if 5+ logic applies
+            const isExpert = (state.numColors >= 5 || state.numShapes >= 5);
+            if (isExpert) {
+                badge.querySelector('span').textContent = '🔥 5+ EXPERT MODE (15 Cards)';
+                badge.classList.remove('hidden');
+            } else if (state.hardMode) {
+                 badge.querySelector('span').textContent = '🔥 HARD MODE';
+                 badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // --- Logic: COMPLEX Pattern Generation ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function generateComplexSequence(activeItems, totalLength) {
+            const n = activeItems.length;
+            const shuffledItems = shuffleArray([...activeItems]);
+            
+            let unitIndices = [];
+            
+            if (n === 2) {
+                const templates = [[0, 1], [0, 0, 1], [0, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1], [0, 1, 0, 1, 0]];
+                unitIndices = templates[Math.floor(Math.random() * templates.length)];
+            } 
+            else if (n === 3) {
+                 const templates = [[0, 1, 2], [0, 0, 1, 2], [0, 1, 1, 2], [0, 1, 2, 2], [0, 1, 2, 1], [0, 1, 0, 2]];
+                unitIndices = templates[Math.floor(Math.random() * templates.length)];
+            }
+            else if (n === 4) {
+                 const templates = [
+                    [0, 1, 2, 3],       
+                    [0, 0, 1, 2, 3],    
+                    [0, 1, 1, 2, 3],    
+                    [0, 1, 2, 2, 3],    
+                    [0, 1, 2, 3, 3],    
+                    [0, 1, 2, 3, 2, 1, 0], 
+                    [0, 1, 2, 3, 0]     
+                ];
+                unitIndices = templates[Math.floor(Math.random() * templates.length)];
+            }
+            else {
+                unitIndices = Array.from({length: n}, (_, i) => i);
+            }
+
+            const sequence = [];
+            for (let i = 0; i < totalLength; i++) {
+                const idx = unitIndices[i % unitIndices.length];
+                sequence.push(shuffledItems[idx]);
+            }
+            return sequence;
+        }
+
+        function newGame() {
+            // Updated Expansion Logic: 5+ Colors OR 5+ Shapes -> 15 Cards
+            let totalCards = 8;
+            
+            if (state.numColors >= 5 || state.numShapes >= 5) {
+                totalCards = 15; // > 14 as requested
+            } else if (state.numColors >= 4 || state.numShapes >= 4) {
+                totalCards = 10;
+            }
+
+            // Target moves deeper in larger games
+            state.targetIndex = totalCards >= 15 ? 12 : (totalCards >= 10 ? 8 : 6);
+            
+            document.getElementById('target-label').textContent = (state.targetIndex + 1);
+            updateControls(); // To update badge
+
+            // 1. Colors
+            const colorIndices = Array.from({length: state.numColors}, (_, i) => i);
+            const colorPattern = generateComplexSequence(colorIndices, totalCards);
+
+            // 2. Shapes
+            let shapePool = [];
+            if (state.rotationMode) {
+                const families = ['I', 'O', 'T', 'Hook', 'Snake'];
+                const activeFamilies = shuffleArray(families).slice(0, Math.min(5, state.numShapes));
+                shapePool = activeFamilies;
+            } else {
+                shapePool = shuffleArray([...ALL_SHAPE_KEYS]).slice(0, state.numShapes);
+            }
+            const shapePattern = generateComplexSequence(shapePool, totalCards);
+
+            state.cards = [];
+            for(let i=0; i<totalCards; i++) {
+                let shapeKey = shapePattern[i];
+                let rotation = 0;
+
+                if (state.rotationMode) {
+                    const family = shapePattern[i];
+                    const candidates = ALL_SHAPE_KEYS.filter(k => SHAPES[k].family === family);
+                    shapeKey = candidates[Math.floor(Math.random() * candidates.length)];
+                    rotation = Math.floor(Math.random() * 4); 
+                }
+
+                state.cards.push({
+                    colorIndex: colorPattern[i],
+                    color: state.activeColors[colorPattern[i]],
+                    shapeKey: shapeKey,
+                    rotSteps: rotation 
+                });
+            }
+
+            state.revealed = new Set();
+            state.isGameActive = true;
+            renderCards(true);
+        }
+
+        // --- Core Logic: Rotate & Center ---
+        function rotatePoint(x, y, steps) {
+            let cx = x, cy = y;
+            for(let i=0; i<steps; i++){
+                const tX = -cy;
+                const tY = cx;
+                cx = tX;
+                cy = tY;
+            }
+            return [cx, cy];
+        }
+
+        function generateCenteredSVG(shapeKey, color, rotSteps) {
+            const rawBlocks = SHAPES[shapeKey].coords; 
+            const rotatedBlocks = rawBlocks.map(([x, y]) => rotatePoint(x, y, rotSteps));
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            rotatedBlocks.forEach(([x, y]) => {
+                if(x < minX) minX = x;
+                if(x > maxX) maxX = x;
+                if(y < minY) minY = y;
+                if(y > maxY) maxY = y;
+            });
+
+            const normalizedBlocks = rotatedBlocks.map(([x, y]) => [x - minX, y - minY]);
+            
+            const widthBlocks = (maxX - minX) + 1;
+            const heightBlocks = (maxY - minY) + 1;
+            
+            const blockSize = 20; 
+            const totalW = widthBlocks * blockSize;
+            const totalH = heightBlocks * blockSize;
+
+            const startX = (100 - totalW) / 2;
+            const startY = (100 - totalH) / 2;
+
+            let rects = '';
+            normalizedBlocks.forEach(([bx, by]) => {
+                const x = startX + (bx * blockSize);
+                const y = startY + (by * blockSize);
+                rects += `<rect x="${x}" y="${y}" width="${blockSize}" height="${blockSize}" fill="${color}" stroke="rgba(0,0,0,0.3)" stroke-width="2" vector-effect="non-scaling-stroke" />`;
+            });
+
+            return `
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md overflow-visible">
+                    ${rects}
+                </svg>
+            `;
+        }
+
+        // --- Rendering ---
+        function renderCards(animate = false) {
+            const container = document.getElementById('card-container');
+            container.innerHTML = '';
+            
+            // Responsive Sizing: Shrink cards if there are many (15+)
+            // Normal: 14vw, 26vh
+            // Compact: 11vw, 20vh
+            const isCompact = state.cards.length > 12;
+            
+            const baseW = (isCompact ? 11 : 14) * state.zoom;
+            const baseH = (isCompact ? 20 : 26) * state.zoom; 
+            
+            state.cards.forEach((card, i) => {
+                const isTarget = i === state.targetIndex;
+                const isFlipped = state.revealed.has(i);
+                
+                const cardEl = document.createElement('div');
+                const animClass = animate ? 'animate-pop-in' : '';
+                
+                cardEl.className = `
+                    card group relative cursor-pointer flex-shrink-0 mt-4
+                    ${isFlipped ? 'flipped' : ''}
+                    ${animClass}
+                `;
+                
+                cardEl.style.animationDelay = `${i * 40}ms`; // Faster animation for more cards
+                cardEl.style.width = `${baseW}vw`;
+                cardEl.style.height = `${baseH}vh`;
+                
+                // Adjust Min/Max for compact mode
+                cardEl.style.minWidth = `${(isCompact ? 80 : 100) * state.zoom}px`;
+                cardEl.style.minHeight = `${(isCompact ? 120 : 150) * state.zoom}px`;
+                cardEl.style.maxWidth = `${220 * state.zoom}px`;
+                cardEl.style.maxHeight = `${300 * state.zoom}px`;
+
+                const svgContent = generateCenteredSVG(card.shapeKey, card.color, card.rotSteps);
+                
+                cardEl.innerHTML = `
+                    <div class="absolute -top-6 left-1/2 -translate-x-1/2 z-10 
+                                bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 
+                                h-10 min-w-[2.5rem] px-2 flex items-center justify-center rounded-full 
+                                ${isCompact ? 'text-lg' : 'text-2xl'} font-black shadow-lg border-4 border-slate-600 dark:border-slate-300">
+                        ${i+1}
+                    </div>
+
+                    <div class="card-inner w-full h-full relative shadow-xl hover:shadow-2xl transition-shadow rounded-2xl">
+                        <div class="card-face w-full h-full absolute inset-0 bg-white dark:bg-slate-700 rounded-2xl border-4 border-slate-200 dark:border-slate-600 flex items-center justify-center transition-colors duration-300">
+                            <span class="${isCompact ? 'text-4xl md:text-6xl' : 'text-6xl md:text-8xl'} font-black text-slate-600 dark:text-slate-400 select-none opacity-80">
+                                ${isTarget ? '?' : (i+1)}
+                            </span>
+                            ${isTarget ? '<div class="absolute bottom-4 text-sm font-black text-rose-500 uppercase tracking-widest border-2 border-rose-500 px-2 py-0.5 rounded">Target</div>' : ''}
+                        </div>
+                        
+                        <div class="card-face card-back w-full h-full absolute inset-0 bg-slate-100 dark:bg-slate-800 rounded-2xl border-4 border-slate-300 dark:border-slate-500 flex items-center justify-center p-2 transition-colors duration-300">
+                            ${svgContent}
+                        </div>
+                    </div>
+                `;
+                
+                cardEl.onclick = () => {
+                    if (!state.isGameActive) return;
+                    if (isTarget) {
+                        alert("🔒 Mystery Card! Use 'Answer' button.");
+                        return;
+                    }
+                    if (!state.revealed.has(i)) {
+                        state.revealed.add(i);
+                        cardEl.classList.add('flipped');
+                    }
+                };
+                container.appendChild(cardEl);
+            });
+        }
+
+        // --- Dice & Utils ---
+        function resetBoard() {
+            state.cards = [];
+            state.revealed.clear();
+            document.getElementById('card-container').innerHTML = '<div class="text-slate-400 dark:text-slate-600 font-bold text-2xl mt-10">Press New Game</div>';
+            state.isGameActive = false;
+        }
+
+        function revealTarget() {
+            if (!state.isGameActive) return;
+            state.revealed.add(state.targetIndex);
+            renderCards(false); 
+        }
+
+        function rollDice() {
+            if (!state.isGameActive || state.isRolling) return;
+            state.isRolling = true;
+
+            const overlay = document.getElementById('dice-overlay');
+            const cube = document.getElementById('cube');
+            const digital = document.getElementById('digital-dice');
+            
+            overlay.classList.remove('hidden');
+            setTimeout(() => { overlay.classList.remove('opacity-0'); overlay.style.pointerEvents = "auto"; }, 10);
+
+            const isExpanded = state.cards.length > 8;
+            const maxRoll = isExpanded ? 10 : 6;
+            const result = Math.floor(Math.random() * maxRoll) + 1;
+
+            if (isExpanded && result > 6) {
+                cube.style.display = 'none';
+                digital.classList.remove('hidden');
+                let shuffleCount = 0;
+                const shuffleInterval = setInterval(() => {
+                    digital.textContent = Math.floor(Math.random() * 10) + 1;
+                    shuffleCount++;
+                    if(shuffleCount > 20) {
+                        clearInterval(shuffleInterval);
+                        digital.textContent = result;
+                        finalizeRoll(result);
+                    }
+                }, 50);
+            } else {
+                cube.style.display = 'block';
+                digital.classList.add('hidden');
+                const xRot = Math.floor(Math.random() * 4) * 360;
+                const yRot = Math.floor(Math.random() * 4) * 360;
+                
+                let finalX = 0, finalY = 0;
+                switch(result) {
+                    case 1: finalX = 0; finalY = 0; break;
+                    case 6: finalX = 90; finalY = 0; break;
+                    case 2: finalX = 0; finalY = -90; break;
+                    case 5: finalX = -90; finalY = 0; break;
+                    case 3: finalX = 0; finalY = 180; break;
+                    case 4: finalX = 0; finalY = 90; break;
+                }
+                
+                cube.style.transition = 'transform 0.1s linear';
+                cube.style.transform = `rotateX(0deg) rotateY(0deg)`;
+                setTimeout(() => {
+                    cube.style.transition = 'transform 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    cube.style.transform = `rotateX(${xRot + finalX}deg) rotateY(${yRot + finalY}deg)`;
+                }, 50);
+                setTimeout(() => finalizeRoll(result), 2000);
+            }
+        }
+
+        function finalizeRoll(count) {
+            const overlay = document.getElementById('dice-overlay');
+            overlay.classList.add('opacity-0');
+            overlay.style.pointerEvents = "none";
+            setTimeout(() => { overlay.classList.add('hidden'); }, 300);
+            state.isRolling = false;
+
+            let revealedCount = 0;
+            for(let i=0; i < state.cards.length; i++) {
+                if (i === state.targetIndex) continue;
+                if (revealedCount < count) {
+                    if (!state.revealed.has(i)) {
+                        setTimeout(() => {
+                            state.revealed.add(i);
+                            renderCards(false); 
+                        }, revealedCount * 200);
+                    }
+                    revealedCount++;
+                }
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
