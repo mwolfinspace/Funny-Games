@@ -69,12 +69,9 @@
             align-items: center;
         }
         
-        /* Sets Counter Styles */
-        #sets-container {
-            transition: color 0.3s;
-        }
-        .sets-zero { color: #e74c3c; animation: pulse-text 2s infinite; } /* Red if 0 */
-        .sets-avail { color: #27ae60; } /* Green if > 0 */
+        #sets-container { transition: color 0.3s; }
+        .sets-zero { color: #e74c3c; animation: pulse-text 2s infinite; }
+        .sets-avail { color: #27ae60; }
         
         @keyframes pulse-text { 
             0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } 
@@ -94,6 +91,8 @@
         button.hint-btn { background-color: var(--hint-color); color: #2c3e50; }
         button.help-btn { background-color: #3498db; font-size: 1.1rem; font-weight: 900; width: 35px; }
         
+        button#roar-btn.active { background-color: #e67e22; box-shadow: 0 0 10px #e67e22; border: 1px solid white; }
+
         button.finish-btn {
             background-color: var(--finish-color);
             display: none; 
@@ -121,6 +120,23 @@
             cursor: pointer; border-radius: 12px; z-index: 10;
         }
         
+        /* Fixed mode for Roar Animation */
+        .card.roar-fixed {
+            position: fixed;
+            z-index: 9999 !important; /* Highest priority */
+            transition: top 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        left 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 0;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        }
+
+        /* Invisible placeholder to keep grid stable */
+        .card-placeholder {
+            visibility: hidden;
+            opacity: 0;
+        }
+
         .card.storming { transition: transform 1.5s cubic-bezier(0.25, 1, 0.5, 1); z-index: 1000; }
         .card.victory-dance { animation: victoryJump 2s ease-in-out infinite; }
 
@@ -183,6 +199,7 @@
             20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
             100% { opacity: 0; transform: translate(-50%, -100%) scale(1); }
         }
+        
         .shake { animation: shake-flipped 0.5s ease-in-out; }
         @keyframes shake-flipped {
             0%, 100% { transform: rotateY(180deg) translateX(0); }
@@ -190,6 +207,31 @@
             40% { transform: rotateY(180deg) translateX(6px) rotateZ(2deg); }
             60% { transform: rotateY(180deg) translateX(-6px) rotateZ(-2deg); }
             80% { transform: rotateY(180deg) translateX(6px) rotateZ(2deg); }
+        }
+
+        /* --- NEW ROAR PULSE ANIMATION (Pop/Zoom) --- */
+        @keyframes roar-pulse {
+            0% { transform: scale(2.0) rotateY(180deg); }
+            50% { transform: scale(2.2) rotateY(180deg); }
+            100% { transform: scale(2.0) rotateY(180deg); }
+        }
+        .roar-pulsing {
+            animation: roar-pulse 0.4s ease-in-out forwards;
+        }
+
+        /* --- Roar Mode Overlay --- */
+        #roar-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.01); /* Basically transparent */
+            z-index: 9000;
+            cursor: pointer;
+            flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 50px;
+        }
+        #roar-msg {
+            color: #d35400; font-size: 1.8rem; font-weight: bold; margin-bottom: 20px;
+            animation: pulse-text 1.5s infinite; text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.8); padding: 10px 20px; border-radius: 20px;
         }
 
         /* --- Modal Styles --- */
@@ -227,10 +269,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .mini-card img { width: 100%; height: 100%; object-fit: contain; }
-        .mini-result { font-size: 1.5rem; color: #555; }
         .rule-text { text-align: left; font-size: 1rem; line-height: 1.5; margin-bottom: 5px; }
-        .rule-list { list-style: none; padding: 0; text-align: left; margin: 10px 0; }
-        .rule-list li { padding: 5px 0; border-bottom: 1px solid var(--border-color); }
         .highlight-good { color: #27ae60; font-weight: bold; }
         .highlight-bad { color: #c0392b; font-weight: bold; }
 
@@ -265,6 +304,7 @@
             #hud { padding: 0 10px; gap: 10px; }
             .stats { font-size: 0.8rem; gap: 8px; }
             button { padding: 4px 8px; font-size: 0.8rem; }
+            #roar-msg { font-size: 1rem; }
         }
     </style>
 </head>
@@ -274,6 +314,10 @@
     <div id="start-screen">
         <h1 style="color:var(--text); margin-bottom:20px;">Lion Set Match</h1>
         <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+    </div>
+
+    <div id="roar-overlay" onclick="dismissRoar()">
+        <div id="roar-msg">Tap anywhere to collect!</div>
     </div>
 
     <div id="hud">
@@ -288,6 +332,9 @@
         <div class="hud-group">
             <button class="hint-btn" onclick="useHint()">💡</button>
             <button onclick="resetGame()">↻</button>
+            
+            <button id="roar-btn" class="active" onclick="toggleRoarMode()">🦁 ON</button>
+            
             <button id="finish-btn" class="finish-btn" onclick="endGameManual()">🏁</button>
             
             <button class="font-ctrl" onclick="adjustFontSize(-1)">A-</button>
@@ -316,39 +363,8 @@
     <div id="help-modal" class="modal-overlay">
         <div class="modal-content" style="text-align: left;">
             <h2 style="color:var(--accent); text-align:center;">How to Play</h2>
-            
             <p class="rule-text">Pick <b>3 Lions</b> to make them Roar!</p>
-            <p class="rule-text">For each feature (<b>Color, Mane, Tail</b>), the 3 cards must be either:</p>
-            <p class="rule-text" style="text-align:center;"><b>ALL THE SAME</b> <br>-- OR --<br> <b>ALL DIFFERENT</b></p>
-            
-            <p class="rule-text"><b>Tip:</b> Watch the "Sets:" counter next to the timer. <br>
-            <span style="color:#e74c3c"><b>Sets: 0</b></span> → No sets visible. Flip more cards!<br>
-            <span style="color:#27ae60"><b>Sets: 1+</b></span> → There is a set! Find it.</p>
-
-            <h3 style="text-align:center; margin-top:10px;">✅ Valid Roar</h3>
-            <div class="help-example" style="border-left: 5px solid #27ae60;">
-                <div class="mini-card"><img src="lion_cards/YRS.png"></div>
-                <div class="mini-card"><img src="lion_cards/YES.png"></div>
-                <div class="mini-card"><img src="lion_cards/YFS.png"></div>
-                <div style="font-size:0.8rem; margin-left:5px;">
-                    <span class="highlight-good">Colors: Same (Yellow)</span><br>
-                    <span class="highlight-good">Tails: Same (Square)</span><br>
-                    <span class="highlight-good">Manes: Diff (R, E, F)</span>
-                </div>
-            </div>
-
-            <h3 style="text-align:center;">❌ No Roar</h3>
-            <div class="help-example" style="border-left: 5px solid #c0392b;">
-                <div class="mini-card"><img src="lion_cards/YRS.png"></div>
-                <div class="mini-card"><img src="lion_cards/YRC.png"></div>
-                <div class="mini-card"><img src="lion_cards/PRT.png"></div>
-                <div style="font-size:0.8rem; margin-left:5px;">
-                    <span class="highlight-good">Manes: Same</span><br>
-                    <span class="highlight-good">Tails: Diff</span><br>
-                    <span class="highlight-bad">Colors: Mixed!</span> 🚫
-                </div>
-            </div>
-
+            <p class="rule-text">Features must be <b>ALL SAME</b> or <b>ALL DIFFERENT</b>.</p>
             <div style="text-align:center; margin-top:20px;">
                 <button onclick="hideHelp()" style="font-size:1.2rem; padding:10px 30px;">Got it!</button>
             </div>
@@ -436,6 +452,11 @@
     const COLORS = ['Y', 'P', 'G']; const MANES  = ['R', 'E', 'F']; const TAILS  = ['S', 'C', 'T'];
     let deck = []; let selectedCards = []; let matchesFound = 0; let errors = 0;
     let startTime = null; let timerInterval = null; let isProcessing = false; let isIntroMode = false; let isDarkMode = false; let isPaused = false;
+    
+    // NEW VARS FOR ROAR MODE
+    let isRoarMode = true; 
+    let roarPlaceholders = []; // Store placeholders
+    
     let currentFontSize = 1.4;
 
     const board = document.getElementById('game-board');
@@ -449,6 +470,9 @@
     const modal = document.getElementById('modal');
     const helpModal = document.getElementById('help-modal');
     const confettiCanvas = document.getElementById('confetti');
+    
+    const roarBtn = document.getElementById('roar-btn');
+    const roarOverlay = document.getElementById('roar-overlay');
 
     window.addEventListener('resize', () => { resizeCards(); if(confettiCanvas.style.display !== 'none') { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }});
 
@@ -459,6 +483,17 @@
         isDarkMode = !isDarkMode;
         if (isDarkMode) { document.body.classList.add('dark-mode'); themeBtn.innerText = '☀️'; } 
         else { document.body.classList.remove('dark-mode'); themeBtn.innerText = '🌙'; }
+    }
+    
+    function toggleRoarMode() {
+        isRoarMode = !isRoarMode;
+        if(isRoarMode) {
+            roarBtn.innerText = "🦁 ON";
+            roarBtn.classList.add("active");
+        } else {
+            roarBtn.innerText = "🦁 OFF";
+            roarBtn.classList.remove("active");
+        }
     }
     
     function adjustFontSize(dir) {
@@ -488,7 +523,6 @@
         setTimeout(() => {
             isIntroMode = false; isProcessing = false;
             let indices = Array.from({length: 27}, (_, i) => i).sort(() => Math.random() - 0.5);
-            // REVEAL 6 CARDS initially
             indices.slice(0, 6).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx], false));
             checkGameState(); startTimer();
         }, 3200);
@@ -499,6 +533,8 @@
         confettiCanvas.style.display = 'none';
         startScreen.style.display = 'flex';
         startScreen.style.opacity = '1';
+        roarOverlay.style.display = 'none';
+        cleanupRoar(true); // cleanup if stuck
         clearInterval(timerInterval);
     }
 
@@ -572,44 +608,24 @@
         const cardObj = deck[index]; const cardEl = document.getElementById(`card-${index}`);
         if (cardObj.isMatched) return;
         
-        // Flip unrevealed card
         if (!cardObj.isRevealed) {
-            SoundManager.play('flip'); 
-            flipCard(cardEl, cardObj, true); 
-            checkGameState(); 
-            return;
+            SoundManager.play('flip'); flipCard(cardEl, cardObj, true); checkGameState(); return;
         }
-        
-        // Select logic
         toggleSelection(cardEl, cardObj);
     }
 
     function flipCard(el, obj, playSound=false) { el.classList.add('flipped'); obj.isRevealed = true; }
 
     function toggleSelection(el, obj) {
-        // If already selected, deselect
         if (selectedCards.includes(obj)) {
-            el.classList.remove('selected'); 
-            selectedCards = selectedCards.filter(c => c !== obj); 
-            SoundManager.play('flip'); 
-            return;
+            el.classList.remove('selected'); selectedCards = selectedCards.filter(c => c !== obj); SoundManager.play('flip'); return;
         }
-        
-        // Add to selection
-        el.classList.add('selected'); 
-        selectedCards.push(obj); 
-        SoundManager.play('flip');
-        
-        // Check for set when 3 selected
+        el.classList.add('selected'); selectedCards.push(obj); SoundManager.play('flip');
         if (selectedCards.length === 3) checkSet();
     }
 
-    // --- SET LOGIC: All Same OR All Different ---
-    function isAttributeSet(a, b, c) {
-        return (a === b && b === c) || (a !== b && b !== c && a !== c);
-    }
-
     function checkSetLogic(c1, c2, c3) {
+        const isAttributeSet = (a, b, c) => (a === b && b === c) || (a !== b && b !== c && a !== c);
         return isAttributeSet(c1.color, c2.color, c3.color) &&
                isAttributeSet(c1.mane, c2.mane, c3.mane) &&
                isAttributeSet(c1.tail, c2.tail, c3.tail);
@@ -625,19 +641,15 @@
         const isSuccess = checkSetLogic(c1, c2, c3);
 
         if (isSuccess) {
-            SoundManager.play('roar'); // ROAR for success
-            showFeedback(el1, 'tick-anim'); showFeedback(el2, 'tick-anim'); showFeedback(el3, 'tick-anim');
-            setTimeout(() => {
-                [el1, el2, el3].forEach(el => el.classList.remove('selected', 'hint-active', 'flipped', 'matched'));
-                [el1, el2, el3].forEach(el => el.classList.add('matched'));
-                
-                c1.isMatched = true; c2.isMatched = true; c3.isMatched = true;
-                
-                matchesFound++; scoreDisplay.innerText = matchesFound;
-                selectedCards = []; isProcessing = false; checkGameState(); 
-            }, 600);
+            if (isRoarMode) {
+                performRoarSequence(c1, c2, c3, el1, el2, el3);
+            } else {
+                SoundManager.play('roar'); 
+                showFeedback(el1, 'tick-anim'); showFeedback(el2, 'tick-anim'); showFeedback(el3, 'tick-anim');
+                setTimeout(() => finalizeMatch(c1, c2, c3, el1, el2, el3), 600);
+            }
         } else {
-            SoundManager.play('error'); // BEEP for error
+            SoundManager.play('error');
             setTimeout(() => {
                 showFeedback(el1, 'cross-anim'); showFeedback(el2, 'cross-anim'); showFeedback(el3, 'cross-anim');
                 el1.classList.add('shake'); el2.classList.add('shake'); el3.classList.add('shake');
@@ -649,6 +661,146 @@
             }, 400);
         }
     }
+    
+    // --- ROAR LOGIC REVISED (Fix Disappearing Bug) ---
+    function performRoarSequence(c1, c2, c3, el1, el2, el3) {
+        roarOverlay.style.display = 'flex';
+        const cards = [el1, el2, el3];
+        roarPlaceholders = [];
+
+        // 1. Setup Placeholders & Fix Positioning
+        cards.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            
+            // Create Placeholder
+            const ph = document.createElement('div');
+            ph.className = 'card card-placeholder';
+            ph.style.width = el.style.width;
+            ph.style.height = el.style.height;
+            el.parentNode.insertBefore(ph, el);
+            roarPlaceholders.push({ ph: ph, el: el, rect: rect });
+
+            // Set Fixed Position to current spot
+            el.style.width = rect.width + 'px';
+            el.style.height = rect.height + 'px';
+            
+            el.classList.add('roar-fixed');
+            el.style.top = rect.top + 'px';
+            el.style.left = rect.left + 'px';
+        });
+
+        // 2. Animate to Center (Side by Side)
+        requestAnimationFrame(() => {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            
+            // Determine Scale and Spacing
+            const scale = 2.0; 
+            const gap = 20; 
+            
+            const baseW = parseFloat(cards[0].style.width); // Use the locked px width
+            const baseH = parseFloat(cards[0].style.height);
+            const scaledW = baseW * scale;
+
+            cards.forEach((el, index) => {
+                let targetCenterX = centerX;
+                if (index === 0) targetCenterX = centerX - scaledW - gap;
+                if (index === 2) targetCenterX = centerX + scaledW + gap;
+                
+                const targetLeft = targetCenterX - (baseW / 2);
+                const targetTop = centerY - (baseH / 2);
+
+                el.style.top = targetTop + 'px';
+                el.style.left = targetLeft + 'px';
+                el.style.transform = `scale(${scale}) rotateY(180deg)`;
+            });
+
+            // 3. Play Sound & Pulse (Pop effect)
+            setTimeout(() => {
+                SoundManager.play('roar');
+                cards.forEach(el => el.classList.add('roar-pulsing'));
+                
+                setTimeout(() => {
+                    cards.forEach(el => el.classList.remove('roar-pulsing'));
+                }, 500); // Duration of roar-pulse
+            }, 800);
+        });
+    }
+
+    function dismissRoar() {
+        if (roarOverlay.style.display === 'none') return;
+        roarOverlay.style.display = 'none';
+
+        // 1. Move back to placeholders
+        roarPlaceholders.forEach(item => {
+            const currentRect = item.ph.getBoundingClientRect();
+            
+            item.el.style.top = currentRect.top + 'px';
+            item.el.style.left = currentRect.left + 'px';
+            item.el.style.transform = 'scale(1) rotateY(180deg)';
+            
+            // Ensure width/height match placeholder exactly for the return trip
+            item.el.style.width = currentRect.width + 'px';
+            item.el.style.height = currentRect.height + 'px';
+        });
+
+        // 2. Cleanup after transition
+        setTimeout(() => {
+           cleanupRoar(false); // Normal cleanup
+        }, 800);
+    }
+
+    function cleanupRoar(isForceReset) {
+        if (roarPlaceholders.length === 0 && !isForceReset) return;
+
+        // Restore styles
+        const selected = isForceReset ? [] : selectedCards; // keep ref if normal cleanup
+        
+        // Find elements if forced
+        if(isForceReset) {
+            document.querySelectorAll('.card.roar-fixed').forEach(el => {
+                el.classList.remove('roar-fixed', 'roar-pulsing');
+                el.style.position = ''; el.style.top = ''; el.style.left = ''; el.style.width = ''; el.style.height = ''; el.style.transform = '';
+            });
+            document.querySelectorAll('.card-placeholder').forEach(ph => ph.remove());
+        } else {
+             // Normal loop
+            roarPlaceholders.forEach(item => {
+                item.ph.remove();
+                item.el.classList.remove('roar-fixed', 'roar-pulsing');
+                item.el.style.position = '';
+                item.el.style.top = ''; item.el.style.left = ''; 
+                
+                // Clear inline styles so css class takes over? No, the class has no size!
+                // We must set them to what the variable says, OR just call resizeCards().
+                // Calling resizeCards() is the safest way to ensure they come back.
+                item.el.style.width = ''; 
+                item.el.style.height = ''; 
+                
+                item.el.style.transform = ''; // clears scale/rotate override
+            });
+            
+            // Finalize
+            if(selected.length === 3) {
+                const el1 = document.getElementById(`card-${selected[0].index}`);
+                const el2 = document.getElementById(`card-${selected[1].index}`);
+                const el3 = document.getElementById(`card-${selected[2].index}`);
+                finalizeMatch(selected[0], selected[1], selected[2], el1, el2, el3);
+            }
+        }
+        roarPlaceholders = [];
+        
+        // CRITICAL FIX: Re-calculate all card sizes so they don't disappear (0x0)
+        resizeCards();
+    }
+
+    function finalizeMatch(c1, c2, c3, el1, el2, el3) {
+        [el1, el2, el3].forEach(el => el.classList.remove('selected', 'hint-active', 'flipped', 'matched'));
+        [el1, el2, el3].forEach(el => el.classList.add('matched'));
+        c1.isMatched = true; c2.isMatched = true; c3.isMatched = true;
+        matchesFound++; scoreDisplay.innerText = matchesFound;
+        selectedCards = []; isProcessing = false; checkGameState(); 
+    }
 
     function showFeedback(el, type) {
         const fb = el.querySelector(`.${type}`);
@@ -658,41 +810,25 @@
     function checkGameState() {
         const hidden = deck.filter(c => !c.isRevealed);
         const unmatched = deck.filter(c => c.isRevealed && !c.isMatched);
-        
         let setsAvailable = 0;
-        // Brute force check all triplets of revealed cards
         if (unmatched.length >= 3) {
             for (let i = 0; i < unmatched.length; i++) {
                 for (let j = i + 1; j < unmatched.length; j++) {
                     for (let k = j + 1; k < unmatched.length; k++) {
-                        if (checkSetLogic(unmatched[i], unmatched[j], unmatched[k])) {
-                            setsAvailable++;
-                        }
+                        if (checkSetLogic(unmatched[i], unmatched[j], unmatched[k])) setsAvailable++;
                     }
                 }
             }
         }
-        
-        // --- UPDATE SETS COUNTER ---
         setsCountDisplay.innerText = setsAvailable;
-        if (setsAvailable === 0) {
-            setsContainer.className = "sets-zero"; // Red/Pulse
-        } else {
-            setsContainer.className = "sets-avail"; // Green
-        }
+        setsContainer.className = setsAvailable === 0 ? "sets-zero" : "sets-avail";
         
-        // If all cards revealed (no hidden) AND no sets available, GAME OVER
         if (hidden.length === 0) {
             finishBtn.style.display = 'flex';
             if (setsAvailable === 0) {
-                // Check if any cards left matched?
                 const left = deck.filter(c => !c.isMatched);
-                // If 0, 1, or 2 cards left, impossible to make a set
-                if (left.length < 3) {
-                     setTimeout(() => endGame("Completed!"), 500);
-                } else {
-                     setTimeout(() => endGame("No moves left!"), 500);
-                }
+                if (left.length < 3) setTimeout(() => endGame("Completed!"), 500);
+                else setTimeout(() => endGame("No moves left!"), 500);
             }
         }
     }
@@ -701,20 +837,17 @@
         if (isProcessing || isPaused) return;
         const candidates = deck.filter(c => c.isRevealed && !c.isMatched);
         let setFound = null;
-        
         for (let i = 0; i < candidates.length; i++) {
             for (let j = i + 1; j < candidates.length; j++) {
                 for (let k = j + 1; k < candidates.length; k++) {
                     if (checkSetLogic(candidates[i], candidates[j], candidates[k])) {
-                        setFound = [candidates[i], candidates[j], candidates[k]];
-                        break;
+                        setFound = [candidates[i], candidates[j], candidates[k]]; break;
                     }
                 }
                 if (setFound) break;
             }
             if (setFound) break;
         }
-        
         if (setFound) {
             SoundManager.play('flip');
             const els = setFound.map(c => document.getElementById(`card-${c.index}`));
