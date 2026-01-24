@@ -9,7 +9,7 @@
         :root {
             /* Light Mode */
             --bg-color: #ecf0f1;
-            --hud-bg: rgba(255,255,255,0.9);
+            --hud-bg: rgba(255,255,255,0.95);
             --card-back: #95a5a6;
             --card-face: #ffffff; 
             --accent: #d35400;
@@ -24,7 +24,7 @@
         body.dark-mode {
             /* Dark Mode */
             --bg-color: #2c3e50;
-            --hud-bg: rgba(0,0,0,0.6);
+            --hud-bg: rgba(0,0,0,0.8);
             --card-back: #34495e;
             --accent: #e67e22;
             --text: #ffffff;
@@ -54,17 +54,31 @@
             backdrop-filter: blur(5px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             z-index: 100;
-            gap: 20px;
+            gap: 15px;
         }
 
         .hud-group {
-            display: flex; align-items: center; gap: 10px;
+            display: flex; align-items: center; gap: 15px;
             background: rgba(127, 140, 141, 0.1);
-            padding: 5px 10px;
+            padding: 5px 15px;
             border-radius: 8px;
         }
 
-        .stats { display: flex; gap: 15px; font-size: 1rem; font-weight: 600; }
+        .stats { 
+            display: flex; gap: 15px; font-size: 1rem; font-weight: 600; 
+            align-items: center;
+        }
+        
+        /* Sets Counter Styles */
+        #sets-container {
+            transition: color 0.3s;
+        }
+        .sets-zero { color: #e74c3c; animation: pulse-text 2s infinite; } /* Red if 0 */
+        .sets-avail { color: #27ae60; } /* Green if > 0 */
+        
+        @keyframes pulse-text { 
+            0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } 
+        }
 
         button {
             background-color: var(--accent); border: none; color: white;
@@ -219,7 +233,6 @@
         .rule-list li { padding: 5px 0; border-bottom: 1px solid var(--border-color); }
         .highlight-good { color: #27ae60; font-weight: bold; }
         .highlight-bad { color: #c0392b; font-weight: bold; }
-        .strong { font-weight: bold; }
 
         /* --- Start Screen --- */
         #start-screen {
@@ -267,6 +280,7 @@
         <div class="hud-group">
             <div class="stats">
                 <span>⏱️ <span id="time">00:00</span></span>
+                <span id="sets-container" class="sets-zero">🔍 Sets: <span id="sets-count">0</span></span>
                 <span>✅ <span id="score">0</span></span>
             </div>
         </div>
@@ -301,35 +315,37 @@
 
     <div id="help-modal" class="modal-overlay">
         <div class="modal-content" style="text-align: left;">
-            <h2 style="color:var(--accent); text-align:center;">How to Play (The "Roar" Rule)</h2>
+            <h2 style="color:var(--accent); text-align:center;">How to Play</h2>
             
             <p class="rule-text">Pick <b>3 Lions</b> to make them Roar!</p>
             <p class="rule-text">For each feature (<b>Color, Mane, Tail</b>), the 3 cards must be either:</p>
             <p class="rule-text" style="text-align:center;"><b>ALL THE SAME</b> <br>-- OR --<br> <b>ALL DIFFERENT</b></p>
+            
+            <p class="rule-text"><b>Tip:</b> Watch the "Sets:" counter next to the timer. <br>
+            <span style="color:#e74c3c"><b>Sets: 0</b></span> → No sets visible. Flip more cards!<br>
+            <span style="color:#27ae60"><b>Sets: 1+</b></span> → There is a set! Find it.</p>
 
-            <h3 style="text-align:center; margin-top:20px;">✅ Valid Roar</h3>
+            <h3 style="text-align:center; margin-top:10px;">✅ Valid Roar</h3>
             <div class="help-example" style="border-left: 5px solid #27ae60;">
                 <div class="mini-card"><img src="lion_cards/YRS.png"></div>
                 <div class="mini-card"><img src="lion_cards/YES.png"></div>
                 <div class="mini-card"><img src="lion_cards/YFS.png"></div>
-                
                 <div style="font-size:0.8rem; margin-left:5px;">
-                    <span class="highlight-good">Colors: All Yellow (Same)</span><br>
-                    <span class="highlight-good">Tails: All Square (Same)</span><br>
-                    <span class="highlight-good">Manes: Round, Edgy, Flower (Diff)</span>
+                    <span class="highlight-good">Colors: Same (Yellow)</span><br>
+                    <span class="highlight-good">Tails: Same (Square)</span><br>
+                    <span class="highlight-good">Manes: Diff (R, E, F)</span>
                 </div>
             </div>
 
-            <h3 style="text-align:center;">❌ No Roar (Invalid)</h3>
+            <h3 style="text-align:center;">❌ No Roar</h3>
             <div class="help-example" style="border-left: 5px solid #c0392b;">
                 <div class="mini-card"><img src="lion_cards/YRS.png"></div>
                 <div class="mini-card"><img src="lion_cards/YRC.png"></div>
-                 <div class="mini-card"><img src="lion_cards/PRT.png"></div>
-                
+                <div class="mini-card"><img src="lion_cards/PRT.png"></div>
                 <div style="font-size:0.8rem; margin-left:5px;">
-                    <span class="highlight-good">Manes: All Round (Same)</span><br>
-                    <span class="highlight-good">Tails: Sq, Cir, Tri (Diff)</span><br>
-                    <span class="highlight-bad">Colors: 2 Yellow, 1 Pink (Mixed!)</span> 🚫
+                    <span class="highlight-good">Manes: Same</span><br>
+                    <span class="highlight-good">Tails: Diff</span><br>
+                    <span class="highlight-bad">Colors: Mixed!</span> 🚫
                 </div>
             </div>
 
@@ -381,40 +397,25 @@
                 masterGain.gain.setValueAtTime(0.1, now); masterGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.connect(masterGain); osc.start(now); osc.stop(now + 0.1);
             } 
-            else if (type === 'match') {
-                // Not used for success anymore, repurposed for generic ding if needed, 
-                // but we use ROAR for success now.
-                const osc = this.ctx.createOscillator(); osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
-                masterGain.gain.setValueAtTime(0.1, now); masterGain.gain.linearRampToValueAtTime(0, now + 0.5);
-                osc.connect(masterGain); osc.start(now); osc.stop(now + 0.5);
-            }
             else if (type === 'error') {
-                // BEEP / BUZZ for wrong answer
                 const osc = this.ctx.createOscillator(); osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now + 0.3);
                 masterGain.gain.setValueAtTime(0.2, now); masterGain.gain.linearRampToValueAtTime(0, now + 0.3);
                 osc.connect(masterGain); osc.start(now); osc.stop(now + 0.3);
             }
             else if (type === 'roar') {
-                // ROAR for SUCCESS
                 const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
                 const noiseFilter = this.ctx.createBiquadFilter(); noiseFilter.type = 'lowpass'; noiseFilter.Q.value = 5;
-                noiseFilter.frequency.setValueAtTime(200, now);
-                noiseFilter.frequency.linearRampToValueAtTime(800, now + 0.2);
-                noiseFilter.frequency.linearRampToValueAtTime(100, now + 0.8);
+                noiseFilter.frequency.setValueAtTime(200, now); noiseFilter.frequency.linearRampToValueAtTime(800, now + 0.2); noiseFilter.frequency.linearRampToValueAtTime(100, now + 0.8);
                 const noiseGain = this.ctx.createGain();
                 noiseGain.gain.setValueAtTime(0, now); noiseGain.gain.linearRampToValueAtTime(0.5, now + 0.1); noiseGain.gain.linearRampToValueAtTime(0, now + 0.8);
                 noiseSrc.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(masterGain);
-                
                 const growlOsc = this.ctx.createOscillator(); growlOsc.type = 'sawtooth';
                 growlOsc.frequency.setValueAtTime(50, now); growlOsc.frequency.linearRampToValueAtTime(40, now + 0.8);
                 const growlGain = this.ctx.createGain();
                 growlGain.gain.setValueAtTime(0, now); growlGain.gain.linearRampToValueAtTime(0.3, now + 0.1); growlGain.gain.linearRampToValueAtTime(0, now + 0.8);
                 growlOsc.connect(growlGain); growlGain.connect(masterGain);
-
-                noiseSrc.start(now); noiseSrc.stop(now + 0.9);
-                growlOsc.start(now); growlOsc.stop(now + 0.9);
+                noiseSrc.start(now); noiseSrc.stop(now + 0.9); growlOsc.start(now); growlOsc.stop(now + 0.9);
             }
             else if (type === 'win') {
                 this.playNote(523.25, now, 0.2); this.playNote(659.25, now + 0.2, 0.2);
@@ -440,6 +441,8 @@
     const board = document.getElementById('game-board');
     const timeDisplay = document.getElementById('time');
     const scoreDisplay = document.getElementById('score');
+    const setsCountDisplay = document.getElementById('sets-count');
+    const setsContainer = document.getElementById('sets-container');
     const themeBtn = document.getElementById('theme-btn');
     const finishBtn = document.getElementById('finish-btn');
     const startScreen = document.getElementById('start-screen');
@@ -668,6 +671,14 @@
                     }
                 }
             }
+        }
+        
+        // --- UPDATE SETS COUNTER ---
+        setsCountDisplay.innerText = setsAvailable;
+        if (setsAvailable === 0) {
+            setsContainer.className = "sets-zero"; // Red/Pulse
+        } else {
+            setsContainer.className = "sets-avail"; // Green
         }
         
         // If all cards revealed (no hidden) AND no sets available, GAME OVER
