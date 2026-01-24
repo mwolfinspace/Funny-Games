@@ -21,7 +21,7 @@
             --gap: 15px; 
             --card-w: 80px; 
             --card-h: 100px;
-            /* UPDATED: Default font size set to MAX (5rem) */
+            /* Default font size set to MAX */
             --back-font-size: 5rem; 
         }
 
@@ -175,7 +175,7 @@
         /* --- Click Blocker --- */
         #input-blocker { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 500; cursor: pointer; }
         #wait-hint { position: fixed; bottom: 20px; width: 100%; text-align: center; color: var(--text); font-weight: bold; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 600; text-shadow: 0 0 5px white; }
-
+    
         a.return-to-menu {
             position: fixed; top: 10px; left: 10px;
             font-size: 24px; background-color: rgba(0,0,0,0.2); color: white;
@@ -213,6 +213,7 @@
         </div>
 
         <div class="hud-group">
+            <button onclick="toggleFullscreen()" id="fullscreen-btn" title="Toggle Fullscreen">⛶</button>
             <button onclick="toggleTheme()" id="theme-btn">☀</button>
             <button class="danger-btn" onclick="giveUp()" title="Finish Game">🏁</button>
             <button onclick="resetGameStorm()">↺</button>
@@ -242,8 +243,7 @@
     let waitTimer = null; 
     let isProcessing = false; 
     let isDarkMode = false;
-    // UPDATED: Default text size set to 5.0 (Max)
-    let currentTextSize = 5.0; 
+    let currentTextSize = 5.0; // Max default
     let confettiActive = false;
 
     // DOM Elements
@@ -253,6 +253,7 @@
     const waitHint = document.getElementById('wait-hint');
     const startScreen = document.getElementById('start-screen');
     const themeBtn = document.getElementById('theme-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
 
     // --- SOUND MANAGER ---
     const SoundManager = {
@@ -368,10 +369,29 @@
     window.adjustTextSize = function(delta) {
         currentTextSize += delta;
         if(currentTextSize < 1.0) currentTextSize = 1.0;
-        // UPDATED: Max limit increased to 5.0
         if(currentTextSize > 5.0) currentTextSize = 5.0;
         document.documentElement.style.setProperty('--back-font-size', `${currentTextSize}rem`);
     }
+
+    // --- FULLSCREEN LOGIC ---
+    window.toggleFullscreen = function() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
+    // Update icon on state change
+    document.addEventListener('fullscreenchange', () => {
+        fullscreenBtn.innerText = document.fullscreenElement ? '✖' : '⛶';
+        // Re-calculate grid when screen size changes drastically
+        setTimeout(calculateGridStrategy, 200); 
+    });
 
     // --- RENDERING ---
     function renderBoard() {
