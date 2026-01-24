@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lion Memory Match</title>
+    <style>
+        :root {
+            /* Light Mode (Default) */
+            --bg-color: #ecf0f1;
+            --hud-bg: rgba(255,255,255,0.95);
+            --card-back: #2c3e50; 
+            --card-face: #ffffff;
+            --accent: #2980b9;
+            --text: #2c3e50;
+            --success: #27ae60;
+            --error: #c0392b;
+            --number-color: #ffffff; 
+            
+            /* Dynamic Sizes */
+            --gap: 15px; 
+            --card-w: 80px; 
+            --card-h: 100px;
+            /* UPDATED: Default font size set to MAX (5rem) */
+            --back-font-size: 5rem; 
+        }
+
+        /* Dark Mode Override */
+        body.dark-mode {
+            --bg-color: #1a1a1a;
+            --hud-bg: rgba(30, 30, 30, 0.95);
+            --card-back: #000000;
+            --card-face: #2c3e50;
+            --accent: #3498db;
+            --text: #ecf0f1;
+            --success: #2ecc71;
+            --number-color: #f1c40f; 
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh; width: 100vw;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- HUD (Controls on Right) --- */
+        #hud {
+            height: auto; min-height: 70px;
+            display: flex; flex-wrap: wrap; 
+            justify-content: flex-end; 
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--hud-bg);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .hud-group {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(128,128,128,0.1);
+            padding: 5px 8px; border-radius: 8px;
+        }
+
+        button {
+            background-color: var(--accent); border: none; color: white;
+            padding: 8px 12px; border-radius: 6px; cursor: pointer;
+            font-size: 0.9rem; font-weight: bold;
+            transition: transform 0.1s, filter 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        
+        .icon-btn { font-size: 1.2rem; padding: 5px 10px; }
+        .danger-btn { background-color: var(--error); }
+        
+        .card-ctrl { display: flex; align-items: center; gap: 5px; }
+        #card-count-display { font-family: monospace; font-size: 1.1rem; min-width: 25px; text-align: center; }
+
+        /* --- Game Board --- */
+        #game-board {
+            flex: 1; 
+            padding: 10px;
+            display: grid;
+            align-content: center; justify-content: center; 
+            gap: var(--gap);
+            perspective: 1000px;
+        }
+
+        /* --- Card --- */
+        .card {
+            width: var(--card-w); height: var(--card-h);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer; border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        
+        .card.storming { transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1); z-index: 1000; }
+        .card.flipped { transform: rotateY(180deg); }
+        .card.matched { cursor: default; pointer-events: none; }
+        .card.matched .face { border-color: var(--success); background-color: rgba(46, 204, 113, 0.1); }
+        .card.matched .matched-tick { opacity: 1; }
+
+        /* Dancing Lion (End Game) */
+        .card.dancing {
+            animation: jumpDance 1s infinite alternate ease-in-out;
+        }
+        
+        @keyframes jumpDance {
+            0% { transform: rotateY(180deg) translateY(0); }
+            50% { transform: rotateY(180deg) translateY(-20px) rotate(5deg); }
+            100% { transform: rotateY(180deg) translateY(0) rotate(-5deg); }
+        }
+
+        .face, .back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 0 2px rgba(0,0,0,0.1);
+            overflow: hidden;
+            background-color: white; 
+        }
+
+        .back {
+            background-color: var(--card-back);
+            color: var(--number-color);
+            font-size: var(--back-font-size); 
+            font-weight: 900;
+            z-index: 2;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5); 
+        }
+
+        .face {
+            background-color: var(--card-face);
+            transform: rotateY(180deg);
+            border: 2px solid #bdc3c7;
+            z-index: 1; 
+        }
+
+        .card-img { width: 90%; height: 90%; object-fit: contain; }
+        
+        .matched-tick {
+            position: absolute; font-size: 3rem; color: var(--success);
+            opacity: 0; transition: opacity 0.3s; z-index: 5;
+            text-shadow: 0 2px 4px rgba(255,255,255,1);
+            pointer-events: none;
+        }
+
+        /* --- Confetti --- */
+        #confetti-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1500;
+        }
+
+        /* --- Start Screen --- */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 2000;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column; transition: opacity 0.5s;
+        }
+        #start-btn { font-size: 2rem; padding: 20px 40px; border-radius: 50px; border: 4px solid white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* --- Click Blocker --- */
+        #input-blocker { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 500; cursor: pointer; }
+        #wait-hint { position: fixed; bottom: 20px; width: 100%; text-align: center; color: var(--text); font-weight: bold; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 600; text-shadow: 0 0 5px white; }
+    </style>
+</head>
+<body>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <div id="start-screen">
+        <h1 style="color:var(--text); margin-bottom:20px;">Lion Memory Match</h1>
+        <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+    </div>
+
+    <div id="hud">
+        <div class="hud-group">
+            <div class="card-ctrl">
+                <span>Cards:</span>
+                <button class="icon-btn" onclick="changeCardCount(-2)">-</button>
+                <span id="card-count-display">12</span>
+                <button class="icon-btn" onclick="changeCardCount(2)">+</button>
+            </div>
+        </div>
+
+        <div class="hud-group">
+            <span style="font-size:0.8rem">Size:</span>
+            <button class="icon-btn" onclick="adjustTextSize(-0.5)">T-</button>
+            <button class="icon-btn" onclick="adjustTextSize(0.5)">T+</button>
+        </div>
+
+        <div class="hud-group">
+            <button onclick="toggleTheme()" id="theme-btn">☀</button>
+            <button class="danger-btn" onclick="giveUp()" title="Finish Game">🏁</button>
+            <button onclick="resetGameStorm()">↺</button>
+        </div>
+    </div>
+
+    <div id="game-board"></div>
+
+    <div id="input-blocker" onclick="skipWait()"></div>
+    <div id="wait-hint">Tap anywhere to continue...</div>
+
+<script>
+    // --- CONFIG & STATE ---
+    const TOTAL_UNIQUE_LIONS = 27;
+    const COLORS = ['Y', 'P', 'G'];
+    const MANES = ['R', 'E', 'F'];
+    const TAILS = ['S', 'C', 'T'];
+    let allUniqueCodes = [];
+
+    // DEFAULT 12 CARDS
+    let currentCardCount = 12;
+    let deck = [];
+    let hasFlippedCard = false;
+    let lockBoard = false; 
+    let firstCard, secondCard;
+    let matchesFound = 0;
+    let waitTimer = null; 
+    let isProcessing = false; 
+    let isDarkMode = false;
+    // UPDATED: Default text size set to 5.0 (Max)
+    let currentTextSize = 5.0; 
+    let confettiActive = false;
+
+    // DOM Elements
+    const board = document.getElementById('game-board');
+    const displayCount = document.getElementById('card-count-display');
+    const blocker = document.getElementById('input-blocker');
+    const waitHint = document.getElementById('wait-hint');
+    const startScreen = document.getElementById('start-screen');
+    const themeBtn = document.getElementById('theme-btn');
+
+    // --- SOUND MANAGER ---
+    const SoundManager = {
+        ctx: new (window.AudioContext || window.webkitAudioContext)(),
+        playTone: function(freq, type, duration) {
+            if(this.ctx.state === 'suspended') this.ctx.resume();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.value = freq;
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); 
+            gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
+            osc.stop(this.ctx.currentTime + duration);
+        },
+        flip: () => SoundManager.playTone(600, 'sine', 0.1),
+        match: () => { SoundManager.playTone(400, 'sine', 0.1); setTimeout(() => SoundManager.playTone(800, 'sine', 0.2), 100); },
+        error: () => { SoundManager.playTone(150, 'sawtooth', 0.3); setTimeout(() => SoundManager.playTone(100, 'sawtooth', 0.3), 150); },
+        
+        // HAPPY TUNE
+        victory: () => {
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            const types = ['triangle', 'triangle', 'triangle', 'sine'];
+            notes.forEach((freq, i) => {
+                setTimeout(() => {
+                    SoundManager.playTone(freq, types[i], 0.3);
+                }, i * 150);
+            });
+        }
+    };
+
+    // --- INITIALIZATION ---
+    function generateAllCodes() {
+        allUniqueCodes = [];
+        COLORS.forEach(c => MANES.forEach(m => TAILS.forEach(t => allUniqueCodes.push(c + m + t))));
+    }
+
+    function startIntro() {
+        startScreen.style.opacity = '0';
+        setTimeout(() => startScreen.style.display = 'none', 500);
+        resetGameStorm();
+    }
+
+    function resetGameStorm() {
+        stopConfetti(); 
+        initGameLogic(); 
+        renderBoard();   
+        
+        isProcessing = true;
+        const cards = document.querySelectorAll('.card');
+        
+        cards.forEach(card => {
+            card.classList.add('storming');
+            const randX = (Math.random() - 0.5) * window.innerWidth * 1.5;
+            const randY = (Math.random() - 0.5) * window.innerHeight * 1.5;
+            const randRot = (Math.random() - 0.5) * 720; 
+            card.style.transform = `translate(${randX}px, ${randY}px) rotate(${randRot}deg) scale(0.5)`;
+        });
+
+        setTimeout(() => {
+            cards.forEach(card => card.style.transform = ''); 
+            setTimeout(() => {
+                cards.forEach(c => c.classList.remove('storming'));
+                isProcessing = false;
+            }, 1200);
+        }, 100);
+    }
+
+    function initGameLogic() {
+        hasFlippedCard = false;
+        lockBoard = false;
+        firstCard = null;
+        secondCard = null;
+        matchesFound = 0;
+        blocker.style.display = 'none';
+        waitHint.style.opacity = '0';
+        if(waitTimer) clearTimeout(waitTimer);
+
+        const pairsNeeded = currentCardCount / 2;
+        const shuffledUniques = [...allUniqueCodes].sort(() => 0.5 - Math.random());
+        const selected = shuffledUniques.slice(0, pairsNeeded);
+        deck = [...selected, ...selected];
+        deck.sort(() => 0.5 - Math.random());
+    }
+
+    // --- LOGIC ---
+    window.giveUp = function() {
+        if(isProcessing) return;
+        lockBoard = true; 
+        SoundManager.victory();
+        
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            if (!card.classList.contains('flipped')) {
+                card.classList.add('flipped');
+            }
+            const tick = card.querySelector('.matched-tick');
+            if(tick) tick.style.opacity = '0';
+
+            setTimeout(() => {
+                card.classList.add('dancing');
+            }, Math.random() * 500);
+        });
+
+        startConfetti();
+    }
+
+    window.toggleTheme = function() {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle('dark-mode', isDarkMode);
+        themeBtn.innerText = isDarkMode ? '🌙' : '☀';
+    }
+
+    window.adjustTextSize = function(delta) {
+        currentTextSize += delta;
+        if(currentTextSize < 1.0) currentTextSize = 1.0;
+        // UPDATED: Max limit increased to 5.0
+        if(currentTextSize > 5.0) currentTextSize = 5.0;
+        document.documentElement.style.setProperty('--back-font-size', `${currentTextSize}rem`);
+    }
+
+    // --- RENDERING ---
+    function renderBoard() {
+        board.innerHTML = '';
+        calculateGridStrategy();
+
+        deck.forEach((code, index) => {
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.dataset.code = code;
+            card.dataset.index = index;
+
+            const back = document.createElement('div');
+            back.classList.add('back');
+            back.innerText = index + 1;
+
+            const face = document.createElement('div');
+            face.classList.add('face');
+            
+            const img = document.createElement('img');
+            img.src = `lion_cards/${code}.png`;
+            img.classList.add('card-img');
+            img.onerror = function() { this.style.display = 'none'; face.innerText = code; };
+            
+            const tick = document.createElement('div');
+            tick.classList.add('matched-tick');
+            tick.innerText = '✔';
+
+            face.appendChild(img);
+            face.appendChild(tick);
+            card.appendChild(back);
+            card.appendChild(face);
+            
+            card.addEventListener('click', flipCard);
+            board.appendChild(card);
+        });
+    }
+
+    function calculateGridStrategy() {
+        const total = currentCardCount;
+        const areaW = board.clientWidth - 20; 
+        const areaH = board.clientHeight - 20;
+        const gap = 15;
+        const cardAspectRatio = 1.25; 
+
+        let bestConfig = { cols: 4, rows: 4, size: 0 };
+        
+        for (let cols = 2; cols <= Math.ceil(total/2) + 1; cols++) {
+            const rows = Math.ceil(total / cols);
+            const availW = (areaW - (cols - 1) * gap) / cols;
+            const availH = (areaH - (rows - 1) * gap) / rows;
+            const size = Math.min(availW, availH / cardAspectRatio);
+            
+            if (size > bestConfig.size) {
+                bestConfig = { cols: cols, rows: rows, size: size };
+            }
+        }
+        
+        let finalSize = Math.floor(bestConfig.size);
+        if(finalSize > 300) finalSize = 300;
+
+        document.documentElement.style.setProperty('--card-w', `${finalSize}px`);
+        document.documentElement.style.setProperty('--card-h', `${finalSize * cardAspectRatio}px`);
+        document.documentElement.style.setProperty('--gap', `${gap}px`);
+        board.style.gridTemplateColumns = `repeat(${bestConfig.cols}, var(--card-w))`;
+    }
+
+    // --- GAMEPLAY ---
+    function flipCard() {
+        if (isProcessing || lockBoard) return;
+        if (this === firstCard) return;
+        if (this.classList.contains('matched')) return;
+
+        this.classList.add('flipped');
+        SoundManager.flip();
+
+        if (!hasFlippedCard) {
+            hasFlippedCard = true;
+            firstCard = this;
+            return;
+        }
+
+        secondCard = this;
+        checkForMatch();
+    }
+
+    function checkForMatch() {
+        const isMatch = firstCard.dataset.code === secondCard.dataset.code;
+        isMatch ? disableCards() : unflipCards();
+    }
+
+    function disableCards() {
+        SoundManager.match();
+        
+        firstCard.classList.add('flipped', 'matched');
+        secondCard.classList.add('flipped', 'matched');
+        
+        firstCard.removeEventListener('click', flipCard);
+        secondCard.removeEventListener('click', flipCard);
+
+        matchesFound++;
+        resetBoardState();
+
+        if (matchesFound === currentCardCount / 2) {
+            setTimeout(giveUp, 500); 
+        }
+    }
+
+    function unflipCards() {
+        lockBoard = true;
+        SoundManager.error();
+
+        firstCard.classList.add('shake');
+        secondCard.classList.add('shake');
+
+        blocker.style.display = 'block';
+        waitHint.style.opacity = '1';
+
+        waitTimer = setTimeout(resetMismatchedCards, 3000);
+    }
+
+    function skipWait() {
+        if (!lockBoard) return;
+        if(waitTimer) clearTimeout(waitTimer);
+        resetMismatchedCards();
+    }
+
+    function resetMismatchedCards() {
+        if(!firstCard || !secondCard) return;
+        firstCard.classList.remove('flipped', 'shake');
+        secondCard.classList.remove('flipped', 'shake');
+        blocker.style.display = 'none';
+        waitHint.style.opacity = '0';
+        resetBoardState();
+    }
+
+    function resetBoardState() {
+        [hasFlippedCard, lockBoard] = [false, false];
+        [firstCard, secondCard] = [null, null];
+    }
+
+    window.changeCardCount = function(delta) {
+        let newCount = currentCardCount + delta;
+        if (newCount < 4) newCount = 4;
+        if (newCount > 54) newCount = 54;
+
+        if (newCount !== currentCardCount) {
+            currentCardCount = newCount;
+            displayCount.innerText = currentCardCount;
+            resetGameStorm();
+        }
+    }
+
+    // --- CONFETTI ---
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', () => { resizeCanvas(); calculateGridStrategy(); });
+    resizeCanvas();
+
+    function startConfetti() {
+        if (confettiActive) return;
+        confettiActive = true;
+        particles = [];
+        for(let i=0; i<150; i++) particles.push(createParticle());
+        animateConfetti();
+    }
+
+    function stopConfetti() {
+        confettiActive = false;
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        particles = [];
+    }
+
+    function createParticle() {
+        return {
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+            size: Math.random() * 10 + 5,
+            speedY: Math.random() * 3 + 2,
+            speedX: (Math.random() - 0.5) * 4,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 10
+        };
+    }
+
+    function animateConfetti() {
+        if (!confettiActive) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        particles.forEach((p, i) => {
+            p.y += p.speedY;
+            p.x += p.speedX;
+            p.rotation += p.rotationSpeed;
+            
+            if (p.y > canvas.height) {
+                particles[i] = createParticle(); 
+                particles[i].y = -20;
+            }
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation * Math.PI / 180);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+            ctx.restore();
+        });
+
+        requestAnimationFrame(animateConfetti);
+    }
+
+    generateAllCodes();
+    initGameLogic();
+    renderBoard();
+
+</script>
+</body>
+</html>
