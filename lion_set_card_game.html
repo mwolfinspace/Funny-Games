@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lion Set Match</title>
+    <style>
+        /* --- Themes --- */
+        :root {
+            /* Light Mode */
+            --bg-color: #ecf0f1;
+            --hud-bg: rgba(255,255,255,0.9);
+            --card-back: #95a5a6;
+            --card-face: #ffffff; 
+            --accent: #d35400;
+            --text: #2c3e50;
+            --border-color: rgba(0,0,0,0.1);
+            --hint-color: #f1c40f;
+            --finish-color: #e74c3c;
+            --gap: 10px;
+            --number-size: 1.4rem; 
+        }
+
+        body.dark-mode {
+            /* Dark Mode */
+            --bg-color: #2c3e50;
+            --hud-bg: rgba(0,0,0,0.6);
+            --card-back: #34495e;
+            --accent: #e67e22;
+            --text: #ffffff;
+            --border-color: rgba(255,255,255,0.1);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh; width: 100vw;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            user-select: none;
+        }
+
+        /* --- HUD --- */
+        #hud {
+            height: 60px;
+            display: flex; 
+            justify-content: flex-end; 
+            align-items: center;
+            padding: 0 20px;
+            background: var(--hud-bg);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 100;
+            gap: 20px;
+        }
+
+        .hud-group {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(127, 140, 141, 0.1);
+            padding: 5px 10px;
+            border-radius: 8px;
+        }
+
+        .stats { display: flex; gap: 15px; font-size: 1rem; font-weight: 600; }
+
+        button {
+            background-color: var(--accent); border: none; color: white;
+            padding: 6px 10px; border-radius: 6px; cursor: pointer;
+            font-size: 0.9rem; font-weight: bold;
+            transition: transform 0.1s, background-color 0.3s;
+            display: flex; align-items: center; justify-content: center;
+            gap: 5px; min-width: 32px;
+        }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        button:active { transform: translateY(0); }
+        button.secondary { background-color: #7f8c8d; }
+        button.hint-btn { background-color: var(--hint-color); color: #2c3e50; }
+        button.help-btn { background-color: #3498db; font-size: 1.1rem; font-weight: 900; width: 35px; }
+        
+        button.finish-btn {
+            background-color: var(--finish-color);
+            display: none; 
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .font-ctrl { background-color: #bdc3c7; color: #333; padding: 6px 8px; font-family: monospace; }
+        body.dark-mode .font-ctrl { background-color: #34495e; color: #fff; }
+
+        /* --- Game Board --- */
+        #game-board {
+            flex: 1; padding: 10px;
+            display: flex; flex-wrap: wrap; justify-content: center; align-content: center;
+            gap: var(--gap);
+            perspective: 1200px;
+            position: relative; 
+        }
+
+        /* --- Card Styles --- */
+        .card {
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1), opacity 0.5s;
+            cursor: pointer; border-radius: 12px; z-index: 10;
+        }
+        
+        .card.storming { transition: transform 1.5s cubic-bezier(0.25, 1, 0.5, 1); z-index: 1000; }
+        .card.victory-dance { animation: victoryJump 2s ease-in-out infinite; }
+
+        @keyframes victoryJump {
+            0%, 100% { transform: rotateY(180deg) translateY(0); }
+            50% { transform: rotateY(180deg) translateY(-30px) rotateZ(5deg); }
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+        .card.matched { opacity: 0.4; pointer-events: none; cursor: default; box-shadow: none; filter: grayscale(1); }
+        .card.selected .face { border: 4px solid #3498db; box-shadow: 0 0 15px #3498db; }
+        .card.hint-active .face { border: 4px solid var(--hint-color); box-shadow: 0 0 20px var(--hint-color); }
+
+        .face, .back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15); overflow: hidden;
+        }
+
+        .back {
+            background-color: var(--card-back);
+            color: rgba(255,255,255,0.2); 
+            font-size: 2.5rem; font-weight: bold;
+            border: 1px solid var(--border-color);
+            z-index: 2; transform: rotateY(0deg); 
+        }
+
+        .face {
+            background-color: var(--card-face);
+            transform: rotateY(180deg); 
+            border: 1px solid #bdc3c7;
+            z-index: 1; padding: 5px; box-sizing: border-box;
+        }
+
+        .card-img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+        .fallback-text { display: none; font-size: 1.5rem; font-weight: bold; color: #333; border: 2px dashed #999; padding: 5px; border-radius: 5px; }
+
+        .card-number {
+            position: absolute; top: 0; left: 0; width: 100%;
+            padding-top: 5px; padding-left: 8px; text-align: left;
+            font-size: var(--number-size); font-weight: 800; z-index: 20; pointer-events: none;
+        }
+        .back .card-number { color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .face .card-number { color: #333333; text-shadow: none; }
+
+        .persistent-tick {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; opacity: 0; z-index: 25; transition: opacity 0.5s;
+        }
+        .card.matched .back .persistent-tick { opacity: 1; }
+
+        .feedback-anim {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            font-size: 3rem; z-index: 30; opacity: 0; pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .fade-up { animation: fadeUp 0.8s forwards; }
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -100%) scale(1); }
+        }
+        .shake { animation: shake-flipped 0.5s ease-in-out; }
+        @keyframes shake-flipped {
+            0%, 100% { transform: rotateY(180deg) translateX(0); }
+            20% { transform: rotateY(180deg) translateX(-6px) rotateZ(-2deg); }
+            40% { transform: rotateY(180deg) translateX(6px) rotateZ(2deg); }
+            60% { transform: rotateY(180deg) translateX(-6px) rotateZ(-2deg); }
+            80% { transform: rotateY(180deg) translateX(6px) rotateZ(2deg); }
+        }
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 500;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(2px);
+            animation: fadeIn 0.3s ease;
+        }
+        .modal-content {
+            background: var(--bg-color); color: var(--text);
+            padding: 30px; border-radius: 20px;
+            max-width: 90%; width: 550px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            position: relative;
+            max-height: 90vh; overflow-y: auto;
+            border: 2px solid var(--border-color);
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- Help Visuals --- */
+        .help-example {
+            display: flex; align-items: center; justify-content: center;
+            gap: 10px; margin: 15px 0;
+            background: rgba(0,0,0,0.05); padding: 10px; border-radius: 10px;
+        }
+        .mini-card {
+            width: 50px; height: 70px;
+            border: 1px solid #ccc; border-radius: 6px;
+            background: white; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .mini-card img { width: 100%; height: 100%; object-fit: contain; }
+        .mini-result { font-size: 1.5rem; color: #555; }
+        .rule-text { text-align: left; font-size: 1rem; line-height: 1.5; margin-bottom: 5px; }
+        .rule-list { list-style: none; padding: 0; text-align: left; margin: 10px 0; }
+        .rule-list li { padding: 5px 0; border-bottom: 1px solid var(--border-color); }
+        .highlight-good { color: #27ae60; font-weight: bold; }
+        .highlight-bad { color: #c0392b; font-weight: bold; }
+        .strong { font-weight: bold; }
+
+        /* --- Start Screen --- */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            z-index: 300;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+        #start-btn {
+            font-size: 2rem; padding: 20px 40px;
+            background-color: var(--accent); color: white;
+            border-radius: 50px; border: 4px solid white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        a.return-to-menu {
+            position: fixed; top: 10px; left: 10px;
+            font-size: 24px; background-color: rgba(0,0,0,0.2); color: white;
+            padding: 10px; border-radius: 5px; text-decoration: none;
+            opacity: 0.5; transition: opacity 0.3s, background-color 0.3s;
+            z-index: 1000;
+        }
+        a.return-to-menu:hover { opacity: 1; background-color: rgba(0,0,0,0.5); }
+
+        @media (max-width: 600px) {
+            #hud { padding: 0 10px; gap: 10px; }
+            .stats { font-size: 0.8rem; gap: 8px; }
+            button { padding: 4px 8px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+<a class="return-to-menu" href="index.html">🏠</a>
+
+    <div id="start-screen">
+        <h1 style="color:var(--text); margin-bottom:20px;">Lion Set Match</h1>
+        <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+    </div>
+
+    <div id="hud">
+        <div class="hud-group">
+            <div class="stats">
+                <span>⏱️ <span id="time">00:00</span></span>
+                <span>✅ <span id="score">0</span></span>
+            </div>
+        </div>
+
+        <div class="hud-group">
+            <button class="hint-btn" onclick="useHint()">💡</button>
+            <button onclick="resetGame()">↻</button>
+            <button id="finish-btn" class="finish-btn" onclick="endGameManual()">🏁</button>
+            
+            <button class="font-ctrl" onclick="adjustFontSize(-1)">A-</button>
+            <button class="font-ctrl" onclick="adjustFontSize(1)">A+</button>
+            <button id="mute-btn" class="secondary" onclick="SoundManager.toggleMute()">🔊</button>
+            <button class="secondary" onclick="toggleTheme()" id="theme-btn">🌙</button>
+            
+            <button class="help-btn" onclick="showHelp()">?</button>
+        </div>
+    </div>
+
+    <div id="game-board"></div>
+
+    <canvas id="confetti" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; display:none;"></canvas>
+
+    <div id="modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modal-title" style="color:var(--accent); font-size: 2.5rem;">Game Over!</h2>
+            <div id="compliment" style="font-size:1.5rem; color:#f1c40f; margin:15px 0;"></div>
+            <div id="final-stats" style="font-size: 1.2rem; line-height: 1.6;"></div>
+            <br>
+            <button onclick="resetGame()" style="font-size:1.2rem; padding:12px 30px; margin: 0 auto;">Play Again</button>
+        </div>
+    </div>
+
+    <div id="help-modal" class="modal-overlay">
+        <div class="modal-content" style="text-align: left;">
+            <h2 style="color:var(--accent); text-align:center;">How to Play (The "Roar" Rule)</h2>
+            
+            <p class="rule-text">Pick <b>3 Lions</b> to make them Roar!</p>
+            <p class="rule-text">For each feature (<b>Color, Mane, Tail</b>), the 3 cards must be either:</p>
+            <p class="rule-text" style="text-align:center;"><b>ALL THE SAME</b> <br>-- OR --<br> <b>ALL DIFFERENT</b></p>
+
+            <h3 style="text-align:center; margin-top:20px;">✅ Valid Roar</h3>
+            <div class="help-example" style="border-left: 5px solid #27ae60;">
+                <div class="mini-card"><img src="lion_cards/YRS.png"></div>
+                <div class="mini-card"><img src="lion_cards/YES.png"></div>
+                <div class="mini-card"><img src="lion_cards/YFS.png"></div>
+                
+                <div style="font-size:0.8rem; margin-left:5px;">
+                    <span class="highlight-good">Colors: All Yellow (Same)</span><br>
+                    <span class="highlight-good">Tails: All Square (Same)</span><br>
+                    <span class="highlight-good">Manes: Round, Edgy, Flower (Diff)</span>
+                </div>
+            </div>
+
+            <h3 style="text-align:center;">❌ No Roar (Invalid)</h3>
+            <div class="help-example" style="border-left: 5px solid #c0392b;">
+                <div class="mini-card"><img src="lion_cards/YRS.png"></div>
+                <div class="mini-card"><img src="lion_cards/YRC.png"></div>
+                 <div class="mini-card"><img src="lion_cards/PRT.png"></div>
+                
+                <div style="font-size:0.8rem; margin-left:5px;">
+                    <span class="highlight-good">Manes: All Round (Same)</span><br>
+                    <span class="highlight-good">Tails: Sq, Cir, Tri (Diff)</span><br>
+                    <span class="highlight-bad">Colors: 2 Yellow, 1 Pink (Mixed!)</span> 🚫
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top:20px;">
+                <button onclick="hideHelp()" style="font-size:1.2rem; padding:10px 30px;">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- SOUND MANAGER ---
+    const SoundManager = {
+        ctx: null, isMuted: false, noiseBuffer: null,
+
+        init: function() {
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            this.createNoiseBuffer();
+        },
+
+        createNoiseBuffer: function() {
+            if (!this.ctx) return;
+            const bufferSize = this.ctx.sampleRate * 2.0;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            this.noiseBuffer = buffer;
+        },
+
+        toggleMute: function() {
+            this.isMuted = !this.isMuted;
+            document.getElementById('mute-btn').innerText = this.isMuted ? '🔇' : '🔊';
+        },
+
+        play: function(key) {
+            if (this.isMuted || !this.ctx) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+            this.synth(key);
+        },
+
+        synth: function(type) {
+            const now = this.ctx.currentTime;
+            const masterGain = this.ctx.createGain();
+            masterGain.connect(this.ctx.destination);
+
+            if (type === 'flip') {
+                const osc = this.ctx.createOscillator(); osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                masterGain.gain.setValueAtTime(0.1, now); masterGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.connect(masterGain); osc.start(now); osc.stop(now + 0.1);
+            } 
+            else if (type === 'match') {
+                // Not used for success anymore, repurposed for generic ding if needed, 
+                // but we use ROAR for success now.
+                const osc = this.ctx.createOscillator(); osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
+                masterGain.gain.setValueAtTime(0.1, now); masterGain.gain.linearRampToValueAtTime(0, now + 0.5);
+                osc.connect(masterGain); osc.start(now); osc.stop(now + 0.5);
+            }
+            else if (type === 'error') {
+                // BEEP / BUZZ for wrong answer
+                const osc = this.ctx.createOscillator(); osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                masterGain.gain.setValueAtTime(0.2, now); masterGain.gain.linearRampToValueAtTime(0, now + 0.3);
+                osc.connect(masterGain); osc.start(now); osc.stop(now + 0.3);
+            }
+            else if (type === 'roar') {
+                // ROAR for SUCCESS
+                const noiseSrc = this.ctx.createBufferSource(); noiseSrc.buffer = this.noiseBuffer;
+                const noiseFilter = this.ctx.createBiquadFilter(); noiseFilter.type = 'lowpass'; noiseFilter.Q.value = 5;
+                noiseFilter.frequency.setValueAtTime(200, now);
+                noiseFilter.frequency.linearRampToValueAtTime(800, now + 0.2);
+                noiseFilter.frequency.linearRampToValueAtTime(100, now + 0.8);
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(0, now); noiseGain.gain.linearRampToValueAtTime(0.5, now + 0.1); noiseGain.gain.linearRampToValueAtTime(0, now + 0.8);
+                noiseSrc.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(masterGain);
+                
+                const growlOsc = this.ctx.createOscillator(); growlOsc.type = 'sawtooth';
+                growlOsc.frequency.setValueAtTime(50, now); growlOsc.frequency.linearRampToValueAtTime(40, now + 0.8);
+                const growlGain = this.ctx.createGain();
+                growlGain.gain.setValueAtTime(0, now); growlGain.gain.linearRampToValueAtTime(0.3, now + 0.1); growlGain.gain.linearRampToValueAtTime(0, now + 0.8);
+                growlOsc.connect(growlGain); growlGain.connect(masterGain);
+
+                noiseSrc.start(now); noiseSrc.stop(now + 0.9);
+                growlOsc.start(now); growlOsc.stop(now + 0.9);
+            }
+            else if (type === 'win') {
+                this.playNote(523.25, now, 0.2); this.playNote(659.25, now + 0.2, 0.2);
+                this.playNote(783.99, now + 0.4, 0.2); this.playNote(1046.50, now + 0.6, 0.6);
+            }
+        },
+
+        playNote: function(freq, time, dur) {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.type = 'square'; osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.1, time); gain.gain.linearRampToValueAtTime(0, time + dur);
+            osc.start(time); osc.stop(time + dur);
+        }
+    };
+
+    // --- GAME LOGIC ---
+    const COLORS = ['Y', 'P', 'G']; const MANES  = ['R', 'E', 'F']; const TAILS  = ['S', 'C', 'T'];
+    let deck = []; let selectedCards = []; let matchesFound = 0; let errors = 0;
+    let startTime = null; let timerInterval = null; let isProcessing = false; let isIntroMode = false; let isDarkMode = false; let isPaused = false;
+    let currentFontSize = 1.4;
+
+    const board = document.getElementById('game-board');
+    const timeDisplay = document.getElementById('time');
+    const scoreDisplay = document.getElementById('score');
+    const themeBtn = document.getElementById('theme-btn');
+    const finishBtn = document.getElementById('finish-btn');
+    const startScreen = document.getElementById('start-screen');
+    const modal = document.getElementById('modal');
+    const helpModal = document.getElementById('help-modal');
+    const confettiCanvas = document.getElementById('confetti');
+
+    window.addEventListener('resize', () => { resizeCards(); if(confettiCanvas.style.display !== 'none') { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }});
+
+    function showHelp() { isPaused = true; helpModal.style.display = 'flex'; }
+    function hideHelp() { isPaused = false; helpModal.style.display = 'none'; }
+
+    function toggleTheme() {
+        isDarkMode = !isDarkMode;
+        if (isDarkMode) { document.body.classList.add('dark-mode'); themeBtn.innerText = '☀️'; } 
+        else { document.body.classList.remove('dark-mode'); themeBtn.innerText = '🌙'; }
+    }
+    
+    function adjustFontSize(dir) {
+        currentFontSize += (dir * 0.2);
+        if (currentFontSize < 0.8) currentFontSize = 0.8;
+        if (currentFontSize > 3.0) currentFontSize = 3.0;
+        document.documentElement.style.setProperty('--number-size', `${currentFontSize}rem`);
+    }
+
+    function startIntro() {
+        SoundManager.init();
+        startScreen.style.opacity = '0';
+        setTimeout(() => startScreen.style.display = 'none', 500);
+        resetLogic(); renderBoard(); 
+        isIntroMode = true; isProcessing = true; 
+        const cards = document.querySelectorAll('.card');
+        setTimeout(() => {
+            cards.forEach(card => {
+                card.classList.add('storming');
+                const randX = (Math.random() - 0.5) * window.innerWidth * 1.2;
+                const randY = (Math.random() - 0.5) * window.innerHeight * 1.2;
+                const randRot = (Math.random() - 0.5) * 720; 
+                card.style.transform = `translate(${randX}px, ${randY}px) rotate(${randRot}deg) scale(${0.5+Math.random()}) rotateY(180deg)`;
+            });
+        }, 50);
+        setTimeout(() => { cards.forEach(card => { card.style.transform = ''; setTimeout(() => card.classList.remove('storming'), 1500); }); }, 1600);
+        setTimeout(() => {
+            isIntroMode = false; isProcessing = false;
+            let indices = Array.from({length: 27}, (_, i) => i).sort(() => Math.random() - 0.5);
+            // REVEAL 6 CARDS initially
+            indices.slice(0, 6).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx], false));
+            checkGameState(); startTimer();
+        }, 3200);
+    }
+
+    function resetGame() {
+        modal.style.display = 'none';
+        confettiCanvas.style.display = 'none';
+        startScreen.style.display = 'flex';
+        startScreen.style.opacity = '1';
+        clearInterval(timerInterval);
+    }
+
+    function resetLogic() {
+        deck = generateDeck(); selectedCards = []; matchesFound = 0; errors = 0; isProcessing = false; isPaused = false;
+        clearInterval(timerInterval);
+        scoreDisplay.innerText = '0'; timeDisplay.innerText = '00:00';
+        finishBtn.style.display = 'none'; 
+    }
+
+    function startTimer() { startTime = Date.now(); timerInterval = setInterval(updateTimer, 1000); }
+
+    function updateTimer() {
+        if (isPaused) { startTime += 1000; return; }
+        const now = Date.now(); const diff = Math.floor((now - startTime) / 1000);
+        const m = Math.floor(diff / 60).toString().padStart(2, '0');
+        const s = (diff % 60).toString().padStart(2, '0');
+        timeDisplay.innerText = `${m}:${s}`;
+    }
+
+    function generateDeck() {
+        let cards = []; let id = 0;
+        for (let c = 0; c < 3; c++) for (let m = 0; m < 3; m++) for (let t = 0; t < 3; t++) 
+            cards.push({ id: id++, color: COLORS[c], mane: MANES[m], tail: TAILS[t], code: COLORS[c]+MANES[m]+TAILS[t], isRevealed: false, isMatched: false, index: 0 });
+        const shuffled = cards.sort(() => Math.random() - 0.5);
+        shuffled.forEach((c, i) => c.index = i);
+        return shuffled;
+    }
+
+    function renderBoard() {
+        board.innerHTML = '';
+        deck.forEach((card, index) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'card'; cardEl.id = `card-${index}`;
+            const back = document.createElement('div'); back.className = 'back';
+            back.innerHTML = `<div class="card-number">${index+1}</div><div class="persistent-tick">✅</div>`;
+            const face = document.createElement('div'); face.className = 'face';
+            const img = document.createElement('img'); img.src = `lion_cards/${card.code}.png`; img.className = 'card-img';
+            img.onerror = function() { this.style.display = 'none'; this.nextElementSibling.style.display = 'block'; };
+            const fallback = document.createElement('div'); fallback.className = 'fallback-text'; fallback.innerText = card.code;
+            face.appendChild(img); face.appendChild(fallback);
+            face.innerHTML += `<div class="card-number">${index+1}</div><div class="feedback-anim tick-anim">✅</div><div class="feedback-anim cross-anim">❌</div>`;
+            cardEl.appendChild(back); cardEl.appendChild(face);
+            cardEl.addEventListener('click', () => handleCardClick(index));
+            board.appendChild(cardEl);
+        });
+        resizeCards();
+    }
+
+    function resizeCards() {
+        const totalCards = 27; const boardW = board.clientWidth - 20; const boardH = board.clientHeight - 20; const gap = 10; let bestSize = 0;
+        for (let cols = 3; cols <= 9; cols++) {
+            const rows = Math.ceil(totalCards / cols);
+            const w = (boardW - (cols - 1) * gap) / cols; const h = (boardH - (rows - 1) * gap) / rows;
+            const size = Math.min(w, h); const cardW = size; const cardH = size * 1.25; 
+            if (cardH * rows + (rows-1)*gap <= boardH && cardW * cols + (cols-1)*gap <= boardW) {
+                if (cardW > bestSize) {
+                    bestSize = cardW;
+                    document.documentElement.style.setProperty('--card-w', `${cardW}px`); document.documentElement.style.setProperty('--card-h', `${cardH}px`);
+                }
+            }
+        }
+        document.querySelectorAll('.card').forEach(c => {
+            c.style.width = document.documentElement.style.getPropertyValue('--card-w') || '80px';
+            c.style.height = document.documentElement.style.getPropertyValue('--card-h') || '100px';
+        });
+    }
+
+    function handleCardClick(index) {
+        if (isProcessing || isIntroMode || isPaused) return;
+        const cardObj = deck[index]; const cardEl = document.getElementById(`card-${index}`);
+        if (cardObj.isMatched) return;
+        
+        // Flip unrevealed card
+        if (!cardObj.isRevealed) {
+            SoundManager.play('flip'); 
+            flipCard(cardEl, cardObj, true); 
+            checkGameState(); 
+            return;
+        }
+        
+        // Select logic
+        toggleSelection(cardEl, cardObj);
+    }
+
+    function flipCard(el, obj, playSound=false) { el.classList.add('flipped'); obj.isRevealed = true; }
+
+    function toggleSelection(el, obj) {
+        // If already selected, deselect
+        if (selectedCards.includes(obj)) {
+            el.classList.remove('selected'); 
+            selectedCards = selectedCards.filter(c => c !== obj); 
+            SoundManager.play('flip'); 
+            return;
+        }
+        
+        // Add to selection
+        el.classList.add('selected'); 
+        selectedCards.push(obj); 
+        SoundManager.play('flip');
+        
+        // Check for set when 3 selected
+        if (selectedCards.length === 3) checkSet();
+    }
+
+    // --- SET LOGIC: All Same OR All Different ---
+    function isAttributeSet(a, b, c) {
+        return (a === b && b === c) || (a !== b && b !== c && a !== c);
+    }
+
+    function checkSetLogic(c1, c2, c3) {
+        return isAttributeSet(c1.color, c2.color, c3.color) &&
+               isAttributeSet(c1.mane, c2.mane, c3.mane) &&
+               isAttributeSet(c1.tail, c2.tail, c3.tail);
+    }
+
+    function checkSet() {
+        isProcessing = true;
+        const [c1, c2, c3] = selectedCards;
+        const el1 = document.getElementById(`card-${c1.index}`); 
+        const el2 = document.getElementById(`card-${c2.index}`);
+        const el3 = document.getElementById(`card-${c3.index}`);
+        
+        const isSuccess = checkSetLogic(c1, c2, c3);
+
+        if (isSuccess) {
+            SoundManager.play('roar'); // ROAR for success
+            showFeedback(el1, 'tick-anim'); showFeedback(el2, 'tick-anim'); showFeedback(el3, 'tick-anim');
+            setTimeout(() => {
+                [el1, el2, el3].forEach(el => el.classList.remove('selected', 'hint-active', 'flipped', 'matched'));
+                [el1, el2, el3].forEach(el => el.classList.add('matched'));
+                
+                c1.isMatched = true; c2.isMatched = true; c3.isMatched = true;
+                
+                matchesFound++; scoreDisplay.innerText = matchesFound;
+                selectedCards = []; isProcessing = false; checkGameState(); 
+            }, 600);
+        } else {
+            SoundManager.play('error'); // BEEP for error
+            setTimeout(() => {
+                showFeedback(el1, 'cross-anim'); showFeedback(el2, 'cross-anim'); showFeedback(el3, 'cross-anim');
+                el1.classList.add('shake'); el2.classList.add('shake'); el3.classList.add('shake');
+                errors++;
+                setTimeout(() => {
+                    [el1, el2, el3].forEach(el => el.classList.remove('selected', 'shake'));
+                    selectedCards = []; isProcessing = false;
+                }, 600);
+            }, 400);
+        }
+    }
+
+    function showFeedback(el, type) {
+        const fb = el.querySelector(`.${type}`);
+        fb.classList.remove('fade-up'); void fb.offsetWidth; fb.classList.add('fade-up');
+    }
+
+    function checkGameState() {
+        const hidden = deck.filter(c => !c.isRevealed);
+        const unmatched = deck.filter(c => c.isRevealed && !c.isMatched);
+        
+        let setsAvailable = 0;
+        // Brute force check all triplets of revealed cards
+        if (unmatched.length >= 3) {
+            for (let i = 0; i < unmatched.length; i++) {
+                for (let j = i + 1; j < unmatched.length; j++) {
+                    for (let k = j + 1; k < unmatched.length; k++) {
+                        if (checkSetLogic(unmatched[i], unmatched[j], unmatched[k])) {
+                            setsAvailable++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If all cards revealed (no hidden) AND no sets available, GAME OVER
+        if (hidden.length === 0) {
+            finishBtn.style.display = 'flex';
+            if (setsAvailable === 0) {
+                // Check if any cards left matched?
+                const left = deck.filter(c => !c.isMatched);
+                // If 0, 1, or 2 cards left, impossible to make a set
+                if (left.length < 3) {
+                     setTimeout(() => endGame("Completed!"), 500);
+                } else {
+                     setTimeout(() => endGame("No moves left!"), 500);
+                }
+            }
+        }
+    }
+
+    function useHint() {
+        if (isProcessing || isPaused) return;
+        const candidates = deck.filter(c => c.isRevealed && !c.isMatched);
+        let setFound = null;
+        
+        for (let i = 0; i < candidates.length; i++) {
+            for (let j = i + 1; j < candidates.length; j++) {
+                for (let k = j + 1; k < candidates.length; k++) {
+                    if (checkSetLogic(candidates[i], candidates[j], candidates[k])) {
+                        setFound = [candidates[i], candidates[j], candidates[k]];
+                        break;
+                    }
+                }
+                if (setFound) break;
+            }
+            if (setFound) break;
+        }
+        
+        if (setFound) {
+            SoundManager.play('flip');
+            const els = setFound.map(c => document.getElementById(`card-${c.index}`));
+            els.forEach(el => {
+                el.classList.add('hint-anim', 'hint-active');
+                setTimeout(() => { 
+                    el.classList.remove('hint-anim'); 
+                    setTimeout(() => el.classList.remove('hint-active'), 2000); 
+                }, 1200);
+            });
+        } else {
+            SoundManager.play('error');
+            const btn = document.querySelector('.hint-btn'); const originalText = btn.innerText;
+            btn.innerText = "✖"; btn.style.backgroundColor = "#e74c3c";
+            setTimeout(() => { btn.innerText = originalText; btn.style.backgroundColor = ""; }, 1500);
+        }
+    }
+
+    function endGameManual() { endGame("Finished!"); }
+
+    function endGame(customTitle) {
+        clearInterval(timerInterval); SoundManager.play('win'); 
+        const timePlayed = timeDisplay.innerText; const totalAttempts = matchesFound + errors;
+        const ratio = totalAttempts === 0 ? 0 : Math.round((matchesFound / totalAttempts) * 100);
+        let compliment = "";
+        if (customTitle.includes("No moves")) compliment = "No sets left! Good game.";
+        else if (errors === 0 && matchesFound > 3) compliment = "Zero mistakes? You are a genius!";
+        else if (ratio > 80) compliment = "Great focus and accuracy!";
+        else compliment = "Good job! Try for fewer mistakes next time.";
+
+        document.getElementById('modal-title').innerText = customTitle;
+        document.getElementById('compliment').innerText = compliment;
+        document.getElementById('final-stats').innerHTML = `<p>Time: ${timePlayed}</p><p>Sets Found: ${matchesFound}</p><p>Mistakes: ${errors}</p><p>Accuracy: ${ratio}%</p>`;
+        modal.style.display = 'flex';
+        startConfetti(); triggerVictoryDance();
+    }
+
+    function triggerVictoryDance() {
+        document.querySelectorAll('.card').forEach(card => {
+            card.classList.add('flipped'); card.classList.remove('matched');
+            card.style.opacity = '1'; card.classList.add('victory-dance');
+            card.style.animationDelay = `${Math.random() * 2}s`;
+        });
+    }
+
+    function startConfetti() {
+        const canvas = document.getElementById("confetti"); 
+        canvas.style.display = "block";
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const pieces = []; const colors = ['#f1c40f', '#e74c3c', '#3498db', '#9b59b6', '#2ecc71'];
+        for (let i = 0; i < 200; i++) pieces.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height, w: Math.random() * 10 + 5, h: Math.random() * 10 + 5, c: colors[Math.floor(Math.random() * colors.length)], dy: Math.random() * 5 + 2, dx: Math.random() * 4 - 2 });
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); let active = false;
+            pieces.forEach(p => { ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.w, p.h); p.y += p.dy; p.x += p.dx; if (p.y < canvas.height) active = true; });
+            if (active) requestAnimationFrame(draw);
+        }
+        draw();
+    }
+</script>
+</body>
+</html>
