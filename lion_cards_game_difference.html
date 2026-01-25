@@ -182,10 +182,11 @@
         .modal-overlay {
             display: none;
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); /* Less dim for background visibility */
+            /* Lower opacity and no blur so we can see the dance clearly */
+            background: rgba(0,0,0,0.2); 
+            backdrop-filter: none;
             z-index: 500;
             justify-content: center; align-items: center;
-            backdrop-filter: blur(2px);
             animation: fadeIn 0.3s ease;
         }
         .modal-content {
@@ -308,7 +309,7 @@
         </div>
     </div>
 
-    <div id="help-modal" class="modal-overlay">
+    <div id="help-modal" class="modal-overlay" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);">
         <div class="modal-content" style="text-align: left;">
             <h2 style="color:var(--accent); text-align:center;">How to Play</h2>
             
@@ -652,7 +653,42 @@
         }
     }
 
-    function endGameManual() { endGame("Finished!"); }
+    function endGameManual() { 
+        isProcessing = true;
+        isPaused = true; 
+        clearInterval(timerInterval);
+        finishBtn.style.display = 'none';
+        autoResolvePairs(); 
+    }
+
+    function autoResolvePairs() {
+        const candidates = deck.filter(c => c.isRevealed && !c.isMatched);
+        let pairFound = null;
+
+        for (let i = 0; i < candidates.length; i++) {
+            for (let j = i + 1; j < candidates.length; j++) {
+                if (checkAntiMatch(candidates[i], candidates[j])) { 
+                    pairFound = [candidates[i], candidates[j]]; 
+                    break; 
+                }
+            }
+            if (pairFound) break;
+        }
+        
+        if (pairFound) {
+            SoundManager.play('match');
+            const c1 = pairFound[0]; const c2 = pairFound[1];
+            const el1 = document.getElementById(`card-${c1.index}`);
+            const el2 = document.getElementById(`card-${c2.index}`);
+            showFeedback(el1, 'tick-anim'); showFeedback(el2, 'tick-anim');
+            el1.classList.remove('selected', 'hint-active'); el2.classList.remove('selected', 'hint-active');
+            el1.classList.add('matched'); el2.classList.add('matched');
+            c1.isMatched = true; c2.isMatched = true;
+            setTimeout(autoResolvePairs, 300);
+        } else {
+            endGame("Finished!");
+        }
+    }
 
     function endGame(customTitle) {
         clearInterval(timerInterval); SoundManager.play('win'); 
