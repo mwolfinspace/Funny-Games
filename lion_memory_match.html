@@ -64,12 +64,6 @@
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
         }
 
-        .stats { 
-            display: flex; gap: 8px; font-size: 1.1rem; font-weight: 600; 
-            align-items: center;
-            white-space: nowrap;
-        }
-
         .hud-group {
             display: inline-flex; align-items: center; gap: 8px;
             background: rgba(128,128,128,0.1);
@@ -88,7 +82,7 @@
             font-weight: bold;
             padding: 5px 12px;
             border-radius: 4px; cursor: pointer;
-            min-width: 60px; max-width: 280px; 
+            min-width: 60px; max-width: 140px; 
             text-align: center;
             overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
             transition: background 0.3s, color 0.3s, border-color 0.3s;
@@ -265,9 +259,6 @@
     <div id="hud">
         <div class="hud-controls">
             <div class="hud-group">
-                <span class="stats">⏱️ <span id="time">00:00</span></span>
-            </div>
-            <div class="hud-group">
                 <div id="seed-display" onclick="copySeedToClipboard()" title="Tap to copy Seed">...</div>
                 <button class="icon-btn" onclick="openSeedModal()" title="Load Game">📂</button>
             </div>
@@ -298,8 +289,8 @@
 <script>
     // --- ULTRA SHORT COMPRESSION ENGINE V2 ---
     
-    // Base72 Alphabet
-    const BASE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()";
+    // Base71 Alphabet (0-9, a-z, A-Z + symbols)
+    const BASE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ#@!$%*<>?";
     const BASE_LEN = BigInt(BASE_CHARS.length);
 
     function toCustomBase(num) {
@@ -320,16 +311,6 @@
             num = num * BASE_LEN + BigInt(idx);
         }
         return num;
-    }
-
-    // Hash string to a 32bit integer
-    function hashString(str) {
-        let hash = 5381n;
-        for (let i = 0; i < str.length; i++) {
-            const charCode = BigInt(str.charCodeAt(i));
-            hash = ((hash << 5n) + hash) + charCode; // hash * 33 + charCode
-        }
-        return Number(hash & 0xFFFFFFFFn);
     }
 
     // PRNG (Mulberry32)
@@ -355,11 +336,9 @@
     let hasFlippedCard = false, lockBoard = false; 
     let firstCard, secondCard, matchesFound = 0;
     let waitTimer = null, isProcessing = false, isDarkMode = false, confettiActive = false;
-    let startTime = null, timerInterval = null, isPaused = false;
 
     // DOM
     const board = document.getElementById('game-board');
-    const timeDisplay = document.getElementById('time');
     const displayCount = document.getElementById('card-count-display');
     const blocker = document.getElementById('input-blocker');
     const waitHint = document.getElementById('wait-hint');
@@ -410,7 +389,6 @@
 
     function startIntro(fromSeed = false) {
         if(!fromSeed) resetGameStorm(); 
-        else startTimer();
         startScreen.style.opacity = '0';
         setTimeout(() => startScreen.style.display = 'none', 500);
     }
@@ -440,22 +418,16 @@
             setTimeout(() => {
                 cards.forEach(c => c.classList.remove('storming'));
                 isProcessing = false;
-                startTimer(); // Start timer after storm animation
             }, 1200);
         }, 100);
     }
 
     function initGameLogic(seed) {
-        hasFlippedCard = false; lockBoard = false; isProcessing = false;
+        hasFlippedCard = false; lockBoard = false;
         firstCard = null; secondCard = null;
         matchesFound = 0;
         blocker.style.display = 'none'; waitHint.style.opacity = '0';
         if(waitTimer) clearTimeout(waitTimer);
-
-        // Reset timer
-        if(timerInterval) clearInterval(timerInterval);
-        timeDisplay.innerText = "00:00";
-        startTime = null;
 
         const rng = createRNG(seed);
         const pairsNeeded = currentCardCount / 2;
@@ -483,26 +455,21 @@
         const multiplier = 3n ** BigInt(currentCardCount);
         const combined = (BigInt(currentDeckSeed) * multiplier) + stateBigInt;
         
-        return '#' + countChar + toCustomBase(combined);
+        return countChar + toCustomBase(combined);
     }
 
     function parseCompactSeed(str) {
-        try {
-            const countVal = fromCustomBase(str[0]); 
-            const count = Number(countVal);
-            // We only do a basic check here; applySeed handles more complex validation.
-            if(count < 4 || count > 54 || count % 2 !== 0) return null;
+        if(str.length < 2) throw "Too Short";
 
-            const combined = fromCustomBase(str.slice(1));
-            const multiplier = 3n ** BigInt(count);
-            
-            const stateVal = combined % multiplier;
-            const seedVal = combined / multiplier;
-            
-            return { count, seed: Number(seedVal), stateVal };
-        } catch(e) {
-            return null; // An invalid character was found in the string
-        }
+        const countVal = fromCustomBase(str[0]); 
+        const count = Number(countVal);
+        const combined = fromCustomBase(str.slice(1));
+        
+        const multiplier = 3n ** BigInt(count);
+        const stateVal = combined % multiplier;
+        const seedVal = combined / multiplier;
+        
+        return { count, seed: Number(seedVal), stateVal };
     }
 
     function copySeedToClipboard() {
@@ -515,17 +482,12 @@
     }
 
     function openSeedModal() {
-        isPaused = true;
-        stopConfetti();
-        document.querySelectorAll('.card.dancing').forEach(c => c.classList.remove('dancing'));
-
         seedInput.value = "";
         seedModal.style.display = "flex";
         seedInput.focus();
     }
 
     function closeSeedModal() {
-        isPaused = false;
         seedModal.style.display = "none";
     }
 
@@ -533,76 +495,48 @@
         const raw = seedInput.value.trim();
         if(!raw) return;
 
-        if (raw.startsWith('#')) {
-            const code = raw.slice(1);
-            // Heuristic: A real save code must be long.
-            if (code.length > 7) {
-                const data = parseCompactSeed(code);
-                if (data) {
-                    loadGameFromData(data);
-                    return;
+        try {
+            const data = parseCompactSeed(raw);
+            if(data.count < 4 || data.count > 54) throw "Invalid Count";
+
+            stopConfetti();
+            currentCardCount = data.count;
+            currentDeckSeed = data.seed;
+            displayCount.innerText = currentCardCount;
+
+            initGameLogic(currentDeckSeed);
+            renderBoard();
+
+            let sv = data.stateVal;
+            const cards = document.querySelectorAll('.card');
+            
+            for(let i = cards.length - 1; i >= 0; i--) {
+                const status = Number(sv % 3n);
+                sv /= 3n;
+                const card = cards[i];
+                if(status === 2) {
+                    card.classList.add('flipped', 'matched');
+                    matchesFound++;
+                } else if (status === 1) {
+                    card.classList.add('flipped');
+                    if (!hasFlippedCard) {
+                        firstCard = card; hasFlippedCard = true;
+                    } else {
+                        secondCard = card; lockBoard = true;
+                    }
                 }
             }
-            // If it's short (like #chase) or parsing failed, treat the content
-            // after the '#' as a simple seed.
-            startNewGameWithSeed(hashString(code), code);
 
-        } else {
-            // It's a simple seed (no '#').
-            startNewGameWithSeed(hashString(raw), raw);
+            updateSeedUI();
+            closeSeedModal();
+            startIntro(true); 
+            showToast("Game Loaded!");
+            if(matchesFound === currentCardCount/2) setTimeout(startVictoryDance, 500);
+
+        } catch(e) {
+            alert("Invalid Code");
+            console.error(e);
         }
-    }
-
-    function loadGameFromData(data) {
-        stopConfetti();
-        currentCardCount = data.count;
-        currentDeckSeed = data.seed;
-        displayCount.innerText = currentCardCount;
-
-        initGameLogic(currentDeckSeed);
-        renderBoard();
-
-        let sv = data.stateVal;
-        const cards = document.querySelectorAll('.card');
-        
-        for(let i = cards.length - 1; i >= 0; i--) {
-            const status = Number(sv % 3n);
-            sv /= 3n;
-            const card = cards[i];
-            if(status === 2) { // Matched
-                card.classList.add('flipped', 'matched');
-                matchesFound++;
-            } else if (status === 1) { // Flipped
-                card.classList.add('flipped');
-                if (!hasFlippedCard) {
-                    firstCard = card; hasFlippedCard = true;
-                } else {
-                    secondCard = card; lockBoard = true;
-                }
-            }
-        }
-
-        updateSeedUI();
-        closeSeedModal();
-        startIntro(true); 
-        showToast("Game Loaded From Code!");
-        if(matchesFound === currentCardCount/2) setTimeout(startVictoryDance, 500);
-    }
-
-    function startNewGameWithSeed(deckSeed, rawSeedStr) {
-        currentDeckSeed = deckSeed;
-
-        initGameLogic(deckSeed);
-        renderBoard();
-        updateSeedUI();
-        
-        closeSeedModal();
-        // Don't do a full storm reset, just the intro animation
-        startScreen.style.opacity = '0';
-        setTimeout(() => startScreen.style.display = 'none', 500);
-        startTimer();
-
-        showToast(`New Game Started With Seed "${rawSeedStr}"`);
     }
 
     function showToast(msg) {
@@ -612,7 +546,6 @@
 
     // --- GAMEPLAY HELPERS ---
     function startVictoryDance() {
-        if(timerInterval) clearInterval(timerInterval);
         SoundManager.victory();
         const cards = document.querySelectorAll('.card');
         cards.forEach((card) => {
@@ -655,7 +588,6 @@
 
     window.giveUp = function() {
         if (isProcessing) return;
-        if(timerInterval) clearInterval(timerInterval);
         lockBoard = true; isProcessing = true; 
         blocker.style.display = 'none'; waitHint.style.opacity = '0';
         if(waitTimer) clearTimeout(waitTimer);
@@ -761,21 +693,6 @@
         if (newCount !== currentCardCount) {
             currentCardCount = newCount; displayCount.innerText = currentCardCount; resetGameStorm();
         }
-    }
-
-    function startTimer() {
-        if (matchesFound === currentCardCount / 2) return; // Don't start if already won
-        startTime = Date.now();
-        if(timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(updateTimer, 1000);
-    }
-
-    function updateTimer() {
-        if (isPaused || !startTime) return;
-        const diff = Math.floor((Date.now() - startTime) / 1000);
-        const m = Math.floor(diff / 60).toString().padStart(2, '0');
-        const s = (diff % 60).toString().padStart(2, '0');
-        timeDisplay.innerText = `${m}:${s}`;
     }
 
     // --- CONFETTI ---
