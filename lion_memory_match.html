@@ -361,18 +361,15 @@
     }
 
     // --- LOGIC ---
-    window.giveUp = function() {
-        if(isProcessing) return;
-        lockBoard = true; 
+    function startVictoryDance() {
         SoundManager.victory();
-        
         const cards = document.querySelectorAll('.card');
-        cards.forEach((card, index) => {
+        cards.forEach((card) => {
             if (!card.classList.contains('flipped')) {
                 card.classList.add('flipped');
             }
             const tick = card.querySelector('.matched-tick');
-            if(tick) tick.style.opacity = '0';
+            if (tick) tick.style.opacity = '0';
 
             setTimeout(() => {
                 card.classList.add('dancing');
@@ -380,6 +377,74 @@
         });
 
         startConfetti();
+    }
+
+    function autoSolveNextPair() {
+        const unmatchedCards = Array.from(document.querySelectorAll('.card:not(.matched)'));
+        if (unmatchedCards.length < 2) {
+            // All pairs found
+            setTimeout(startVictoryDance, 3000);
+            return;
+        }
+
+        // Find a pair
+        let card1, card2;
+        for (let i = 0; i < unmatchedCards.length; i++) {
+            for (let j = i + 1; j < unmatchedCards.length; j++) {
+                if (unmatchedCards[i].dataset.code === unmatchedCards[j].dataset.code) {
+                    card1 = unmatchedCards[i];
+                    card2 = unmatchedCards[j];
+                    break;
+                }
+            }
+            if (card1) break;
+        }
+
+        if (card1 && card2) {
+            // A short delay before flipping to make it easier to follow
+            setTimeout(() => {
+                // Flip them if not already flipped
+                if (!card1.classList.contains('flipped')) {
+                    SoundManager.flip();
+                    card1.classList.add('flipped');
+                }
+                if (!card2.classList.contains('flipped')) {
+                    // Stagger the flip sound slightly
+                    setTimeout(() => SoundManager.flip(), 100);
+                    card2.classList.add('flipped');
+                }
+
+                // Match them after a short delay
+                setTimeout(() => {
+                    SoundManager.match();
+                    card1.classList.add('matched');
+                    card2.classList.add('matched');
+                    matchesFound++;
+                    
+                    // Continue after a delay
+                    setTimeout(autoSolveNextPair, 500);
+                }, 400);
+
+            }, 100);
+
+        } else {
+            // Should not happen if deck is correct, but as a fallback:
+            setTimeout(startVictoryDance, 3000);
+        }
+    }
+
+    window.giveUp = function() {
+        if (isProcessing) return;
+        lockBoard = true;
+        isProcessing = true; // Prevent other actions
+        
+        // Hide hint and blocker if they are visible
+        blocker.style.display = 'none';
+        waitHint.style.opacity = '0';
+        if(waitTimer) clearTimeout(waitTimer);
+        resetBoardState(); // Clear any selected cards
+
+        autoSolveNextPair();
     }
 
     window.toggleTheme = function() {
@@ -518,7 +583,7 @@
         resetBoardState();
 
         if (matchesFound === currentCardCount / 2) {
-            setTimeout(giveUp, 500); 
+            setTimeout(startVictoryDance, 500); 
         }
     }
 
