@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lion Anti-Match</title>
     <style>
-        * { box-sizing: border-box; }
         /* --- Themes --- */
         :root {
             /* Light Mode */
@@ -875,49 +874,21 @@
     }
 
     function resizeCards() {
-        const totalCards = 27;
-        const boardW = board.clientWidth - 20;
-        const boardH = board.clientHeight - 20;
-        const gap = 10;
-        let bestSize = 0;
-
-        const isPortrait = boardH > boardW;
-
-        if (isPortrait) {
-            // User requested a 4-column layout for phones (portrait mode)
-            const cols = 4;
-            const rows = Math.ceil(totalCards / cols); // 7 rows for 27 cards
-            const cellW = (boardW - (cols - 1) * gap) / cols;
-            const cellH = (boardH - (rows - 1) * gap) / rows;
-            bestSize = Math.floor(Math.min(cellW, cellH / 1.25));
-        } else {
-            // For landscape (desktop), find the best fit from a wider range of columns
-            for (let cols = 5; cols <= 9; cols++) {
-                const rows = Math.ceil(totalCards / cols);
-                const cellW = (boardW - (cols - 1) * gap) / cols;
-                const cellH = (boardH - (rows - 1) * gap) / rows;
-                const cardW = Math.floor(Math.min(cellW, cellH / 1.25));
+        const totalCards = 27; const boardW = board.clientWidth - 20; const boardH = board.clientHeight - 20; const gap = 10; let bestSize = 0;
+        for (let cols = 3; cols <= 9; cols++) {
+            const rows = Math.ceil(totalCards / cols);
+            const w = (boardW - (cols - 1) * gap) / cols; const h = (boardH - (rows - 1) * gap) / rows;
+            const size = Math.min(w, h); const cardW = size; const cardH = size * 1.25; 
+            if (cardH * rows + (rows-1)*gap <= boardH && cardW * cols + (cols-1)*gap <= boardW) {
                 if (cardW > bestSize) {
                     bestSize = cardW;
+                    document.documentElement.style.setProperty('--card-w', `${cardW}px`); document.documentElement.style.setProperty('--card-h', `${cardH}px`);
                 }
             }
         }
-        
-        // Fallback in case calculation fails or results in cards that are too small
-        if (bestSize < 20) {
-            const cols = isPortrait ? 4 : 6;
-            const rows = Math.ceil(totalCards / cols);
-            const cellW = (boardW - (cols - 1) * gap) / cols;
-            const cellH = (boardH - (rows - 1) * gap) / rows;
-            bestSize = Math.max(bestSize, Math.floor(Math.min(cellW, cellH / 1.25)));
-        }
-
-        const finalW = bestSize;
-        const finalH = Math.floor(finalW * 1.25);
-
         document.querySelectorAll('.card').forEach(c => {
-            c.style.width = `${finalW}px`;
-            c.style.height = `${finalH}px`;
+            c.style.width = document.documentElement.style.getPropertyValue('--card-w') || '80px';
+            c.style.height = document.documentElement.style.getPropertyValue('--card-h') || '100px';
         });
     }
 
