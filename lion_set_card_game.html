@@ -96,6 +96,9 @@
 
         button.finish-btn {
             background-color: var(--finish-color);
+        }
+        button.auto-finish-btn {
+            background-color: var(--finish-color);
             display: none; 
             animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -416,7 +419,8 @@
             <button class="hint-btn" onclick="useHint()">💡</button>
             <button onclick="resetGame()">↻</button>
             <button id="roar-btn" class="active" onclick="toggleRoarMode()">🦁</button>
-            <button id="finish-btn" class="finish-btn" onclick="endGameManual()">🏁</button>
+            <button id="giveup-btn" class="finish-btn" onclick="giveUpGame()">🏁 Give Up</button>
+            <button id="auto-finish-btn" class="auto-finish-btn" onclick="endGameManual()">🏁</button>
             <button class="font-ctrl" onclick="adjustFontSize(-1)">A-</button>
             <button class="font-ctrl" onclick="adjustFontSize(1)">A+</button>
             <button id="mute-btn" class="secondary" onclick="SoundManager.toggleMute()">🔊</button>
@@ -564,7 +568,7 @@
     const setsCountDisplay = document.getElementById('sets-count');
     const setsContainer = document.getElementById('sets-container');
     const themeBtn = document.getElementById('theme-btn');
-    const finishBtn = document.getElementById('finish-btn');
+    const finishBtn = document.getElementById('auto-finish-btn');
     const startScreen = document.getElementById('start-screen');
     const modal = document.getElementById('modal');
     const helpModal = document.getElementById('help-modal');
@@ -665,6 +669,8 @@
         updateSeedUI();
         startIntro(true); 
         startTimer();
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
     }
 
     function startNewGameWithSeed(seedVal) {
@@ -680,6 +686,8 @@
         updateSeedUI();
         startIntro(true);
         startTimer();
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
     }
 
     // --- STANDARD GAME FUNCS ---
@@ -743,9 +751,10 @@
         deck = generateDeck(rng); 
         selectedCards = []; matchesFound = 0; isProcessing = false; isPaused = false;
         clearInterval(timerInterval);
-        timeDisplay.innerText = '00:00'; finishBtn.style.display = 'none'; 
-        updateSeedUI();
-    }
+            timeDisplay.innerText = '00:00'; finishBtn.style.display = 'none'; 
+            const giveUpBtn = document.getElementById('giveup-btn');
+            if(giveUpBtn) giveUpBtn.style.display = 'flex';
+            updateSeedUI();    }
 
     function startTimer() { startTime = Date.now(); timerInterval = setInterval(updateTimer, 1000); }
     function updateTimer() {
@@ -914,6 +923,36 @@
         for (let i=0; i<cand.length; i++) { for (let j=i+1; j<cand.length; j++) { for (let k=j+1; k<cand.length; k++) { if (checkSetLogic(cand[i], cand[j], cand[k])) { set=[cand[i], cand[j], cand[k]]; break; } } if(set) break; } if(set) break; }
         if (set) { SoundManager.play('flip'); set.forEach(c => { const el = document.getElementById(`card-${c.index}`); el.classList.add('hint-anim', 'hint-active'); setTimeout(() => { el.classList.remove('hint-anim'); setTimeout(()=>el.classList.remove('hint-active'),2000); }, 1200); }); }
         else { SoundManager.play('error'); const btn = document.querySelector('.hint-btn'); const txt = btn.innerText; btn.innerText = "✖"; btn.style.background = "#e74c3c"; setTimeout(() => { btn.innerText=txt; btn.style.background = ""; }, 1500); }
+    }
+
+    function giveUpGame() {
+        if (isProcessing || isPaused) return;
+        isProcessing = true;
+        isPaused = true;
+        clearInterval(timerInterval);
+        
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if(giveUpBtn) giveUpBtn.style.display = 'none';
+
+        const autoFinishBtn = document.getElementById('auto-finish-btn');
+        if (autoFinishBtn) autoFinishBtn.style.display = 'none';
+
+        // 1. Flip all un-flipped cards
+        const unrevealed = deck.filter(c => !c.isRevealed);
+        unrevealed.forEach((card, i) => {
+            setTimeout(() => {
+                const el = document.getElementById(`card-${card.index}`);
+                if (el && !el.classList.contains('flipped')) {
+                    flipCard(el, card);
+                    SoundManager.play('flip');
+                }
+            }, i * 30);
+        });
+
+        // 2. After a delay, start auto-resolving sets
+        setTimeout(() => {
+            autoResolveSets();
+        }, unrevealed.length * 30 + 500);
     }
 
     function endGameManual() { isProcessing=true; isPaused=true; clearInterval(timerInterval); finishBtn.style.display='none'; autoResolveSets(); }

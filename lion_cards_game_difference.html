@@ -80,6 +80,9 @@
         button.hint-btn { background-color: var(--hint-color); color: #2c3e50; }
         button.help-btn { background-color: #3498db; font-size: 1.1rem; font-weight: 900; width: 35px; }
         
+        button.giveup-btn {
+            background-color: var(--finish-color);
+        }
         button.finish-btn {
             background-color: var(--finish-color);
             display: none; 
@@ -374,6 +377,7 @@
             </div>
             <button class="hint-btn" onclick="useHint()">💡</button>
             <button onclick="resetGame()">↻</button>
+            <button id="giveup-btn" class="giveup-btn" onclick="giveUpGame()">🏁 Give Up</button>
             <button id="finish-btn" class="finish-btn" onclick="endGameManual()">🏁</button>
             
             <button class="font-ctrl" onclick="adjustFontSize(-1)">A-</button>
@@ -738,6 +742,8 @@
         updateSeedUI();
         startIntro(true); 
         startTimer();
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
     }
 
     function startNewGameWithSeed(seedVal) {
@@ -753,6 +759,8 @@
         updateSeedUI();
         startIntro(true);
         startTimer();
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
     }
 
     function toggleTheme() {
@@ -821,6 +829,8 @@
         clearInterval(timerInterval);
         scoreDisplay.innerText = '0'; timeDisplay.innerText = '00:00';
         finishBtn.style.display = 'none'; 
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
         updateSeedUI();
     }
 
@@ -970,6 +980,34 @@
             btn.innerText = "✖"; btn.style.backgroundColor = "#e74c3c";
             setTimeout(() => { btn.innerText = originalText; btn.style.backgroundColor = ""; }, 1500);
         }
+    }
+
+    function giveUpGame() {
+        if (isProcessing || isPaused) return;
+        isProcessing = true;
+        isPaused = true;
+        clearInterval(timerInterval);
+
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'none';
+
+        const finishBtn = document.getElementById('finish-btn');
+        if (finishBtn) finishBtn.style.display = 'none';
+
+        const unrevealed = deck.filter(c => !c.isRevealed);
+        unrevealed.forEach((card, i) => {
+            setTimeout(() => {
+                const el = document.getElementById(`card-${card.index}`);
+                if (el && !el.classList.contains('flipped')) {
+                    flipCard(el, card, false);
+                    SoundManager.play('flip');
+                }
+            }, i * 30);
+        });
+
+        setTimeout(() => {
+            autoResolvePairs();
+        }, unrevealed.length * 30 + 500);
     }
 
     function endGameManual() { 
