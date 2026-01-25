@@ -238,10 +238,10 @@
         .modal-overlay {
             display: none;
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.2);
             z-index: 500;
             justify-content: center; align-items: center;
-            backdrop-filter: blur(2px);
+            backdrop-filter: none;
             animation: fadeIn 0.3s ease;
         }
         .modal-content {
@@ -866,7 +866,56 @@
         }
     }
 
-    function endGameManual() { endGame("Finished!"); }
+    function endGameManual() { 
+        isProcessing = true;
+        isPaused = true; 
+        clearInterval(timerInterval);
+        finishBtn.style.display = 'none';
+        autoResolveSets(); 
+    }
+
+    function autoResolveSets() {
+        const candidates = deck.filter(c => c.isRevealed && !c.isMatched);
+        let setFound = null;
+        if (candidates.length >= 3) {
+            for (let i = 0; i < candidates.length; i++) {
+                for (let j = i + 1; j < candidates.length; j++) {
+                    for (let k = j + 1; k < candidates.length; k++) {
+                        if (checkSetLogic(candidates[i], candidates[j], candidates[k])) {
+                            setFound = [candidates[i], candidates[j], candidates[k]];
+                            break;
+                        }
+                    }
+                    if (setFound) break;
+                }
+                if (setFound) break;
+            }
+        }
+        
+        if (setFound) {
+            SoundManager.play('roar');
+            const [c1, c2, c3] = setFound;
+            const el1 = document.getElementById(`card-${c1.index}`);
+            const el2 = document.getElementById(`card-${c2.index}`);
+            const el3 = document.getElementById(`card-${c3.index}`);
+            
+            showFeedback(el1, 'tick-anim');
+            showFeedback(el2, 'tick-anim');
+            showFeedback(el3, 'tick-anim');
+            
+            [el1, el2, el3].forEach(el => el.classList.remove('selected', 'hint-active'));
+            [el1, el2, el3].forEach(el => el.classList.add('matched'));
+            c1.isMatched = true;
+            c2.isMatched = true;
+            c3.isMatched = true;
+            matchesFound++;
+            scoreDisplay.innerText = matchesFound;
+
+            setTimeout(autoResolveSets, 400); // A bit slower for sets
+        } else {
+            endGame("Finished!");
+        }
+    }
 
     function endGame(customTitle) {
         clearInterval(timerInterval); SoundManager.play('win'); 
