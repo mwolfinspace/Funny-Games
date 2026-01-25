@@ -880,33 +880,35 @@
         const gap = 10;
         let bestSize = 0;
 
-        // Iterate through a reasonable range of column counts
-        for (let cols = 3; cols <= 9; cols++) {
-            const rows = Math.ceil(totalCards / cols);
-            
-            // Calculate the maximum possible size of a card for this grid layout
+        const isPortrait = boardH > boardW;
+
+        if (isPortrait) {
+            // User requested a 4-column layout for phones (portrait mode)
+            const cols = 4;
+            const rows = Math.ceil(totalCards / cols); // 7 rows for 27 cards
             const cellW = (boardW - (cols - 1) * gap) / cols;
             const cellH = (boardH - (rows - 1) * gap) / rows;
-
-            // To maintain aspect ratio (H = 1.25 * W), the width is limited by either cellW or cellH.
-            // cardW <= cellW
-            // cardW * 1.25 <= cellH  => cardW <= cellH / 1.25
-            const cardW = Math.floor(Math.min(cellW, cellH / 1.25));
-
-            // We want the layout that allows for the largest cards.
-            if (cardW > bestSize) {
-                bestSize = cardW;
+            bestSize = Math.floor(Math.min(cellW, cellH / 1.25));
+        } else {
+            // For landscape (desktop), find the best fit from a wider range of columns
+            for (let cols = 5; cols <= 9; cols++) {
+                const rows = Math.ceil(totalCards / cols);
+                const cellW = (boardW - (cols - 1) * gap) / cols;
+                const cellH = (boardH - (rows - 1) * gap) / rows;
+                const cardW = Math.floor(Math.min(cellW, cellH / 1.25));
+                if (cardW > bestSize) {
+                    bestSize = cardW;
+                }
             }
         }
         
-        // Fallback for very small screens where calculation might result in 0
+        // Fallback in case calculation fails or results in cards that are too small
         if (bestSize < 20) {
-            const isPortrait = boardH > boardW;
             const cols = isPortrait ? 4 : 6;
             const rows = Math.ceil(totalCards / cols);
             const cellW = (boardW - (cols - 1) * gap) / cols;
             const cellH = (boardH - (rows - 1) * gap) / rows;
-            bestSize = Math.floor(Math.min(cellW, cellH / 1.25));
+            bestSize = Math.max(bestSize, Math.floor(Math.min(cellW, cellH / 1.25)));
         }
 
         const finalW = bestSize;
