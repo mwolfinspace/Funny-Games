@@ -258,10 +258,71 @@
             background-color: rgba(0,0,0,0.5);
         }
 
+        /* --- Seed System Styles --- */
+        #seed-container {
+            display: flex; flex-direction: row; 
+            align-items: center;
+            gap: 10px;
+        }
+        #seed-display {
+            font-family: 'Courier New', monospace; font-size: 1.0rem;
+            font-weight: 800; letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 4px; cursor: pointer;
+            text-align: center;
+            background: rgba(255,255,255,0.6);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            transition: all 0.2s;
+            white-space: nowrap; 
+            overflow: hidden; 
+            min-width: 120px; /* Wider to show full code */
+            text-overflow: ellipsis;
+        }
+        #seed-display:hover { background: var(--accent); color: white; }
+        
+        #seed-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 3000;
+            justify-content: center; align-items: center;
+        }
+        .seed-box {
+            background: var(--bg-color); padding: 25px; border-radius: 12px;
+            width: 85%; max-width: 350px; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .seed-box input {
+            width: 100%; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2rem;
+            border: 2px solid #bdc3c7; box-sizing: border-box; text-align: center; letter-spacing: 1px;
+        }
+        .seed-actions { display: flex; justify-content: space-between; gap: 10px; }
+        .seed-actions button { flex: 1; }
+        
+        #toast {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: #2c3e50; color: white; padding: 12px 24px;
+            border-radius: 30px; z-index: 4000; opacity: 0;
+            transition: opacity 0.3s, transform 0.3s; pointer-events: none; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        #start-screen .start-actions { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        #start-btn { font-size: 1.5rem; padding: 15px 30px; }
+        #seed-start-btn { font-size: 1.2rem; padding: 15px 30px; border-radius: 50px; background-color: #7f8c8d; border: 2px solid white; }
+        
+        /* Toggle Switch for Seed Type */
+        .switch-container { display: flex; flex-direction: column; gap: 2px; }
+        .switch-btn { 
+            background: transparent; color: var(--text); border: 1px solid var(--text); 
+            opacity: 0.5; font-size: 0.6rem; padding: 2px 4px; min-width: 35px; border-radius: 3px;
+            line-height: 1;
+        }
+        .switch-btn.active { background: var(--text); color: var(--bg-color); opacity: 1; font-weight: bold; }
+
         @media (max-width: 600px) {
             #hud { padding: 0 10px; gap: 10px; }
             .stats { font-size: 0.8rem; gap: 8px; }
             button { padding: 4px 8px; font-size: 0.8rem; }
+            #seed-display { font-size: 0.8rem; min-width: 70px; max-width: 90px; }
         }
     </style>
 </head>
@@ -270,8 +331,25 @@
 
     <div id="start-screen">
         <h1 style="color:var(--text); margin-bottom:20px;">Lion Anti-Match</h1>
-        <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+        <div class="start-actions">
+            <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+            <button id="seed-start-btn" onclick="openSeedModal()">📂 Enter Seed</button>
+        </div>
     </div>
+
+    <div id="seed-modal">
+        <div class="seed-box">
+            <h3>Load Challenge</h3>
+            <p style="font-size:0.9rem; color:var(--text); opacity:0.8; margin:0; text-align:center;">Enter Seed (e.g. LION) or Save Code:</p>
+            <input type="text" id="seed-input" placeholder="LION" />
+            <div class="seed-actions">
+                <button onclick="closeSeedModal()" style="background:#7f8c8d;">Cancel</button>
+                <button onclick="applySeed()" style="background:var(--accent);">✔ Load</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast">Copied!</div>
 
     <div id="hud">
         <div class="hud-group">
@@ -282,6 +360,13 @@
         </div>
 
         <div class="hud-group">
+            <div id="seed-container">
+                <div id="seed-display" onclick="copySeedToClipboard()" title="Tap to copy">...</div>
+                <div class="switch-container">
+                    <button class="switch-btn active" id="mode-seed" onclick="setSeedMode('seed')">SEED</button>
+                    <button class="switch-btn" id="mode-save" onclick="setSeedMode('save')">SAVE</button>
+                </div>
+            </div>
             <button class="hint-btn" onclick="useHint()">💡</button>
             <button onclick="resetGame()">↻</button>
             <button id="finish-btn" class="finish-btn" onclick="endGameManual()">🏁</button>
@@ -346,6 +431,13 @@
                 </div>
             </div>
 
+            <h3 style="text-align:center; margin-top:20px;">💾 Save & Challenges</h3>
+            <p class="rule-text" style="text-align:center;">Use the code system to save your game or challenge a friend.</p>
+            <ul class="rule-list">
+                <li><b>SEED:</b> A short, case-sensitive code (e.g., LION) to start a specific shuffle.</li>
+                <li><b>SAVE:</b> A long code that stores your exact progress (revealed and matched cards).</li>
+            </ul>
+
             <div style="text-align:center; margin-top:20px;">
                 <button onclick="hideHelp()" style="font-size:1.2rem; padding:10px 30px;">Got it!</button>
             </div>
@@ -353,6 +445,100 @@
     </div>
 
 <script>
+    // --- COMPRESSION & HASHING ENGINE ---
+    const BASE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-_=+[]{};:,.<>"; 
+    const BASE_LEN = BigInt(BASE_CHARS.length);
+
+    function hashString(str) {
+        let hash = 5381n;
+        for (let i = 0; i < str.length; i++) {
+            const charCode = BigInt(str.charCodeAt(i));
+            hash = ((hash << 5n) + hash) + charCode;
+        }
+        return Number(hash & 0xFFFFFFFFn); 
+    }
+
+    function toCustomBase(num) {
+        if (num === 0n) return BASE_CHARS[0];
+        let str = "";
+        while (num > 0n) {
+            str = BASE_CHARS[Number(num % BASE_LEN)] + str;
+            num /= BASE_LEN;
+        }
+        return str;
+    }
+
+    function fromCustomBase(str) {
+        let num = 0n;
+        for (let i = 0; i < str.length; i++) {
+            const idx = BASE_CHARS.indexOf(str[i]);
+            if (idx === -1) throw new Error("Invalid Char");
+            num = num * BASE_LEN + BigInt(idx);
+        }
+        return num;
+    }
+
+    // --- SEED MANIPULATION (OPTIMIZED) ---
+    let currentSeedString = ""; 
+    let displayMode = 'seed'; // 'seed' (Short) or 'save' (Long)
+    const BITS_FOR_BOARD_STATE = 43n; // ceil(27 * log2(3))
+
+    function getSaveStateString() {
+        let boardStateNum = 0n;
+        // Encode the board state in Base-3. Each card has 3 states: 0=hidden, 1=flipped, 2=matched.
+        for (let i = deck.length - 1; i >= 0; i--) {
+            const card = deck[i];
+            let state = 0;
+            if (card.isMatched) state = 2;
+            else if (card.isRevealed) state = 1;
+            boardStateNum = boardStateNum * 3n + BigInt(state);
+        }
+        
+        const combined = (BigInt(currentDeckSeed) << BITS_FOR_BOARD_STATE) | boardStateNum;
+        return toCustomBase(combined);
+    }
+
+    function parseSaveState(str) {
+        let combined;
+        try {
+            combined = fromCustomBase(str);
+        } catch (e) {
+            return null; // Invalid characters in save string
+        }
+
+        const boardStateNum = combined & ((1n << BITS_FOR_BOARD_STATE) - 1n);
+        const seed = Number(combined >> BITS_FOR_BOARD_STATE);
+
+        // A simple check to see if the decoded number could plausibly be a save state
+        if (seed === 0 && boardStateNum === 0n) return null;
+
+        let tempBoardState = boardStateNum;
+        let revealedBits = 0n;
+        let matchedBits = 0n;
+
+        for (let i = 0; i < 27; i++) {
+            const state = tempBoardState % 3n;
+            if (state === 1n) { // Flipped
+                revealedBits |= (1n << BigInt(i));
+            } else if (state === 2n) { // Matched
+                revealedBits |= (1n << BigInt(i));
+                matchedBits |= (1n << BigInt(i));
+            }
+            tempBoardState /= 3n;
+        }
+
+        return { seed, revealedBits, matchedBits };
+    }
+
+    function createRNG(seed) {
+        return function() {
+            var t = seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+    }
+
     // --- SOUND MANAGER ---
     const SoundManager = {
         ctx: null, isMuted: false, noiseBuffer: null,
@@ -436,7 +622,9 @@
     let deck = []; let selectedCards = []; let matchesFound = 0; let errors = 0;
     let startTime = null; let timerInterval = null; let isProcessing = false; let isIntroMode = false; let isDarkMode = false; let isPaused = false;
     let currentFontSize = 1.4;
+    let currentDeckSeed = 0;
 
+    // --- DOM REFS ---
     const board = document.getElementById('game-board');
     const timeDisplay = document.getElementById('time');
     const scoreDisplay = document.getElementById('score');
@@ -446,11 +634,121 @@
     const modal = document.getElementById('modal');
     const helpModal = document.getElementById('help-modal');
     const confettiCanvas = document.getElementById('confetti');
+    const seedModal = document.getElementById('seed-modal');
+    const seedInput = document.getElementById('seed-input');
+    const toast = document.getElementById('toast');
+    const seedDisplay = document.getElementById('seed-display');
 
     window.addEventListener('resize', () => { resizeCards(); if(confettiCanvas.style.display !== 'none') { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }});
 
+    // --- UI FUNCTIONS ---
+    function showToast(msg) { toast.innerText = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); }
     function showHelp() { isPaused = true; helpModal.style.display = 'flex'; }
     function hideHelp() { isPaused = false; helpModal.style.display = 'none'; }
+
+    function setSeedMode(mode) {
+        displayMode = mode;
+        document.getElementById('mode-seed').classList.toggle('active', mode === 'seed');
+        document.getElementById('mode-save').classList.toggle('active', mode === 'save');
+        updateSeedUI();
+    }
+
+    function updateSeedUI() {
+        if (displayMode === 'seed') {
+            seedDisplay.innerText = currentSeedString || currentDeckSeed;
+        } else {
+            seedDisplay.innerText = getSaveStateString();
+        }
+    }
+    
+    function copySeedToClipboard() {
+        let textToCopy = "";
+        if (displayMode === 'seed') {
+             textToCopy = currentSeedString || currentDeckSeed.toString();
+             showToast(`Seed "${textToCopy}" Copied!`);
+        } else {
+            textToCopy = getSaveStateString();
+            showToast("Full Save Game Copied!");
+        }
+        navigator.clipboard.writeText(textToCopy);
+    }
+
+    function openSeedModal() { isPaused = true; seedInput.value = ""; seedModal.style.display = "flex"; seedInput.focus(); }
+    function closeSeedModal() { isPaused = false; seedModal.style.display = "none"; }
+    
+    // --- CORE SEED LOGIC ---
+    function applySeed() {
+        let raw = seedInput.value.trim();
+        if(!raw) return;
+
+        try {
+            const saveData = parseSaveState(raw);
+            if (saveData) {
+                loadGameFromState(saveData);
+                closeSeedModal();
+                showToast("Game Resumed!");
+                setSeedMode('save');
+                return;
+            }
+        } catch(e) { }
+
+        const newSeed = hashString(raw);
+        currentSeedString = raw; 
+        startNewGameWithSeed(newSeed);
+        
+        closeSeedModal();
+        showToast(`Seed "${currentSeedString}" Loaded!`);
+        setSeedMode('seed');
+    }
+    
+    function loadGameFromState(data) {
+        clearInterval(timerInterval);
+        matchesFound = 0; errors = 0; isProcessing = false;
+        
+        currentDeckSeed = data.seed;
+        currentSeedString = ""; 
+        
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng);
+        renderBoard();
+        selectedCards = []; 
+        
+        deck.forEach((card, i) => {
+            const cardEl = document.getElementById(`card-${card.index}`);
+            const iBig = BigInt(i);
+            if ((data.matchedBits >> iBig) & 1n) {
+                card.isMatched = true; card.isRevealed = true;
+                if (!cardEl.classList.contains('matched')) matchesFound++; // Count pairs
+                cardEl.classList.add('matched');
+            }
+            if ((data.revealedBits >> iBig) & 1n) {
+                card.isRevealed = true;
+                if (!card.isMatched) cardEl.classList.add('flipped');
+            }
+        });
+        matchesFound = Math.floor(matchesFound/2);
+        
+        scoreDisplay.innerText = matchesFound;
+        checkGameState();
+        updateSeedUI();
+        startIntro(true); 
+        startTimer();
+    }
+
+    function startNewGameWithSeed(seedVal) {
+        clearInterval(timerInterval);
+        matchesFound = 0; errors = 0; isProcessing = false;
+        currentDeckSeed = seedVal;
+        
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng);
+        
+        renderBoard();
+        checkGameState();
+        updateSeedUI();
+        startIntro(true);
+        startTimer();
+    }
 
     function toggleTheme() {
         isDarkMode = !isDarkMode;
@@ -465,11 +763,16 @@
         document.documentElement.style.setProperty('--number-size', `${currentFontSize}rem`);
     }
 
-    function startIntro() {
+    function startIntro(fromSeed = false) {
         SoundManager.init();
         startScreen.style.opacity = '0';
         setTimeout(() => startScreen.style.display = 'none', 500);
-        resetLogic(); renderBoard(); 
+
+        if (!fromSeed) {
+            resetLogic();
+            renderBoard();
+        }
+
         isIntroMode = true; isProcessing = true; 
         const cards = document.querySelectorAll('.card');
         setTimeout(() => {
@@ -484,9 +787,13 @@
         setTimeout(() => { cards.forEach(card => { card.style.transform = ''; setTimeout(() => card.classList.remove('storming'), 1500); }); }, 1600);
         setTimeout(() => {
             isIntroMode = false; isProcessing = false;
-            let indices = Array.from({length: 27}, (_, i) => i).sort(() => Math.random() - 0.5);
-            indices.slice(0, 12).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx], false));
-            checkGameState(); startTimer();
+            const rng = createRNG(currentDeckSeed + 1);
+            if (!fromSeed) {
+                let indices = Array.from({length: 27}, (_, i) => i).sort(() => rng() - 0.5);
+                indices.slice(0, 12).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx], false));
+            }
+            checkGameState(); 
+            if(!fromSeed) startTimer();
         }, 3200);
     }
 
@@ -499,27 +806,34 @@
     }
 
     function resetLogic() {
-        deck = generateDeck(); selectedCards = []; matchesFound = 0; errors = 0; isProcessing = false; isPaused = false;
+        const randomNum = Math.floor(Math.random() * 100000);
+        currentSeedString = ""; 
+        currentDeckSeed = randomNum;
+
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng); 
+        selectedCards = []; matchesFound = 0; errors = 0; isProcessing = false; isPaused = false;
         clearInterval(timerInterval);
         scoreDisplay.innerText = '0'; timeDisplay.innerText = '00:00';
         finishBtn.style.display = 'none'; 
+        updateSeedUI();
     }
 
     function startTimer() { startTime = Date.now(); timerInterval = setInterval(updateTimer, 1000); }
 
     function updateTimer() {
-        if (isPaused) { startTime += 1000; return; }
+        if (isPaused || !startTime) return; 
         const now = Date.now(); const diff = Math.floor((now - startTime) / 1000);
         const m = Math.floor(diff / 60).toString().padStart(2, '0');
         const s = (diff % 60).toString().padStart(2, '0');
         timeDisplay.innerText = `${m}:${s}`;
     }
 
-    function generateDeck() {
+    function generateDeck(rngFunc = Math.random) {
         let cards = []; let id = 0;
         for (let c = 0; c < 3; c++) for (let m = 0; m < 3; m++) for (let t = 0; t < 3; t++) 
             cards.push({ id: id++, color: COLORS[c], mane: MANES[m], tail: TAILS[t], code: COLORS[c]+MANES[m]+TAILS[t], isRevealed: false, isMatched: false, index: 0 });
-        const shuffled = cards.sort(() => Math.random() - 0.5);
+        const shuffled = cards.sort(() => rngFunc() - 0.5);
         shuffled.forEach((c, i) => c.index = i);
         return shuffled;
     }
@@ -568,7 +882,7 @@
         const cardObj = deck[index]; const cardEl = document.getElementById(`card-${index}`);
         if (cardObj.isMatched) return;
         if (!cardObj.isRevealed) {
-            SoundManager.play('flip'); flipCard(cardEl, cardObj, true); checkGameState(); return;
+            SoundManager.play('flip'); flipCard(cardEl, cardObj, true); checkGameState(); updateSeedUI(); return;
         }
         toggleSelection(cardEl, cardObj);
     }
@@ -600,7 +914,7 @@
                 el1.classList.add('matched'); el2.classList.add('matched');
                 c1.isMatched = true; c2.isMatched = true;
                 matchesFound++; scoreDisplay.innerText = matchesFound;
-                selectedCards = []; isProcessing = false; checkGameState(); 
+                selectedCards = []; isProcessing = false; checkGameState(); updateSeedUI();
             }, 600);
         } else {
             SoundManager.play('roar');
