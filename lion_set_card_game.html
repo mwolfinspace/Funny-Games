@@ -306,21 +306,92 @@
             button { padding: 4px 8px; font-size: 0.8rem; }
             #roar-msg { font-size: 1rem; }
         }
+
+        /* --- Seed System Styles --- */
+        #seed-display {
+            font-family: monospace; font-size: 1rem;
+            font-weight: bold;
+            padding: 5px 12px;
+            border-radius: 4px; cursor: pointer;
+            min-width: 60px; max-width: 140px; 
+            text-align: center;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
+            background: rgba(255,255,255,0.6);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        body.dark-mode #seed-display {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        #seed-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 3000;
+            justify-content: center; align-items: center;
+        }
+        .seed-box {
+            background: var(--bg-color); padding: 25px; border-radius: 12px;
+            width: 85%; max-width: 350px; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .seed-box input {
+            width: 100%; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2rem;
+            border: 2px solid #bdc3c7; box-sizing: border-box; text-align: center; letter-spacing: 1px;
+        }
+        .seed-box h3 { margin: 0; color: var(--text); text-align: center; }
+        .seed-actions { display: flex; justify-content: space-between; gap: 10px; }
+        .seed-actions button { flex: 1; }
+        
+        #toast {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: #2c3e50; color: white; padding: 12px 24px;
+            border-radius: 30px; z-index: 4000; opacity: 0;
+            transition: opacity 0.3s, transform 0.3s; pointer-events: none; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+        #start-screen .start-actions { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        #start-btn { font-size: 1.5rem; padding: 15px 30px; }
+        #seed-start-btn { font-size: 1.2rem; padding: 15px 30px; border-radius: 50px; background-color: #7f8c8d; border: 2px solid white; }
+
     </style>
 </head>
 <body>
 <a class="return-to-menu" href="index.html">🏠</a>
 
     <div id="start-screen">
-        <h1 style="color:var(--text); margin-bottom:20px;">Lion Set Match</h1>
-        <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+        <h1 style="color:var(--text); margin-bottom:40px;">Lion Set Match</h1>
+        <div class="start-actions">
+            <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+            <button id="seed-start-btn" onclick="openSeedModal()">📂 Enter Seed</button>
+        </div>
     </div>
+
+    <div id="seed-modal">
+        <div class="seed-box">
+            <h3>Load Challenge</h3>
+            <p style="font-size:0.9rem; color:var(--text); opacity:0.8; margin:0; text-align:center;">Paste code:</p>
+            <input type="text" id="seed-input" placeholder="e.g. 4k91Z2...
+            <div class="seed-actions">
+                <button onclick="closeSeedModal()" style="background:#7f8c8d;">Cancel</button>
+                <button onclick="applySeed()" style="background:var(--accent);">✔ Load</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast">Game Saved to Clipboard!</div>
 
     <div id="roar-overlay" onclick="dismissRoar()">
         <div id="roar-msg">Tap anywhere to collect!</div>
     </div>
 
     <div id="hud">
+        <div class="hud-group">
+            <div id="seed-display" onclick="copySeedToClipboard()" title="Tap to copy Seed">...</div>
+            <button class="icon-btn" onclick="openSeedModal()" title="Load Game" style="font-size: 1rem;">📂</button>
+        </div>
         <div class="hud-group">
             <div class="stats">
                 <span>⏱️ <span id="time">00:00</span></span>
@@ -372,6 +443,39 @@
     </div>
 
 <script>
+    // --- ULTRA SHORT COMPRESSION ENGINE V2 & SEEDING ---
+    const BASE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ#@!$%*<>?";
+    const BASE_LEN = BigInt(BASE_CHARS.length);
+
+    function toCustomBase(num) {
+        if (num === 0n) return BASE_CHARS[0];
+        let str = "";
+        while (num > 0n) {
+            str = BASE_CHARS[Number(num % BASE_LEN)] + str;
+            num /= BASE_LEN;
+        }
+        return str;
+    }
+
+    function fromCustomBase(str) {
+        let num = 0n;
+        for (let i = 0; i < str.length; i++) {
+            const idx = BASE_CHARS.indexOf(str[i]);
+            if (idx === -1) throw new Error("Invalid Char");
+            num = num * BASE_LEN + BigInt(idx);
+        }
+        return num;
+    }
+
+    function createRNG(seed) {
+        return function() {
+            var t = seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+    }
+
     // --- SOUND MANAGER ---
     const SoundManager = {
         ctx: null, isMuted: false, noiseBuffer: null,
@@ -452,6 +556,7 @@
     const COLORS = ['Y', 'P', 'G']; const MANES  = ['R', 'E', 'F']; const TAILS  = ['S', 'C', 'T'];
     let deck = []; let selectedCards = []; let matchesFound = 0; let errors = 0;
     let startTime = null; let timerInterval = null; let isProcessing = false; let isIntroMode = false; let isDarkMode = false; let isPaused = false;
+    let currentDeckSeed = 0;
     
     // NEW VARS FOR ROAR MODE
     let isRoarMode = true; 
@@ -473,6 +578,13 @@
     
     const roarBtn = document.getElementById('roar-btn');
     const roarOverlay = document.getElementById('roar-overlay');
+    
+    // Seed system DOM elements
+    const seedModal = document.getElementById('seed-modal');
+    const seedInput = document.getElementById('seed-input');
+    const toast = document.getElementById('toast');
+    const seedDisplay = document.getElementById('seed-display');
+
 
     window.addEventListener('resize', () => { resizeCards(); if(confettiCanvas.style.display !== 'none') { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }});
 
@@ -494,6 +606,7 @@
             roarBtn.innerText = "🦁 OFF";
             roarBtn.classList.remove("active");
         }
+        updateSeedUI();
     }
     
     function adjustFontSize(dir) {
@@ -503,29 +616,37 @@
         document.documentElement.style.setProperty('--number-size', `${currentFontSize}rem`);
     }
 
-    function startIntro() {
+    function startIntro(fromSeed = false) {
         SoundManager.init();
         startScreen.style.opacity = '0';
         setTimeout(() => startScreen.style.display = 'none', 500);
-        resetLogic(); renderBoard(); 
-        isIntroMode = true; isProcessing = true; 
-        const cards = document.querySelectorAll('.card');
-        setTimeout(() => {
-            cards.forEach(card => {
-                card.classList.add('storming');
-                const randX = (Math.random() - 0.5) * window.innerWidth * 1.2;
-                const randY = (Math.random() - 0.5) * window.innerHeight * 1.2;
-                const randRot = (Math.random() - 0.5) * 720; 
-                card.style.transform = `translate(${randX}px, ${randY}px) rotate(${randRot}deg) scale(${0.5+Math.random()}) rotateY(180deg)`;
-            });
-        }, 50);
-        setTimeout(() => { cards.forEach(card => { card.style.transform = ''; setTimeout(() => card.classList.remove('storming'), 1500); }); }, 1600);
-        setTimeout(() => {
-            isIntroMode = false; isProcessing = false;
-            let indices = Array.from({length: 27}, (_, i) => i).sort(() => Math.random() - 0.5);
-            indices.slice(0, 6).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx], false));
-            checkGameState(); startTimer();
-        }, 3200);
+
+        if (!fromSeed) {
+            resetLogic();
+            renderBoard();
+            isIntroMode = true; isProcessing = true; 
+            const cards = document.querySelectorAll('.card');
+            setTimeout(() => {
+                cards.forEach(card => {
+                    card.classList.add('storming');
+                    const randX = (Math.random() - 0.5) * window.innerWidth * 1.2;
+                    const randY = (Math.random() - 0.5) * window.innerHeight * 1.2;
+                    const randRot = (Math.random() - 0.5) * 720; 
+                    card.style.transform = `translate(${randX}px, ${randY}px) rotate(${randRot}deg) scale(${0.5+Math.random()}) rotateY(180deg)`;
+                });
+            }, 50);
+            setTimeout(() => { cards.forEach(card => { card.style.transform = ''; setTimeout(() => card.classList.remove('storming'), 1500); }); }, 1600);
+            setTimeout(() => {
+                isIntroMode = false; isProcessing = false;
+                const rng = createRNG(currentDeckSeed + 1); // Use a derivative seed for initial flips
+                let indices = Array.from({length: 27}, (_, i) => i).sort(() => rng() - 0.5);
+                indices.slice(0, 6).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx], false));
+                checkGameState(); 
+                startTimer();
+            }, 3200);
+        } else {
+             // From seed, logic is handled by applySeed
+        }
     }
 
     function resetGame() {
@@ -539,30 +660,175 @@
     }
 
     function resetLogic() {
-        deck = generateDeck(); selectedCards = []; matchesFound = 0; errors = 0; isProcessing = false; isPaused = false;
+        currentDeckSeed = Math.floor(Math.random() * 1000000);
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng); 
+        
+        selectedCards = []; matchesFound = 0; errors = 0; isProcessing = false; isPaused = false;
         clearInterval(timerInterval);
         scoreDisplay.innerText = '0'; timeDisplay.innerText = '00:00';
         finishBtn.style.display = 'none'; 
+        updateSeedUI();
     }
 
-    function startTimer() { startTime = Date.now(); timerInterval = setInterval(updateTimer, 1000); }
+    function startTimer() { 
+        startTime = Date.now(); 
+        timerInterval = setInterval(updateTimer, 1000); 
+    }
+
+    function startTimerFromSeed(elapsedMillis) {
+        startTime = Date.now() - elapsedMillis;
+        timerInterval = setInterval(updateTimer, 1000);
+    }
 
     function updateTimer() {
-        if (isPaused) { startTime += 1000; return; }
-        const now = Date.now(); const diff = Math.floor((now - startTime) / 1000);
+        if (isPaused || !startTime) return; 
+        const now = Date.now(); 
+        const diff = Math.floor((now - startTime) / 1000);
         const m = Math.floor(diff / 60).toString().padStart(2, '0');
         const s = (diff % 60).toString().padStart(2, '0');
         timeDisplay.innerText = `${m}:${s}`;
     }
 
-    function generateDeck() {
+    function generateDeck(rngFunc = Math.random) {
         let cards = []; let id = 0;
         for (let c = 0; c < 3; c++) for (let m = 0; m < 3; m++) for (let t = 0; t < 3; t++) 
             cards.push({ id: id++, color: COLORS[c], mane: MANES[m], tail: TAILS[t], code: COLORS[c]+MANES[m]+TAILS[t], isRevealed: false, isMatched: false, index: 0 });
-        const shuffled = cards.sort(() => Math.random() - 0.5);
+        const shuffled = cards.sort(() => rngFunc() - 0.5);
         shuffled.forEach((c, i) => c.index = i);
         return shuffled;
     }
+    
+    // --- SEED SYSTEM FUNCTIONS (TIMERLESS) ---
+    function getCompactSeed() {
+        let stateBigInt = 0n;
+        // Base-4: 0=hidden, 1=revealed, 2=selected, 3=matched
+        deck.forEach(card => {
+            let s = 0;
+            if (card.isMatched) s = 3;
+            else if (selectedCards.some(sc => sc.id === card.id)) s = 2;
+            else if (card.isRevealed) s = 1;
+            stateBigInt = stateBigInt * 4n + BigInt(s);
+        });
+
+        // Combine Deck Seed (20 bits), Roar Mode (1 bit), and State (54 bits)
+        let combined = BigInt(currentDeckSeed) << 55n;
+        combined |= (isRoarMode ? 1n : 0n) << 54n;
+        combined |= stateBigInt;
+
+        return toCustomBase(combined);
+    }
+
+    function parseCompactSeed(str) {
+        if (!str) throw new Error("Invalid Seed");
+        const combined = fromCustomBase(str);
+
+        const stateMask = (1n << 54n) - 1n;
+        const stateVal = combined & stateMask;
+
+        const roarModeVal = (combined >> 54n) & 1n;
+        
+        const seedVal = combined >> 55n;
+
+        return { 
+            seed: Number(seedVal), 
+            isRoar: roarModeVal === 1n,
+            stateVal 
+        };
+    }
+
+    function copySeedToClipboard() {
+        const id = getCompactSeed();
+        navigator.clipboard.writeText(id).then(() => showToast("Seed Copied!"));
+    }
+
+    function updateSeedUI() {
+        seedDisplay.innerText = getCompactSeed();
+    }
+
+    function openSeedModal() {
+        isPaused = true;
+        seedInput.value = "";
+        seedModal.style.display = "flex";
+        seedInput.focus();
+    }
+
+    function closeSeedModal() {
+        isPaused = false;
+        seedModal.style.display = "none";
+    }
+
+    function applySeed() {
+        const raw = seedInput.value.trim();
+        if(!raw) return;
+
+        try {
+            const data = parseCompactSeed(raw);
+            
+            // --- Reset and Rebuild Game State ---
+            clearInterval(timerInterval);
+            matchesFound = 0; errors = 0; isProcessing = false;
+            
+            currentDeckSeed = data.seed;
+            const rng = createRNG(currentDeckSeed);
+            deck = generateDeck(rng);
+            
+            isRoarMode = data.isRoar;
+            toggleRoarMode(); // Update button text
+
+            renderBoard();
+
+            let sv = data.stateVal;
+            selectedCards = [];
+            
+            for(let i = deck.length - 1; i >= 0; i--) {
+                const status = Number(sv % 4n);
+                sv /= 4n;
+                const card = deck[i];
+                const cardEl = document.getElementById(`card-${card.index}`);
+                
+                // 0=hidden, 1=revealed, 2=selected, 3=matched
+                if (status === 3) {
+                    card.isMatched = true;
+                    card.isRevealed = true;
+                    matchesFound++;
+                    cardEl.classList.add('matched');
+                } else if (status === 2) {
+                    card.isRevealed = true;
+                    cardEl.classList.add('flipped');
+                    cardEl.classList.add('selected');
+                    selectedCards.push(card);
+                } else if (status === 1) {
+                    card.isRevealed = true;
+                    cardEl.classList.add('flipped');
+                }
+            }
+            
+            scoreDisplay.innerText = matchesFound;
+            checkGameState();
+            updateSeedUI();
+            
+            closeSeedModal();
+            startIntro(true); // Skips animations
+            startTimer(); // Always reset timer
+            showToast("Game Loaded!");
+            
+            if (matchesFound * 3 === 27) { // All sets found
+                endGame("Completed!");
+            }
+
+        } catch(e) {
+            alert("Invalid or corrupted game code.");
+            console.error(e);
+            isPaused = false;
+        }
+    }
+
+    function showToast(msg) {
+        toast.innerText = msg; toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
 
     function renderBoard() {
         board.innerHTML = '';
@@ -609,7 +875,11 @@
         if (cardObj.isMatched) return;
         
         if (!cardObj.isRevealed) {
-            SoundManager.play('flip'); flipCard(cardEl, cardObj, true); checkGameState(); return;
+            SoundManager.play('flip'); 
+            flipCard(cardEl, cardObj, true); 
+            checkGameState(); 
+            updateSeedUI();
+            return;
         }
         toggleSelection(cardEl, cardObj);
     }
@@ -618,9 +888,11 @@
 
     function toggleSelection(el, obj) {
         if (selectedCards.includes(obj)) {
-            el.classList.remove('selected'); selectedCards = selectedCards.filter(c => c !== obj); SoundManager.play('flip'); return;
+            el.classList.remove('selected'); selectedCards = selectedCards.filter(c => c !== obj); SoundManager.play('flip'); 
+        } else {
+            el.classList.add('selected'); selectedCards.push(obj); SoundManager.play('flip');
         }
-        el.classList.add('selected'); selectedCards.push(obj); SoundManager.play('flip');
+        updateSeedUI();
         if (selectedCards.length === 3) checkSet();
     }
 
@@ -657,6 +929,7 @@
                 setTimeout(() => {
                     [el1, el2, el3].forEach(el => el.classList.remove('selected', 'shake'));
                     selectedCards = []; isProcessing = false;
+                    updateSeedUI();
                 }, 600);
             }, 400);
         }
@@ -771,16 +1044,12 @@
                 item.el.style.position = '';
                 item.el.style.top = ''; item.el.style.left = ''; 
                 
-                // Clear inline styles so css class takes over? No, the class has no size!
-                // We must set them to what the variable says, OR just call resizeCards().
-                // Calling resizeCards() is the safest way to ensure they come back.
                 item.el.style.width = ''; 
                 item.el.style.height = ''; 
                 
-                item.el.style.transform = ''; // clears scale/rotate override
+                item.el.style.transform = '';
             });
             
-            // Finalize
             if(selected.length === 3) {
                 const el1 = document.getElementById(`card-${selected[0].index}`);
                 const el2 = document.getElementById(`card-${selected[1].index}`);
@@ -789,8 +1058,6 @@
             }
         }
         roarPlaceholders = [];
-        
-        // CRITICAL FIX: Re-calculate all card sizes so they don't disappear (0x0)
         resizeCards();
     }
 
@@ -799,7 +1066,9 @@
         [el1, el2, el3].forEach(el => el.classList.add('matched'));
         c1.isMatched = true; c2.isMatched = true; c3.isMatched = true;
         matchesFound++; scoreDisplay.innerText = matchesFound;
-        selectedCards = []; isProcessing = false; checkGameState(); 
+        selectedCards = []; isProcessing = false; 
+        checkGameState();
+        updateSeedUI();
     }
 
     function showFeedback(el, type) {
@@ -910,6 +1179,7 @@
             c3.isMatched = true;
             matchesFound++;
             scoreDisplay.innerText = matchesFound;
+            updateSeedUI();
 
             setTimeout(autoResolveSets, 400); // A bit slower for sets
         } else {
