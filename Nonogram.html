@@ -87,12 +87,11 @@
         .clues-row { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; }
         .corner { grid-column: 1; grid-row: 1; }
 
-        /* FIX: CHANGED FROM column-reverse TO column + justify-end */
         .clue-group-col {
             width: 26px; 
             display: flex; 
-            flex-direction: column; /* Standard Top-to-Bottom flow */
-            justify-content: flex-end; /* Push content to bottom (near grid) */
+            flex-direction: column;
+            justify-content: flex-end;
             align-items: center; 
             border-right: 1px solid var(--clue-divider); 
             font-size: 13px; font-weight: 700; color: var(--clue-text); 
@@ -110,13 +109,15 @@
 
         .cell {
             width: 26px; height: 26px; background: var(--cell-bg); cursor: pointer;
-            display: flex; justify-content: center; align-items: center;
+            display: flex; justify-content: center; align-items: center; position: relative;
         }
         .cell.v-thick { border-right: 2px solid var(--border-frame) !important; margin-right: -1px; }
         .cell.h-thick { border-bottom: 2px solid var(--border-frame) !important; margin-bottom: -1px; }
         .cell.filled { background: var(--cell-filled); }
         .cell.crossed { color: var(--cell-crossed); font-weight: 900; font-size: 20px; }
         .cell.crossed::after { content: "✕"; }
+        
+        .cell.unsolved { box-shadow: inset 0 0 0 3px var(--danger); z-index: 5; }
         
         @keyframes flashHint { 0% { background: var(--cell-hint); transform: scale(1.2); } 100% { background: var(--cell-filled); transform: scale(1); } }
         .cell.hint-anim { animation: flashHint 0.5s ease-out forwards; }
@@ -164,10 +165,22 @@
         .status-bar.err { background: #fee2e2; color: #991b1b; }
 
         #confetti-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 100; width: 100%; height: 100%; }
-        .code-display { font-size: 0.8em; color: var(--text-muted); word-break: break-all; cursor: pointer; padding: 5px; background: rgba(0,0,0,0.05); border-radius: 4px; }
+        .code-display { font-size: 0.85em; color: var(--text-muted); word-break: break-all; cursor: pointer; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; border:1px solid transparent; transition:0.2s; }
+        .code-display:hover { background: rgba(0,0,0,0.08); border-color: var(--panel-border); }
+
+        /* TOAST NOTIFICATION */
+        #toast {
+            visibility: hidden; min-width: 200px; background-color: #0f172a; color: #fff; text-align: center;
+            border-radius: 8px; padding: 12px; position: fixed; z-index: 1000; left: 50%; bottom: 30px;
+            transform: translateX(-50%); font-weight:600; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+        }
+        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
     </style>
 </head>
 <body oncontextmenu="return false;">
+
+    <div id="toast">Code Copied!</div>
 
     <div id="main-stage">
         <canvas id="confetti-canvas"></canvas>
@@ -241,8 +254,8 @@
             </div>
 
             <div class="control-box">
-                <small style="font-weight:700; color:var(--text-muted)">SHARE</small>
-                <div class="code-display" id="share-display" onclick="app.copyShare()">...</div>
+                <small style="font-weight:700; color:var(--text-muted)">SHARE / SAVE</small>
+                <div class="code-display" id="share-display" onclick="app.copyCode('share-display')">...</div>
             </div>
 
             <div style="flex:1"></div>
@@ -269,12 +282,12 @@
                     </div>
                 </div>
             </div>
+            <button class="btn hint" onclick="app.editorSolve()">🤖 Auto Solve & Check</button>
             <button class="btn" onclick="app.playEditorLevel()">▶️ Test Play</button>
             
             <div class="control-box">
                 <small style="font-weight:700; color:var(--text-muted)">SAVE CODE</small>
-                <input type="text" id="editor-export" readonly onclick="this.select()">
-                <button class="btn secondary small" onclick="app.exportSave()">Generate Code</button>
+                <div id="editor-export" class="code-display" onclick="app.copyCode('editor-export')"></div>
             </div>
 
             <div style="flex:1"></div>
@@ -284,11 +297,94 @@
 
 <script>
 /* SOLVER (Logic) */
-const Solver={permute:(l,b)=>{const o=[];if(!b.length)return[Array(l).fill(0)];const ms=b.reduce((a,x)=>a+x,0)+b.length-1;if(ms>l)return[];const bl=b[0],rt=b.slice(1),rs=rt.reduce((a,x)=>a+x,0)+rt.length-1,mx=l-(rs+(rt.length?1:0))-bl;for(let i=0;i<=mx;i++){const ln=Array(i).fill(0);for(let k=0;k<bl;k++)ln.push(1);if(rt.length){ln.push(0);Solver.permute(l-ln.length,rt).forEach(s=>o.push(ln.concat(s)))}else{while(ln.length<l)ln.push(0);o.push(ln)}}return o},solveLine:(l,b)=>{const p=Solver.permute(l,b);if(!p.length)return null;if(p.length===1)return p[0];const r=Array(l).fill(null);for(let i=0;i<l;i++){let v=p[0][i],c=true;for(let k=1;k<p.length;k++)if(p[k][i]!==v){c=false;break}if(c)r[i]=v}return r},check:(g)=>{const h=g.length,w=g[0].length,f=g.flat();if(f.every(x=>x===0))return{t:"Empty Board",c:""};const cl=Gen.getClues(g);let wk=Array(h).fill(0).map(()=>Array(w).fill(null)),ch=true,it=0;while(ch&&it<20){ch=false;it++;for(let y=0;y<h;y++){const r=Solver.solveLine(w,cl.rows[y]);if(!r)continue;for(let x=0;x<w;x++)if(wk[y][x]===null&&r[x]!==null){wk[y][x]=r[x];ch=true}}for(let x=0;x<w;x++){const r=Solver.solveLine(h,cl.cols[x]);if(!r)continue;for(let y=0;y<h;y++)if(wk[y][x]===null&&r[y]!==null){wk[y][x]=r[y];ch=true}}}let s=true,c=true;for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(wk[y][x]===null)s=false;else if(wk[y][x]!==g[y][x])c=false}if(s&&c)return{t:"✅ Solvable (Logic)",c:"ok"};return{t:"⚠️ Multiple Solutions / Hard",c:"warn"}}};
+const Solver={
+    permute:(l,b)=>{
+        const o=[]; if(!b.length)return[Array(l).fill(0)];
+        const ms=b.reduce((a,x)=>a+x,0)+b.length-1; if(ms>l)return[];
+        const bl=b[0],rt=b.slice(1);
+        const mx=l-(rt.reduce((a,x)=>a+x,0)+rt.length)-bl-(rt.length?1:0);
+        for(let i=0;i<=mx;i++){
+            const ln=Array(i).fill(0); for(let k=0;k<bl;k++)ln.push(1);
+            if(rt.length){ln.push(0);Solver.permute(l-ln.length,rt).forEach(s=>o.push(ln.concat(s)))}
+            else{while(ln.length<l)ln.push(0);o.push(ln)}
+        }
+        return o;
+    },
+    solveLine:(l,b)=>{
+        const p=Solver.permute(l,b); if(!p.length)return null; if(p.length===1)return p[0];
+        const r=Array(l).fill(null);
+        for(let i=0;i<l;i++){
+            let v=p[0][i],c=true; for(let k=1;k<p.length;k++)if(p[k][i]!==v){c=false;break}
+            if(c)r[i]=v;
+        }
+        return r;
+    },
+    check:(g)=>{
+        const h=g.length,w=g[0].length,f=g.flat();
+        if(f.every(x=>x===0))return{t:"Empty Board",c:"",wk:[]};
+        const cl=Gen.getClues(g);
+        let wk=Array(h).fill(0).map(()=>Array(w).fill(null)),ch=true,it=0;
+        
+        while(ch&&it<20){
+            ch=false;it++;
+            for(let y=0;y<h;y++){
+                const r=Solver.solveLine(w,cl.rows[y]); if(!r)continue;
+                for(let x=0;x<w;x++)if(wk[y][x]===null&&r[x]!==null){wk[y][x]=r[x];ch=true}
+            }
+            for(let x=0;x<w;x++){
+                const r=Solver.solveLine(h,cl.cols[x]); if(!r)continue;
+                for(let y=0;y<h;y++)if(wk[y][x]===null&&r[y]!==null){wk[y][x]=r[y];ch=true}
+            }
+        }
+        
+        let s=true,c=true;
+        for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+            if(wk[y][x]===null)s=false;
+            else if(wk[y][x]!==g[y][x])c=false;
+        }
+        if(s&&c)return{t:"✅ Solvable (Logic)",c:"ok",wk:wk};
+        return{t:"⚠️ Multiple Solutions / Hard",c:"warn",wk:wk};
+    }
+};
 
 /* UTILS */
 const Sfx={i:()=>{if(!Sfx.x)Sfx.x=new(window.AudioContext||webkitAudioContext)()},p:(f,t,d)=>{Sfx.i();if(Sfx.x.state==='suspended')Sfx.x.resume();const o=Sfx.x.createOscillator(),g=Sfx.x.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.1;g.gain.exponentialRampToValueAtTime(0.001,Sfx.x.currentTime+d);o.connect(g);g.connect(Sfx.x.destination);o.start();o.stop(Sfx.x.currentTime+d)},fill:()=>Sfx.p(350,'sine',0.1),cross:()=>Sfx.p(150,'square',0.08),hint:()=>Sfx.p(600,'sine',0.2),win:()=>[0,100,200].forEach((t,i)=>setTimeout(()=>Sfx.p(500+i*100,'triangle',0.2),t))};
-const Codec={c:(w,h,g)=>{let b="",B="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";for(let y=0;y<h;y++)for(let x=0;x<w;x++)b+=g[y][x]?"1":"0";while(b.length%6)b+="0";let r="";for(let i=0;i<b.length;i+=6)r+=B[parseInt(b.substr(i,6),2)];return`~A.${w}.${h}.${r}`},d:(s)=>{if(!s.startsWith("~"))return null;let[_,w,h,d]=s.split("."),B="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",b="";for(let c of d)b+=B.indexOf(c).toString(2).padStart(6,"0");let g=[],p=0;for(let y=0;y<h;y++){let r=[];for(let x=0;x<w;x++)r.push(b[p++]==="1"?1:0);g.push(r)}return{w:parseInt(w),h:parseInt(h),grid:g}}};
+
+/* CODEC */
+const Codec={
+    B:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+    c:(w,h,g)=>{
+        let b="",r=""; for(let y=0;y<h;y++)for(let x=0;x<w;x++)b+=g[y][x]?"1":"0";
+        while(b.length%6)b+="0"; for(let i=0;i<b.length;i+=6)r+=Codec.B[parseInt(b.substr(i,6),2)];
+        return`~A.${w}.${h}.${r}`;
+    },
+    d:(s)=>{
+        if(!s.startsWith("~"))return null;
+        let[_,w,h,d]=s.split("."),b="";
+        for(let c of d)b+=Codec.B.indexOf(c).toString(2).padStart(6,"0");
+        let g=[],p=0; for(let y=0;y<h;y++){let r=[];for(let x=0;x<w;x++)r.push(b[p++]==="1"?1:0);g.push(r)}
+        return{w:parseInt(w),h:parseInt(h),grid:g};
+    },
+    encodeState:(p)=>{
+        let f=p.flat(), b="", r="";
+        for(let v of f) b += v.toString(2).padStart(2,'0'); 
+        while(b.length%6)b+="00";
+        for(let i=0;i<b.length;i+=6)r+=Codec.B[parseInt(b.substr(i,6),2)];
+        return r;
+    },
+    decodeState:(s,w,h)=>{
+        let b="", p=Array(h).fill(0).map(()=>Array(w).fill(0));
+        for(let c of s) b+=Codec.B.indexOf(c).toString(2).padStart(6,"0");
+        let ptr=0;
+        for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+            let bits = b.substr(ptr,2); ptr+=2;
+            p[y][x] = parseInt(bits,2);
+        }
+        return p;
+    }
+};
+
+/* GENERATOR */
 const Gen={hash:(s)=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i);return Math.abs(h)},getGrid:(s,w,h)=>{let S=typeof s==='string'?Gen.hash(s):s;const rng=()=>{const x=Math.sin(S++)*10000;return x-Math.floor(x)};let g=Array(h).fill(0).map(()=>Array(w).fill(0));for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=rng()>0.55?1:0;if(x>0&&g[y][x-1])v=rng()>0.35?1:0;if(y>0&&g[y-1][x])v=rng()>0.35?1:0;g[y][x]=v}if(g.every(r=>r.every(c=>c===0)))g[h>>1][w>>1]=1;return g},getClues:(g)=>{const l=a=>{let r=[],c=0;for(let v of a){if(v)c++;else{if(c)r.push(c);c=0}}if(c)r.push(c);return r.length?r:[0]};return{rows:g.map(l),cols:g[0].map((_,i)=>l(g.map(r=>r[i])))}}};
 
 /* INTRO */
@@ -308,25 +404,90 @@ const app = {
     },
     campNav: (d) => { const i=document.getElementById('menu-lvl-input'); let v=parseInt(i.value)+d; if(v<1)v=1; if(v>500)v=500; i.value=v; },
     campGo: () => app.startCamp(parseInt(document.getElementById('menu-lvl-input').value)||1),
+    
     startCamp: (lvl) => {
         if(lvl<1)lvl=1; if(lvl>500)lvl=500; app.d.campLvl=lvl;
         let s=5+Math.floor((lvl-1)/10); if(s>20)s=20;
         const g=Gen.getGrid("CAMPAIGN_LEVEL_"+lvl,s,s);
-        Intro.e(); app.load(g,s,s,"Level "+lvl); app.pan('game'); document.getElementById('camp-controls').style.display='flex';
+        Intro.e(); app.d.seed = "#"+lvl; 
+        app.load(g,s,s,"Level "+lvl); 
+        app.pan('game'); 
+        document.getElementById('camp-controls').style.display='flex';
     },
+    
     nextLevel: (d) => app.startCamp(app.d.campLvl+d),
     promptLevelJump: () => { if(!app.d.campLvl)return; let l=prompt("Jump to Level:",app.d.campLvl); if(l&&!isNaN(l))app.startCamp(parseInt(l)); },
-    startRandom: () => { app.d.campLvl=0; const s=Math.floor(Math.random()*3)+5, seed=Math.floor(Math.random()*99999).toString(); Intro.e(); app.load(Gen.getGrid(seed,s,s),s,s,"Random "+s+"x"+s); app.d.seed=seed; app.pan('game'); document.getElementById('camp-controls').style.display='none'; },
-    handleLoad: () => {
-        const v=document.getElementById('load-input').value.trim(); if(!v)return; Intro.e(); app.d.campLvl=0; document.getElementById('camp-controls').style.display='none';
-        if(v.startsWith("~")){ const d=Codec.d(v); if(d){app.d.seed=v;app.load(d.grid,d.w,d.h,"Custom");app.pan('game');} else alert("Bad Code"); }
-        else { const g=Gen.getGrid(v,10,10); app.d.seed=v; app.load(g,10,10,"Seed: "+v); app.pan('game'); }
+    
+    startRandom: () => { 
+        app.d.campLvl=0; 
+        const s=Math.floor(Math.random()*3)+5;
+        const rngNum=Math.floor(Math.random()*99999).toString(); 
+        Intro.e(); 
+        
+        // FIX: Combine size and seed (e.g. "5x30399")
+        app.d.seed = s + "x" + rngNum; 
+        
+        app.load(Gen.getGrid(rngNum,s,s),s,s,"Random "+s+"x"+s); 
+        app.pan('game'); 
+        document.getElementById('camp-controls').style.display='none';
     },
+    
+    handleLoad: () => {
+        let v=document.getElementById('load-input').value.trim(); if(!v)return; 
+        Intro.e(); app.d.campLvl=0; document.getElementById('camp-controls').style.display='none';
+        
+        let statePart = null;
+        if(v.includes(":")) { let p=v.split(":"); v=p[0]; statePart=p[1]; }
+
+        const finishLoad = () => {
+            if(statePart) { app.d.player = Codec.decodeState(statePart, app.d.w, app.d.h); app.refreshPlayerView(); }
+            app.pan('game');
+        };
+
+        // Campaign or Simple Number (Level 1-500)
+        // We ensure it DOES NOT contain 'x' so random seeds like "5x30399" don't trigger this
+        if(!v.includes("x") && (v.startsWith("#") || (!isNaN(v) && !v.startsWith("~")))) {
+            let lvl = parseInt(v.replace("#",""));
+            if(lvl>0 && lvl<=500) {
+                app.startCamp(lvl);
+                if(statePart) { app.d.player = Codec.decodeState(statePart, app.d.w, app.d.h); app.refreshPlayerView(); }
+                return;
+            }
+        }
+        
+        // Custom Code (~...)
+        if(v.startsWith("~")){ 
+            const d=Codec.d(v); 
+            if(d){ app.d.seed=v; app.load(d.grid,d.w,d.h,"Custom"); finishLoad(); }
+            else alert("Bad Code"); 
+        } else { 
+            // FIX: Handle "Size x Seed" (e.g., 5x30399) or Default to 10
+            let s = 10, seed = v;
+            if(v.includes("x")) {
+                let parts = v.split("x");
+                // Check if the first part is a valid size number
+                if(!isNaN(parts[0])) {
+                    s = parseInt(parts[0]);
+                    seed = parts[1];
+                }
+            }
+
+            const g=Gen.getGrid(seed,s,s); 
+            app.d.seed=v; // Keep the full string (5x30399) as the seed for sharing
+            app.load(g,s,s,"Seed: "+seed); 
+            finishLoad(); 
+        }
+    },
+    
     load: (g,w,h,t) => {
         app.d.grid=g; app.d.w=w; app.d.h=h; app.d.player=Array(h).fill(0).map(()=>Array(w).fill(0)); app.d.solved=false;
-        if(app.d.mode==='game'){ document.getElementById('level-title').textContent=t; document.getElementById('share-display').textContent=app.d.seed||"Level "+app.d.campLvl; }
+        if(app.d.mode==='game'){ 
+            document.getElementById('level-title').textContent=t; 
+            app.updShare();
+        }
         app.ren(false);
     },
+    
     ren: (ed) => {
         const c=document.getElementById('grid-container'), {w,h}=app.d, cl=ed?{rows:[],cols:[]}:Gen.getClues(app.d.grid);
         c.style.gridTemplateColumns=`auto repeat(${w},26px)`; c.style.gridTemplateRows=`auto repeat(${h},26px)`; c.innerHTML='<div class="corner"></div>';
@@ -342,32 +503,109 @@ const app = {
         }
         setTimeout(()=>app.fit(true),10);
     },
+    refreshPlayerView: () => {
+        const {w,h} = app.d;
+        for(let y=0;y<h;y++) for(let x=0;x<w;x++) app.upd(x,y,app.d.player[y][x]);
+        app.updShare();
+    },
     drag: (x,y,b) => { if(Intro.a||(app.d.solved&&app.d.mode==='game'))return; app.d.drag=true; const ed=app.d.mode==='editor', g=ed?app.d.grid:app.d.player, v=g[y][x]; app.d.dt = ed?(v==1||b==2?0:1):(b==2?(v==2?0:2):(v==1?0:1)); app.set(x,y,app.d.dt); },
     hov: (e) => { if(!app.d.drag)return; const el=document.elementFromPoint(e.clientX,e.clientY); if(el?.classList.contains('cell')) app.set(parseInt(el.dataset.x),parseInt(el.dataset.y),app.d.dt); },
     set: (x,y,v) => {
         if(Intro.a)return; const ed=app.d.mode==='editor', g=ed?app.d.grid:app.d.player;
         if(g[y][x]==v)return; g[y][x]=v; app.upd(x,y,v);
         if(v==1)Sfx.fill(); if(v==2)Sfx.cross();
-        if(!ed && !app.d.solved) app.check();
-        if(ed) { clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); }
+        
+        if(!ed) {
+             app.updShare(); // Update Save Code
+             if(!app.d.solved) app.check();
+        }
+        if(ed) { 
+            document.querySelectorAll('.cell.unsolved').forEach(e=>e.classList.remove('unsolved'));
+            app.exportSave(); 
+            clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); 
+        }
     },
     upd: (x,y,v) => { const c=document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); c.className=c.className.replace(/ (filled|crossed)/g,''); if(v==1)c.classList.add('filled'); if(v==2)c.classList.add('crossed'); },
-    check: () => { const {w,h,grid,player}=app.d; for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(grid[y][x]!==(player[y][x]==1?1:0))return; app.d.solved=true; Sfx.win(); Confetti(); },
-    useHint: () => { if(app.d.solved)return; let t=[]; for(let y=0;y<app.d.h;y++)for(let x=0;x<app.d.w;x++)if(app.d.grid[y][x]==1&&app.d.player[y][x]!=1)t.push({x,y}); if(!t.length)return; const p=t[Math.floor(Math.random()*t.length)]; app.d.player[p.y][p.x]=1; app.upd(p.x,p.y,1); const c=document.querySelector(`.cell[data-x="${p.x}"][data-y="${p.y}"]`); c.classList.add('hint-anim'); Sfx.hint(); setTimeout(()=>c.classList.remove('hint-anim'),600); app.check(); },
+    
+    // SHARE LOGIC
+    updShare: () => {
+        let base = app.d.seed;
+        if(app.d.campLvl > 0) base = "#"+app.d.campLvl;
+        
+        const flat = app.d.player.flat();
+        const isEmpty = flat.every(x=>x===0);
+        
+        let code = base;
+        if(!isEmpty && !app.d.solved) {
+            code += ":" + Codec.encodeState(app.d.player);
+        }
+        document.getElementById('share-display').textContent = code;
+    },
+    
+    check: () => {
+        const { grid, player } = app.d;
+
+        // 1. Get the target clues (The goal)
+        const targetClues = Gen.getClues(grid);
+
+        // 2. Get the player's current clues
+        // We convert the player's grid to simple 1s and 0s (treating '2' or 'Cross' as empty '0')
+        const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0));
+        const currentClues = Gen.getClues(playerBinary);
+
+        // 3. Compare Clues
+        // If the clues from your board match the goal clues, it's a valid solution!
+        if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) {
+            app.d.solved = true;
+            Sfx.win();
+            Confetti();
+            app.updShare();
+        }
+    },
+    useHint: () => { if(app.d.solved)return; let t=[]; for(let y=0;y<app.d.h;y++)for(let x=0;x<app.d.w;x++)if(app.d.grid[y][x]==1&&app.d.player[y][x]!=1)t.push({x,y}); if(!t.length)return; const p=t[Math.floor(Math.random()*t.length)]; app.d.player[p.y][p.x]=1; app.upd(p.x,p.y,1); const c=document.querySelector(`.cell[data-x="${p.x}"][data-y="${p.y}"]`); c.classList.add('hint-anim'); Sfx.hint(); setTimeout(()=>c.classList.remove('hint-anim'),600); app.check(); app.updShare(); },
     checkSolvability: () => { const r=Solver.check(app.d.grid); const e=document.getElementById('editor-status'); e.textContent=r.t; e.className='status-bar '+r.c; },
     fit: (f) => { const s=document.getElementById('game-scaler'), c=document.getElementById('grid-container'), m=document.getElementById('main-stage'); if(!s||!c||!m.offsetParent)return; s.style.transform='scale(1)'; let sc=Math.min((m.clientWidth-40)/c.offsetWidth, (m.clientHeight-40)/c.offsetHeight); if(sc>1) sc=Math.min(sc,2.5); app.applyZ(sc); },
     zoom: (d) => app.applyZ(Math.max(0.1,Math.min(4,app.d.scale+d))),
     applyZ: (v) => { app.d.scale=v; document.getElementById('game-scaler').style.transform=`scale(${v})`; document.getElementById('zoom-val').textContent=Math.round(v*100)+"%"; },
     pan: (id) => { document.querySelectorAll('.control-panel').forEach(e=>e.classList.remove('active')); document.getElementById('panel-'+id).classList.add('active'); app.d.mode=id; },
-    showMenu: () => { app.pan('menu'); Intro.s(); },
+    showMenu: () => { Intro.e(); app.pan('menu'); Intro.s(); },
     toggleTheme: () => document.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'),
-    copyShare: () => { navigator.clipboard.writeText(document.getElementById('share-display').textContent).then(()=>alert("Copied!")); },
-    solve: () => { Intro.e(); app.d.player=app.d.grid.map(r=>[...r]); app.ren(false); app.d.solved=true; },
-    openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(()=>Array(10).fill(0)),10,10,"Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); },
-    resizeBoard: (dx,dy) => { let {w,h,grid}=app.d, nw=Math.max(5,Math.min(30,w+dx)), nh=Math.max(5,Math.min(30,h+dy)); app.d.w=nw; app.d.h=nh; app.d.grid=Array(nh).fill(0).map((_,y)=>Array(nw).fill(0).map((_,x)=>(y<h&&x<w)?grid[y][x]:0)); app.ren(true); app.updEL(); app.checkSolvability(); },
+    
+    copyCode: (id) => {
+        const txt = document.getElementById(id).textContent;
+        if(!txt || txt==="...") return;
+        navigator.clipboard.writeText(txt).then(() => {
+            const t = document.getElementById("toast");
+            t.className = "show";
+            setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000);
+        });
+    },
+
+    solve: () => { Intro.e(); app.d.player=app.d.grid.map(r=>[...r]); app.ren(false); app.d.solved=true; app.updShare(); },
+    openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(()=>Array(10).fill(0)),10,10,"Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); app.exportSave(); },
+    resizeBoard: (dx,dy) => { let {w,h,grid}=app.d, nw=Math.max(5,Math.min(30,w+dx)), nh=Math.max(5,Math.min(30,h+dy)); app.d.w=nw; app.d.h=nh; app.d.grid=Array(nh).fill(0).map((_,y)=>Array(nw).fill(0).map((_,x)=>(y<h&&x<w)?grid[y][x]:0)); app.ren(true); app.updEL(); app.checkSolvability(); app.exportSave(); },
     updEL:()=>{document.getElementById('lbl-w').textContent=app.d.w;document.getElementById('lbl-h').textContent=app.d.h},
     playEditorLevel: () => { const c=Codec.c(app.d.w,app.d.h,app.d.grid); app.d.seed=c; app.load(JSON.parse(JSON.stringify(app.d.grid)),app.d.w,app.d.h,"Test Play"); app.pan('game'); document.getElementById('camp-controls').style.display='none'; },
-    exportSave: () => document.getElementById('editor-export').value=Codec.c(app.d.w,app.d.h,app.d.grid)
+    exportSave: () => document.getElementById('editor-export').textContent=Codec.c(app.d.w,app.d.h,app.d.grid),
+    
+    editorSolve: () => {
+        const r = Solver.check(app.d.grid);
+        const {w,h} = app.d;
+        document.querySelectorAll('.cell.unsolved').forEach(e=>e.classList.remove('unsolved'));
+        if(r.c === "ok") {
+             alert("✅ Solvable by Logic!");
+        } else {
+             for(let y=0; y<h; y++){
+                 for(let x=0; x<w; x++){
+                     if(r.wk[y][x] === null) {
+                         const c = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+                         if(c) c.classList.add('unsolved');
+                     }
+                 }
+             }
+             const e=document.getElementById('editor-status'); e.textContent=r.t; e.className='status-bar '+r.c;
+        }
+    }
 };
 const Confetti=()=>{const c=document.getElementById('confetti-canvas'),x=c.getContext('2d');c.width=c.parentElement.clientWidth;c.height=c.parentElement.clientHeight;let p=Array(100).fill(0).map(()=>({x:c.width/2,y:c.height/2,vx:(Math.random()-.5)*20,vy:(Math.random()-.5)*20,c:`hsl(${Math.random()*360},80%,50%)`,l:100}));const t=()=>{x.clearRect(0,0,c.width,c.height);p.forEach((k,i)=>{k.x+=k.vx;k.y+=k.vy;k.vy+=.5;k.l--;x.fillStyle=k.c;x.beginPath();x.arc(k.x,k.y,5,0,7);x.fill();if(k.l<0)p.splice(i,1)});if(p.length)requestAnimationFrame(t)};t()};
 window.onload = app.init;
