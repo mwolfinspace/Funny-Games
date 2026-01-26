@@ -61,6 +61,7 @@
             flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
             background: var(--game-bg); background-image: radial-gradient(var(--grid-line) 1px, transparent 1px);
             background-size: 20px 20px; overflow: hidden;
+            transition: flex 0.3s ease; /* Smooth resize of container */
         }
 
         /* SIDEBAR */
@@ -68,6 +69,52 @@
             width: 340px; background: var(--sidebar-bg); border-left: 1px solid var(--panel-border);
             display: flex; flex-direction: column; padding: 20px; gap: 15px; z-index: 20; overflow-y: auto;
             box-shadow: -5px 0 20px rgba(0,0,0,0.05);
+            /* Smooth transitions for hiding */
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, opacity 0.2s ease, border 0.3s;
+            flex-shrink: 0;
+            white-space: nowrap; /* Prevent text wrapping during transition */
+        }
+
+        /* COLLAPSED STATE */
+        body.sidebar-collapsed #sidebar {
+            width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            opacity: 0;
+            border-left: none;
+            overflow: hidden;
+        }
+
+        /* TOGGLE BUTTON */
+        #sidebar-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px; /* Initially hidden by sidebar or near it */
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 30;
+            transition: transform 0.2s, right 0.3s ease;
+            font-size: 1.2rem;
+        }
+        #sidebar-toggle:hover { transform: scale(1.1); }
+        
+        /* Move button when sidebar is collapsed (stick to right edge of screen) */
+        body.sidebar-collapsed #sidebar-toggle {
+            right: 20px;
+        }
+        
+        /* Adjust button position to be "inside" the stage area near the sidebar boundary usually */
+        #sidebar-toggle {
+            right: 20px; 
         }
 
         /* BOARD */
@@ -183,6 +230,11 @@
     <div id="toast">Code Copied!</div>
 
     <div id="main-stage">
+        <button id="sidebar-toggle" onclick="app.toggleSidebar()" title="Toggle Sidebar">
+            <svg id="icon-collapse" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><path d="M10 15l-3-3 3-3"/></svg>
+            <svg id="icon-expand" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><path d="M7 15l3-3-3-3"/></svg>
+        </button>
+
         <canvas id="confetti-canvas"></canvas>
         <div id="game-scaler">
             <div id="grid-container" class="grid-frame"></div>
@@ -396,12 +448,24 @@ const app = {
     init: () => {
         const s=document.getElementById('main-stage');
         let pan=false,sx,sy,sl,st;
-        s.onmousedown=e=>{if(e.target.closest('#game-scaler'))return;pan=true;sx=e.pageX-s.offsetLeft;sy=e.pageY-s.offsetTop;sl=s.scrollLeft;st=s.scrollTop};
+        s.onmousedown=e=>{if(e.target.closest('#game-scaler') || e.target.closest('#sidebar-toggle'))return;pan=true;sx=e.pageX-s.offsetLeft;sy=e.pageY-s.offsetTop;sl=s.scrollLeft;st=s.scrollTop};
         window.onmouseup=()=>{pan=false;app.d.drag=false};
         window.onmousemove=e=>{if(pan){e.preventDefault();s.scrollLeft=sl-((e.pageX-s.offsetLeft)-sx);s.scrollTop=st-((e.pageY-s.offsetTop)-sy)}if(app.d.drag)app.hov(e)};
         window.onresize=()=>{if(app.d.mode==='game')app.fit()};
         Intro.s(); app.fit(true);
     },
+    
+    /* SIDEBAR TOGGLE LOGIC */
+    toggleSidebar: () => {
+        document.body.classList.toggle('sidebar-collapsed');
+        const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+        document.getElementById('icon-collapse').style.display = isCollapsed ? 'none' : 'block';
+        document.getElementById('icon-expand').style.display = isCollapsed ? 'block' : 'none';
+        
+        // Wait for transition to end (300ms) then refit the board to center
+        setTimeout(() => app.fit(true), 310);
+    },
+
     campNav: (d) => { const i=document.getElementById('menu-lvl-input'); let v=parseInt(i.value)+d; if(v<1)v=1; if(v>500)v=500; i.value=v; },
     campGo: () => app.startCamp(parseInt(document.getElementById('menu-lvl-input').value)||1),
     
@@ -423,10 +487,7 @@ const app = {
         const s=Math.floor(Math.random()*3)+5;
         const rngNum=Math.floor(Math.random()*99999).toString(); 
         Intro.e(); 
-        
-        // FIX: Combine size and seed (e.g. "5x30399")
         app.d.seed = s + "x" + rngNum; 
-        
         app.load(Gen.getGrid(rngNum,s,s),s,s,"Random "+s+"x"+s); 
         app.pan('game'); 
         document.getElementById('camp-controls').style.display='none';
@@ -444,8 +505,6 @@ const app = {
             app.pan('game');
         };
 
-        // Campaign or Simple Number (Level 1-500)
-        // We ensure it DOES NOT contain 'x' so random seeds like "5x30399" don't trigger this
         if(!v.includes("x") && (v.startsWith("#") || (!isNaN(v) && !v.startsWith("~")))) {
             let lvl = parseInt(v.replace("#",""));
             if(lvl>0 && lvl<=500) {
@@ -455,25 +514,21 @@ const app = {
             }
         }
         
-        // Custom Code (~...)
         if(v.startsWith("~")){ 
             const d=Codec.d(v); 
             if(d){ app.d.seed=v; app.load(d.grid,d.w,d.h,"Custom"); finishLoad(); }
             else alert("Bad Code"); 
         } else { 
-            // FIX: Handle "Size x Seed" (e.g., 5x30399) or Default to 10
             let s = 10, seed = v;
             if(v.includes("x")) {
                 let parts = v.split("x");
-                // Check if the first part is a valid size number
                 if(!isNaN(parts[0])) {
                     s = parseInt(parts[0]);
                     seed = parts[1];
                 }
             }
-
             const g=Gen.getGrid(seed,s,s); 
-            app.d.seed=v; // Keep the full string (5x30399) as the seed for sharing
+            app.d.seed=v; 
             app.load(g,s,s,"Seed: "+seed); 
             finishLoad(); 
         }
@@ -516,7 +571,7 @@ const app = {
         if(v==1)Sfx.fill(); if(v==2)Sfx.cross();
         
         if(!ed) {
-             app.updShare(); // Update Save Code
+             app.updShare(); 
              if(!app.d.solved) app.check();
         }
         if(ed) { 
@@ -527,14 +582,11 @@ const app = {
     },
     upd: (x,y,v) => { const c=document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); c.className=c.className.replace(/ (filled|crossed)/g,''); if(v==1)c.classList.add('filled'); if(v==2)c.classList.add('crossed'); },
     
-    // SHARE LOGIC
     updShare: () => {
         let base = app.d.seed;
         if(app.d.campLvl > 0) base = "#"+app.d.campLvl;
-        
         const flat = app.d.player.flat();
         const isEmpty = flat.every(x=>x===0);
-        
         let code = base;
         if(!isEmpty && !app.d.solved) {
             code += ":" + Codec.encodeState(app.d.player);
@@ -544,17 +596,9 @@ const app = {
     
     check: () => {
         const { grid, player } = app.d;
-
-        // 1. Get the target clues (The goal)
         const targetClues = Gen.getClues(grid);
-
-        // 2. Get the player's current clues
-        // We convert the player's grid to simple 1s and 0s (treating '2' or 'Cross' as empty '0')
         const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0));
         const currentClues = Gen.getClues(playerBinary);
-
-        // 3. Compare Clues
-        // If the clues from your board match the goal clues, it's a valid solution!
         if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) {
             app.d.solved = true;
             Sfx.win();
@@ -605,7 +649,9 @@ const app = {
              }
              const e=document.getElementById('editor-status'); e.textContent=r.t; e.className='status-bar '+r.c;
         }
-    }
+    },
+    
+    fitBoard: (force) => app.fit(force)
 };
 const Confetti=()=>{const c=document.getElementById('confetti-canvas'),x=c.getContext('2d');c.width=c.parentElement.clientWidth;c.height=c.parentElement.clientHeight;let p=Array(100).fill(0).map(()=>({x:c.width/2,y:c.height/2,vx:(Math.random()-.5)*20,vy:(Math.random()-.5)*20,c:`hsl(${Math.random()*360},80%,50%)`,l:100}));const t=()=>{x.clearRect(0,0,c.width,c.height);p.forEach((k,i)=>{k.x+=k.vx;k.y+=k.vy;k.vy+=.5;k.l--;x.fillStyle=k.c;x.beginPath();x.arc(k.x,k.y,5,0,7);x.fill();if(k.l<0)p.splice(i,1)});if(p.length)requestAnimationFrame(t)};t()};
 window.onload = app.init;
