@@ -1342,6 +1342,24 @@
         };
         const Confetti = () => { const c = document.getElementById('confetti-canvas'), x = c.getContext('2d'); c.width = c.parentElement.clientWidth; c.height = c.parentElement.clientHeight; let p = Array(100).fill(0).map(() => ({ x: c.width / 2, y: c.height / 2, vx: (Math.random() - .5) * 20, vy: (Math.random() - .5) * 20, c: `hsl(${Math.random() * 360},80%,50%)`, l: 100 })); const t = () => { x.clearRect(0, 0, c.width, c.height); p.forEach((k, i) => { k.x += k.vx; k.y += k.vy; k.vy += .5; k.l--; x.fillStyle = k.c; x.beginPath(); x.arc(k.x, k.y, 5, 0, 7); x.fill(); if (k.l < 0) p.splice(i, 1) }); if (p.length) requestAnimationFrame(t) }; t() };
         window.onload = app.init;
+        (function () {
+            const originalLoad = app.load;
+            app.load = function (g, w, h, t) {
+                // 1. Capture current view state
+                const prev = (app.d) ? { z: app.d.z, px: app.d.px, py: app.d.py, w: app.d.w, h: app.d.h } : null;
+
+                // 2. Run standard load
+                originalLoad.apply(this, arguments);
+
+                // 3. Restore view if dimensions match
+                if (prev && prev.w === w && prev.h === h && prev.z) {
+                    app.d.z = prev.z;
+                    app.d.px = prev.px;
+                    app.d.py = prev.py;
+                    app.draw();
+                }
+            };
+        })();
     </script>
 </body>
 
