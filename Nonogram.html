@@ -827,18 +827,33 @@
                 this.happyTuneState.playing = true;
                 Sfx.i();
                 if (Sfx.x.state === 'suspended') Sfx.x.resume();
-                const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
-                const totalTime = duration * 1000;
-                let elapsed = 0;
-                const noteDuration = 150, gap = 50;
+
+                const part1 = [329.63, 329.63, 349.23, 392.00, 392.00, 349.23, 329.63, 293.66, 261.63, 261.63, 293.66, 329.63, 329.63, 293.66, 293.66];
+                const part2 = [329.63, 329.63, 349.23, 392.00, 392.00, 349.23, 329.63, 293.66, 261.63, 261.63, 293.66, 329.63, 293.66, 261.63, 261.63];
+                const melody = part1.concat(part2).concat(part1); // 45 notes
+
+                const baseNoteDuration = 450;
+                const baseGap = 50;
+                const baseTotalDuration = melody.length * (baseNoteDuration + baseGap); // 22.5s
+
+                const targetTotalDuration = duration * 1000;
+                const tempoFactor = baseTotalDuration / targetTotalDuration;
+
+                const noteDuration = baseNoteDuration / tempoFactor;
+                const gap = baseGap / tempoFactor;
+
+                let noteIndex = 0;
+
                 const play = () => {
-                    if (!this.happyTuneState.playing || elapsed >= totalTime) {
+                    if (!this.happyTuneState.playing || noteIndex >= melody.length) {
                         this.happyTuneState.playing = false;
                         return;
                     }
-                    const freq = notes[Math.floor(Math.random() * notes.length)];
-                    Sfx.tone('triangle', freq, noteDuration / 1000, 0.08);
-                    elapsed += noteDuration + gap;
+
+                    const freq = melody[noteIndex];
+                    Sfx.tone('sine', freq, noteDuration / 1000, 0.09);
+                    noteIndex++;
+
                     this.happyTuneState.timer = setTimeout(play, noteDuration + gap);
                 };
                 play();
@@ -1122,9 +1137,10 @@
             p: () => {
                 if (!Intro.a) return;
                 if (!Intro.m.length) {
-                    Sfx.happyTune(10);
+                    const duration = 10; // Demo is 10x10
+                    Sfx.happyTune(duration);
                     Confetti();
-                    Intro.t = setTimeout(Intro.n, 3000);
+                    Intro.t = setTimeout(Intro.n, duration * 1000);
                     return;
                 }
 
