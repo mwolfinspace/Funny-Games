@@ -814,7 +814,40 @@
         const Solver = { permute: (l, b) => { const o = []; if (!b.length) return [Array(l).fill(0)]; const ms = b.reduce((a, x) => a + x, 0) + b.length - 1; if (ms > l) return []; const bl = b[0], rt = b.slice(1); const mx = l - (rt.reduce((a, x) => a + x, 0) + rt.length) - bl - (rt.length ? 1 : 0); for (let i = 0; i <= mx; i++) { const ln = Array(i).fill(0); for (let k = 0; k < bl; k++)ln.push(1); if (rt.length) { ln.push(0); Solver.permute(l - ln.length, rt).forEach(s => o.push(ln.concat(s))) } else { while (ln.length < l) ln.push(0); o.push(ln) } } return o }, solveLine: (l, b) => { const p = Solver.permute(l, b); if (!p.length) return null; if (p.length === 1) return p[0]; const r = Array(l).fill(null); for (let i = 0; i < l; i++) { let v = p[0][i], c = true; for (let k = 1; k < p.length; k++)if (p[k][i] !== v) { c = false; break } if (c) r[i] = v } return r }, check: (g) => { const h = g.length, w = g[0].length, f = g.flat(); if (f.every(x => x === 0)) return { t: "Empty Board", c: "", wk: [] }; const cl = Gen.getClues(g); let wk = Array(h).fill(0).map(() => Array(w).fill(null)), ch = true, it = 0; while (ch && it < 20) { ch = false; it++; for (let y = 0; y < h; y++) { const r = Solver.solveLine(w, cl.rows[y]); if (!r) continue; for (let x = 0; x < w; x++)if (wk[y][x] === null && r[x] !== null) { wk[y][x] = r[x]; ch = true } } for (let x = 0; x < w; x++) { const r = Solver.solveLine(h, cl.cols[x]); if (!r) continue; for (let y = 0; y < h; y++)if (wk[y][x] === null && r[y] !== null) { wk[y][x] = r[y]; ch = true } } } let s = true, c = true; for (let y = 0; y < h; y++)for (let x = 0; x < w; x++) { if (wk[y][x] === null) s = false; else if (wk[y][x] !== g[y][x]) c = false } if (s && c) return { t: "✅ Solvable (Logic)", c: "ok", wk: wk }; return { t: "⚠️ Multiple Solutions / Hard", c: "warn", wk: wk } } };
 
         /* UTILS */
-        const Sfx = { x: null, i: () => { if (!Sfx.x) Sfx.x = new (window.AudioContext || webkitAudioContext)() }, tone: (type, freq, dur, vol = 0.1) => { Sfx.i(); if (Sfx.x.state === 'suspended') Sfx.x.resume(); const o = Sfx.x.createOscillator(), g = Sfx.x.createGain(); o.type = type; o.frequency.setValueAtTime(freq, Sfx.x.currentTime); g.gain.setValueAtTime(vol, Sfx.x.currentTime); g.gain.exponentialRampToValueAtTime(0.001, Sfx.x.currentTime + dur); o.connect(g); g.connect(Sfx.x.destination); o.start(); o.stop(Sfx.x.currentTime + dur) }, fill: () => Sfx.tone('sine', 600, 0.08, 0.1), cross: () => Sfx.tone('sawtooth', 120, 0.06, 0.05), hint: () => Sfx.tone('triangle', 800, 0.3, 0.1), win: () => { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => Sfx.tone('square', f, 0.2, 0.05), i * 80)) } };
+        const Sfx = {
+            x: null, i: () => { if (!Sfx.x) Sfx.x = new (window.AudioContext || webkitAudioContext)() },
+            tone: (type, freq, dur, vol = 0.1) => { Sfx.i(); if (Sfx.x.state === 'suspended') Sfx.x.resume(); const o = Sfx.x.createOscillator(), g = Sfx.x.createGain(); o.type = type; o.frequency.setValueAtTime(freq, Sfx.x.currentTime); g.gain.setValueAtTime(vol, Sfx.x.currentTime); g.gain.exponentialRampToValueAtTime(0.001, Sfx.x.currentTime + dur); o.connect(g); g.connect(Sfx.x.destination); o.start(); o.stop(Sfx.x.currentTime + dur) },
+            fill: () => Sfx.tone('sine', 600, 0.08, 0.1),
+            cross: () => Sfx.tone('sawtooth', 120, 0.06, 0.05),
+            hint: () => Sfx.tone('triangle', 800, 0.3, 0.1),
+            win: () => { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => Sfx.tone('square', f, 0.2, 0.05), i * 80)) },
+            happyTuneState: { timer: null, playing: false },
+            happyTune: function (duration) {
+                this.stopHappyTune();
+                this.happyTuneState.playing = true;
+                Sfx.i();
+                if (Sfx.x.state === 'suspended') Sfx.x.resume();
+                const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+                const totalTime = duration * 1000;
+                let elapsed = 0;
+                const noteDuration = 150, gap = 50;
+                const play = () => {
+                    if (!this.happyTuneState.playing || elapsed >= totalTime) {
+                        this.happyTuneState.playing = false;
+                        return;
+                    }
+                    const freq = notes[Math.floor(Math.random() * notes.length)];
+                    Sfx.tone('triangle', freq, noteDuration / 1000, 0.08);
+                    elapsed += noteDuration + gap;
+                    this.happyTuneState.timer = setTimeout(play, noteDuration + gap);
+                };
+                play();
+            },
+            stopHappyTune: function () {
+                if (this.happyTuneState.timer) clearTimeout(this.happyTuneState.timer);
+                this.happyTuneState.playing = false;
+            }
+        };
 
         /* SMART CODEC */
         const Codec = {
@@ -932,6 +965,8 @@
             e: () => {
                 Intro.a = false;
                 clearTimeout(Intro.t);
+                StopConfetti();
+                Sfx.stopHappyTune();
                 const h1 = document.querySelector('#sidebar h1');
                 if (h1) h1.innerHTML = "Nonogram";
                 const toast = document.getElementById('toast');
@@ -1087,7 +1122,8 @@
             p: () => {
                 if (!Intro.a) return;
                 if (!Intro.m.length) {
-                    Sfx.win(); Confetti();
+                    Sfx.happyTune(10);
+                    Confetti();
                     Intro.t = setTimeout(Intro.n, 3000);
                     return;
                 }
@@ -1292,6 +1328,8 @@
             },
 
             load: (g, w, h, t, preserveZoom = false) => {
+                StopConfetti();
+                Sfx.stopHappyTune();
                 app.d.grid = g; app.d.w = w; app.d.h = h; app.d.player = Array(h).fill(0).map(() => Array(w).fill(0)); app.d.solved = false;
 
                 // Force title update safely
@@ -1420,7 +1458,7 @@
                     checkLine(player_line, solution_line, colClueEl);
                 }
             },
-            check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); Sfx.win(); Confetti(); app.updShare(); app.toggleActionBtn(true); } },
+            check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); const duration = Math.max(app.d.w, app.d.h); Sfx.happyTune(duration); Confetti(); app.updShare(); app.toggleActionBtn(true); } },
             useHint: () => { if (app.d.solved) return; let t = []; for (let y = 0; y < app.d.h; y++)for (let x = 0; x < app.d.w; x++)if (app.d.grid[y][x] == 1 && app.d.player[y][x] != 1) t.push({ x, y }); if (!t.length) return; const p = t[Math.floor(Math.random() * t.length)]; app.d.player[p.y][p.x] = 1; app.upd(p.x, p.y, 1); const c = document.querySelector(`.cell[data-x="${p.x}"][data-y="${p.y}"]`); c.classList.add('hint-anim'); Sfx.hint(); setTimeout(() => c.classList.remove('hint-anim'), 600); app.check(); app.updShare(); },
             checkSolvability: () => { const r = Solver.check(app.d.grid); const e = document.getElementById('editor-status'); e.textContent = r.t; e.className = 'status-bar ' + r.c; },
             fit: (f) => { const s = document.getElementById('game-scaler'), c = document.getElementById('grid-container'), m = document.getElementById('main-stage'); if (!s || !c || !m.offsetParent) return; s.style.transform = 'scale(1)'; let sc = Math.min((m.clientWidth - 40) / c.offsetWidth, (m.clientHeight - 40) / c.offsetHeight); if (sc > 1) sc = Math.min(sc, 2.5); app.applyZ(sc); },
@@ -1439,7 +1477,53 @@
             editorSolve: () => { const r = Solver.check(app.d.grid); const { w, h } = app.d; document.querySelectorAll('.cell.unsolved').forEach(e => e.classList.remove('unsolved')); if (r.c === "ok") { alert("✅ Solvable by Logic!"); } else { for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { if (r.wk[y][x] === null) { const c = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); if (c) c.classList.add('unsolved'); } } } const e = document.getElementById('editor-status'); e.textContent = r.t; e.className = 'status-bar ' + r.c; } },
             fitBoard: (force) => app.fit(force)
         };
-        const Confetti = () => { const c = document.getElementById('confetti-canvas'), x = c.getContext('2d'); c.width = c.parentElement.clientWidth; c.height = c.parentElement.clientHeight; let p = Array(100).fill(0).map(() => ({ x: c.width / 2, y: c.height / 2, vx: (Math.random() - .5) * 20, vy: (Math.random() - .5) * 20, c: `hsl(${Math.random() * 360},80%,50%)`, l: 100 })); const t = () => { x.clearRect(0, 0, c.width, c.height); p.forEach((k, i) => { k.x += k.vx; k.y += k.vy; k.vy += .5; k.l--; x.fillStyle = k.c; x.beginPath(); x.arc(k.x, k.y, 5, 0, 7); x.fill(); if (k.l < 0) p.splice(i, 1) }); if (p.length) requestAnimationFrame(t) }; t() };
+        const Confetti = () => {
+            const c = document.getElementById('confetti-canvas'), x = c.getContext('2d');
+            if (!c || !c.parentElement) return;
+            c.width = c.parentElement.clientWidth;
+            c.height = c.parentElement.clientHeight;
+
+            if (c.dataset.running === 'true') return;
+            c.dataset.running = 'true';
+
+            let p = Array(200).fill({}).map(() => createParticle());
+
+            function createParticle() {
+                return {
+                    x: Math.random() * c.width,
+                    y: -20 - Math.random() * 20,
+                    vx: (Math.random() - .5) * 8,
+                    vy: Math.random() * 4 + 2,
+                    c: `hsl(${Math.random() * 360}, 90%, 60%)`,
+                    s: Math.random() * 5 + 3
+                };
+            }
+
+            const t = () => {
+                if (c.dataset.running !== 'true') {
+                    x.clearRect(0, 0, c.width, c.height);
+                    return;
+                }
+
+                x.clearRect(0, 0, c.width, c.height);
+                p.forEach((k, i) => {
+                    k.x += k.vx;
+                    k.y += k.vy;
+                    k.vy += 0.1;
+
+                    x.fillStyle = k.c; x.beginPath(); x.arc(k.x, k.y, k.s, 0, 7); x.fill();
+
+                    if (k.y > c.height) p[i] = createParticle();
+                });
+
+                requestAnimationFrame(t);
+            };
+            t();
+        };
+        const StopConfetti = () => {
+            const c = document.getElementById('confetti-canvas');
+            if (c) c.dataset.running = 'false';
+        };
         window.onload = app.init;
         (function () {
             const originalLoad = app.load;
