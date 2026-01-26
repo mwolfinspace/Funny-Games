@@ -1,2233 +1,376 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nonogram</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nonogram Master</title>
     <style>
         :root {
-            --cell-size: 25px;
-            --font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
-            --background-color: #f3f3f3;
-            --control-background-color: #ffffff;
-            --control-border-color: #d1d1d1;
-            --control-border-radius: 8px;
-            --accent-color: #0078d4;
-            --text-color: #1a1a1a;
-            --input-padding: 12px;
-        }
-        html, body {
-            height: 100%;
-            margin: 0;
-        }
-        body { 
-            font-family: var(--font-family);
-            background-color: var(--background-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            text-align: center; 
-        }
-        .screen { 
-            display: none; 
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .screen.active { 
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
+            --bg-color: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --game-bg: #f1f5f9;
+            --panel-border: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            
+            --clue-bg: #ffffff;
+            --clue-text: #000000;
+            --clue-divider: #e2e8f0;
+            
+            --border-frame: #94a3b8;
+            --grid-line: #cbd5e1;
+            
+            --cell-bg: #ffffff;
+            --cell-filled: #334155;
+            --cell-crossed: #ef4444;
+            --cell-hint: #facc15; 
+            
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
         }
 
-        #game-screen, #editor-screen {
-            /* justify-content: center; */ /* Removed to allow title and buttons to be at top/bottom */
-            /* align-items: center; */ /* This can cause issues with scrolling on small screens */
+        [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
+            --game-bg: #020617;
+            --panel-border: #334155;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --clue-bg: #1e293b;
+            --clue-text: #ffffff;
+            --clue-divider: #334155;
+            --border-frame: #94a3b8;
+            --grid-line: #475569;
+            --cell-bg: #1e293b;
+            --cell-filled: #f8fafc;
+            --cell-crossed: #ef4444;
+            --cell-hint: #ca8a04;
+            --accent: #60a5fa;
+            --accent-hover: #3b82f6;
         }
 
-        .game-area-wrapper {
-            flex-grow: 1;
-            display: flex;
-            min-height: 0; /* Prevents flexbox overflow issues */
-            position: relative; /* Anchor for the absolute positioned child */
-        }
-
-        #game-container, #editor-container, .game-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%); /* Center the container */
-            transform-origin: center center;
-            transition: transform 0.3s ease-in-out; /* Smooth transition for scaling */
-
-            /* The rest of the grid styles are still valid */
-            display: grid;
-            grid-template-columns: auto 1fr;
-            grid-template-rows: auto 1fr;
-            border: 2px solid black;
-            margin: 0; /* No margin needed with absolute positioning */
-            z-index: 1;
-        }
-
-        .corner {
-            grid-column: 1;
-            grid-row: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
-        }
-
-        #game-board, #editor-board { 
-            grid-column: 2;
-            grid-row: 2;
-            display: grid; 
-        }
-
-        .cell { 
-            width: var(--cell-size);
-            height: var(--cell-size);
-            border: 1px solid #ccc; 
-            box-sizing: border-box; 
-        }
-        .cell.filled { background-color: black; }
-        .cell.crossed::after { 
-            content: 'X'; 
-            color: red; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 24px; 
-            font-weight: bold;
-        }
-
-        .cell-feedback {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-            pointer-events: none; /* So it doesn't interfere with clicks */
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .cell:hover .cell-feedback {
-            opacity: 1;
-        }
-
-        @keyframes hint-highlight {
-            0% { background-color: rgba(255, 255, 0, 0.8); }
-            100% { background-color: transparent; }
-        }
-
-        .hint-highlight {
-            animation: hint-highlight 1.5s ease-out;
-        }
-
-        .row-clues, .row-clues-editor {
-            grid-column: 1;
-            grid-row: 2;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            border-right: 2px solid black;
-        }
-
-        .row-clues > div, .row-clues-editor > div {
-            height: var(--cell-size);
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            box-sizing: border-box;
-            padding: 5px 10px;
-            border-top: 1px solid #ccc;
-            font-size: 20px; /* Revert to fixed font-size, as scaling is now uniform */
-            font-weight: bold;
-        }
-        .row-clues > div:first-child, .row-clues-editor > div:first-child {
-             border-top: none;
-        }
-
-
-        .col-clues, .col-clues-editor {
-            grid-column: 2;
-            grid-row: 1;
-            display: flex;
-            justify-content: space-around;
-            border-bottom: 2px solid black;
-        }
-
-        .clue-group {
-            width: var(--cell-size);
-            display: flex;
-            flex-direction: column-reverse;
-            align-items: center;
-            box-sizing: border-box;
-            padding: 5px;
-            border-left: 1px solid #ccc;
-            font-size: 20px; /* Revert to fixed font-size, as scaling is now uniform */
-            font-weight: bold;
-        }
-        .clue-group:first-child {
-            border-left: none;
-        }
-        .clue-group > div {
-             line-height: 1.2;
-        }
-        /* Solver board specific rules to avoid overlap and ensure spacing */
-        #solver-board {
-            display: grid;
-            gap: 4px;
-            justify-content: center;
-            align-content: center;
-        }
-        #solver-board .cell {
-            width: var(--cell-size) !important;
-            height: var(--cell-size) !important;
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         
-        div[contenteditable="true"] {
-            background-color: #f0f0f0;
-            padding: 2px;
+        body { margin: 0; height: 100vh; font-family: "Segoe UI", sans-serif; background: var(--bg-color); color: var(--text-main); display: flex; overflow: hidden; }
+
+        /* STAGE */
+        #main-stage {
+            flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+            background: var(--game-bg); background-image: radial-gradient(var(--grid-line) 1px, transparent 1px);
+            background-size: 20px 20px; overflow: hidden;
         }
 
-        /* New UI Styles */
-        h1, h2, h3 {
-            color: var(--text-color);
+        /* SIDEBAR */
+        #sidebar {
+            width: 340px; background: var(--sidebar-bg); border-left: 1px solid var(--panel-border);
+            display: flex; flex-direction: column; padding: 20px; gap: 15px; z-index: 20; overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.05);
         }
 
-        hr {
-            border: none;
-            border-top: 1px solid var(--control-border-color);
-            margin: 20px 0;
+        /* BOARD */
+        #game-scaler {
+            transform-origin: center; transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            background: var(--clue-bg); padding: 12px; border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
         }
 
-        label {
-            margin: 0 10px;
+        .grid-frame {
+            display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr;
+            gap: 2px; background: var(--border-frame); border: 2px solid var(--border-frame);
         }
 
-        .button-group {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-top: 20px;
+        .corner, .clues-col, .clues-row { background: var(--clue-bg); }
+        .clues-col { grid-column: 2; grid-row: 1; display: flex; }
+        .clues-row { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; }
+        .corner { grid-column: 1; grid-row: 1; }
+
+        /* FIX: CHANGED FROM column-reverse TO column + justify-end */
+        .clue-group-col {
+            width: 26px; 
+            display: flex; 
+            flex-direction: column; /* Standard Top-to-Bottom flow */
+            justify-content: flex-end; /* Push content to bottom (near grid) */
+            align-items: center; 
+            border-right: 1px solid var(--clue-divider); 
+            font-size: 13px; font-weight: 700; color: var(--clue-text); 
+            padding-bottom: 4px;
+        }
+        .clue-group-row {
+            height: 26px; display: flex; align-items: center; justify-content: flex-end;
+            border-bottom: 1px solid var(--clue-divider); font-size: 13px; font-weight: 700; color: var(--clue-text); padding-right: 6px; gap: 4px;
         }
 
-        button {
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: var(--control-border-radius);
-            padding: 12px 18px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin: 5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        button:hover {
-            background-color: #005a9e;
-            box-shadow: 0 0 20px rgba(0, 120, 212, 0.5), 0 2px 8px rgba(0, 0, 0, 0.15);
-            transform: translateY(-2px);
-        }
-        button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        .board-grid {
+            grid-column: 2; grid-row: 2; display: grid; background: var(--grid-line); gap: 1px;
+            border-top: 2px solid var(--border-frame); border-left: 2px solid var(--border-frame);
         }
 
-        /* Style file inputs as buttons */
-        input[type="file"] {
-            display: none;
+        .cell {
+            width: 26px; height: 26px; background: var(--cell-bg); cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
         }
-        .file-input-btn {
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: var(--control-border-radius);
-            padding: 12px 18px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin: 5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        .file-input-btn:hover {
-            background-color: #005a9e;
-            box-shadow: 0 0 20px rgba(0, 120, 212, 0.5), 0 2px 8px rgba(0, 0, 0, 0.15);
-            transform: translateY(-2px);
-        }
-        .file-input-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
+        .cell.v-thick { border-right: 2px solid var(--border-frame) !important; margin-right: -1px; }
+        .cell.h-thick { border-bottom: 2px solid var(--border-frame) !important; margin-bottom: -1px; }
+        .cell.filled { background: var(--cell-filled); }
+        .cell.crossed { color: var(--cell-crossed); font-weight: 900; font-size: 20px; }
+        .cell.crossed::after { content: "✕"; }
+        
+        @keyframes flashHint { 0% { background: var(--cell-hint); transform: scale(1.2); } 100% { background: var(--cell-filled); transform: scale(1); } }
+        .cell.hint-anim { animation: flashHint 0.5s ease-out forwards; }
 
-        /* Help button style */
-        .help-btn {
-            background-color: #6c757d;
-            padding: 12px 18px;
-            font-size: 16px;
-            margin: 5px;
+        /* UI */
+        .header-row { display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
+        h2 { margin: 10px 0 5px 0; font-size: 0.95rem; color: var(--text-main); border-bottom: 1px solid var(--panel-border); padding-bottom: 4px; opacity: 0.8; }
+        
+        .btn {
+            background: var(--accent); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;
+            transition: 0.1s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 8px;
+            display: flex; align-items: center; justify-content: center;
         }
-        .help-btn:hover {
-            background-color: #5a6268;
-            box-shadow: 0 0 15px rgba(108, 117, 125, 0.4);
-            transform: translateY(-2px);
-        }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn.secondary { background: var(--sidebar-bg); color: var(--text-main); border: 1px solid var(--panel-border); }
+        .btn.secondary:hover { background: var(--bg-color); }
+        .btn.danger { background: var(--danger); }
+        .btn.hint { background: #eab308; color: black; }
+        .btn.small { padding: 5px 10px; font-size: 0.85em; width: auto; margin: 0; }
+        .btn.icon { width: 36px; padding: 5px; margin: 0;}
 
-        /* Help modal */
-        .help-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        .help-modal.show {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .help-modal-content {
-            background-color: var(--control-background-color);
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 600px;
-            max-height: 70vh;
-            overflow-y: auto;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        }
-        @keyframes slideIn {
-            from {
-                transform: translateY(-50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        .help-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid var(--control-border-color);
-            padding-bottom: 10px;
-        }
-        .help-modal-header h2 {
-            margin: 0;
-        }
-        .help-modal-close {
-            background: none;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            color: #666;
-            padding: 0;
-            margin: 0;
-            width: 40px;
-            height: 40px;
-        }
-        .help-modal-close:hover {
-            color: #000;
-            box-shadow: none;
-            transform: none;
-        }
-        .help-section {
-            margin-bottom: 20px;
-        }
-        .help-section h3 {
-            color: var(--accent-color);
-            margin-bottom: 8px;
-        }
-        .help-section p {
-            margin: 0;
-            line-height: 1.6;
-            color: var(--text-color);
-        }
+        .control-panel { display: none; flex-direction: column; gap: 10px; animation: fadeIn 0.3s; }
+        .control-panel.active { display: flex; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:translateY(0);} }
 
-        input[type="number"] {
-            border: 1px solid var(--control-border-color);
-            border-radius: var(--control-border-radius);
-            padding: var(--input-padding);
-            font-size: 16px;
-            margin: 5px;
-            width: 80px;
-            /* Use textfield appearance so browsers don't show spinner by default */
-            appearance: textfield;
-            -moz-appearance: textfield;
-            -webkit-appearance: none;
+        .control-box {
+            background: var(--bg-color); padding: 10px; border-radius: 8px; border: 1px solid var(--panel-border);
+            display: flex; flex-direction: column; gap: 8px; margin-bottom: 5px;
         }
+        .row-group { display: flex; gap: 8px; align-items: center; }
 
-        /* Remove number input spinner arrows (global) so users can type values */
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type="number"] {
-            -moz-appearance: textfield; /* Firefox */
-        }
+        input { width: 100%; padding: 12px; background: var(--sidebar-bg); color: var(--text-main); border: 1px solid var(--panel-border); border-radius: 6px; font-family: monospace; font-size: 1em; }
+        
+        .level-nav { display: flex; gap: 5px; margin-bottom: 10px; align-items: stretch; height: 42px; }
+        .level-nav .btn { margin: 0; height: 100%; }
+        .level-input-group { flex: 1; display: flex; align-items: center; background: var(--sidebar-bg); border: 1px solid var(--panel-border); border-radius: 8px; padding: 0 5px; height: 100%; }
+        .level-input-group span { font-size: 0.8em; font-weight: 700; color: var(--text-muted); padding-left: 8px; white-space: nowrap; }
+        .level-input-group input { border: none; background: transparent; padding: 5px; text-align: center; font-weight: bold; height: 100%; }
+        .level-input-group input:focus { outline: none; }
 
-        .no-transition {
-            transition: none !important;
-        }
+        .status-bar { padding: 8px 12px; border-radius: 6px; font-size: 0.85em; font-weight: bold; text-align: center; background: var(--panel-border); color: var(--text-muted); transition: 0.3s; }
+        .status-bar.ok { background: #dcfce7; color: #166534; }
+        .status-bar.warn { background: #fef9c3; color: #854d0e; }
+        .status-bar.err { background: #fee2e2; color: #991b1b; }
 
-        /* --- Solver Styles --- */
-        #solver-input-area {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            grid-template-rows: auto 1fr;
-            gap: 8px;
-            margin: 20px auto;
-            justify-content: center;
-            align-items: start;
-        }
-
-        /* Wrappers for the generated clue groups */
-        .solver-col-clues-wrapper {
-            display: grid;
-            grid-auto-flow: column;
-            gap: 6px;
-            align-items: end;
-            justify-content: center;
-            padding: 4px 0;
-        }
-        .solver-row-clues-wrapper {
-            display: grid;
-            grid-auto-flow: row;
-            gap: 6px;
-            align-items: center;
-            justify-items: end;
-            padding: 0 4px;
-        }
-        .solver-dummy-grid {
-            display: grid;
-            gap: 2px;
-            align-self: start;
-        }
-
-        /* Individual groups created by JS */
-        .solver-col-clue-group {
-            display: flex;
-            flex-direction: column-reverse;
-            align-items: center;
-            justify-content: center;
-            width: var(--cell-size);
-            box-sizing: border-box;
-            gap: 4px;
-        }
-        .solver-row-clue-group {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 6px;
-            box-sizing: border-box;
-        }
-
-        .solver-clue-input {
-            border: 1px solid var(--control-border-color);
-            background-color: var(--control-background-color);
-            padding: 2px;
-            width: var(--cell-size);
-            height: var(--cell-size);
-            box-sizing: border-box;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        /* Ensure the small placeholder cells align with clue inputs */
-        #solver-input-area .solver-dummy-grid > div {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            background: transparent;
-            box-sizing: border-box;
-        }
-
-        /* Styles for embedded fedimser solver UI */
-        #fedimser-container {
-            width: min(84vmin, 720px);
-            height: min(84vmin, 720px); /* force square using same expression */
-            margin: 20px auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            border: 2px solid var(--control-border-color);
-            background: var(--control-background-color);
-            padding: 12px;
-            box-sizing: border-box;
-        }
-
-        .fedimser-settings {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            width: 100%;
-            flex-wrap: nowrap;
-            box-sizing: border-box;
-            margin-bottom: 8px;
-        }
-
-        .fedimser-settings > div {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-        }
-
-        .fedimser-settings input[type="number"] {
-            width: 64px !important;
-            padding: 6px !important;
-            height: auto !important;
-        }
-
-        .fedimser-settings button, .fedimser-settings .fedimser-solve-btn {
-            width: auto !important;
-            height: auto !important;
-            padding: 8px 14px !important;
-            font-size: 16px !important;
-            border-radius: 6px !important;
-        }
-
-        .fedimser-solution {
-            width: 100%;
-            height: calc(100% - 64px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: auto;
-        }
-
-        .fedimser-solution table {
-            max-width: 100%;
-            max-height: 100%;
-            width: max-content;
-            height: max-content;
-            table-layout: fixed;
-            border-collapse: collapse;
-        }
-
-        /* Force table cells to match global cell size so grid is square */
-        .fedimser-solution table td, .fedimser-solution table th {
-            width: var(--cell-size) !important;
-            height: var(--cell-size) !important;
-            padding: 0 !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Make numbers / inputs inside fedimser larger */
-        .fedimser-solution input, .fedimser-solution td input {
-            font-size: calc(var(--cell-size) / 2.2) !important;
-            width: 100% !important;
-            height: 100% !important;
-            box-sizing: border-box !important;
-            text-align: center;
-        }
-    </style>
-    <style>
-        a.return-to-menu {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            font-size: 24px;
-            background-color: rgba(0,0,0,0.2);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            text-decoration: none;
-            opacity: 0.5;
-            transition: opacity 0.3s, background-color 0.3s;
-            z-index: 1000;
-        }
-        a.return-to-menu:hover {
-            opacity: 1;
-            background-color: rgba(0,0,0,0.5);
-        }
+        #confetti-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 100; width: 100%; height: 100%; }
+        .code-display { font-size: 0.8em; color: var(--text-muted); word-break: break-all; cursor: pointer; padding: 5px; background: rgba(0,0,0,0.05); border-radius: 4px; }
     </style>
 </head>
-<body>
-<a class="return-to-menu" href="index.html">🏠</a>
+<body oncontextmenu="return false;">
 
-    <div id="start-screen" class="screen active">
-        <h1 style="text-align: center; margin-bottom: 30px;">Nonogram</h1>
-        <div id="new-game-options">
-            <h3 data-en="New Game" data-vi="Trò chơi mới">New Game</h3>
-            <label for="puzzle-width-input" data-en="Width:" data-vi="Chiều rộng:">Width:</label>
-            <input type="number" id="puzzle-width-input" min="4" max="20" value="5">
-            <label for="puzzle-height-input" data-en="Height:" data-vi="Chiều cao:">Height:</label>
-            <input type="number" id="puzzle-height-input" min="4" max="20" value="5">
-            <button id="start-random-puzzle-btn" data-en="🖼️ Random Icon Puzzle" data-vi="🖼️ Biểu tượng ngẫu nhiên">🖼️ Random Icon Puzzle</button>
-            <button id="difficulty-btn" data-en="Difficulty ⭐" data-vi="Độ khó ⭐">Difficulty ⭐</button>
-        </div>
-        <hr>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px;">
-            <button id="create-puzzle-btn" data-en="✏️ Create Puzzle" data-vi="✏️ Tạo câu đố">✏️ Create Puzzle</button>
-            <button id="solver-btn" data-en="🔍 Solver" data-vi="🔍 Công cụ giải">🔍 Solver</button>
-            <button class="file-input-btn" id="load-puzzle-btn" data-en="📂 Open Puzzle" data-vi="📂 Mở câu đố">📂 Open Puzzle</button>
-        </div>
-        <input type="file" id="load-puzzle-input" accept=".nonogram">
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-            <button id="lang-toggle" class="help-btn" style="background-color: #0078d4;">🇻🇳</button>
-            <button class="help-btn" onclick="showHelp('start')">?</button>
-            <button id="back-to-menu-btn" class="help-btn" data-en="🏠 Back to Menu" data-vi="🏠 Quay lại Menu" style="background-color: #6c757d;">🏠 Back to Menu</button>
+    <div id="main-stage">
+        <canvas id="confetti-canvas"></canvas>
+        <div id="game-scaler">
+            <div id="grid-container" class="grid-frame"></div>
         </div>
     </div>
 
-    <!-- Help Modal -->
-    <div id="help-modal" class="help-modal">
-        <div class="help-modal-content">
-            <div class="help-modal-header">
-                <h2>❓ How to Use</h2>
-                <button class="help-modal-close" onclick="closeHelp()">&times;</button>
+    <div id="sidebar">
+        <div class="header-row">
+            <div>
+                <h1>Nonogram</h1>
+                <small style="color: var(--text-muted)">Right-click to Cross</small>
             </div>
-            <div id="help-content"></div>
+            <button class="btn secondary icon" onclick="app.toggleTheme()">◑</button>
         </div>
-    </div>
 
-    <div id="game-screen" class="screen">
-        <h2 style="text-align: center;">Nonogram Puzzle</h2>
-        <div class="game-area-wrapper">
-            <div id="game-container">
-                <div class="corner"></div>
-                <div class="col-clues"></div>
-                <div class="row-clues"></div>
-                <div id="game-board"></div>
+        <div id="panel-menu" class="control-panel active">
+            <div style="text-align:center; padding: 8px; color: var(--accent); font-weight:bold; font-size:0.85em; background: var(--bg-color); border-radius:6px;">
+                Watching AI Demo...
+            </div>
+
+            <h2>Campaign</h2>
+            <div class="level-nav">
+                <button class="btn secondary small" style="width:40px" onclick="app.campNav(-1)">❮</button>
+                <div class="level-input-group">
+                    <span>Lvl</span>
+                    <input type="number" id="menu-lvl-input" value="1" min="1" max="500" onchange="app.campGo()">
+                </div>
+                <button class="btn" style="flex:1" onclick="app.campGo()">Play</button>
+                <button class="btn secondary small" style="width:40px" onclick="app.campNav(1)">❯</button>
+            </div>
+            <small style="color:var(--text-muted); font-size:0.8em; display:block; margin-top:-5px;">Size grows from 5x5 to 20x20</small>
+
+            <h2>Quick Play</h2>
+            <button class="btn secondary" onclick="app.startRandom()">🎲 Easy Random (5x5 - 7x7)</button>
+
+            <h2>Load / Editor</h2>
+            <div class="control-box">
+                <input type="text" id="load-input" placeholder="Paste Save Code or Seed">
+                <div class="row-group">
+                    <button class="btn secondary small" style="flex:1" onclick="app.handleLoad()">Load</button>
+                    <button class="btn secondary small" style="flex:1" onclick="app.openEditor()">Editor</button>
+                </div>
             </div>
         </div>
-        <div class="button-group">
-            <button id="solve-btn">💡 Solve</button>
-            <button id="hint-btn" data-en="❓ Hint" data-vi="❓ Gợi ý">❓ Hint</button>
-            <button id="check-puzzle-btn">✓ Check Puzzle</button>
-            <button id="new-random-puzzle-btn" data-en="New Random Puzzle" data-vi="Câu đố ngẫu nhiên mới" style="display: none;">New Random Puzzle</button>
-            <button id="back-to-start-btn-game">🏠 Back to Start</button>
-            <button class="help-btn" onclick="showHelp('game')">?</button>
-        </div>
-    </div>
 
-    <div id="editor-screen" class="screen">
-        <h2 style="text-align: center;">Puzzle Editor</h2>
-        <div>
-            <label for="board-width">Width (4-20):</label>
-            <input type="number" id="board-width" min="4" max="20" value="5">
-            <label for="board-height">Height (4-20):</label>
-            <input type="number" id="board-height" min="4" max="20" value="5">
-            <button id="create-grid-btn">Create Grid</button>
-        </div>
-        <div class="game-area-wrapper">
-            <div id="editor-container">
-                <div class="corner"></div>
-                <div class="col-clues-editor"></div>
-                <div class="row-clues-editor"></div>
-                <div id="editor-board"></div>
+        <div id="panel-game" class="control-panel">
+            <div class="header-row">
+                <h2 id="level-title" style="border:none; margin:0; cursor:pointer;" onclick="app.promptLevelJump()" title="Click to jump level">Level 1</h2>
+                <span id="zoom-val" style="font-size:0.8em; font-weight:bold; color:var(--accent);">100%</span>
             </div>
+
+            <div id="camp-controls" class="row-group" style="display:none; margin-bottom:8px;">
+                <button class="btn secondary small" style="flex:1" onclick="app.nextLevel(-1)">❮ Prev</button>
+                <button class="btn secondary small" style="flex:1" onclick="app.nextLevel(1)">Next ❯</button>
+            </div>
+            
+            <div class="row-group">
+                <button class="btn hint" onclick="app.useHint()">💡 Hint</button>
+                <button class="btn secondary" onclick="app.solve()">Give Up</button>
+            </div>
+
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">ZOOM</small>
+                <div class="row-group">
+                    <button class="btn secondary small" onclick="app.zoom(-0.1)">-</button>
+                    <button class="btn secondary small" style="flex:1" onclick="app.fitBoard(true)">Fit Screen</button>
+                    <button class="btn secondary small" onclick="app.zoom(0.1)">+</button>
+                </div>
+            </div>
+
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">SHARE</small>
+                <div class="code-display" id="share-display" onclick="app.copyShare()">...</div>
+            </div>
+
+            <div style="flex:1"></div>
+            <button class="btn danger" onclick="app.showMenu()">Back to Menu</button>
         </div>
-        <div class="button-group">
-            <button id="save-puzzle-btn">💾 Save Puzzle</button>
-            <button id="test-puzzle-btn">🎮 Test Puzzle</button>
-            <button id="validate-puzzle-btn">🔍 Validate</button>
-            <button id="back-to-start-btn-editor">🏠 Back to Start</button>
-            <button class="help-btn" onclick="showHelp('editor')">?</button>
+
+        <div id="panel-editor" class="control-panel">
+            <h2>Editor</h2>
+            <div id="editor-status" class="status-bar">Empty Board</div>
+
+            <div class="control-box">
+                <div class="row-group" style="justify-content: space-between;">
+                    <span>Width: <b id="lbl-w">10</b></span>
+                    <div>
+                        <button class="btn secondary small" onclick="app.resizeBoard(-1, 0)">-</button>
+                        <button class="btn secondary small" onclick="app.resizeBoard(1, 0)">+</button>
+                    </div>
+                </div>
+                <div class="row-group" style="justify-content: space-between;">
+                    <span>Height: <b id="lbl-h">10</b></span>
+                    <div>
+                        <button class="btn secondary small" onclick="app.resizeBoard(0, -1)">-</button>
+                        <button class="btn secondary small" onclick="app.resizeBoard(0, 1)">+</button>
+                    </div>
+                </div>
+            </div>
+            <button class="btn" onclick="app.playEditorLevel()">▶️ Test Play</button>
+            
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">SAVE CODE</small>
+                <input type="text" id="editor-export" readonly onclick="this.select()">
+                <button class="btn secondary small" onclick="app.exportSave()">Generate Code</button>
+            </div>
+
+            <div style="flex:1"></div>
+            <button class="btn danger" onclick="app.showMenu()">Exit</button>
         </div>
     </div>
 
-    <div id="solver-screen" class="screen">
-        <h2 style="text-align: center;">Nonogram Solver</h2>
-        <div class="button-group">
-            <button id="export-solver-btn">📥 Export Puzzle</button>
-            <button class="file-input-btn" id="import-puzzle-btn">📤 Import Puzzle</button>
-            <input id="import-solver-input" type="file" accept=".nonogram">
-            <button id="back-to-start-btn-solver">🏠 Back to Start</button>
-            <button class="help-btn" onclick="showHelp('solver')">?</button>
-        </div>
-        <div id="fedimser-container"></div>
-    </div>
-
-        <script src="Nonogram.js"></script>
-
-            <script>
-                // Language system
-                let currentLanguage = 'en';
-                
-                function setLanguage(lang) {
-                    currentLanguage = lang;
-                    const langBtn = document.getElementById('lang-toggle');
-                    langBtn.textContent = lang === 'vi' ? '🇬🇧' : '🇻🇳';
-                    
-                    // Update all elements with data-en and data-vi
-                    document.querySelectorAll('[data-en]').forEach(el => {
-                        el.textContent = lang === 'en' ? el.dataset.en : el.dataset.vi;
-                    });
-                    
-                    // Update help content
-                    updateHelpContent();
-                }
-                
-                function updateHelpContent() {
-                    const en = currentLanguage === 'en';
-                    window.helpContent = {
-                        start: en ? `
-                            <div class="help-section">
-                                <h3>🎮 Start New Game</h3>
-                                <p>Set your desired puzzle size (4-20) and click to generate a random puzzle and play it.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>✏️ Create Puzzle</h3>
-                                <p>Manually design your own nonogram puzzle by drawing on a grid, then save it as a .nonogram file.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🔍 Solver</h3>
-                                <p>Use the automated solver to create puzzles from clues. Enter row and column clues, and the solver will find the solution.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>📂 Open Puzzle</h3>
-                                <p>Load a previously saved .nonogram puzzle file to play it.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🏠 Back to Menu</h3>
-                                <p>Return to the main menu (index.html).</p>
-                            </div>
-                        ` : `
-                            <div class="help-section">
-                                <h3>🎮 Bắt đầu trò chơi mới</h3>
-                                <p>Đặt kích thước câu đố mong muốn (4-20) và nhấp để tạo một câu đố ngẫu nhiên và chơi.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>✏️ Tạo câu đố</h3>
-                                <p>Thiết kế riêng của bạn bằng cách vẽ trên lưới, sau đó lưu dưới dạng tệp .nonogram.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🔍 Công cụ giải</h3>
-                                <p>Sử dụng công cụ giải tự động để tạo câu đố từ các chỉ dẫn. Nhập các chỉ dẫn hàng và cột, công cụ sẽ tìm ra giải pháp.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>📂 Mở câu đố</h3>
-                                <p>Tải tệp câu đố .nonogram đã lưu trước đó để chơi.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🏠 Quay lại Menu</h3>
-                                <p>Quay lại menu chính (index.html).</p>
-                            </div>
-                        `,
-                        game: en ? `
-                            <div class="help-section">
-                                <h3>💡 Solve</h3>
-                                <p>Instantly reveal the complete solution of the puzzle. The game will automatically check if you've solved it.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>✓ Check Puzzle</h3>
-                                <p>Verify if your current board matches the puzzle solution.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🏠 Back to Start</h3>
-                                <p>Return to the main menu.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>How to Play</h3>
-                                <p><strong>Left-click:</strong> Fill a cell (black)<br><strong>Right-click:</strong> Mark with X (crossed out)<br><strong>Left-click again:</strong> Clear a cell</p>
-                            </div>
-                        ` : `
-                            <div class="help-section">
-                                <h3>💡 Giải đáp</h3>
-                                <p>Tiết lộ ngay lập tức giải pháp đầy đủ của câu đố. Trò chơi sẽ tự động kiểm tra nếu bạn đã giải quyết nó.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>✓ Kiểm tra câu đố</h3>
-                                <p>Xác minh xem bảng hiện tại của bạn có khớp với giải pháp câu đố không.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🏠 Quay lại</h3>
-                                <p>Quay lại menu chính.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>Cách chơi</h3>
-                                <p><strong>Nhấp trái:</strong> Điền ô (đen)<br><strong>Nhấp phải:</strong> Đánh dấu bằng X (gạch chéo)<br><strong>Nhấp trái lại:</strong> Xóa ô</p>
-                            </div>
-                        `,
-                        editor: en ? `
-                            <div class="help-section">
-                                <h3>Create Your Puzzle</h3>
-                                <p>Set the grid size and click "Create Grid" to start. Then draw your puzzle by clicking cells.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>💾 Save Puzzle</h3>
-                                <p>Save your created puzzle as a .nonogram file for later use.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🎮 Test Puzzle</h3>
-                                <p>Play your puzzle to make sure it's fun and solvable.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🔍 Validate</h3>
-                                <p>Check if your puzzle can be solved and if it has a unique solution.</p>
-                            </div>
-                        ` : `
-                            <div class="help-section">
-                                <h3>Tạo câu đố của bạn</h3>
-                                <p>Đặt kích thước lưới và nhấp "Tạo lưới" để bắt đầu. Sau đó vẽ câu đố bằng cách nhấp các ô.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>💾 Lưu câu đố</h3>
-                                <p>Lưu câu đố bạn tạo dưới dạng tệp .nonogram để sử dụng sau này.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🎮 Kiểm tra câu đố</h3>
-                                <p>Chơi câu đố của bạn để đảm bảo nó thú vị và có thể giải được.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>🔍 Xác thực</h3>
-                                <p>Kiểm tra xem câu đố của bạn có thể được giải và có giải pháp duy nhất không.</p>
-                            </div>
-                        `,
-                        solver: en ? `
-                            <div class="help-section">
-                                <h3>📥 Export Puzzle</h3>
-                                <p>Save the current puzzle as a .nonogram file with its auto-computed solution included.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>📤 Import Puzzle</h3>
-                                <p>Load a .nonogram file to view and edit its clues in the solver grid.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>How to Use</h3>
-                                <p>1. Set the grid size (width × height)<br>2. Enter the clues for each row and column<br>3. Click any cell to toggle it while solving<br>4. Export your completed puzzle</p>
-                            </div>
-                        ` : `
-                            <div class="help-section">
-                                <h3>📥 Xuất câu đố</h3>
-                                <p>Lưu câu đố hiện tại dưới dạng tệp .nonogram với giải pháp tự động tính toán được bao gồm.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>📤 Nhập câu đố</h3>
-                                <p>Tải tệp .nonogram để xem và chỉnh sửa các chỉ dẫn của nó trong lưới công cụ giải.</p>
-                            </div>
-                            <div class="help-section">
-                                <h3>Cách sử dụng</h3>
-                                <p>1. Đặt kích thước lưới (chiều rộng × chiều cao)<br>2. Nhập các chỉ dẫn cho mỗi hàng và cột<br>3. Nhấp vào bất kỳ ô nào để chuyển đổi nó khi giải<br>4. Xuất câu đố đã hoàn thành của bạn</p>
-                            </div>
-                        `
-                    };
-                }
-
-                // Help system
-                const helpContent = {
-                    start: `
-                        <div class="help-section">
-                            <h3>🎮 Start New Game</h3>
-                            <p>Set your desired puzzle size (4-20) and click to generate a random puzzle and play it.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>✏️ Create Puzzle</h3>
-                            <p>Manually design your own nonogram puzzle by drawing on a grid, then save it as a .nonogram file.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>🔍 Solver</h3>
-                            <p>Use the automated solver to create puzzles from clues. Enter row and column clues, and the solver will find the solution.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>📂 Open Puzzle</h3>
-                            <p>Load a previously saved .nonogram puzzle file to play it.</p>
-                        </div>
-                    `,
-                    game: `
-                        <div class="help-section">
-                            <h3>💡 Solve</h3>
-                            <p>Instantly reveal the complete solution of the puzzle. The game will automatically check if you've solved it.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>✓ Check Puzzle</h3>
-                            <p>Verify if your current board matches the puzzle solution.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>🏠 Back to Start</h3>
-                            <p>Return to the main menu.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>How to Play</h3>
-                            <p><strong>Left-click:</strong> Fill a cell (black)<br><strong>Right-click:</strong> Mark with X (crossed out)<br><strong>Left-click again:</strong> Clear a cell</p>
-                        </div>
-                    `,
-                    editor: `
-                        <div class="help-section">
-                            <h3>Create Your Puzzle</h3>
-                            <p>Set the grid size and click "Create Grid" to start. Then draw your puzzle by clicking cells.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>💾 Save Puzzle</h3>
-                            <p>Save your created puzzle as a .nonogram file for later use.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>🎮 Test Puzzle</h3>
-                            <p>Play your puzzle to make sure it's fun and solvable.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>🔍 Validate</h3>
-                            <p>Check if your puzzle can be solved and if it has a unique solution.</p>
-                        </div>
-                    `,
-                    solver: `
-                        <div class="help-section">
-                            <h3>📥 Export Puzzle</h3>
-                            <p>Save the current puzzle as a .nonogram file with its auto-computed solution included.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>📤 Import Puzzle</h3>
-                            <p>Load a .nonogram file to view and edit its clues in the solver grid.</p>
-                        </div>
-                        <div class="help-section">
-                            <h3>How to Use</h3>
-                            <p>1. Set the grid size (width × height)<br>2. Enter the clues for each row and column<br>3. Click any cell to toggle it while solving<br>4. Export your completed puzzle</p>
-                        </div>
-                    `
-                };
-
-                function showHelp(screen) {
-                    const modal = document.getElementById('help-modal');
-                    const content = document.getElementById('help-content');
-                    content.innerHTML = helpContent[screen] || '<p>No help available.</p>';
-                    modal.classList.add('show');
-                }
-
-                function closeHelp() {
-                    const modal = document.getElementById('help-modal');
-                    modal.classList.remove('show');
-                }
-
-                // Close modal when clicking outside content
-                document.getElementById('help-modal').addEventListener('click', (e) => {
-                    if (e.target.id === 'help-modal') closeHelp();
-                });
-
-                const startScreen = document.getElementById('start-screen');
-                const gameScreen = document.getElementById('game-screen');
-                const editorScreen = document.getElementById('editor-screen');
-        
-                const createPuzzleBtn = document.getElementById('create-puzzle-btn');
-                const loadPuzzleInput = document.getElementById('load-puzzle-input');
-                
-                const startNewGameBtn = document.getElementById('start-new-game-btn');
-                const startAndroidPuzzleBtn = document.getElementById('start-android-puzzle-btn');
-                const puzzleWidthInput = document.getElementById('puzzle-width-input');
-                const puzzleHeightInput = document.getElementById('puzzle-height-input');
-                const difficultyBtn = document.getElementById('difficulty-btn');
-                let currentDifficulty = 1;
-
-                const newAndroidPuzzleBtn = document.getElementById('new-android-puzzle-btn');
-        
-                const backToStartBtnGame = document.getElementById('back-to-start-btn-game');
-                const backToStartBtnEditor = document.getElementById('back-to-start-btn-editor');
-        
-                const createGridBtn = document.getElementById('create-grid-btn');
-                const boardWidthInput = document.getElementById('board-width');
-                const boardHeightInput = document.getElementById('board-height');
-                const editorBoard = document.getElementById('editor-board');
-                const rowCluesEditor = document.querySelector('.row-clues-editor');
-                const colCluesEditor = document.querySelector('.col-clues-editor');
-                const savePuzzleBtn = document.getElementById('save-puzzle-btn');
-                const testPuzzleBtn = document.getElementById('test-puzzle-btn');
-                const validatePuzzleBtn = document.getElementById('validate-puzzle-btn');
-        
-                const gameBoard = document.getElementById('game-board');
-                const rowCluesGame = document.querySelector('.row-clues');
-                const colCluesGame = document.querySelector('.col-clues');
-
-                // --- Solver Elements ---
-                const solverScreen = document.getElementById('solver-screen');
-                const solverBtn = document.getElementById('solver-btn');
-                const backToStartBtnSolver = document.getElementById('back-to-start-btn-solver');
-                const solverWidthInput = document.getElementById('solver-width');
-                const solverHeightInput = document.getElementById('solver-height');
-                const createSolverInputsBtn = document.getElementById('create-solver-inputs-btn');
-                const solverInputArea = document.getElementById('solver-input-area');
-                const solvePuzzleBtn = document.getElementById('solve-puzzle-btn');
-                const solverResultsContainer = document.getElementById('solver-results-container');
-                const solverMaxRowCluesInput = document.getElementById('solver-max-row-clues');
-                const solverMaxColCluesInput = document.getElementById('solver-max-col-clues');
-
-                function createSolverInputs() {
-                    const width = parseInt(solverWidthInput.value);
-                    const height = parseInt(solverHeightInput.value);
-                    const maxRow = parseInt(solverMaxRowCluesInput.value);
-                    const maxCol = parseInt(solverMaxColCluesInput.value);
-
-                    if (width < 1 || height < 1 || maxRow < 1 || maxCol < 1 ) {
-                        alert('Dimensions and max clues must be at least 1.');
-                        return;
-                    }
-
-                    solverInputArea.innerHTML = `
-                        <div class="solver-corner" style="grid-area: 1 / 1;"></div>
-                        <div class="solver-col-clues-wrapper" style="grid-area: 1 / 2;"></div>
-                        <div class="solver-row-clues-wrapper" style="grid-area: 2 / 1;"></div>
-                        <div class="solver-dummy-grid" style="grid-area: 2 / 2;"></div>
-                    `;
-                    
-                    const colWrapper = solverInputArea.querySelector('.solver-col-clues-wrapper');
-                    const rowWrapper = solverInputArea.querySelector('.solver-row-clues-wrapper');
-                    const dummyGrid = solverInputArea.querySelector('.solver-dummy-grid');
-
-                    // Read the CSS variable for cell size so solver aligns with board
-                    const cssCellSize = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
-                    const cellSize = parseInt(cssCellSize, 10) || 30;
-
-                    // Style the wrappers using the computed cell size
-                    colWrapper.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-                    rowWrapper.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
-                    
-                    // Generate column clue inputs
-                    for (let c = 0; c < width; c++) {
-                        const group = document.createElement('div');
-                        group.className = 'solver-col-clue-group';
-                        for (let r = 0; r < maxCol; r++) {
-                             const clueInput = document.createElement('input');
-                            clueInput.type = 'number';
-                            clueInput.className = 'solver-clue-input';
-                            clueInput.dataset.type = 'col';
-                            clueInput.dataset.col = c;
-                            // Ensure input matches cell size explicitly for older browsers
-                            clueInput.style.width = `${cellSize}px`;
-                            clueInput.style.height = `${cellSize}px`;
-                            group.style.width = `${cellSize}px`;
-                            group.appendChild(clueInput);
-                        }
-                        colWrapper.appendChild(group);
-                    }
-
-                    // Generate row clue inputs
-                     for (let r = 0; r < height; r++) {
-                        const group = document.createElement('div');
-                        group.className = 'solver-row-clue-group';
-                        for (let c = 0; c < maxRow; c++) {
-                            const clueInput = document.createElement('input');
-                            clueInput.type = 'number';
-                            clueInput.className = 'solver-clue-input';
-                            clueInput.dataset.type = 'row';
-                            clueInput.dataset.row = r;
-                            clueInput.style.width = `${cellSize}px`;
-                            clueInput.style.height = `${cellSize}px`;
-                            group.appendChild(clueInput);
-                        }
-                        rowWrapper.appendChild(group);
-                    }
-
-                    // Style and fill the dummy grid for visual alignment
-                    dummyGrid.style.display = 'grid';
-                    dummyGrid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-                    dummyGrid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
-                    dummyGrid.style.gap = '2px';
-                     for (let i = 0; i < width * height; i++) {
-                        const emptyCell = document.createElement('div');
-                        emptyCell.style.background = '#f0f0f0';
-                        dummyGrid.appendChild(emptyCell);
-                    }
-                }
-                if (createSolverInputsBtn) createSolverInputsBtn.addEventListener('click', createSolverInputs);
-
-                // --- Solver Logic ---
-
-                function parseClues() {
-                    const width = parseInt(solverWidthInput.value);
-                    const height = parseInt(solverHeightInput.value);
-                    let rowClues = Array.from({ length: height }, () => []);
-                    let colClues = Array.from({ length: width }, () => []);
-
-                    const rowGroups = solverInputArea.querySelectorAll('.solver-row-clue-group');
-                    rowGroups.forEach((group, r) => {
-                        const inputs = group.querySelectorAll('input');
-                        inputs.forEach(input => {
-                             const value = parseInt(input.value);
-                            if (!isNaN(value) && value > 0) {
-                                rowClues[r].push(value);
-                            }
-                        });
-                    });
-
-                    const colGroups = solverInputArea.querySelectorAll('.solver-col-clue-group');
-                    colGroups.forEach((group, c) => {
-                        const inputs = group.querySelectorAll('input');
-                        inputs.forEach(input => {
-                            const value = parseInt(input.value);
-                            if (!isNaN(value) && value > 0) {
-                                colClues[c].push(value);
-                            }
-                        });
-                    });
-
-                    // If a row/col has no clues, it should be [0]
-                    rowClues = rowClues.map(clueSet => clueSet.length > 0 ? clueSet : [0]);
-                    colClues = colClues.map(clueSet => clueSet.length > 0 ? clueSet : [0]);
-
-                    return { rowClues, colClues, width, height };
-                }
-
-                function displaySolvedGrid(grid, clues, width, height) {
-                    const container = document.getElementById('solver-board-container');
-                    const board = document.getElementById('solver-board');
-                    const rowCluesEl = container.querySelector('.row-clues');
-                    const colCluesEl = container.querySelector('.col-clues');
-                    
-                    board.innerHTML = '';
-                    
-                    container.dataset.puzzleWidth = width;
-                    container.dataset.puzzleHeight = height;
-                    board.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
-
-                    // Display the clues
-                    displayClues(clues.rowClues, clues.colClues, rowCluesEl, colCluesEl, width, height, false);
-
-                    // Display the solution grid
-                    for (let r = 0; r < height; r++) {
-                        for (let c = 0; c < width; c++) {
-                            const cell = document.createElement('div');
-                            cell.className = 'cell';
-                            if (grid[r][c] === 1) {
-                                cell.classList.add('filled');
-                            }
-                            board.appendChild(cell);
-                        }
-                    }
-                    
-                    container.style.visibility = 'visible';
-                    scaleBoard('solver-board-container');
-                }
-
-                function solveNonogram(rowClues, colClues, width, height) {
-                    // Grid states: 1 for filled, 0 for empty, -1 for unknown
-                    let grid = Array.from({ length: height }, () => Array(width).fill(-1));
-                    let changedInLoop = true;
-
-                    // Simple deterministic line solver (based on overlap)
-                    function solveLine(line, clues) {
-                        const n = line.length;
-                        const k = clues.length;
-                        if (k === 1 && clues[0] === 0) return line.map(() => 0); // Line is all empty
-
-                        let newLine = [...line];
-                        const totalClueSum = clues.reduce((sum, val) => sum + val, 0);
-                        const minLength = totalClueSum + k - 1;
-                        const slack = n - minLength;
-
-                        // This is a simplified logic and won't solve all puzzles
-                        // It only fills cells that are certain based on overlap from one side
-                        let currentPos = 0;
-                        for(let i=0; i<k; i++) {
-                            const clue = clues[i];
-                            if (clue > slack) {
-                                for (let j = slack; j < clue; j++) {
-                                    newLine[currentPos + j] = 1;
-                                }
-                            }
-                            currentPos += clue + 1;
-                        }
-                        return newLine;
-                    }
-                    
-                    let iterations = 0;
-                    while(changedInLoop && iterations < 50) { // Add iteration limit to prevent infinite loops
-                        changedInLoop = false;
-
-                        // Process rows
-                        for (let r = 0; r < height; r++) {
-                            const originalLine = grid[r];
-                            const solvedLine = solveLine(originalLine, rowClues[r]);
-                            for (let c = 0; c < width; c++) {
-                                if (grid[r][c] === -1 && solvedLine[c] !== -1) {
-                                    grid[r][c] = solvedLine[c];
-                                    changedInLoop = true;
-                                }
-                            }
-                        }
-
-                        // Process columns
-                        for (let c = 0; c < width; c++) {
-                            const originalLine = grid.map(row => row[c]);
-                            const solvedLine = solveLine(originalLine, colClues[c]);
-                             for (let r = 0; r < height; r++) {
-                                if (grid[r][c] === -1 && solvedLine[r] !== -1) {
-                                    grid[r][c] = solvedLine[r];
-                                    changedInLoop = true;
-                                }
-                            }
-                        }
-                        iterations++;
-                    }
-
-                    // For now, treat any remaining unknown cells as empty
-                    grid = grid.map(row => row.map(cell => cell === 1 ? 1 : 0));
-                    return grid;
-                }
-
-
-                if (solvePuzzleBtn) solvePuzzleBtn.addEventListener('click', () => {
-                    const { rowClues, colClues, width, height } = parseClues();
-
-                    if (!rowClues || !colClues || rowClues.length !== height || colClues.length !== width) {
-                        alert('Please fill in all clues for the specified grid dimensions.');
-                        return;
-                    }
-
-                    // Use the robust solver from Nonogram.js if available
-                    if (typeof Nonogram === 'function') {
-                        try {
-                            const solver = new Nonogram(rowClues, colClues);
-                            const status = solver.solveAndCheck();
-                            if (status === 'Solved') {
-                                displaySolvedGrid(solver.matrix, { rowClues, colClues }, width, height);
-                            } else {
-                                // show partial matrix if available and inform user
-                                if (solver.matrix) displaySolvedGrid(solver.matrix, { rowClues, colClues }, width, height);
-                                alert(status);
-                            }
-                        } catch (err) {
-                            console.error('Nonogram.js solver error', err);
-                            alert('Solver error: ' + err.message);
-                        }
-                    } else {
-                        // Fallback to builtin simple solver
-                        const solution = solveNonogram(rowClues, colClues, width, height);
-                        displaySolvedGrid(solution, { rowClues, colClues }, width, height);
-                    }
-                });
-        
-                let editorSolution = [];
-                let editorManualClues = { rowClues: [], colClues: [] };
-                let gameSolution = [];
-                let currentPuzzle = {};
-                let hintedCells = [];
-                let isDragging = false;
-                let dragAction = null; // 'toggleFill', 'toggleCross'
-                let isEditorDragging = false;
-                let editorDragMode = null; // 'fill', 'erase'
-        
-                // --- Global Mouse Up Listener ---
-                window.addEventListener('mouseup', () => {
-                    if (isDragging) {
-                        isDragging = false;
-                        dragAction = null;
-                        // Delay the win check slightly so any pending mouseover handlers
-                        // that applied the last cell during drag have time to run.
-                        setTimeout(() => {
-                            try { checkWin(false); } catch (e) { console.warn('checkWin error', e); }
-                        }, 50);
-                    }
-                    if (isEditorDragging) {
-                        isEditorDragging = false;
-                        editorDragMode = null;
-                        // Update clues when drag is complete
-                        if(editorSolution.length > 0) {
-                            const width = editorSolution[0].length;
-                            const height = editorSolution.length;
-                            updateEditorClues(width, height);
-                        }
-                    }
-                });
-
-                // --- Navigation ---
-                function showScreen(screen) {
-                    startScreen.classList.remove('active');
-                    gameScreen.classList.remove('active');
-                    editorScreen.classList.remove('active');
-                    solverScreen.classList.remove('active');
-                    screen.classList.add('active');
-                }
-        
-                let fedimserInstance = null;
-                solverBtn.addEventListener('click', () => {
-                    showScreen(solverScreen);
-                    // Instantiate the fedimser GUI once when opening solver
-                    if (!fedimserInstance) {
-                        const container = document.getElementById('fedimser-container');
-                        if (container && typeof NonogramGUI === 'function') {
-                            fedimserInstance = new NonogramGUI(container);
-                            // Increase fedimser cell size to match our CSS --cell-size
-                            try {
-                                const cssCell = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
-                                const fedSize = parseInt(cssCell, 10) || 24;
-                                fedimserInstance.cellSize = fedSize + 'px';
-                                // re-render to apply new cell size
-                                if (typeof fedimserInstance.updateTableSize === 'function') fedimserInstance.updateTableSize();
-                                else if (typeof fedimserInstance.displayTable === 'function') fedimserInstance.displayTable();
-                            } catch (e) {
-                                console.warn('Could not set fedimser cell size', e);
-                            }
-                            // assign friendly class names so we can style the generated DOM
-                            try {
-                                if (fedimserInstance.settingsDiv) fedimserInstance.settingsDiv.className = 'fedimser-settings';
-                                if (fedimserInstance.tableDiv) fedimserInstance.tableDiv.className = 'fedimser-solution';
-                                // mark Solve button if present
-                                if (fedimserInstance.settingsDiv) {
-                                    const btn = fedimserInstance.settingsDiv.querySelector('button');
-                                    if (btn) btn.classList.add('fedimser-solve-btn');
-                                }
-                            } catch (e) {
-                                console.warn('Could not apply fedimser UI classes', e);
-                            }
-                            // Wrap the fedimser solve to show a congratulation alert on success
-                            try {
-                                if (typeof fedimserInstance.solve === 'function') {
-                                    const origSolve = fedimserInstance.solve.bind(fedimserInstance);
-                                    fedimserInstance.solve = function() {
-                                        origSolve();
-                                        try {
-                                            const status = (fedimserInstance.ansText && (fedimserInstance.ansText.textContent || fedimserInstance.ansText.innerText)) || '';
-                                            if (status.indexOf && status.indexOf('Solved') !== -1) {
-                                                setTimeout(() => alert('Solved — congratulations!'), 50);
-                                            }
-                                        } catch (e) {}
-                                    };
-                                }
-                            } catch (e) {
-                                console.warn('Could not wrap fedimser solve()', e);
-                            }
-                        }
-                    }
-                
-                    // Export/Import handlers for solver mode
-                    const exportSolverBtn = document.getElementById('export-solver-btn');
-                    const importSolverInput = document.getElementById('import-solver-input');
-
-                    function buildSolverPuzzleObject() {
-                        if (!fedimserInstance) return null;
-                        // Use fedimserInstance.prepareGroups if available to get cleaned clues
-                        let rowClues = [];
-                        let colClues = [];
-                        if (typeof fedimserInstance.prepareGroups === 'function') {
-                            rowClues = fedimserInstance.prepareGroups(fedimserInstance.groupsHor || []);
-                            colClues = fedimserInstance.prepareGroups(fedimserInstance.groupsVert || []);
-                        } else {
-                            // Fallback: try to read table inputs
-                            const rows = fedimserInstance.height || 5;
-                            const cols = fedimserInstance.width || 5;
-                            rowClues = Array.from({ length: rows }, () => [0]);
-                            colClues = Array.from({ length: cols }, () => [0]);
-                        }
-
-                        const width = fedimserInstance.width || (colClues.length || 0);
-                        const height = fedimserInstance.height || (rowClues.length || 0);
-
-                        // Try to solve the puzzle and include the solution
-                        let solution = Array.from({ length: height }, () => Array(width).fill(0));
-                        try {
-                            if (typeof Nonogram === 'function' && rowClues.length > 0 && colClues.length > 0) {
-                                const solver = new Nonogram(rowClues, colClues);
-                                const status = solver.solveAndCheck();
-                                if (status === 'Solved' && solver.matrix) {
-                                    solution = solver.matrix.map(row => row.map(v => v === 1 ? 1 : 0));
-                                    console.log('[DEBUG] buildSolverPuzzleObject: solution computed');
-                                } else {
-                                    console.log('[DEBUG] buildSolverPuzzleObject: solver status =', status);
-                                }
-                            }
-                        } catch (err) {
-                            console.warn('[DEBUG] buildSolverPuzzleObject: solver error', err);
-                        }
-
-                        return {
-                            name: 'Solver Puzzle',
-                            width: width,
-                            height: height,
-                            solution: solution,
-                            clues: { rowClues: rowClues, colClues: colClues }
-                        };
-                    }
-
-                    if (exportSolverBtn) exportSolverBtn.addEventListener('click', () => {
-                        if (!fedimserInstance) {
-                            alert('Open the Solver UI first.');
-                            return;
-                        }
-                        const puzzle = buildSolverPuzzleObject();
-                        if (!puzzle) { alert('No puzzle to export'); return; }
-                        // Pad clues into fixed group arrays to preserve ordering on import
-                        try {
-                            const rowGroups = puzzle.clues.rowClues || [];
-                            const colGroups = puzzle.clues.colClues || [];
-                            const maxRow = Math.max(1, ...rowGroups.map(r => (r ? r.length : 0)));
-                            const maxCol = Math.max(1, ...colGroups.map(c => (c ? c.length : 0)));
-                            const maxGroup = Math.max(maxRow, maxCol);
-                            const groupsHor = rowGroups.map(r => {
-                                const pad = Array(maxGroup - r.length).fill(0);
-                                return pad.concat(r);
-                            });
-                            const groupsVert = colGroups.map(c => {
-                                const pad = Array(maxGroup - c.length).fill(0);
-                                return pad.concat(c);
-                            });
-                            puzzle.clues.groupsHor = groupsHor;
-                            puzzle.clues.groupsVert = groupsVert;
-                        } catch (e) {}
-                        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(puzzle));
-                        const a = document.createElement('a');
-                        a.setAttribute('href', dataStr);
-                        a.setAttribute('download', 'puzzle.nonogram');
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                    });
-
-                    function populateFedimserFromPuzzle(puzzle) {
-                        if (!puzzle || !puzzle.width || !puzzle.height || !puzzle.clues) return false;
-                        if (!fedimserInstance) {
-                            // instantiate if not present
-                            const container = document.getElementById('fedimser-container');
-                            if (container && typeof NonogramGUI === 'function') {
-                                fedimserInstance = new NonogramGUI(container);
-                            } else return false;
-                        }
-
-                        // Prefer padded group arrays if available (preserves layout and zeros)
-                        let rowClues = puzzle.clues.rowClues || [];
-                        let colClues = puzzle.clues.colClues || [];
-                        if (Array.isArray(puzzle.clues.groupsHor) && puzzle.clues.groupsHor.length) {
-                            // convert groupsHor (padded arrays) back to clue arrays by stripping leading zeros
-                            rowClues = puzzle.clues.groupsHor.map(g => g.filter(v => v > 0));
-                        }
-                        if (Array.isArray(puzzle.clues.groupsVert) && puzzle.clues.groupsVert.length) {
-                            colClues = puzzle.clues.groupsVert.map(g => g.filter(v => v > 0));
-                        }
-                        const width = puzzle.width;
-                        const height = puzzle.height;
-                        const maxRow = Math.max(1, ...rowClues.map(r => (r ? r.length : 0)));
-                        const maxCol = Math.max(1, ...colClues.map(c => (c ? c.length : 0)));
-                        const maxGroup = Math.max(maxRow, maxCol);
-
-                        // Prepare groups arrays right-aligned into size [height][maxGroup] and [width][maxGroup]
-                        let groupsHor = Array.from({ length: height }, () => Array(maxGroup).fill(0));
-                        let groupsVert = Array.from({ length: width }, () => Array(maxGroup).fill(0));
-
-                        // If padded groups were provided, prefer using them directly (they already
-                        // include zeros to preserve visual alignment).
-                        if (Array.isArray(puzzle.clues.groupsHor) && puzzle.clues.groupsHor.length === height) {
-                            groupsHor = puzzle.clues.groupsHor.map(row => row.slice(0, maxGroup));
-                        } else {
-                            for (let r = 0; r < height; r++) {
-                                const clues = rowClues[r] || [];
-                                const offset = maxGroup - clues.length;
-                                for (let i = 0; i < clues.length; i++) groupsHor[r][offset + i] = clues[i];
-                            }
-                        }
-
-                        if (Array.isArray(puzzle.clues.groupsVert) && puzzle.clues.groupsVert.length === width) {
-                            groupsVert = puzzle.clues.groupsVert.map(col => col.slice(0, maxGroup));
-                        } else {
-                            for (let c = 0; c < width; c++) {
-                                const clues = colClues[c] || [];
-                                const offset = maxGroup - clues.length;
-                                for (let i = 0; i < clues.length; i++) groupsVert[c][offset + i] = clues[i];
-                            }
-                        }
-
-                        // Apply to fedimser instance and re-render (don't call updateTableSize(), it resets groups)
-                        fedimserInstance.width = width;
-                        fedimserInstance.height = height;
-                        fedimserInstance.maxGroup = maxGroup;
-                        fedimserInstance.groupsHor = groupsHor;
-                        fedimserInstance.groupsVert = groupsVert;
-                        if (typeof fedimserInstance.displayTable === 'function') fedimserInstance.displayTable();
-                        else if (typeof fedimserInstance.updateTableSize === 'function') fedimserInstance.updateTableSize();
-                        // ensure cell size consistent
-                        try {
-                            const cssCell = getComputedStyle(document.documentElement).getPropertyValue('--cell-size').trim();
-                            const fedSize = parseInt(cssCell, 10) || 24;
-                            fedimserInstance.cellSize = fedSize + 'px';
-                        } catch (e) {}
-                        return true;
-                    }
-
-                    let lastImportedPuzzle = null;
-                    const loadIntoGameBtn = document.createElement('button');
-                    loadIntoGameBtn.textContent = 'Load into Game';
-                    loadIntoGameBtn.style.marginLeft = '8px';
-                    loadIntoGameBtn.addEventListener('click', () => {
-                        if (!lastImportedPuzzle) { alert('No imported puzzle to load.'); return; }
-                        // Rebuild puzzle from current fedimser state (clues may have been edited)
-                        const currentPuzzle = buildSolverPuzzleObject();
-                        if (!currentPuzzle) { alert('Error building puzzle.'); return; }
-                        // Try to solve using the current clues
-                        try {
-                            if (currentPuzzle.clues && typeof Nonogram === 'function') {
-                                const solver = new Nonogram(currentPuzzle.clues.rowClues, currentPuzzle.clues.colClues);
-                                const status = solver.solveAndCheck();
-                                console.log('[DEBUG] Load into Game: solver status =', status);
-                                if (status === 'Solved' && solver.matrix) {
-                                    currentPuzzle.solution = solver.matrix.map(row => row.map(v => v === 1 ? 1 : 0));
-                                    console.log('[DEBUG] Load into Game: solution computed from clues');
-                                } else {
-                                    console.warn('[DEBUG] Load into Game: puzzle unsolvable or multiple solutions');
-                                }
-                            }
-                        } catch (err) {
-                            console.warn('[DEBUG] Load into Game: solver error', err);
-                        }
-                        startGame(currentPuzzle);
-                    });
-                    const exportBtnParent = document.getElementById('export-solver-btn');
-                    if (exportBtnParent && exportBtnParent.parentElement) exportBtnParent.parentElement.appendChild(loadIntoGameBtn);
-
-                    // Make "Import Puzzle" button trigger file input
-                    const importPuzzleBtn = document.getElementById('import-puzzle-btn');
-                    if (importPuzzleBtn) importPuzzleBtn.addEventListener('click', () => {
-                        importSolverInput.click();
-                    });
-
-                    if (importSolverInput) importSolverInput.addEventListener('change', (e) => {
-                        const file = e.target.files && e.target.files[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = function(evt) {
-                            try {
-                                const puzzle = JSON.parse(evt.target.result);
-                                // Try computing solution from clues using Nonogram solver
-                                try {
-                                    if (puzzle && puzzle.clues && typeof Nonogram === 'function') {
-                                        const solver = new Nonogram(puzzle.clues.rowClues, puzzle.clues.colClues);
-                                        const status = solver.solveAndCheck();
-                                        if (status === 'Solved' && solver.matrix) {
-                                            // Normalize solver.matrix values to 1 (filled) and 0 (empty)
-                                            puzzle.solution = solver.matrix.map(row => row.map(v => v === 1 ? 1 : 0));
-                                        } else {
-                                            // Create proper empty solution: 2D array of zeros, not empty arrays
-                                            const h = puzzle.height || 0;
-                                            const w = puzzle.width || 0;
-                                            puzzle.solution = Array.from({ length: h }, () => Array(w).fill(0));
-                                        }
-                                    }
-                                } catch (err) {
-                                    console.warn('Error computing solution on import', err);
-                                }
-
-                                if (populateFedimserFromPuzzle(puzzle)) {
-                                    lastImportedPuzzle = puzzle;
-                                    showScreen(solverScreen);
-                                } else {
-                                    alert('Invalid puzzle file.');
-                                }
-                            } catch (err) {
-                                alert('Error reading puzzle file.');
-                            }
-                        };
-                        reader.readAsText(file);
-                        e.target.value = '';
-                    });
-                });
-                backToStartBtnSolver.addEventListener('click', () => showScreen(startScreen));
-        
-                startNewGameBtn.addEventListener('click', () => {
-                    const width = parseInt(puzzleWidthInput.value);
-                    const height = parseInt(puzzleHeightInput.value);
-                    let density;
-
-                    // Difficulty now controls density. Lower density = more sparse = harder.
-                    switch (currentDifficulty) {
-                        case 1: // Easiest
-                            density = 0.60; 
-                            break;
-                        case 2:
-                            density = 0.55;
-                            break;
-                        case 3: // Medium
-                            density = 0.50;
-                            break;
-                        case 4:
-                            density = 0.40;
-                            break;
-                        case 5: // Hardest
-                            density = 0.30;
-                            break;
-                        default: // Fallback to medium
-                            density = 0.50;
-                            break;
-                    }
-
-                    if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
-                        const solution = Array.from({ length: height }, () => 
-                            Array.from({ length: width }, () => (Math.random() < density ? 1 : 0))
-                        );
-                        const clues = calculateClues(solution, width, height);
-                        const puzzle = {
-                            name: `Level ${currentDifficulty} Puzzle`,
-                            width: width,
-                            height: height,
-                            solution: solution,
-                            clues: clues
-                        };
-                        startGame(puzzle);
-                    } else {
-                        alert('Board width and height must be between 4 and 20.');
-                    }
-                });
-        
-                if (backToMenuBtn) {
-                    backToMenuBtn.addEventListener('click', () => {
-                        window.location.href = 'index.html';
-                    });
-                }
-
-                if (difficultyBtn) {
-                    difficultyBtn.addEventListener('click', () => {
-                        currentDifficulty++;
-                        if (currentDifficulty > 5) {
-                            currentDifficulty = 1;
-                        }
-                        const stars = '⭐'.repeat(currentDifficulty);
-                        difficultyBtn.dataset.en = `Difficulty ${stars}`;
-                        difficultyBtn.dataset.vi = `Độ khó ${stars}`;
-                        setLanguage(currentLanguage); // Update the button text
-                    });
-                }
-
-                function generatePuzzleFromImage(url, size) {
-                    const img = new Image();
-                    img.crossOrigin = "Anonymous"; // Important for cross-origin images
-                    img.src = url;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = size;
-                        canvas.height = size;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, size, size);
-                        const imageData = ctx.getImageData(0, 0, size, size);
-                        const data = imageData.data;
-                        const solution = [];
-                        for (let i = 0; i < size; i++) {
-                            const row = [];
-                            for (let j = 0; j < size; j++) {
-                                const index = (i * size + j) * 4;
-                                // If pixel is not transparent, consider it filled
-                                const isFilled = data[index + 3] > 128 ? 1 : 0;
-                                row.push(isFilled);
-                            }
-                            solution.push(row);
-                        }
-
-                        const clues = calculateClues(solution, size, size);
-                        const puzzle = {
-                            name: "Random Icon Puzzle",
-                            width: size,
-                            height: size,
-                            solution: solution,
-                            clues: clues
-                        };
-                        startGame(puzzle);
-                    };
-                    img.onerror = () => {
-                        alert('Failed to load a random icon. Please try again.');
-                    };
-                }
-
-                const startRandomPuzzleBtn = document.getElementById('start-random-puzzle-btn');
-                if (startRandomPuzzleBtn) {
-                    startRandomPuzzleBtn.addEventListener('click', () => {
-                        const randomString = Math.random().toString(36).substring(7);
-                        const url = `https://robohash.org/${randomString}.png`;
-                        generatePuzzleFromImage(url, 16); // Using a 16x16 grid for icons
-                    });
-                }
-
-                const newRandomPuzzleBtn = document.getElementById('new-random-puzzle-btn');
-                if (newRandomPuzzleBtn) {
-                    newRandomPuzzleBtn.addEventListener('click', () => {
-                        const randomString = Math.random().toString(36).substring(7);
-                        const url = `https://robohash.org/${randomString}.png`;
-                        generatePuzzleFromImage(url, 16);
-                    });
-                }
-                
-                // Make "Open Puzzle" button trigger file input
-                const loadPuzzleBtn = document.getElementById('load-puzzle-btn');
-                if (loadPuzzleBtn) loadPuzzleBtn.addEventListener('click', () => {
-                    loadPuzzleInput.click();
-                });
-                
-                loadPuzzleInput.addEventListener('change', loadPuzzle);
-                backToStartBtnGame.addEventListener('click', () => showScreen(startScreen));
-                backToStartBtnEditor.addEventListener('click', () => showScreen(startScreen));
-        
-        
-                // --- Editor ---
-                createGridBtn.addEventListener('click', () => {
-                    const width = parseInt(boardWidthInput.value);
-                    const height = parseInt(boardHeightInput.value);
-                    if (width >= 4 && width <= 20 && height >= 4 && height <= 20) {
-                        createEditorGrid(width, height);
-                    } else {
-                        alert('Board width and height must be between 4 and 20.');
-                    }
-                });
-        
-                function applyEditorAction(cell, mode) {
-                    if (!cell.classList.contains('cell')) return;
-                    const r = parseInt(cell.dataset.row);
-                    const c = parseInt(cell.dataset.col);
-                    if (isNaN(r) || isNaN(c)) return;
-
-                    const isFilled = editorSolution[r][c] === 1;
-
-                    if (mode === 'fill' && !isFilled) {
-                        editorSolution[r][c] = 1;
-                        cell.classList.add('filled');
-                        cell.classList.remove('crossed');
-                    } else if (mode === 'erase' && isFilled) {
-                        editorSolution[r][c] = 0;
-                        cell.classList.remove('filled');
-                    } else if (mode === 'cross') {
-                        if (isFilled) return;
-                        cell.classList.toggle('crossed');
-                    }
-                }
-
-                function createEditorGrid(width, height) {
-                    const editorContainer = document.getElementById('editor-container');
-                    
-                    // 1. Pre-emptively scale down without animation
-                    editorContainer.classList.add('no-transition');
-                    editorContainer.style.transform = 'translate(-50%, -50%) scale(0)';
-
-                    // Use a timeout to allow the browser to apply the above style before rebuilding the DOM
-                    setTimeout(() => {
-                        // 2. Rebuild the DOM while it's scaled down
-                        editorSolution = Array.from({ length: height }, () => Array(width).fill(0));
-                        editorBoard.innerHTML = '';
-                        editorBoard.addEventListener('contextmenu', e => e.preventDefault());
-                        editorContainer.dataset.puzzleWidth = width;
-                        editorContainer.dataset.puzzleHeight = height;
-                        editorBoard.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
-            
-                        for (let r = 0; r < height; r++) {
-                            for (let c = 0; c < width; c++) {
-                                const cell = document.createElement('div');
-                                cell.classList.add('cell');
-                                cell.dataset.row = r;
-                                cell.dataset.col = c;
-                                cell.addEventListener('mousedown', (e) => {
-                                    e.preventDefault();
-                                    isEditorDragging = true;
-                                    if (e.button === 0) { // Left click
-                                        editorDragMode = cell.classList.contains('filled') ? 'erase' : 'fill';
-                                    } else if (e.button === 2) { // Right click
-                                        editorDragMode = 'cross';
-                                    }
-                                    applyEditorAction(cell, editorDragMode);
-                                });
-                                cell.addEventListener('mouseover', () => {
-                                    if (isEditorDragging) {
-                                        applyEditorAction(cell, editorDragMode);
-                                    }
-                                });
-                                editorBoard.appendChild(cell);
-                            }
-                        }
-                        updateEditorClues(width, height);
-
-                        // 3. Force reflow to apply styles, then re-enable transitions
-                        editorContainer.offsetHeight; 
-                        editorContainer.classList.remove('no-transition');
-
-                        // 4. Trigger the final scaling, which will now animate
-                        scaleBoard('editor-container');
-                    }, 100); // A small delay is safer for the pre-emptive scale
-                }
-        
-                function updateEditorClues(width, height) {
-                    const clues = calculateClues(editorSolution, width, height);
-                    editorManualClues = clues; // Keep manual clues in sync initially
-                    displayClues(clues.rowClues, clues.colClues, rowCluesEditor, colCluesEditor, width, height, true);
-                }
-                
-                savePuzzleBtn.addEventListener('click', savePuzzle);
-                testPuzzleBtn.addEventListener('click', () => {
-                    const height = editorSolution.length;
-                    if (height > 0) {
-                        const width = editorSolution[0].length;
-                         const puzzle = {
-                            name: "Custom Puzzle",
-                            width: width,
-                            height: height,
-                            solution: editorSolution, // The drawn grid is the solution
-                            clues: editorManualClues // The manually entered clues are for the game
-                        };
-                        startGame(puzzle);
-                    }
-                });
-                
-                validatePuzzleBtn.addEventListener('click', validatePuzzle);
-        
-                function validatePuzzle() {
-                    if (editorSolution.length === 0) {
-                        alert("Create a grid first!");
-                        return;
-                    }
-                    const height = editorSolution.length;
-                    const width = editorSolution[0].length;
-
-                    const calculatedClues = calculateClues(editorSolution, width, height);
-                    
-                    const isValid = JSON.stringify(calculatedClues.rowClues) === JSON.stringify(editorManualClues.rowClues) &&
-                                    JSON.stringify(calculatedClues.colClues) === JSON.stringify(editorManualClues.colClues);
-                    
-                    if (isValid) {
-                        alert('Validation Successful: The drawing matches the clues.');
-                    } else {
-                        alert('Validation Failed: The drawing does not match the clues.');
-                    }
-                }
-        
-        
-                // --- Game ---
-                function applyToggleAction(cell, action) {
-                    if (!cell.classList.contains('cell')) return;
-                    const r = parseInt(cell.dataset.row);
-                    const c = parseInt(cell.dataset.col);
-                    if (isNaN(r) || isNaN(c)) return;
-
-                    if (action === 'toggleFill') {
-                        if (cell.classList.contains('crossed')) return; // Ignore crossed cells
-                        const isFilled = cell.classList.toggle('filled');
-                        gameSolution[r][c] = isFilled ? 1 : 0;
-                    } else if (action === 'toggleCross') {
-                        if (cell.classList.contains('filled')) return; // Ignore filled cells
-                        cell.classList.toggle('crossed');
-                        gameSolution[r][c] = 0; // Toggling a cross always results in a non-filled solution cell
-                    }
-                }
-
-                function startGame(puzzle) {
-                    currentPuzzle = puzzle;
-                    hintedCells = []; // Reset hints
-                    const width = puzzle.width || puzzle.size;
-                    const height = puzzle.height || puzzle.size;
-                    console.log('[DEBUG] startGame called with puzzle:', puzzle);
-                    console.log('[DEBUG] incoming solution (raw):', puzzle.solution);
-                    
-                    // Normalize and ensure solution is a 2D array of 0/1 with correct dims
-                    if (puzzle.solution && Array.isArray(puzzle.solution) && puzzle.solution.length > 0) {
-                        const sol = [];
-                        for (let r = 0; r < height; r++) {
-                            const row = Array.from({ length: width }, () => 0);
-                            if (puzzle.solution[r] && Array.isArray(puzzle.solution[r])) {
-                                for (let c = 0; c < width; c++) {
-                                    row[c] = Number(puzzle.solution[r][c]) === 1 ? 1 : 0;
-                                }
-                            }
-                            sol.push(row);
-                        }
-                        currentPuzzle.solution = sol;
-                    } else {
-                        currentPuzzle.solution = Array.from({ length: height }, () => Array(width).fill(0));
-                    }
-                    console.log('[DEBUG] startGame: width=' + width + ', height=' + height + ', normalized solution:', currentPuzzle.solution);
-                    const gameContainer = document.getElementById('game-container');
-                    const corner = gameContainer.querySelector('.corner');
-                    if (corner) {
-                        corner.textContent = puzzle.emoji || '';
-                    }
-                    if (puzzle.emoji) {
-                        newAndroidPuzzleBtn.style.display = 'inline-block';
-                    } else {
-                        newAndroidPuzzleBtn.style.display = 'none';
-                    }
-
-                    // 1. Pre-emptively scale down without animation
-                    gameContainer.classList.add('no-transition');
-                    gameContainer.style.transform = 'translate(-50%, -50%) scale(0)';
-                    
-                    // Use a timeout to allow the browser to apply the above style before rebuilding the DOM
-                    setTimeout(() => {
-                        gameSolution = Array.from({ length: height }, () => Array(width).fill(0));
-                        
-                        gameBoard.innerHTML = '';
-                        gameBoard.addEventListener('contextmenu', e => e.preventDefault()); // Prevent context menu on the whole board
-                        gameContainer.dataset.puzzleWidth = width;
-                        gameContainer.dataset.puzzleHeight = height;
-
-                        gameBoard.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
-            
-                        for (let r = 0; r < height; r++) {
-                            for (let c = 0; c < width; c++) {
-                                const cell = document.createElement('div');
-                                cell.classList.add('cell');
-                                cell.dataset.row = r;
-                                cell.dataset.col = c;
-                                cell.style.position = 'relative'; // For feedback emoji
-            
-                                cell.addEventListener('mousedown', (e) => {
-                                    e.preventDefault();
-                                    isDragging = true;
-                                    if (e.button === 0) { // Left click
-                                        dragAction = 'toggleFill';
-                                    } else if (e.button === 2) { // Right click
-                                        dragAction = 'toggleCross';
-                                    }
-                                    applyToggleAction(cell, dragAction);
-                                });
-
-                                cell.addEventListener('mouseover', () => {
-                                    if (isDragging) {
-                                        applyToggleAction(cell, dragAction);
-                                    }
-                                });
-                                gameBoard.appendChild(cell);
-                            }
-                        }
-                        
-                        displayClues(puzzle.clues.rowClues, puzzle.clues.colClues, rowCluesGame, colCluesGame, width, height, false);
-                        showScreen(gameScreen);
-
-                        // Force reflow and re-enable transitions
-                        gameContainer.offsetHeight;
-                        gameContainer.classList.remove('no-transition');
-                        
-                        // Trigger the final scaling
-                        scaleBoard('game-container');
-                    }, 100);
-                }
-
-                // Solve button handler for game screen
-                const solveBtn = document.getElementById('solve-btn');
-                if (solveBtn) solveBtn.addEventListener('click', () => {
-                    const solution = currentPuzzle && currentPuzzle.solution;
-                    if (!solution || !Array.isArray(solution) || solution.length === 0) {
-                        alert('No solution available.');
-                        return;
-                    }
-                    // Fill the board with the solution
-                    const board = document.getElementById('game-board');
-                    if (!board) return;
-                    const cells = Array.from(board.querySelectorAll('.cell'));
-                    for (const cell of cells) {
-                        const r = Number(cell.dataset.row);
-                        const c = Number(cell.dataset.col);
-                        if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
-                        const val = (solution[r] && solution[r][c]) ? 1 : 0;
-                        gameSolution[r][c] = val; // Update internal game state
-                        if (val === 1) {
-                            cell.classList.add('filled');
-                            cell.classList.remove('crossed');
-                        } else {
-                            cell.classList.remove('filled', 'crossed');
-                        }
-                    }
-                    console.log('[DEBUG] Board solved!');
-                    setTimeout(() => checkWin(true), 50); // Check for win after solving
-                });
-
-                // Hint button handler
-                const hintBtn = document.getElementById('hint-btn');
-                if (hintBtn) hintBtn.addEventListener('click', () => {
-                    const solution = currentPuzzle && currentPuzzle.solution;
-                    if (!solution) return;
-
-                    const height = solution.length;
-                    const width = solution[0].length;
-                    const cells = Array.from(gameBoard.querySelectorAll('.cell'));
-                    const incorrectCells = [];
-
-                    for (let r = 0; r < height; r++) {
-                        for (let c = 0; c < width; c++) {
-                            const sol = solution[r][c];
-                            const player = gameSolution[r][c];
-                            const hinted = hintedCells.some(p => p.r === r && p.c === c);
-                            if (sol !== player && !hinted) {
-                                incorrectCells.push({ r, c, cell: cells[r * width + c] });
-                            }
-                        }
-                    }
-
-                    if (incorrectCells.length > 0) {
-                        const randomCell = incorrectCells[Math.floor(Math.random() * incorrectCells.length)];
-                        const { r, c, cell } = randomCell;
-                        const sol = solution[r][c];
-
-                        gameSolution[r][c] = sol;
-                        hintedCells.push({ r, c });
-
-                        if (sol === 1) {
-                            cell.classList.add('filled');
-                            cell.classList.remove('crossed');
-                        } else {
-                            cell.classList.remove('filled');
-                            cell.classList.remove('crossed');
-                        }
-                        
-                        cell.classList.add('hint-highlight');
-                        setTimeout(() => cell.classList.remove('hint-highlight'), 1500);
-
-                        checkWin(false); // Check for win silently
-                    } else {
-                        alert('No more hints available, or the puzzle is solved!');
-                    }
-                });
-                
-                // Check button handler for game screen
-                const checkPuzzleBtn = document.getElementById('check-puzzle-btn');
-                if (checkPuzzleBtn) checkPuzzleBtn.addEventListener('click', () => {
-                    checkWin(true); // check and show alerts
-                });
-                
-                function checkWin(showAlerts) {
-                    const solution = currentPuzzle && currentPuzzle.solution;
-                    if (!solution || !Array.isArray(solution) || solution.length === 0) return false;
-
-                    const height = solution.length;
-                    const width = solution[0].length;
-                    const cells = Array.from(gameBoard.querySelectorAll('.cell'));
-                    
-                    // Clear previous feedback
-                    cells.forEach(cell => {
-                        const feedback = cell.querySelector('.cell-feedback');
-                        if (feedback) feedback.remove();
-                    });
-
-                    let isCorrect = true;
-                    let hasMistakes = false;
-
-                    for (let r = 0; r < height; r++) {
-                        for (let c = 0; c < width; c++) {
-                            const sol = solution[r][c];
-                            const player = gameSolution[r][c];
-                            const cell = cells[r * width + c];
-
-                            if (player !== sol) {
-                                isCorrect = false;
-                                // Add feedback only if the player made a mark
-                                if (player === 1 || cell.classList.contains('crossed')) {
-                                    hasMistakes = true;
-                                    const feedback = document.createElement('div');
-                                    feedback.className = 'cell-feedback';
-                                    feedback.textContent = '❌';
-                                    cell.appendChild(feedback);
-                                }
-                            }
-                        }
-                    }
-
-                    if (isCorrect) {
-                        if (showAlerts) {
-                             setTimeout(() => {
-                                alert('You Win!');
-                            }, 100);
-                        }
-                        return true;
-                    } else {
-                        if (showAlerts) {
-                           if (hasMistakes) {
-                                alert('Some cells are incorrect. Look for the ❌.');
-                           } else {
-                                alert('Not finished yet, but no mistakes so far!');
-                           }
-                        }
-                        return false;
-                    }
-                }
-        
-        
-                // --- Common Logic ---
-                function calculateClues(grid, width, height) {
-                    const rowClues = [];
-                    const colClues = [];
-        
-                    for (let r = 0; r < height; r++) {
-                        rowClues.push(getCluesForLine(grid[r]));
-                    }
-        
-                    for (let c = 0; c < width; c++) {
-                        const col = grid.map(row => row[c]);
-                        colClues.push(getCluesForLine(col));
-                    }
-                    return { rowClues, colClues };
-                }
-        
-                function getCluesForLine(line) {
-                    const clues = [];
-                    let count = 0;
-                    for (const cell of line) {
-                        if (cell === 1) {
-                            count++;
-                        } else if (count > 0) {
-                            clues.push(count);
-                            count = 0;
-                        }
-                    }
-                    if (count > 0) {
-                        clues.push(count);
-                    }
-                    return clues.length > 0 ? clues : [0];
-                }
-        
-                function displayClues(rowClues, colClues, rowEl, colEl, width, height, isEditable) {
-                    rowEl.innerHTML = '';
-                    colEl.innerHTML = '';
-        
-                    for (let i = 0; i < height; i++) {
-                        const rClue = document.createElement('div');
-                        rClue.textContent = rowClues[i].join(' ') || '0';
-                        if (isEditable) {
-                            rClue.contentEditable = true;
-                            rClue.addEventListener('blur', (e) => {
-                                 editorManualClues.rowClues[i] = e.target.textContent.split(' ').map(s => parseInt(s, 10) || 0);
-                            });
-                        }
-                        rowEl.appendChild(rClue);
-                    }
-        
-                    for (let i = 0; i < width; i++) {
-                        const cClue = document.createElement('div');
-                        cClue.classList.add('clue-group');
-                        if (isEditable) {
-                            const cClueInner = document.createElement('div');
-                            cClueInner.textContent = colClues[i].join('\n') || '0';
-                            cClueInner.contentEditable = true;
-                            cClueInner.style.whiteSpace = "pre";
-                            cClueInner.addEventListener('blur', (e) => {
-                                editorManualClues.colClues[i] = e.target.textContent.split('\n').map(s => parseInt(s, 10) || 0);
-                            });
-                            cClue.appendChild(cClueInner);
-                        } else {
-                            // Render column clues in reverse order so the first clue in the array
-                            // appears closest to the grid (top of the clue column). This compensates
-                            // for the CSS `flex-direction: column-reverse` used in the layout.
-                            const reversed = (colClues[i] || []).slice().reverse();
-                            if (reversed.length === 0 || (reversed.length === 1 && reversed[0] === 0)) {
-                                cClue.innerHTML = '<div>0</div>';
-                            } else {
-                                cClue.innerHTML = reversed.map(c => `<div>${c}</div>`).join('');
-                            }
-                        }
-                        colEl.appendChild(cClue);
-                    }
-                }
-                
-                function savePuzzle() {
-                    const height = editorSolution.length;
-                    if (height === 0) {
-                        alert("Create a grid first!");
-                        return;
-                    }
-                    const width = editorSolution[0].length;
-                    const puzzle = {
-                        name: "Custom Puzzle",
-                        width: width,
-                        height: height,
-                        solution: editorSolution,
-                        clues: editorManualClues
-                    };
-                    
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(puzzle));
-                    const downloadAnchorNode = document.createElement('a');
-                    downloadAnchorNode.setAttribute("href",     dataStr);
-                    downloadAnchorNode.setAttribute("download", "puzzle.nonogram");
-                    document.body.appendChild(downloadAnchorNode);
-                    downloadAnchorNode.click();
-                    downloadAnchorNode.remove();
-                }
-        
-                function loadPuzzle(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-        
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        try {
-                            const puzzle = JSON.parse(e.target.result);
-                            if ((puzzle.size || (puzzle.width && puzzle.height)) && puzzle.solution && puzzle.clues) {
-                                startGame(puzzle);
-                            } else {
-                                alert('Invalid puzzle file format.');
-                            }
-                        } catch (error) {
-                            alert('Error reading puzzle file.');
-                        }
-                    };
-                    reader.readAsText(file);
-                    event.target.value = ''; // Reset file input
-                }
-        
-
-        
-
-
-
-                function scaleBoard(containerId) {
-                    const container = document.getElementById(containerId);
-                    if (!container || !container.parentElement) return;
-
-                    const wrapper = container.parentElement;
-                    
-                    // Reset transform to measure the container's natural size
-                    container.style.transform = 'translate(-50%, -50%) scale(1)';
-
-                    const availableWidth = wrapper.clientWidth;
-                    const availableHeight = wrapper.clientHeight;
-
-                    const currentWidth = container.offsetWidth;
-                    const currentHeight = container.offsetHeight;
-
-                    if (currentHeight === 0 || currentWidth === 0) return;
-
-                    // Calculate scale factor, with a small margin
-                    const scale = Math.min(
-                        (availableWidth * 0.95) / currentWidth, 
-                        (availableHeight * 0.95) / currentHeight
-                    );
-
-                    // Apply the new scale
-                    container.style.transform = `translate(-50%, -50%) scale(${scale})`;
-                }
-
-                // --- Observer Logic for Automatic Resizing ---
-                function debouncedAdjust(containerId) {
-                    window.adjustTimers = window.adjustTimers || {};
-                    if (window.adjustTimers[containerId]) {
-                        clearTimeout(window.adjustTimers[containerId]);
-                    }
-                    window.adjustTimers[containerId] = setTimeout(() => {
-                        scaleBoard(containerId);
-                    }, 50); // debounce by 50ms
-                }
-
-                const observerCallback = (mutationsList, observer) => {
-                    const containerId = observer.target.id;
-                    debouncedAdjust(containerId);
-                };
-
-                const observerConfig = { childList: true, subtree: true, characterData: true };
-
-                const gameContainer = document.getElementById('game-container');
-                const editorContainer = document.getElementById('editor-container');
-                const gameObserver = new MutationObserver(observerCallback);
-                const editorObserver = new MutationObserver(observerCallback);
-
-                if (gameContainer) {
-                    gameObserver.target = gameContainer; 
-                    gameObserver.observe(gameContainer, observerConfig);
-                }
-                if (editorContainer) {
-                    editorObserver.target = editorContainer;
-                    editorObserver.observe(editorContainer, observerConfig);
-                }
-
-                 window.addEventListener('resize', () => {
-                    if (gameScreen.classList.contains('active')) {
-                        scaleBoard('game-container');
-                    }
-                    if (editorScreen.classList.contains('active')) {
-                        scaleBoard('editor-container');
-                    }
-                });
-        
-            </script>
-        </body>
-        </html></body>
+<script>
+/* SOLVER (Logic) */
+const Solver={permute:(l,b)=>{const o=[];if(!b.length)return[Array(l).fill(0)];const ms=b.reduce((a,x)=>a+x,0)+b.length-1;if(ms>l)return[];const bl=b[0],rt=b.slice(1),rs=rt.reduce((a,x)=>a+x,0)+rt.length-1,mx=l-(rs+(rt.length?1:0))-bl;for(let i=0;i<=mx;i++){const ln=Array(i).fill(0);for(let k=0;k<bl;k++)ln.push(1);if(rt.length){ln.push(0);Solver.permute(l-ln.length,rt).forEach(s=>o.push(ln.concat(s)))}else{while(ln.length<l)ln.push(0);o.push(ln)}}return o},solveLine:(l,b)=>{const p=Solver.permute(l,b);if(!p.length)return null;if(p.length===1)return p[0];const r=Array(l).fill(null);for(let i=0;i<l;i++){let v=p[0][i],c=true;for(let k=1;k<p.length;k++)if(p[k][i]!==v){c=false;break}if(c)r[i]=v}return r},check:(g)=>{const h=g.length,w=g[0].length,f=g.flat();if(f.every(x=>x===0))return{t:"Empty Board",c:""};const cl=Gen.getClues(g);let wk=Array(h).fill(0).map(()=>Array(w).fill(null)),ch=true,it=0;while(ch&&it<20){ch=false;it++;for(let y=0;y<h;y++){const r=Solver.solveLine(w,cl.rows[y]);if(!r)continue;for(let x=0;x<w;x++)if(wk[y][x]===null&&r[x]!==null){wk[y][x]=r[x];ch=true}}for(let x=0;x<w;x++){const r=Solver.solveLine(h,cl.cols[x]);if(!r)continue;for(let y=0;y<h;y++)if(wk[y][x]===null&&r[y]!==null){wk[y][x]=r[y];ch=true}}}let s=true,c=true;for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(wk[y][x]===null)s=false;else if(wk[y][x]!==g[y][x])c=false}if(s&&c)return{t:"✅ Solvable (Logic)",c:"ok"};return{t:"⚠️ Multiple Solutions / Hard",c:"warn"}}};
+
+/* UTILS */
+const Sfx={i:()=>{if(!Sfx.x)Sfx.x=new(window.AudioContext||webkitAudioContext)()},p:(f,t,d)=>{Sfx.i();if(Sfx.x.state==='suspended')Sfx.x.resume();const o=Sfx.x.createOscillator(),g=Sfx.x.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.1;g.gain.exponentialRampToValueAtTime(0.001,Sfx.x.currentTime+d);o.connect(g);g.connect(Sfx.x.destination);o.start();o.stop(Sfx.x.currentTime+d)},fill:()=>Sfx.p(350,'sine',0.1),cross:()=>Sfx.p(150,'square',0.08),hint:()=>Sfx.p(600,'sine',0.2),win:()=>[0,100,200].forEach((t,i)=>setTimeout(()=>Sfx.p(500+i*100,'triangle',0.2),t))};
+const Codec={c:(w,h,g)=>{let b="",B="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";for(let y=0;y<h;y++)for(let x=0;x<w;x++)b+=g[y][x]?"1":"0";while(b.length%6)b+="0";let r="";for(let i=0;i<b.length;i+=6)r+=B[parseInt(b.substr(i,6),2)];return`~A.${w}.${h}.${r}`},d:(s)=>{if(!s.startsWith("~"))return null;let[_,w,h,d]=s.split("."),B="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",b="";for(let c of d)b+=B.indexOf(c).toString(2).padStart(6,"0");let g=[],p=0;for(let y=0;y<h;y++){let r=[];for(let x=0;x<w;x++)r.push(b[p++]==="1"?1:0);g.push(r)}return{w:parseInt(w),h:parseInt(h),grid:g}}};
+const Gen={hash:(s)=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i);return Math.abs(h)},getGrid:(s,w,h)=>{let S=typeof s==='string'?Gen.hash(s):s;const rng=()=>{const x=Math.sin(S++)*10000;return x-Math.floor(x)};let g=Array(h).fill(0).map(()=>Array(w).fill(0));for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=rng()>0.55?1:0;if(x>0&&g[y][x-1])v=rng()>0.35?1:0;if(y>0&&g[y-1][x])v=rng()>0.35?1:0;g[y][x]=v}if(g.every(r=>r.every(c=>c===0)))g[h>>1][w>>1]=1;return g},getClues:(g)=>{const l=a=>{let r=[],c=0;for(let v of a){if(v)c++;else{if(c)r.push(c);c=0}}if(c)r.push(c);return r.length?r:[0]};return{rows:g.map(l),cols:g[0].map((_,i)=>l(g.map(r=>r[i])))}}};
+
+/* INTRO */
+const Intro={t:null,a:false,m:[],s:()=>{if(!Intro.a){Intro.a=true;Intro.n()}},e:()=>{Intro.a=false;clearTimeout(Intro.t)},n:()=>{if(!Intro.a)return;let g=Gen.getGrid(Math.random().toString(),10,10);app.load(g,10,10,"Demo");Intro.m=[];for(let y=0;y<10;y++)for(let x=0;x<10;x++)Intro.m.push({x,y,v:g[y][x]?1:2});Intro.m.sort(()=>Math.random()-.5);Intro.p()},p:()=>{if(!Intro.a)return;if(!Intro.m.length){Sfx.win();Confetti();Intro.t=setTimeout(Intro.n,3000);return}let m=Intro.m.pop();app.d.player[m.y][m.x]=m.v;app.upd(m.x,m.y,m.v);if(m.v==1)Sfx.fill();else Sfx.cross();Intro.t=setTimeout(Intro.p,500)}};
+
+/* APP */
+const app = {
+    d: { mode:'menu', w:10, h:10, grid:[], player:[], seed:"", solved:false, drag:false, dt:0, scale:1, campLvl:0, checkTimer:null },
+    init: () => {
+        const s=document.getElementById('main-stage');
+        let pan=false,sx,sy,sl,st;
+        s.onmousedown=e=>{if(e.target.closest('#game-scaler'))return;pan=true;sx=e.pageX-s.offsetLeft;sy=e.pageY-s.offsetTop;sl=s.scrollLeft;st=s.scrollTop};
+        window.onmouseup=()=>{pan=false;app.d.drag=false};
+        window.onmousemove=e=>{if(pan){e.preventDefault();s.scrollLeft=sl-((e.pageX-s.offsetLeft)-sx);s.scrollTop=st-((e.pageY-s.offsetTop)-sy)}if(app.d.drag)app.hov(e)};
+        window.onresize=()=>{if(app.d.mode==='game')app.fit()};
+        Intro.s(); app.fit(true);
+    },
+    campNav: (d) => { const i=document.getElementById('menu-lvl-input'); let v=parseInt(i.value)+d; if(v<1)v=1; if(v>500)v=500; i.value=v; },
+    campGo: () => app.startCamp(parseInt(document.getElementById('menu-lvl-input').value)||1),
+    startCamp: (lvl) => {
+        if(lvl<1)lvl=1; if(lvl>500)lvl=500; app.d.campLvl=lvl;
+        let s=5+Math.floor((lvl-1)/10); if(s>20)s=20;
+        const g=Gen.getGrid("CAMPAIGN_LEVEL_"+lvl,s,s);
+        Intro.e(); app.load(g,s,s,"Level "+lvl); app.pan('game'); document.getElementById('camp-controls').style.display='flex';
+    },
+    nextLevel: (d) => app.startCamp(app.d.campLvl+d),
+    promptLevelJump: () => { if(!app.d.campLvl)return; let l=prompt("Jump to Level:",app.d.campLvl); if(l&&!isNaN(l))app.startCamp(parseInt(l)); },
+    startRandom: () => { app.d.campLvl=0; const s=Math.floor(Math.random()*3)+5, seed=Math.floor(Math.random()*99999).toString(); Intro.e(); app.load(Gen.getGrid(seed,s,s),s,s,"Random "+s+"x"+s); app.d.seed=seed; app.pan('game'); document.getElementById('camp-controls').style.display='none'; },
+    handleLoad: () => {
+        const v=document.getElementById('load-input').value.trim(); if(!v)return; Intro.e(); app.d.campLvl=0; document.getElementById('camp-controls').style.display='none';
+        if(v.startsWith("~")){ const d=Codec.d(v); if(d){app.d.seed=v;app.load(d.grid,d.w,d.h,"Custom");app.pan('game');} else alert("Bad Code"); }
+        else { const g=Gen.getGrid(v,10,10); app.d.seed=v; app.load(g,10,10,"Seed: "+v); app.pan('game'); }
+    },
+    load: (g,w,h,t) => {
+        app.d.grid=g; app.d.w=w; app.d.h=h; app.d.player=Array(h).fill(0).map(()=>Array(w).fill(0)); app.d.solved=false;
+        if(app.d.mode==='game'){ document.getElementById('level-title').textContent=t; document.getElementById('share-display').textContent=app.d.seed||"Level "+app.d.campLvl; }
+        app.ren(false);
+    },
+    ren: (ed) => {
+        const c=document.getElementById('grid-container'), {w,h}=app.d, cl=ed?{rows:[],cols:[]}:Gen.getClues(app.d.grid);
+        c.style.gridTemplateColumns=`auto repeat(${w},26px)`; c.style.gridTemplateRows=`auto repeat(${h},26px)`; c.innerHTML='<div class="corner"></div>';
+        for(let x=0;x<w;x++) c.innerHTML+=`<div class="clue-group-col">${ed?'':cl.cols[x].map(n=>`<span>${n}</span>`).join('')}</div>`;
+        for(let y=0;y<h;y++){
+            c.innerHTML+=`<div class="clue-group-row">${ed?'':cl.rows[y].map(n=>`<span>${n}</span>`).join('')}</div>`;
+            for(let x=0;x<w;x++){
+                let v=ed?app.d.grid[y][x]:app.d.player[y][x], cls='cell';
+                if((x+1)%5==0&&x!=w-1)cls+=' v-thick'; if((y+1)%5==0&&y!=h-1)cls+=' h-thick';
+                if(v==1)cls+=' filled'; if(v==2)cls+=' crossed';
+                c.innerHTML+=`<div class="${cls}" data-x="${x}" data-y="${y}" onmousedown="app.drag(${x},${y},event.button)" onmouseenter="app.hov(event)"></div>`;
+            }
+        }
+        setTimeout(()=>app.fit(true),10);
+    },
+    drag: (x,y,b) => { if(Intro.a||(app.d.solved&&app.d.mode==='game'))return; app.d.drag=true; const ed=app.d.mode==='editor', g=ed?app.d.grid:app.d.player, v=g[y][x]; app.d.dt = ed?(v==1||b==2?0:1):(b==2?(v==2?0:2):(v==1?0:1)); app.set(x,y,app.d.dt); },
+    hov: (e) => { if(!app.d.drag)return; const el=document.elementFromPoint(e.clientX,e.clientY); if(el?.classList.contains('cell')) app.set(parseInt(el.dataset.x),parseInt(el.dataset.y),app.d.dt); },
+    set: (x,y,v) => {
+        if(Intro.a)return; const ed=app.d.mode==='editor', g=ed?app.d.grid:app.d.player;
+        if(g[y][x]==v)return; g[y][x]=v; app.upd(x,y,v);
+        if(v==1)Sfx.fill(); if(v==2)Sfx.cross();
+        if(!ed && !app.d.solved) app.check();
+        if(ed) { clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); }
+    },
+    upd: (x,y,v) => { const c=document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); c.className=c.className.replace(/ (filled|crossed)/g,''); if(v==1)c.classList.add('filled'); if(v==2)c.classList.add('crossed'); },
+    check: () => { const {w,h,grid,player}=app.d; for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(grid[y][x]!==(player[y][x]==1?1:0))return; app.d.solved=true; Sfx.win(); Confetti(); },
+    useHint: () => { if(app.d.solved)return; let t=[]; for(let y=0;y<app.d.h;y++)for(let x=0;x<app.d.w;x++)if(app.d.grid[y][x]==1&&app.d.player[y][x]!=1)t.push({x,y}); if(!t.length)return; const p=t[Math.floor(Math.random()*t.length)]; app.d.player[p.y][p.x]=1; app.upd(p.x,p.y,1); const c=document.querySelector(`.cell[data-x="${p.x}"][data-y="${p.y}"]`); c.classList.add('hint-anim'); Sfx.hint(); setTimeout(()=>c.classList.remove('hint-anim'),600); app.check(); },
+    checkSolvability: () => { const r=Solver.check(app.d.grid); const e=document.getElementById('editor-status'); e.textContent=r.t; e.className='status-bar '+r.c; },
+    fit: (f) => { const s=document.getElementById('game-scaler'), c=document.getElementById('grid-container'), m=document.getElementById('main-stage'); if(!s||!c||!m.offsetParent)return; s.style.transform='scale(1)'; let sc=Math.min((m.clientWidth-40)/c.offsetWidth, (m.clientHeight-40)/c.offsetHeight); if(sc>1) sc=Math.min(sc,2.5); app.applyZ(sc); },
+    zoom: (d) => app.applyZ(Math.max(0.1,Math.min(4,app.d.scale+d))),
+    applyZ: (v) => { app.d.scale=v; document.getElementById('game-scaler').style.transform=`scale(${v})`; document.getElementById('zoom-val').textContent=Math.round(v*100)+"%"; },
+    pan: (id) => { document.querySelectorAll('.control-panel').forEach(e=>e.classList.remove('active')); document.getElementById('panel-'+id).classList.add('active'); app.d.mode=id; },
+    showMenu: () => { app.pan('menu'); Intro.s(); },
+    toggleTheme: () => document.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'),
+    copyShare: () => { navigator.clipboard.writeText(document.getElementById('share-display').textContent).then(()=>alert("Copied!")); },
+    solve: () => { Intro.e(); app.d.player=app.d.grid.map(r=>[...r]); app.ren(false); app.d.solved=true; },
+    openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(()=>Array(10).fill(0)),10,10,"Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); },
+    resizeBoard: (dx,dy) => { let {w,h,grid}=app.d, nw=Math.max(5,Math.min(30,w+dx)), nh=Math.max(5,Math.min(30,h+dy)); app.d.w=nw; app.d.h=nh; app.d.grid=Array(nh).fill(0).map((_,y)=>Array(nw).fill(0).map((_,x)=>(y<h&&x<w)?grid[y][x]:0)); app.ren(true); app.updEL(); app.checkSolvability(); },
+    updEL:()=>{document.getElementById('lbl-w').textContent=app.d.w;document.getElementById('lbl-h').textContent=app.d.h},
+    playEditorLevel: () => { const c=Codec.c(app.d.w,app.d.h,app.d.grid); app.d.seed=c; app.load(JSON.parse(JSON.stringify(app.d.grid)),app.d.w,app.d.h,"Test Play"); app.pan('game'); document.getElementById('camp-controls').style.display='none'; },
+    exportSave: () => document.getElementById('editor-export').value=Codec.c(app.d.w,app.d.h,app.d.grid)
+};
+const Confetti=()=>{const c=document.getElementById('confetti-canvas'),x=c.getContext('2d');c.width=c.parentElement.clientWidth;c.height=c.parentElement.clientHeight;let p=Array(100).fill(0).map(()=>({x:c.width/2,y:c.height/2,vx:(Math.random()-.5)*20,vy:(Math.random()-.5)*20,c:`hsl(${Math.random()*360},80%,50%)`,l:100}));const t=()=>{x.clearRect(0,0,c.width,c.height);p.forEach((k,i)=>{k.x+=k.vx;k.y+=k.vy;k.vy+=.5;k.l--;x.fillStyle=k.c;x.beginPath();x.arc(k.x,k.y,5,0,7);x.fill();if(k.l<0)p.splice(i,1)});if(p.length)requestAnimationFrame(t)};t()};
+window.onload = app.init;
+</script>
+</body>
 </html>
