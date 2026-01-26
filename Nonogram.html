@@ -462,8 +462,7 @@ const app = {
         document.getElementById('icon-collapse').style.display = isCollapsed ? 'none' : 'block';
         document.getElementById('icon-expand').style.display = isCollapsed ? 'block' : 'none';
         
-        // REMOVED: setTimeout(() => app.fit(true), 310); 
-        // Reason: Kept the zoom level stable. CSS Flexbox automatically centers the board in the new space.
+        // No auto-fit call here, so zoom level is preserved
     },
 
     campNav: (d) => { const i=document.getElementById('menu-lvl-input'); let v=parseInt(i.value)+d; if(v<1)v=1; if(v>500)v=500; i.value=v; },
@@ -553,7 +552,8 @@ const app = {
                 let v=ed?app.d.grid[y][x]:app.d.player[y][x], cls='cell';
                 if((x+1)%5==0&&x!=w-1)cls+=' v-thick'; if((y+1)%5==0&&y!=h-1)cls+=' h-thick';
                 if(v==1)cls+=' filled'; if(v==2)cls+=' crossed';
-                c.innerHTML+=`<div class="${cls}" data-x="${x}" data-y="${y}" onmousedown="app.drag(${x},${y},event.button)" onmouseenter="app.hov(event)"></div>`;
+                /* ADDED: ontouchstart */
+                c.innerHTML+=`<div class="${cls}" data-x="${x}" data-y="${y}" onmousedown="app.drag(${x},${y},event.button)" ontouchstart="app.touch(${x},${y},event)" onmouseenter="app.hov(event)"></div>`;
             }
         }
         setTimeout(()=>app.fit(true),10);
@@ -564,6 +564,26 @@ const app = {
         app.updShare();
     },
     drag: (x,y,b) => { if(Intro.a||(app.d.solved&&app.d.mode==='game'))return; app.d.drag=true; const ed=app.d.mode==='editor', g=ed?app.d.grid:app.d.player, v=g[y][x]; app.d.dt = ed?(v==1||b==2?0:1):(b==2?(v==2?0:2):(v==1?0:1)); app.set(x,y,app.d.dt); },
+    /* NEW FUNCTION: touch */
+    touch: (x,y,e) => {
+        if(e.cancelable) e.preventDefault(); // Stop mouse emulation/scroll for this interaction
+        if(Intro.a||(app.d.solved&&app.d.mode==='game'))return;
+        
+        const ed=app.d.mode==='editor';
+        const g=ed?app.d.grid:app.d.player;
+        const v=g[y][x];
+        
+        let n=0;
+        if(ed) {
+            n=(v==1?0:1);
+        } else {
+            // Cycle: Empty(0) -> Fill(1) -> Cross(2) -> Empty(0)
+            if(v==0)n=1;
+            else if(v==1)n=2;
+            else n=0;
+        }
+        app.set(x,y,n);
+    },
     hov: (e) => { if(!app.d.drag)return; const el=document.elementFromPoint(e.clientX,e.clientY); if(el?.classList.contains('cell')) app.set(parseInt(el.dataset.x),parseInt(el.dataset.y),app.d.dt); },
     set: (x,y,v) => {
         if(Intro.a)return; const ed=app.d.mode==='editor', g=ed?app.d.grid:app.d.player;
