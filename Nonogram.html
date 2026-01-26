@@ -326,6 +326,8 @@
             z-index: 5;
         }
 
+
+
         @keyframes flashHint {
             0% {
                 background: var(--cell-hint);
@@ -1093,6 +1095,7 @@
                 let m = Intro.m.pop();
                 app.d.player[m.y][m.x] = m.v;
                 app.upd(m.x, m.y, m.v);
+                app.updateClueState();
 
                 if (m.v == 1) Sfx.fill(); else Sfx.cross();
 
@@ -1192,6 +1195,7 @@
             resetBoard: () => {
                 app.d.player = Array(app.d.h).fill(0).map(() => Array(app.d.w).fill(0));
                 app.refreshPlayerView();
+                app.updateClueState();
                 Timer.reset(); Timer.start();
             },
 
@@ -1300,14 +1304,15 @@
                 document.getElementById('btn-sidebar-new').style.display = isCamp ? 'none' : 'block';
                 if (!Intro.a) { Timer.reset(); Timer.start(); }
                 app.ren(false, preserveZoom);
+                app.updateClueState();
             },
 
             ren: (ed, preserveZoom = false) => {
                 const c = document.getElementById('grid-container'), { w, h } = app.d, cl = ed ? { rows: [], cols: [] } : Gen.getClues(app.d.grid);
                 c.style.gridTemplateColumns = `auto repeat(${w},26px)`; c.style.gridTemplateRows = `auto repeat(${h},26px)`; c.innerHTML = '<div class="corner"></div>';
-                for (let x = 0; x < w; x++) c.innerHTML += `<div class="clue-group-col">${ed ? '' : cl.cols[x].map(n => `<span>${n}</span>`).join('')}</div>`;
+                for (let x = 0; x < w; x++) c.innerHTML += `<div class="clue-group-col" id="col-clue-${x}">${ed ? '' : cl.cols[x].map(n => `<span>${n}</span>`).join('')}</div>`;
                 for (let y = 0; y < h; y++) {
-                    c.innerHTML += `<div class="clue-group-row">${ed ? '' : cl.rows[y].map(n => `<span>${n}</span>`).join('')}</div>`;
+                    c.innerHTML += `<div class="clue-group-row" id="row-clue-${y}">${ed ? '' : cl.rows[y].map(n => `<span>${n}</span>`).join('')}</div>`;
                     for (let x = 0; x < w; x++) {
                         let v = ed ? app.d.grid[y][x] : app.d.player[y][x], cls = 'cell';
                         if ((x + 1) % 5 == 0 && x != w - 1) cls += ' v-thick'; if ((y + 1) % 5 == 0 && y != h - 1) cls += ' h-thick';
@@ -1317,13 +1322,104 @@
                 }
                 if (!preserveZoom) setTimeout(() => app.fit(true), 10);
             },
-            refreshPlayerView: () => { const { w, h } = app.d; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) app.upd(x, y, app.d.player[y][x]); app.updShare(); },
+            refreshPlayerView: () => { const { w, h } = app.d; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) app.upd(x, y, app.d.player[y][x]); app.updShare(); app.updateClueState(); },
             drag: (x, y, b) => { if (Intro.a || (app.d.solved && app.d.mode === 'game')) return; app.d.drag = true; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player, v = g[y][x]; app.d.dt = ed ? (v == 1 || b == 2 ? 0 : 1) : (b == 2 ? (v == 2 ? 0 : 2) : (v == 1 ? 0 : 1)); app.set(x, y, app.d.dt); },
             touch: (x, y, e) => { if (e.cancelable) e.preventDefault(); if (Intro.a || (app.d.solved && app.d.mode === 'game')) return; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player, v = g[y][x]; let n = 0; if (ed) { n = (v == 1 ? 0 : 1); } else { if (v == 0) n = 1; else if (v == 1) n = 2; else n = 0; } app.set(x, y, n); },
             hov: (e) => { if (!app.d.drag) return; const el = document.elementFromPoint(e.clientX, e.clientY); if (el?.classList.contains('cell')) app.set(parseInt(el.dataset.x), parseInt(el.dataset.y), app.d.dt); },
-            set: (x, y, v) => { if (Intro.a) return; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player; if (g[y][x] == v) return; g[y][x] = v; app.upd(x, y, v); if (v == 1) Sfx.fill(); if (v == 2) Sfx.cross(); if (!ed) { app.updShare(); if (!app.d.solved) app.check(); } if (ed) { document.querySelectorAll('.cell.unsolved').forEach(e => e.classList.remove('unsolved')); app.exportSave(); clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); } },
+            set: (x, y, v) => { if (Intro.a) return; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player; if (g[y][x] == v) return; g[y][x] = v; app.upd(x, y, v); if (v == 1) Sfx.fill(); if (v == 2) Sfx.cross(); if (!ed) { app.updShare(); if (!app.d.solved) {
+                app.check();
+                app.updateClueState();
+            } } if (ed) { document.querySelectorAll('.cell.unsolved').forEach(e => e.classList.remove('unsolved')); app.exportSave(); clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); } },
             upd: (x, y, v) => { const c = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); c.className = c.className.replace(/ (filled|crossed)/g, ''); if (v == 1) c.classList.add('filled'); if (v == 2) c.classList.add('crossed'); },
             updShare: () => { let base = app.d.seed; if (app.d.campLvl > 0) base = "#" + app.d.campLvl; const flat = app.d.player.flat(); const isEmpty = flat.every(x => x === 0); let code = base; if (!isEmpty && !app.d.solved) { code += ":" + Codec.encodeState(app.d.player); } document.getElementById('share-display').textContent = code; },
+            updateClueState: () => {
+                if (app.d.mode === 'editor' || !app.d.grid.length) return;
+                const { w, h, grid, player } = app.d;
+
+                const getSolutionBlocks = (line) => {
+                    const blocks = [];
+                    let currentBlock = null;
+                    for (let i = 0; i < line.length; i++) {
+                        if (line[i] === 1) {
+                            if (currentBlock === null) {
+                                currentBlock = { start: i, length: 1 };
+                            } else {
+                                currentBlock.length++;
+                            }
+                        } else {
+                            if (currentBlock !== null) {
+                                blocks.push(currentBlock);
+                                currentBlock = null;
+                            }
+                        }
+                    }
+                    if (currentBlock !== null) {
+                        blocks.push(currentBlock);
+                    }
+                    return blocks;
+                };
+
+                const checkLine = (player_line, solution_line, clueEl) => {
+                    const spans = clueEl.getElementsByTagName('span');
+                    const solutionBlocks = getSolutionBlocks(solution_line);
+
+                    // Handle '0' clue for empty lines
+                    if (solutionBlocks.length === 0) {
+                        if (spans.length === 1 && spans[0].textContent === '0') {
+                            const hasNoFills = player_line.every(cell => cell !== 1);
+                            if (hasNoFills) {
+                                spans[0].style.textDecoration = 'line-through';
+                                spans[0].style.color = 'var(--text-muted)';
+                            } else {
+                                spans[0].style.textDecoration = 'none';
+                                spans[0].style.color = 'var(--clue-text)';
+                            }
+                        }
+                        return;
+                    }
+                    
+                    if (spans.length !== solutionBlocks.length) {
+                        return;
+                    }
+
+                    solutionBlocks.forEach((block, index) => {
+                        let isBlockComplete = true;
+                        for (let i = 0; i < block.length; i++) {
+                            if (player_line[block.start + i] !== 1) {
+                                isBlockComplete = false;
+                                break;
+                            }
+                        }
+
+                        const span = spans[index];
+                        if (isBlockComplete) {
+                            span.style.textDecoration = 'line-through';
+                            span.style.color = 'var(--text-muted)';
+                        } else {
+                            span.style.textDecoration = 'none';
+                            span.style.color = 'var(--clue-text)';
+                        }
+                    });
+                };
+
+                // Check rows
+                for (let y = 0; y < h; y++) {
+                    const rowClueEl = document.getElementById(`row-clue-${y}`);
+                    if (!rowClueEl) continue;
+                    const player_line = player[y];
+                    const solution_line = grid[y];
+                    checkLine(player_line, solution_line, rowClueEl);
+                }
+
+                // Check columns
+                for (let x = 0; x < w; x++) {
+                    const colClueEl = document.getElementById(`col-clue-${x}`);
+                    if (!colClueEl) continue;
+                    const player_line = player.map(row => row[x]);
+                    const solution_line = grid.map(row => row[x]);
+                    checkLine(player_line, solution_line, colClueEl);
+                }
+            },
             check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); Sfx.win(); Confetti(); app.updShare(); app.toggleActionBtn(true); } },
             useHint: () => { if (app.d.solved) return; let t = []; for (let y = 0; y < app.d.h; y++)for (let x = 0; x < app.d.w; x++)if (app.d.grid[y][x] == 1 && app.d.player[y][x] != 1) t.push({ x, y }); if (!t.length) return; const p = t[Math.floor(Math.random() * t.length)]; app.d.player[p.y][p.x] = 1; app.upd(p.x, p.y, 1); const c = document.querySelector(`.cell[data-x="${p.x}"][data-y="${p.y}"]`); c.classList.add('hint-anim'); Sfx.hint(); setTimeout(() => c.classList.remove('hint-anim'), 600); app.check(); app.updShare(); },
             checkSolvability: () => { const r = Solver.check(app.d.grid); const e = document.getElementById('editor-status'); e.textContent = r.t; e.className = 'status-bar ' + r.c; },
@@ -1334,7 +1430,7 @@
             showMenu: () => { Intro.e(); app.pan('menu'); Intro.s(); document.getElementById('menu-lvl-input').value = app.d.campLvl || 1; },
             toggleTheme: () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
             copyCode: (id) => { const txt = document.getElementById(id).textContent; if (!txt || txt === "...") return; navigator.clipboard.writeText(txt).then(() => { const t = document.getElementById("toast"); t.className = "show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }); },
-            solve: () => { Intro.e(); Timer.stop(); app.d.player = app.d.grid.map(r => [...r]); app.ren(false); app.d.solved = true; app.updShare(); },
+            solve: () => { Intro.e(); Timer.stop(); app.d.player = app.d.grid.map(r => [...r]); app.ren(false); app.d.solved = true; app.updShare(); app.updateClueState(); },
             openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(() => Array(10).fill(0)), 10, 10, "Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); app.exportSave(); },
             resizeBoard: (dx, dy) => { let { w, h, grid } = app.d, nw = Math.max(5, Math.min(30, w + dx)), nh = Math.max(5, Math.min(30, h + dy)); app.d.w = nw; app.d.h = nh; app.d.grid = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < h && x < w) ? grid[y][x] : 0)); app.ren(true); app.updEL(); app.checkSolvability(); app.exportSave(); },
             updEL: () => { document.getElementById('lbl-w').textContent = app.d.w; document.getElementById('lbl-h').textContent = app.d.h },
