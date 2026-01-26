@@ -972,135 +972,164 @@
         /* GENERATOR */
         const Gen = { hash: (s) => { let h = 5381; for (let i = 0; i < s.length; i++)h = ((h << 5) + h) + s.charCodeAt(i); return Math.abs(h) }, getGrid: (s, w, h) => { let S = typeof s === 'string' ? Gen.hash(s) : s; const rng = () => { const x = Math.sin(S++) * 10000; return x - Math.floor(x) }; let g = Array(h).fill(0).map(() => Array(w).fill(0)); for (let y = 0; y < h; y++)for (let x = 0; x < w; x++) { let v = rng() > 0.55 ? 1 : 0; if (x > 0 && g[y][x - 1]) v = rng() > 0.35 ? 1 : 0; if (y > 0 && g[y - 1][x]) v = rng() > 0.35 ? 1 : 0; g[y][x] = v } if (g.every(r => r.every(c => c === 0))) g[h >> 1][w >> 1] = 1; return g }, getClues: (g) => { const l = a => { let r = [], c = 0; for (let v of a) { if (v) c++; else { if (c) r.push(c); c = 0 } } if (c) r.push(c); return r.length ? r : [0] }; return { rows: g.map(l), cols: g[0].map((_, i) => l(g.map(r => r[i]))) } } };
 
-        /* INTRO & AI DEMO */
         const Intro = {
-            t: null, a: false, m: [], sId: '',
+            t: null, a: false, sId: '',
+            state: [], clues: {}, w: 0, h: 0, rem_guesses: [], isSolver: false, solution: [], fastMode: false,
 
             s: () => { if (!Intro.a) { Intro.a = true; Intro.n() } },
             e: () => {
                 Intro.a = false;
                 clearTimeout(Intro.t);
-                StopConfetti();
-                Sfx.stopHappyTune();
-                const h1 = document.querySelector('#sidebar h1');
-                if (h1) h1.innerHTML = "Nonogram";
-                const toast = document.getElementById('toast');
-                if (toast) toast.remove();
+                if (!Intro.isSolver) {
+                    StopConfetti();
+                    Sfx.stopHappyTune();
+                    const h1 = document.querySelector('#sidebar h1');
+                    if (h1) h1.innerHTML = "Nonogram";
+                }
             },
 
-            // Show a simple toast message
             toast: (msg) => {
-                let t = document.getElementById('toast');
-                if (!t) {
-                    t = document.createElement('div');
-                    t.id = 'toast';
-                    t.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:8px 16px; border-radius:20px; font-size:14px; z-index:999; pointer-events:none; transition:opacity 0.3s;";
-                    document.body.appendChild(t);
-                }
-                t.innerText = msg;
-                t.style.opacity = '1';
-                setTimeout(() => { t.style.opacity = '0'; }, 2000);
+                const t = document.getElementById("toast");
+                t.textContent = msg;
+                t.className = "show";
+                setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000);
             },
 
-            // Logic: Priority Cross -> Then Fill
-            logic: (w, h, clues) => {
-                let moves = [], added = new Set();
-                let state = Array(h).fill().map(() => Array(w).fill(0));
+            findLogicalMove: () => {
+                const { w, h, clues, state } = Intro;
 
-                const record = (x, y, v) => {
-                    let k = x + "," + y;
-                    if (!added.has(k) && state[y][x] === 0) {
-                        state[y][x] = v;
-                        moves.push({ x, y, v });
-                        added.add(k);
-                        return true;
+                const findAndRecord = (checkFn) => {
+                    for (let y = 0; y < h; y++) {
+                        const move = checkFn('row', y);
+                        if (move) return move;
                     }
-                    return false;
+                    for (let x = 0; x < w; x++) {
+                        const move = checkFn('col', x);
+                        if (move) return move;
+                    }
+                    return null;
                 };
 
-                const doFills = () => {
-                    let found = false;
-                    // Rows
-                    clues.rows.forEach((line, y) => {
-                        let sum = line.reduce((a, b) => a + b, 0) + line.length - 1;
-                        let slack = w - sum;
-                        if (slack >= 0) {
-                            let cursor = 0;
-                            line.forEach(b => {
-                                if (b > slack) {
-                                    for (let k = 0; k < (b - slack); k++) {
-                                        if (record(cursor + slack + k, y, 1)) found = true;
+                // P1: Cross full lines (based on fill count)
+                const checkDoCrosses = (type, idx) => {
+                    const lineClues = (type === 'row') ? clues.rows[idx] : clues.cols[idx];
+                    const lineState = (type === 'row') ? state[idx] : state.map(r => r[idx]);
+                    const len = (type === 'row') ? w : h;
+                    
+                    const filled = lineState.filter(c => c === 1).length;
+                    const target = lineClues.reduce((a, b) => a + b, 0);
+
+                    if (filled === target) {
+                        for (let i = 0; i < len; i++) {
+                            if (lineState[i] === 0) {
+                                return (type === 'row') ? { x: i, y: idx, v: 2 } : { x: idx, y: i, v: 2 };
+                            }
+                        }
+                    }
+                    return null;
+                };
+                let move = findAndRecord(checkDoCrosses);
+                if (move) return move;
+
+                // P2: Cross based on block structure
+                const checkCompleteBlocks = (type, idx) => {
+                    const lineClues = (type === 'row') ? clues.rows[idx] : clues.cols[idx];
+                    const lineState = (type === 'row') ? state[idx] : state.map(r => r[idx]);
+                    const len = (type === 'row') ? w : h;
+
+                    if (lineClues.length === 1 && lineClues[0] === 0) return null;
+
+                    const blocks = [];
+                    let current = null;
+                    for (let i = 0; i < len; i++) {
+                        if (lineState[i] === 1) {
+                            if (current === null) current = { len: 0 };
+                            current.len++;
+                        } else {
+                            if (current) { blocks.push(current); current = null; }
+                        }
+                    }
+                    if (current) blocks.push(current);
+
+                    if (blocks.length === lineClues.length && blocks.every((b, i) => b.len === lineClues[i])) {
+                        for (let i = 0; i < len; i++) {
+                            if (lineState[i] === 0) {
+                                return (type === 'row') ? { x: i, y: idx, v: 2 } : { x: idx, y: i, v: 2 };
+                            }
+                        }
+                    }
+                    return null;
+                };
+                move = findAndRecord(checkCompleteBlocks);
+                if (move) return move;
+
+                // P3: Fill new cells
+                const checkDoFills = (type, idx) => {
+                    const lineClues = (type === 'row') ? clues.rows[idx] : clues.cols[idx];
+                    const len = (type === 'row') ? w : h;
+                    
+                    const sum = lineClues.reduce((a, b) => a + b, 0) + lineClues.length - 1;
+                    const slack = len - sum;
+
+                    if (slack >= 0) {
+                        let cursor = 0;
+                        for (const b of lineClues) {
+                            if (b > slack) {
+                                for (let k = 0; k < (b - slack); k++) {
+                                    const i = cursor + slack + k;
+                                    const currentVal = (type === 'row') ? state[idx][i] : state[i][idx];
+                                    if (currentVal === 0) {
+                                        return (type === 'row') ? { x: i, y: idx, v: 1 } : { x: idx, y: i, v: 1 };
                                     }
                                 }
-                                cursor += b + 1;
-                            });
+                            }
+                            cursor += b + 1;
                         }
-                    });
-                    // Cols
-                    clues.cols.forEach((line, x) => {
-                        let sum = line.reduce((a, b) => a + b, 0) + line.length - 1;
-                        let slack = h - sum;
-                        if (slack >= 0) {
-                            let cursor = 0;
-                            line.forEach(b => {
-                                if (b > slack) {
-                                    for (let k = 0; k < (b - slack); k++) {
-                                        if (record(x, cursor + slack + k, 1)) found = true;
-                                    }
-                                }
-                                cursor += b + 1;
-                            });
-                        }
-                    });
-                    return found;
+                    }
+                    return null;
                 };
+                move = findAndRecord(checkDoFills);
+                if (move) return move;
 
-                const doCrosses = () => {
-                    let found = false;
-                    // Rows
-                    clues.rows.forEach((line, y) => {
-                        let filled = state[y].filter(c => c === 1).length;
-                        let target = line.reduce((a, b) => a + b, 0);
-                        if (filled === target) {
-                            for (let x = 0; x < w; x++) if (record(x, y, 2)) found = true;
-                        }
-                    });
-                    // Cols
-                    clues.cols.forEach((line, x) => {
-                        let filled = 0;
-                        for (let y = 0; y < h; y++) if (state[y][x] === 1) filled++;
-                        let target = line.reduce((a, b) => a + b, 0);
-                        if (filled === target) {
-                            for (let y = 0; y < h; y++) if (record(x, y, 2)) found = true;
-                        }
-                    });
-                    return found;
-                };
-
-                // Loop: Exhaust Crosses first, then try Fills
-                let changed = true;
-                while (changed) {
-                    changed = false;
-                    // 1. Keep Crossing until we can't anymore
-                    while (doCrosses()) { changed = true; }
-
-                    // 2. Do one pass of Fills
-                    if (doFills()) { changed = true; }
-
-                    // 3. If Fills happened, loop back to check if they unlocked new Crosses
-                }
-
-                return { moves, set: added };
+                return null;
             },
 
+            findNextMove: () => {
+                const logicalMove = Intro.findLogicalMove();
+                if (logicalMove) return logicalMove;
+
+                if (Intro.rem_guesses.length > 0) {
+                    return Intro.rem_guesses.pop();
+                }
+                return null;
+            },
+
+            startSolver: (w, h, clues, initialState, solution, isSolverMode) => {
+                Intro.e(); 
+                Intro.a = true;
+                Intro.isSolver = isSolverMode;
+                
+                Intro.w = w; Intro.h = h; Intro.clues = clues; Intro.solution = solution;
+                Intro.state = initialState.map(row => [...row]);
+
+                Intro.rem_guesses = [];
+                 for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        if (Intro.state[y][x] === 0) {
+                             Intro.rem_guesses.push({ x, y, v: solution[y][x] ? 1 : 2 });
+                        }
+                    }
+                }
+                Intro.rem_guesses.sort(() => Math.random() - 0.5);
+                Intro.p();
+            },
+            
             n: () => {
                 if (!Intro.a) return;
-
                 Intro.sId = Math.random().toString(36).substring(7);
                 let g = Gen.getGrid(Intro.sId, 10, 10);
                 app.load(g, 10, 10, "Watching AI...");
 
-                // UI: Seed Copy with Toast
                 setTimeout(() => {
                     const h1 = document.querySelector('#sidebar h1');
                     if (h1) {
@@ -1112,48 +1141,47 @@
                 </span>`;
                     }
                 }, 50);
-
-                const clues = Gen.getClues(g);
-                const l = Intro.logic(10, 10, clues);
-
-                // Remaining Guesses: Prioritize Fill (1) over Cross (2) for cleaner look in random phase
-                let rem = [];
-                for (let y = 0; y < 10; y++) {
-                    for (let x = 0; x < 10; x++) {
-                        if (!l.set.has(x + "," + y)) {
-                            rem.push({ x, y, v: g[y][x] ? 1 : 2 });
-                        }
-                    }
-                }
-                // Random sort guesses
-                rem.sort(() => Math.random() - 0.5);
-
-                // Stack Order: Guesses (at bottom), Logic (at top, reversed)
-                Intro.m = rem.concat(l.moves.reverse());
-
-                Intro.p();
+                
+                Intro.startSolver(10, 10, Gen.getClues(g), Array(10).fill().map(() => Array(10).fill(0)), g, false);
             },
 
             p: () => {
                 if (!Intro.a) return;
-                if (!Intro.m.length) {
-                    const duration = 10; // Demo is 10x10
-                    Sfx.happyTune(duration);
-                    Confetti();
-                    Intro.t = setTimeout(Intro.n, duration * 1000);
+                
+                let m = Intro.findNextMove();
+                
+                if (!m) {
+                    if (!Intro.isSolver) {
+                        const duration = 10;
+                        Sfx.happyTune(duration);
+                        Confetti();
+                        Intro.t = setTimeout(Intro.n, duration * 1000);
+                    } else {
+                        app.check(); // Final check to trigger win state
+                    }
                     return;
                 }
 
-                let m = Intro.m.pop();
+                // If move is already applied (e.g. from initial state), find next
+                if (Intro.state[m.y][m.x] !== 0) {
+                    Intro.p();
+                    return;
+                }
+                
+                Intro.state[m.y][m.x] = m.v;
                 app.d.player[m.y][m.x] = m.v;
                 app.upd(m.x, m.y, m.v);
                 app.updateClueState();
 
                 if (m.v == 1) Sfx.fill(); else Sfx.cross();
 
-                let isSmart = Intro.m.length > 20;
-                let delay = isSmart ? 200 : 450;
-
+                let delay = 500; // Slower speed for main menu demo
+                if (Intro.isSolver) {
+                    delay = 100; // Fast speed for "Give Up" solver
+                    if (Intro.rem_guesses.length < 20) {
+                        delay = Math.max(20, delay / 2);
+                    }
+                }
                 Intro.t = setTimeout(Intro.p, delay);
             }
         };
@@ -1185,8 +1213,16 @@
             init: () => {
                 const s = document.getElementById('main-stage');
                 let pan = false, sx, sy, sl, st;
-                s.onmousedown = e => { if (e.target.closest('#game-scaler') || e.target.closest('.float-btn')) return; pan = true; sx = e.pageX - s.offsetLeft; sy = e.pageY - s.offsetTop; sl = s.scrollLeft; st = s.scrollTop };
-                window.onmouseup = () => { pan = false; app.d.drag = false };
+                s.onmousedown = e => { 
+                    if (Intro.a && !Intro.isSolver) { Intro.fastMode = true; }
+                    if (e.target.closest('#game-scaler') || e.target.closest('.float-btn')) return; 
+                    pan = true; sx = e.pageX - s.offsetLeft; sy = e.pageY - s.offsetTop; sl = s.scrollLeft; st = s.scrollTop;
+                };
+                window.onmouseup = () => { 
+                    Intro.fastMode = false;
+                    pan = false; 
+                    app.d.drag = false;
+                };
                 window.onmousemove = e => { if (pan) { e.preventDefault(); s.scrollLeft = sl - ((e.pageX - s.offsetLeft) - sx); s.scrollTop = st - ((e.pageY - s.offsetTop) - sy) } if (app.d.drag) app.hov(e) };
                 window.onresize = () => { if (app.d.mode === 'game') app.fit() };
                 Intro.s(); app.fit(true);
@@ -1484,7 +1520,43 @@
             showMenu: () => { Intro.e(); app.pan('menu'); Intro.s(); document.getElementById('menu-lvl-input').value = app.d.campLvl || 1; },
             toggleTheme: () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
             copyCode: (id) => { const txt = document.getElementById(id).textContent; if (!txt || txt === "...") return; navigator.clipboard.writeText(txt).then(() => { const t = document.getElementById("toast"); t.className = "show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }); },
-            solve: () => { Intro.e(); Timer.stop(); app.d.player = app.d.grid.map(r => [...r]); app.ren(false); app.d.solved = true; app.updShare(); app.updateClueState(); },
+            solve: () => {
+                if (app.d.solved) return;
+                Intro.e();
+                Timer.stop();
+
+                let errors = 0;
+                const correctedPlayer = app.d.player.map(r => [...r]);
+
+                for (let y = 0; y < app.d.h; y++) {
+                    for (let x = 0; x < app.d.w; x++) {
+                        const playerVal = app.d.player[y][x];
+                        const solutionVal = app.d.grid[y][x];
+                        let isError = false;
+                        if (playerVal === 1 && solutionVal === 0) isError = true;
+                        if (playerVal === 2 && solutionVal === 1) isError = true;
+
+                        if (isError) {
+                            errors++;
+                            correctedPlayer[y][x] = 0;
+                            app.upd(x, y, 0);
+                        }
+                    }
+                }
+                app.d.player = correctedPlayer;
+
+                const startSolve = () => {
+                    const clues = Gen.getClues(app.d.grid);
+                    Intro.startSolver(app.d.w, app.d.h, clues, app.d.player, app.d.grid, true);
+                };
+
+                if (errors > 0) {
+                    Intro.toast(`${errors} error(s) corrected.`);
+                    setTimeout(startSolve, 800);
+                } else {
+                    startSolve();
+                }
+            },
             openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(() => Array(10).fill(0)), 10, 10, "Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); app.exportSave(); },
             resizeBoard: (dx, dy) => { let { w, h, grid } = app.d, nw = Math.max(5, Math.min(30, w + dx)), nh = Math.max(5, Math.min(30, h + dy)); app.d.w = nw; app.d.h = nh; app.d.grid = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < h && x < w) ? grid[y][x] : 0)); app.ren(true); app.updEL(); app.checkSolvability(); app.exportSave(); },
             updEL: () => { document.getElementById('lbl-w').textContent = app.d.w; document.getElementById('lbl-h').textContent = app.d.h },
