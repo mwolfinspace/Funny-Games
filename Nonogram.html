@@ -1236,6 +1236,8 @@
                 </div>
             </div>
 
+            <button class="btn secondary" onclick="app.clearEditorBoard()" title="Clear all cells">🧹 Quick Clean</button>
+
             <button class="btn hint" onclick="app.editorSolve()">🤖 Auto Solve & Check</button>
             <button class="btn" onclick="app.playEditorLevel()">▶️ Test Play</button>
 
@@ -2376,6 +2378,7 @@
             returnToEditor: () => {
                 StopConfetti();
                 Sfx.stopHappyTune();
+                app.ren(true, true); // Re-render board to show editor grid state
                 app.pan('editor');
                 app.updEL();
                 app.checkSolvability();
@@ -2445,6 +2448,21 @@
             },
             openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(() => Array(10).fill(0)), 10, 10, "Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); app.exportSave(); app.updateEditorClues(); },
             resizeBoard: (dx, dy) => { let { w, h, grid } = app.d, nw = Math.max(5, Math.min(30, w + dx)), nh = Math.max(5, Math.min(30, h + dy)); app.d.w = nw; app.d.h = nh; app.d.grid = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < h && x < w) ? grid[y][x] : 0)); app.ren(true); app.updEL(); app.checkSolvability(); app.exportSave(); app.updateEditorClues(); },
+            clearEditorBoard: () => {
+                if (app.d.mode !== 'editor') return;
+                const { w, h } = app.d;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        if (app.d.grid[y][x] !== 0) {
+                            app.d.grid[y][x] = 0;
+                            app.upd(x, y, 0);
+                        }
+                    }
+                }
+                app.updateEditorClues();
+                app.exportSave();
+                app.checkSolvability();
+            },
             updEL: () => { document.getElementById('lbl-w').textContent = app.d.w; document.getElementById('lbl-h').textContent = app.d.h },
             playEditorLevel: () => { const c = Codec.c(app.d.w, app.d.h, app.d.grid); app.d.seed = c; app.load(JSON.parse(JSON.stringify(app.d.grid)), app.d.w, app.d.h, "Test Play"); app.pan('game'); document.getElementById('camp-controls').style.display = 'none'; },
             exportSave: () => document.getElementById('editor-export').textContent = Codec.c(app.d.w, app.d.h, app.d.grid),
