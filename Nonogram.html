@@ -2138,14 +2138,7 @@
 
             ren: (ed, preserveZoom = false) => {
                 const c = document.getElementById('grid-container'), { w, h } = app.d, cl = ed ? { rows: [], cols: [] } : Gen.getClues(app.d.grid);
-                if (ed) {
-                    c.style.gridTemplateColumns = `12px repeat(${w}, 26px)`;
-                    c.style.gridTemplateRows = `12px repeat(${h}, 26px)`;
-                } else {
-                    c.style.gridTemplateColumns = `auto repeat(${w},26px)`; 
-                    c.style.gridTemplateRows = `auto repeat(${h},26px)`;
-                }
-                c.innerHTML = '<div class="corner"></div>';
+                c.style.gridTemplateColumns = `auto repeat(${w},26px)`; c.style.gridTemplateRows = `auto repeat(${h},26px)`; c.innerHTML = '<div class="corner"></div>';
                 for (let x = 0; x < w; x++) c.innerHTML += `<div class="clue-group-col" id="col-clue-${x}">${ed ? '' : cl.cols[x].map(n => `<span>${n}</span>`).join('')}</div>`;
                 for (let y = 0; y < h; y++) {
                     c.innerHTML += `<div class="clue-group-row" id="row-clue-${y}">${ed ? '' : cl.rows[y].map(n => `<span>${n}</span>`).join('')}</div>`;
@@ -2180,7 +2173,7 @@
                         app.check();
                         app.updateClueState();
                     }
-                } if (ed) { document.querySelectorAll('.cell.unsolved').forEach(e => e.classList.remove('unsolved')); app.exportSave(); clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); }
+                } if (ed) { app.updateEditorClues(); document.querySelectorAll('.cell.unsolved').forEach(e => e.classList.remove('unsolved')); app.exportSave(); clearTimeout(app.d.checkTimer); app.d.checkTimer = setTimeout(app.checkSolvability, 800); }
             },
             upd: (x, y, v) => { const c = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); c.className = c.className.replace(/ (filled|crossed)/g, ''); if (v == 1) c.classList.add('filled'); if (v == 2) c.classList.add('crossed'); },
             updShare: () => { let base = app.d.seed; if (app.d.campLvl > 0) base = "#" + app.d.campLvl; const flat = app.d.player.flat(); const isEmpty = flat.every(x => x === 0); let code = base; if (!isEmpty && !app.d.solved) { code += ":" + Codec.encodeState(app.d.player); } document.getElementById('share-display').textContent = code; app.updateSeedDisplay(); },
@@ -2321,6 +2314,20 @@
                 app.updateClueState();
             },
             checkSolvability: () => { const r = Solver.check(app.d.grid); const e = document.getElementById('editor-status'); e.textContent = r.t; e.className = 'status-bar ' + r.c; },
+            updateEditorClues: () => {
+                if (app.d.mode !== 'editor') return;
+                const { w, h, grid } = app.d;
+                const clues = Gen.getClues(grid);
+                for (let x = 0; x < w; x++) {
+                    const el = document.getElementById(`col-clue-${x}`);
+                    if (el) el.innerHTML = clues.cols[x].map(n => `<span>${n}</span>`).join('');
+                }
+                for (let y = 0; y < h; y++) {
+                    const el = document.getElementById(`row-clue-${y}`);
+                    if (el) el.innerHTML = clues.rows[y].map(n => `<span>${n}</span>`).join('');
+                }
+                setTimeout(() => app.fit(true), 50);
+            },
             fit: (f) => { 
                 const s = document.getElementById('game-scaler'), c = document.getElementById('grid-container'), m = document.getElementById('main-stage'); 
                 if (!s || !c || !m.offsetParent) return; 
@@ -2344,7 +2351,35 @@
             },
             zoom: (d) => app.applyZ(Math.max(0.1, Math.min(10, app.d.scale + d))),
             applyZ: (v) => { app.d.scale = v; document.getElementById('game-scaler').style.transform = `scale(${v})`; document.getElementById('zoom-val').textContent = Math.round(v * 100) + "%"; },
-            pan: (id) => { document.querySelectorAll('.control-panel').forEach(e => e.classList.remove('active')); document.getElementById('panel-' + id).classList.add('active'); app.d.mode = id; },
+            pan: (id) => { 
+                document.querySelectorAll('.control-panel').forEach(e => e.classList.remove('active')); 
+                document.getElementById('panel-' + id).classList.add('active'); 
+                app.d.mode = id;
+                if (id === 'game') {
+                    setTimeout(() => app.updateGamePanelButtons(), 0);
+                }
+            },
+            updateGamePanelButtons: () => {
+                const backToMenuBtn = document.querySelector('#panel-game .btn.danger');
+                if (!backToMenuBtn) return;
+
+                const isEditorLevel = app.d.seed && app.d.seed.startsWith('~');
+
+                if (isEditorLevel) {
+                    backToMenuBtn.textContent = 'Back to Editor';
+                    backToMenuBtn.onclick = () => app.returnToEditor();
+                } else {
+                    backToMenuBtn.textContent = 'Back to Menu';
+                    backToMenuBtn.onclick = () => app.showMenu();
+                }
+            },
+            returnToEditor: () => {
+                app.pan('editor');
+                app.updEL();
+                app.checkSolvability();
+                app.exportSave();
+                app.updateEditorClues();
+            },
             showMenu: () => { Intro.e(); app.pan('menu'); Intro.s(); document.getElementById('menu-lvl-input').value = app.d.campLvl || 1; },
             toggleTheme: () => {
                 const isCurrentlyDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -2406,8 +2441,8 @@
                     startSolve();
                 }
             },
-            openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(() => Array(10).fill(0)), 10, 10, "Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); app.exportSave(); },
-            resizeBoard: (dx, dy) => { let { w, h, grid } = app.d, nw = Math.max(5, Math.min(30, w + dx)), nh = Math.max(5, Math.min(30, h + dy)); app.d.w = nw; app.d.h = nh; app.d.grid = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < h && x < w) ? grid[y][x] : 0)); app.ren(true); app.updEL(); app.checkSolvability(); app.exportSave(); },
+            openEditor: () => { Intro.e(); app.load(Array(10).fill(0).map(() => Array(10).fill(0)), 10, 10, "Editor"); app.pan('editor'); app.updEL(); app.checkSolvability(); app.exportSave(); app.updateEditorClues(); },
+            resizeBoard: (dx, dy) => { let { w, h, grid } = app.d, nw = Math.max(5, Math.min(30, w + dx)), nh = Math.max(5, Math.min(30, h + dy)); app.d.w = nw; app.d.h = nh; app.d.grid = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < h && x < w) ? grid[y][x] : 0)); app.ren(true); app.updEL(); app.checkSolvability(); app.exportSave(); app.updateEditorClues(); },
             updEL: () => { document.getElementById('lbl-w').textContent = app.d.w; document.getElementById('lbl-h').textContent = app.d.h },
             playEditorLevel: () => { const c = Codec.c(app.d.w, app.d.h, app.d.grid); app.d.seed = c; app.load(JSON.parse(JSON.stringify(app.d.grid)), app.d.w, app.d.h, "Test Play"); app.pan('game'); document.getElementById('camp-controls').style.display = 'none'; },
             exportSave: () => document.getElementById('editor-export').textContent = Codec.c(app.d.w, app.d.h, app.d.grid),
