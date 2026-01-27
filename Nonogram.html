@@ -1206,12 +1206,40 @@
 
         /* UTILS */
         const Sfx = {
-            x: null, i: () => { if (!Sfx.x) Sfx.x = new (window.AudioContext || webkitAudioContext)() },
-            tone: (type, freq, dur, vol = 0.3) => { Sfx.i(); if (Sfx.x.state === 'suspended') Sfx.x.resume(); const o = Sfx.x.createOscillator(), g = Sfx.x.createGain(); o.type = type; o.frequency.setValueAtTime(freq, Sfx.x.currentTime); g.gain.setValueAtTime(vol, Sfx.x.currentTime); g.gain.exponentialRampToValueAtTime(0.001, Sfx.x.currentTime + dur); o.connect(g); g.connect(Sfx.x.destination); o.start(); o.stop(Sfx.x.currentTime + dur) },
+            x: null, 
+            unlocked: false,
+            i: () => { if (!Sfx.x) Sfx.x = new (window.AudioContext || webkitAudioContext)() },
+            unlockAudio: () => { 
+                Sfx.i(); 
+                if (Sfx.x.state === 'suspended') {
+                    Sfx.x.resume().then(() => { 
+                        Sfx.unlocked = true;
+                        // Play tiny tone to truly unlock audio
+                        Sfx.tone('sine', 440, 0.001, 0.001);
+                    });
+                } else {
+                    Sfx.unlocked = true;
+                }
+            },
+            tone: (type, freq, dur, vol = 0.3) => { 
+                Sfx.i();
+                // Only play if audio is unlocked, otherwise skip to prevent queuing
+                if (!Sfx.unlocked) return;
+                const o = Sfx.x.createOscillator(), g = Sfx.x.createGain(); 
+                o.type = type; 
+                o.frequency.setValueAtTime(freq, Sfx.x.currentTime); 
+                g.gain.setValueAtTime(vol, Sfx.x.currentTime); 
+                g.gain.exponentialRampToValueAtTime(0.001, Sfx.x.currentTime + dur); 
+                o.connect(g); 
+                g.connect(Sfx.x.destination); 
+                o.start(); 
+                o.stop(Sfx.x.currentTime + dur) 
+            },
+            warmupAudio: () => { Sfx.tone('sine', 440, 0.001, 0.001) }, // Ultra-quiet startup tone to initialize audio context
             fill: () => Sfx.tone('sine', 600, 0.08, 0.3),
             cross: () => Sfx.tone('sawtooth', 120, 0.06, 0.15),
             hint: () => Sfx.tone('triangle', 800, 0.3, 0.3),
-            win: () => { [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => Sfx.tone('square', f, 0.2, 0.15), i * 80)) },
+            win: () => { if (!Sfx.unlocked) return; [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => Sfx.tone('square', f, 0.2, 0.15), i * 80)) },
             happyTuneState: { timer: null, playing: false },
             happyTune: function (duration) {
                 this.stopHappyTune();
@@ -1617,18 +1645,14 @@
                 // Initialize random clue zone color on load
                 app.initializeClueZoneColor();
 
-                // Warm up AudioContext on page load to prevent suspension issues on iOS
-                Sfx.i();
-                if (Sfx.x.state === 'suspended') {
-                    const resumeAudio = () => {
-                        Sfx.x.resume().then(() => {
-                            document.removeEventListener('touchstart', resumeAudio);
-                            document.removeEventListener('click', resumeAudio);
-                        });
-                    };
-                    document.addEventListener('touchstart', resumeAudio);
-                    document.addEventListener('click', resumeAudio);
-                }
+                // Unlock audio on first user interaction
+                const unlockOnInteraction = () => {
+                    Sfx.unlockAudio();
+                    document.removeEventListener('touchstart', unlockOnInteraction);
+                    document.removeEventListener('click', unlockOnInteraction);
+                };
+                document.addEventListener('touchstart', unlockOnInteraction);
+                document.addEventListener('click', unlockOnInteraction);
 
                 const s = document.getElementById('main-stage');
                 let pan = false, sx, sy, sl, st;
