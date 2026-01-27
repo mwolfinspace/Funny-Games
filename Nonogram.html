@@ -518,6 +518,16 @@
             opacity: 0.9;
         }
 
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
         /* BOARD SCALER */
         #game-scaler {
             transform-origin: center;
@@ -526,6 +536,8 @@
             padding: 12px;
             border-radius: 8px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            position: relative;
+            z-index: 1;
         }
 
         .grid-frame {
@@ -978,6 +990,7 @@
     <div id="toast">Code Copied!</div>
 
     <div id="main-stage">
+        <canvas id="particle-canvas"></canvas>
         <div id="top-left-container">
             <a href="index.html" id="home-btn" class="float-btn" title="Back to Home">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -2744,6 +2757,84 @@
 
             };
         })();
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('particle-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let animationFrameId;
+
+            // List of emojis to use
+            const emojis = ['😂', '👍', '❤️', '🚀', '⭐', '🎉', '💡', '🎲', '🧩', '🎨', '✨', '🎈'];
+
+            const setup = () => {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                particles = [];
+                const particleCount = Math.floor(canvas.width * canvas.height / 40000); 
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: Math.random() * 0.6 - 0.3,
+                        vy: Math.random() * 0.6 - 0.3,
+                        size: Math.random() * 40 + 20, // Font size from 20px to 60px
+                        emoji: emojis[Math.floor(Math.random() * emojis.length)],
+                        alpha: Math.random() * 0.7 + 0.2
+                    });
+                }
+            };
+
+            const draw = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // Wrap particles around the screen
+                    if (p.x > canvas.width + p.size) p.x = -p.size;
+                    if (p.x < -p.size) p.x = canvas.width + p.size;
+                    if (p.y > canvas.height + p.size) p.y = -p.size;
+                    if (p.y < -p.size) p.y = canvas.height + p.size;
+                    
+                    // Set font and opacity for each emoji
+                    ctx.globalAlpha = p.alpha;
+                    ctx.font = p.size + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    ctx.fillText(p.emoji, p.x, p.y);
+                });
+
+                // Reset global alpha
+                ctx.globalAlpha = 1.0;
+
+                animationFrameId = requestAnimationFrame(draw);
+            };
+
+            const restartAnimation = () => {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+                setup();
+                draw();
+            };
+
+            // Initial setup
+            restartAnimation();
+
+            // Use a ResizeObserver to restart the animation when the canvas is resized.
+            if ('ResizeObserver' in window) {
+                const resizeObserver = new ResizeObserver(restartAnimation);
+                resizeObserver.observe(canvas);
+            } else {
+                // Fallback for older browsers
+                window.addEventListener('resize', restartAnimation);
+            }
+        });
     </script>
 </body>
 
