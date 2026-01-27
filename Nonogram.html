@@ -26,10 +26,8 @@
             --corner-bg: #ffffff;
 
             --border-frame: #73b7ee;
-            --grid-line: #cbd5e1;
 
             --cell-bg: #ffffff;
-            --cell-filled: #334155;
             --cell-crossed: #ef4444;
             --cell-hint: #facc15;
 
@@ -54,9 +52,7 @@
             --clue-zone-bg: #2a3a4a;
             --corner-bg: #1e293b;
             --border-frame: #27527e;
-            --grid-line: #475569;
             --cell-bg: #1e293b;
-            --cell-filled: #f8fafc;
             --cell-crossed: #ef4444;
             --cell-hint: #ca8a04;
             --accent: #60a5fa;
@@ -1836,6 +1832,13 @@
                 }
             },
 
+            shadeColor: (color, percent) => {
+                var f=parseInt(color.slice(1),16),t=percent<0?0:255,p=percent<0?percent*-1:percent,R=f>>16,G=f>>8&0x00FF,B=f&0x0000FF;
+                var newR = Math.round((t-R)*p)+R;
+                var newG = Math.round((t-G)*p)+G;
+                var newB = Math.round((t-B)*p)+B;
+                return "#"+(0x1000000+newR*0x10000+newG*0x100+newB).toString(16).slice(1);
+            },
             palettes: {
                 light: [
                     { name: "Ocean", border: '#4A90E2', corner: '#EAF3FB', zone: '#D4E3F3' },
@@ -1859,13 +1862,24 @@
             paletteIndex: -1,
 
             initializeClueZoneColor: () => {
-                // On initial load, apply the first theme from the palettes
+                // On initial load, apply a random theme from the palettes
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const mode = isDark ? 'dark' : 'light';
+                app.paletteIndex = Math.floor(Math.random() * app.palettes[mode].length) - 1;
                 app.setRandomColor();
             },
 
             setColor: (c) => {
                 // Sets the variable on the root, overriding the theme defaults until reload
                 document.documentElement.style.setProperty('--border-frame', c);
+
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                
+                const filledColor = isDark ? app.shadeColor(c, 0.2) : app.shadeColor(c, -0.4);
+                document.documentElement.style.setProperty('--cell-filled', filledColor);
+
+                const gridLineColor = isDark ? app.shadeColor(c, -0.6) : app.shadeColor(c, 0.75);
+                document.documentElement.style.setProperty('--grid-line', gridLineColor);
             },
 
             setRandomColor: () => {
@@ -1876,7 +1890,7 @@
                 
                 const palette = app.palettes[mode][app.paletteIndex];
 
-                document.documentElement.style.setProperty('--border-frame', palette.border);
+                app.setColor(palette.border);
                 document.documentElement.style.setProperty('--corner-bg', palette.corner);
                 document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
             },
@@ -2319,28 +2333,22 @@
                 const newTheme = isCurrentlyDark ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-theme', newTheme);
 
-                if (app.paletteIndex === -1) {
-                    document.documentElement.style.removeProperty('--border-frame');
-                    document.documentElement.style.removeProperty('--corner-bg');
-                    document.documentElement.style.removeProperty('--clue-zone-bg');
-                    return;
-                }
-                
+                // The number of palettes is the same for both themes, so index should be safe.
+                // Re-apply the current palette settings for the new theme.
                 const palette = app.palettes[newTheme][app.paletteIndex];
                 
-                if (!palette) {
+                if (palette) {
+                    app.setColor(palette.border);
+                    document.documentElement.style.setProperty('--corner-bg', palette.corner);
+                    document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
+                } else if (app.palettes[newTheme][0]) {
+                    // Fallback to the first palette if current index is somehow invalid
+                    app.paletteIndex = 0;
                     const fallbackPalette = app.palettes[newTheme][0];
-                    if (fallbackPalette) {
-                        document.documentElement.style.setProperty('--border-frame', fallbackPalette.border);
-                        document.documentElement.style.setProperty('--corner-bg', fallbackPalette.corner);
-                        document.documentElement.style.setProperty('--clue-zone-bg', fallbackPalette.zone);
-                    }
-                    return;
+                    app.setColor(fallbackPalette.border);
+                    document.documentElement.style.setProperty('--corner-bg', fallbackPalette.corner);
+                    document.documentElement.style.setProperty('--clue-zone-bg', fallbackPalette.zone);
                 }
-
-                document.documentElement.style.setProperty('--border-frame', palette.border);
-                document.documentElement.style.setProperty('--corner-bg', palette.corner);
-                document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
             },
             copyCode: (id) => { const txt = document.getElementById(id).textContent; if (!txt || txt === "...") return; navigator.clipboard.writeText(txt).then(() => { const t = document.getElementById("toast"); t.className = "show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }); },
             solve: () => {
