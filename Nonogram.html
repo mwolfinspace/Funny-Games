@@ -19,6 +19,7 @@
             --clue-text: #000000;
             --clue-divider: #e2e8f0;
             --clue-cell-bg: #ffffff;
+            --clue-zone-bg: #f0f4f8;
             --corner-bg: #ffffff;
 
             --border-frame: #73b7ee;
@@ -47,6 +48,7 @@
             --clue-text: #ffffff;
             --clue-divider: #334155;
             --clue-cell-bg: #1e293b;
+            --clue-zone-bg: #2a3a4a;
             --corner-bg: #1e293b;
             --border-frame: #27527e;
             --grid-line: #475569;
@@ -495,7 +497,7 @@
             grid-template-rows: auto 1fr;
             gap: 0;
             background: var(--border-frame);
-            border: 2px solid var(--border-frame);
+            border: 4px solid var(--border-frame);
         }
 
         .corner,
@@ -509,6 +511,40 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 4px;
+            border-right: 3px solid var(--border-frame);
+            border-bottom: 3px solid var(--border-frame);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .corner:hover {
+            opacity: 0.8;
+        }
+
+        .corner-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            width: 100%;
+            height: 100%;
+            font-size: 14px;
+        }
+
+        .corner-hint {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .corner-preview {
+            border: 1px solid var(--grid-line);
+            border-radius: 2px;
+        }
+
+        .corner-preview.hidden {
+            display: none;
         }
 
         .clues-col {
@@ -535,12 +571,12 @@
             flex-direction: column;
             justify-content: flex-end;
             align-items: center;
-            border-right: 1px solid var(--clue-divider);
+            border-right: 3px solid var(--border-frame);
             font-size: 13px;
             font-weight: 700;
             color: var(--clue-text);
             padding-bottom: 4px;
-            background: var(--clue-cell-bg);
+            background: var(--clue-zone-bg);
         }
 
         .clue-group-row {
@@ -548,13 +584,13 @@
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            border-bottom: 1px solid var(--clue-divider);
+            border-bottom: 3px solid var(--border-frame);
             font-size: 13px;
             font-weight: 700;
             color: var(--clue-text);
             padding-right: 6px;
             gap: 4px;
-            background: var(--clue-cell-bg);
+            background: var(--clue-zone-bg);
         }
 
         .cell {
@@ -566,16 +602,36 @@
             justify-content: center;
             align-items: center;
             position: relative;
+            border: 1px solid var(--grid-line);
         }
 
         .cell.v-thick {
-            border-right: 2px solid var(--border-frame) !important;
+            border-right: 3px solid var(--border-frame) !important;
             margin-right: -1px;
         }
 
         .cell.h-thick {
-            border-bottom: 2px solid var(--border-frame) !important;
+            border-bottom: 3px solid var(--border-frame) !important;
             margin-bottom: -1px;
+        }
+
+        /* Fill zone perimeter borders */
+        .cell.perimeter-top {
+            border-top: 3px solid var(--border-frame) !important;
+        }
+
+        .cell.perimeter-bottom {
+            border-bottom: 3px solid var(--border-frame) !important;
+            margin-bottom: -1px;
+        }
+
+        .cell.perimeter-left {
+            border-left: 3px solid var(--border-frame) !important;
+        }
+
+        .cell.perimeter-right {
+            border-right: 3px solid var(--border-frame) !important;
+            margin-right: -1px;
         }
 
         .cell.filled {
@@ -1547,6 +1603,9 @@
         const app = {
             d: { mode: 'menu', w: 10, h: 10, grid: [], player: [], seed: "", solved: false, drag: false, dt: 0, scale: 1, campLvl: 0, checkTimer: null },
             init: () => {
+                // Initialize random clue zone color on load
+                app.initializeClueZoneColor();
+
                 const s = document.getElementById('main-stage');
                 let pan = false, sx, sy, sl, st;
                 s.onmousedown = e => { if (e.target.closest('#game-scaler') || e.target.closest('.float-btn')) return; pan = true; sx = e.pageX - s.offsetLeft; sy = e.pageY - s.offsetTop; sl = s.scrollLeft; st = s.scrollTop };
@@ -1640,6 +1699,27 @@
             },
             toggleTheme: () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
 
+            initializeClueZoneColor: () => {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                
+                // Generate a random color for border, then derive clue zone as an alt version
+                const h = Math.floor(Math.random() * 360);
+                const s = Math.floor(Math.random() * 30) + 40; // 40-70% saturation
+                
+                let clueZoneBg;
+                if (isDark) {
+                    // In dark mode, use a muted version of the border color (lower saturation, medium lightness)
+                    const l = Math.floor(Math.random() * 15) + 30; // 30-45% lightness
+                    clueZoneBg = `hsl(${h}, ${Math.floor(s * 0.5)}%, ${l}%)`;
+                } else {
+                    // In light mode, use a very light pastel version of the border color (lower saturation, high lightness)
+                    const l = Math.floor(Math.random() * 20) + 80; // 80-100% lightness
+                    clueZoneBg = `hsl(${h}, ${Math.floor(s * 0.4)}%, ${l}%)`;
+                }
+                
+                document.documentElement.style.setProperty('--clue-zone-bg', clueZoneBg);
+            },
+
             /* ADD THESE TWO NEW FUNCTIONS HERE */
             setColor: (c) => {
                 // Sets the variable on the root, overriding the theme defaults until reload
@@ -1653,18 +1733,22 @@
                 const h = Math.floor(Math.random() * 360);
                 const s = Math.floor(Math.random() * 40) + 55; // Higher saturation for better visibility
 
-                let borderL, clueL, cornerColor;
+                let borderL, clueL, cornerColor, clueZoneColor;
 
                 if (isDark) {
                     // Dark mode: bright border, readable clue cells
                     borderL = Math.floor(Math.random() * 25) + 55; // 55-80% for bright borders
                     clueL = 25; // Keep clue bg dark for readability
                     cornerColor = `hsl(${h}, ${Math.floor(s * 0.7)}%, 20%)`; // Darker corner
+                    // Clue zone: muted version of border color for dark mode
+                    clueZoneColor = `hsl(${h}, ${Math.floor(s * 0.5)}%, 30%)`; // Darker, less saturated
                 } else {
                     // Light mode: saturated border, readable clue cells  
                     borderL = Math.floor(Math.random() * 30) + 35; // 35-65% for good visibility
                     clueL = 98; // Keep clue bg very light for readability
                     cornerColor = `hsl(${h}, ${Math.floor(s * 0.6)}%, 96%)`; // Very light corner
+                    // Clue zone: muted version of border color for light mode
+                    clueZoneColor = `hsl(${h}, ${Math.floor(s * 0.4)}%, 92%)`; // Very light, less saturated
                 }
 
                 const borderColor = `hsl(${h}, ${s}%, ${borderL}%)`;
@@ -1673,6 +1757,7 @@
                 document.documentElement.style.setProperty('--border-frame', borderColor);
                 document.documentElement.style.setProperty('--clue-cell-bg', isDark ? '#1e293b' : '#ffffff');
                 document.documentElement.style.setProperty('--corner-bg', cornerColor);
+                document.documentElement.style.setProperty('--clue-zone-bg', clueZoneColor);
             },
             toggleActionBtn: (isWin) => {
                 const b = document.getElementById('btn-action');
@@ -1803,8 +1888,8 @@
                 const corner = document.querySelector('.corner');
                 if (!corner || app.d.grid.length === 0) return;
                 
-                const maxSize = 60; // Maximum size for the preview
-                const size = Math.min(app.d.w, app.d.h, 15); // Cap at 15x15 for readability
+                const maxSize = 40; // Maximum size for the preview (reduced from 60)
+                const size = Math.min(app.d.w, app.d.h, 12); // Cap at 12x12 for readability
                 const cellSize = Math.floor(maxSize / size);
                 
                 // Get computed colors from CSS variables
@@ -1817,7 +1902,7 @@
                 const canvas = document.createElement('canvas');
                 canvas.width = cellSize * size;
                 canvas.height = cellSize * size;
-                canvas.style.borderRadius = '2px';
+                canvas.className = 'corner-preview';
                 
                 const ctx = canvas.getContext('2d');
                 
@@ -1835,8 +1920,30 @@
                     }
                 }
                 
+                // Create content wrapper
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'corner-content';
+                contentDiv.title = 'Click to show/hide answer';
+                
+                // Add hint emoji (always visible)
+                const hint = document.createElement('div');
+                hint.className = 'corner-hint';
+                hint.innerHTML = '💡';
+                contentDiv.appendChild(hint);
+                
+                // Add preview canvas (hidden by default)
+                canvas.classList.add('hidden');
+                contentDiv.appendChild(canvas);
+                
                 corner.innerHTML = '';
-                corner.appendChild(canvas);
+                corner.appendChild(contentDiv);
+                
+                // Add click handler to toggle answer visibility
+                corner.onclick = (e) => {
+                    e.stopPropagation();
+                    canvas.classList.toggle('hidden');
+                    hint.innerHTML = canvas.classList.contains('hidden') ? '💡' : '👁️';
+                };
             },
 
             ren: (ed, preserveZoom = false) => {
@@ -1849,6 +1956,11 @@
                         let v = ed ? app.d.grid[y][x] : app.d.player[y][x], cls = 'cell';
                         if ((x + 1) % 5 == 0 && x != w - 1) cls += ' v-thick'; if ((y + 1) % 5 == 0 && y != h - 1) cls += ' h-thick';
                         if (v == 1) cls += ' filled'; if (v == 2) cls += ' crossed';
+                        // Add perimeter borders for fill zone outline
+                        if (x === 0) cls += ' perimeter-left';
+                        if (x === w - 1) cls += ' perimeter-right';
+                        if (y === 0) cls += ' perimeter-top';
+                        if (y === h - 1) cls += ' perimeter-bottom';
                         c.innerHTML += `<div class="${cls}" data-x="${x}" data-y="${y}" onmousedown="app.drag(${x},${y},event.button)" ontouchstart="app.touch(${x},${y},event)" onmouseenter="app.hov(event)"></div>`;
                     }
                 }
