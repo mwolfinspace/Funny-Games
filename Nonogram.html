@@ -18,6 +18,8 @@
             --clue-bg: #ffffff;
             --clue-text: #000000;
             --clue-divider: #e2e8f0;
+            --clue-cell-bg: #ffffff;
+            --corner-bg: #ffffff;
 
             --border-frame: #73b7ee;
             --grid-line: #cbd5e1;
@@ -44,6 +46,8 @@
             --clue-bg: #1e293b;
             --clue-text: #ffffff;
             --clue-divider: #334155;
+            --clue-cell-bg: #1e293b;
+            --corner-bg: #1e293b;
             --border-frame: #27527e;
             --grid-line: #475569;
             --cell-bg: #1e293b;
@@ -489,7 +493,7 @@
             display: grid;
             grid-template-columns: auto 1fr;
             grid-template-rows: auto 1fr;
-            gap: 2px;
+            gap: 0;
             background: var(--border-frame);
             border: 2px solid var(--border-frame);
         }
@@ -498,6 +502,13 @@
         .clues-col,
         .clues-row {
             background: var(--clue-bg);
+        }
+
+        .corner {
+            background: var(--corner-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .clues-col {
@@ -529,6 +540,7 @@
             font-weight: 700;
             color: var(--clue-text);
             padding-bottom: 4px;
+            background: var(--clue-cell-bg);
         }
 
         .clue-group-row {
@@ -542,6 +554,7 @@
             color: var(--clue-text);
             padding-right: 6px;
             gap: 4px;
+            background: var(--clue-cell-bg);
         }
 
         .cell {
@@ -1636,25 +1649,30 @@
             setRandomColor: () => {
                 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
-                // Logic for "Enough Contrast"
-                // If Dark Mode: We want bright colors (High Lightness)
-                // If Light Mode: We want darker colors (Low Lightness)
-
+                // Generate color with good contrast for both border and clue cells
                 const h = Math.floor(Math.random() * 360);
-                // Saturation: Keep it vibrant (50% to 90%)
-                const s = Math.floor(Math.random() * 40) + 50;
+                const s = Math.floor(Math.random() * 40) + 55; // Higher saturation for better visibility
 
-                let l;
+                let borderL, clueL, cornerColor;
+
                 if (isDark) {
-                    // Dark bg needs Lightness between 50% and 80%
-                    l = Math.floor(Math.random() * 30) + 50;
+                    // Dark mode: bright border, readable clue cells
+                    borderL = Math.floor(Math.random() * 25) + 55; // 55-80% for bright borders
+                    clueL = 25; // Keep clue bg dark for readability
+                    cornerColor = `hsl(${h}, ${Math.floor(s * 0.7)}%, 20%)`; // Darker corner
                 } else {
-                    // Light bg needs Lightness between 30% and 50%
-                    l = Math.floor(Math.random() * 20) + 30;
+                    // Light mode: saturated border, readable clue cells  
+                    borderL = Math.floor(Math.random() * 30) + 35; // 35-65% for good visibility
+                    clueL = 98; // Keep clue bg very light for readability
+                    cornerColor = `hsl(${h}, ${Math.floor(s * 0.6)}%, 96%)`; // Very light corner
                 }
 
-                const color = `hsl(${h}, ${s}%, ${l}%)`;
-                app.setColor(color);
+                const borderColor = `hsl(${h}, ${s}%, ${borderL}%)`;
+
+                // Set colors
+                document.documentElement.style.setProperty('--border-frame', borderColor);
+                document.documentElement.style.setProperty('--clue-cell-bg', isDark ? '#1e293b' : '#ffffff');
+                document.documentElement.style.setProperty('--corner-bg', cornerColor);
             },
             toggleActionBtn: (isWin) => {
                 const b = document.getElementById('btn-action');
@@ -1781,6 +1799,46 @@
                 app.updateClueState();
             },
 
+            renderSolutionPreview: () => {
+                const corner = document.querySelector('.corner');
+                if (!corner || app.d.grid.length === 0) return;
+                
+                const maxSize = 60; // Maximum size for the preview
+                const size = Math.min(app.d.w, app.d.h, 15); // Cap at 15x15 for readability
+                const cellSize = Math.floor(maxSize / size);
+                
+                // Get computed colors from CSS variables
+                const root = document.documentElement;
+                const filledColor = getComputedStyle(root).getPropertyValue('--cell-filled').trim();
+                const bgColor = getComputedStyle(root).getPropertyValue('--cell-bg').trim();
+                const borderColor = getComputedStyle(root).getPropertyValue('--grid-line').trim();
+                
+                // Create canvas for solution preview
+                const canvas = document.createElement('canvas');
+                canvas.width = cellSize * size;
+                canvas.height = cellSize * size;
+                canvas.style.borderRadius = '2px';
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Draw solution grid
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const cell = app.d.grid[y][x];
+                        ctx.fillStyle = cell === 1 ? filledColor : bgColor;
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        
+                        // Draw borders
+                        ctx.strokeStyle = borderColor;
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+                
+                corner.innerHTML = '';
+                corner.appendChild(canvas);
+            },
+
             ren: (ed, preserveZoom = false) => {
                 const c = document.getElementById('grid-container'), { w, h } = app.d, cl = ed ? { rows: [], cols: [] } : Gen.getClues(app.d.grid);
                 c.style.gridTemplateColumns = `auto repeat(${w},26px)`; c.style.gridTemplateRows = `auto repeat(${h},26px)`; c.innerHTML = '<div class="corner"></div>';
@@ -1797,7 +1855,10 @@
                 if (!preserveZoom) {
                     setTimeout(() => {
                         app.fit(true);
+                        app.renderSolutionPreview();
                     }, 50);
+                } else {
+                    app.renderSolutionPreview();
                 }
             },
             refreshPlayerView: () => { const { w, h } = app.d; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) app.upd(x, y, app.d.player[y][x]); app.updShare(); app.updateClueState(); },
