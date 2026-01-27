@@ -2160,7 +2160,7 @@
                     setTimeout(() => {
                         app.fit(true);
                         app.renderSolutionPreview();
-                    }, 50);
+                    }, 150);
                 } else {
                     app.renderSolutionPreview();
                 }
@@ -2330,26 +2330,38 @@
                 }
                 setTimeout(() => app.fit(true), 50);
             },
-            fit: (f) => { 
-                const s = document.getElementById('game-scaler'), c = document.getElementById('grid-container'), m = document.getElementById('main-stage'); 
-                if (!s || !c || !m.offsetParent) return; 
-                s.style.transform = 'scale(1)'; 
-                
+            fit: (f) => {
+                const s = document.getElementById('game-scaler'), c = document.getElementById('grid-container'), m = document.getElementById('main-stage');
+                if (!s || !c || !m.offsetParent) return;
+                s.style.transform = 'scale(1)';
+
                 // Force layout recalculation to get accurate measurements
                 void m.offsetWidth;
                 void c.offsetWidth;
-                
-                const screenWidth = m.offsetWidth;
+
+                let screenWidth = m.offsetWidth;
                 const screenHeight = m.offsetHeight;
-                
+
+                // For mobile and tablet, if sidebar is open, calculate scale as if it was closed
+                // to prevent the board from shrinking.
+                if (window.innerWidth < 1024) {
+                    const isSidebarCollapsed = document.body.classList.contains('sidebar-collapsed');
+                    if (!isSidebarCollapsed) {
+                        // When sidebar is open on mobile, use full window width for scaling calculation
+                        screenWidth = window.innerWidth;
+                    }
+                }
+
+                const padding = window.innerWidth < 768 ? 20 : 40;
+
                 // Use the shorter dimension as standard for universal scaling
-                const availableWidth = (screenWidth - 40) / c.offsetWidth;
-                const availableHeight = (screenHeight - 40) / c.offsetHeight;
+                const availableWidth = (screenWidth - padding) / c.offsetWidth;
+                const availableHeight = (screenHeight - padding) / c.offsetHeight;
                 const sc = Math.min(availableWidth, availableHeight);
-                
+
                 // Scale as much as possible, no upper limit when fitting to screen
                 const finalScale = Math.max(0.1, sc);
-                app.applyZ(finalScale); 
+                app.applyZ(finalScale);
             },
             zoom: (d) => app.applyZ(Math.max(0.1, Math.min(10, app.d.scale + d))),
             applyZ: (v) => { app.d.scale = v; document.getElementById('game-scaler').style.transform = `scale(${v})`; document.getElementById('zoom-val').textContent = Math.round(v * 100) + "%"; },
