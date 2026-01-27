@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nonogram Master</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -366,6 +367,111 @@
         }
 
         #seed-modal-button:hover {
+            opacity: 0.9;
+        }
+
+        #seed-modal-buttons {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        #seed-modal-button,
+        #seed-modal-qr-button {
+            flex: 1;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        #seed-modal-qr-button:hover {
+            opacity: 0.9;
+        }
+
+        #qr-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #qr-modal.show {
+            display: flex;
+        }
+
+        #qr-modal-content {
+            background: var(--sidebar-bg);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #qr-code-container {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #qr-code-container canvas,
+        #qr-code-container svg {
+            display: block;
+        }
+
+        #qr-modal-link {
+            font-family: monospace;
+            font-size: 0.85em;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            max-width: 300px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #qr-modal-link:hover {
+            background: var(--panel-border);
+        }
+
+        .qr-modal-button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-top: 8px;
+        }
+
+        .qr-modal-button:hover {
             opacity: 0.9;
         }
 
@@ -833,6 +939,9 @@
                         <line x1="5" y1="12" x2="19" y2="12"></line>
                     </svg>
                 </button>
+                <button id="qr-btn" class="float-btn" onclick="app.generateQR()" title="Generate QR Code">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><line x1="11" y1="19" x2="20" y2="19"></line><line x1="19" y1="11" x2="19" y2="20"></line></svg>
+                </button>
                 <button class="float-btn" onclick="app.solve()" title="Give Up - Let AI Finish">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -848,7 +957,21 @@
         <div id="seed-modal" onclick="app.closeSeedModal(event)">
             <div id="seed-modal-content" onclick="event.stopPropagation()">
                 <div id="seed-modal-text" onclick="app.copySeedFromModal()">Seed: Loading...</div>
-                <button id="seed-modal-button" onclick="app.copySeedFromModal()">📋 Copy to Clipboard</button>
+                <div id="seed-modal-buttons">
+                    <button id="seed-modal-button" onclick="app.copySeedFromModal()">📋 Copy to Clipboard</button>
+                    <button id="seed-modal-qr-button" onclick="app.closeSeedModal(); app.generateQR();">🔲 QR Code</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="qr-modal" onclick="app.closeQRModal(event)">
+            <div id="qr-modal-content" onclick="event.stopPropagation()">
+                <h2 style="margin-top: 0; color: var(--text-main);">Share Your Game</h2>
+                <div id="qr-code-container"></div>
+                <div id="qr-modal-link" onclick="app.copyQRLink()" title="Click to copy link">Loading...</div>
+                <button class="qr-modal-button" onclick="app.copyQRLink()">🔗 Copy Link</button>
+                <button class="qr-modal-button" onclick="app.downloadQR()">⬇️ Download QR</button>
+                <button class="qr-modal-button secondary" style="background: var(--text-muted); margin-top: 16px;" onclick="app.closeQRModal()">Close</button>
             </div>
         </div>
 
@@ -954,6 +1077,7 @@
             <div class="control-box">
                 <small style="font-weight:700; color:var(--text-muted)">SHARE / SAVE</small>
                 <div class="code-display" id="share-display" onclick="app.copyCode('share-display')">...</div>
+                <button class="btn secondary" onclick="app.generateQR()" style="width:100%; margin-top:8px;">🔲 Share QR Code</button>
             </div>
 
             <div style="flex:1"></div>
@@ -1928,6 +2052,99 @@
                         btn.textContent = originalText;
                     }, 2000);
                 });
+            },
+
+            generateQRLink: () => {
+                let base = app.d.seed;
+                if (app.d.campLvl > 0) base = "#" + app.d.campLvl;
+
+                const flat = app.d.player.flat();
+                const isEmpty = flat.every(x => x === 0);
+                
+                let code = base;
+                if (!isEmpty && !app.d.solved) {
+                    code += ":" + Codec.encodeState(app.d.player);
+                }
+
+                // Use the full GitHub URL for deployed version
+                const baseUrl = "https://mwolfinspace.github.io/Funny-Games/Nonogram.html#" + code;
+                return baseUrl;
+            },
+
+            generateQR: () => {
+                const qrLink = app.generateQRLink();
+                const qrContainer = document.getElementById('qr-code-container');
+                const qrLinkElement = document.getElementById('qr-modal-link');
+                
+                // Clear previous QR code
+                qrContainer.innerHTML = '';
+                
+                // Generate QR code
+                new QRCode(qrContainer, {
+                    text: qrLink,
+                    width: 256,
+                    height: 256,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                qrLinkElement.textContent = qrLink;
+                
+                const modal = document.getElementById('qr-modal');
+                if (modal) modal.classList.add('show');
+            },
+
+            closeQRModal: (event) => {
+                if (event && event.target.id !== 'qr-modal') return;
+                const modal = document.getElementById('qr-modal');
+                if (modal) modal.classList.remove('show');
+            },
+
+            copyQRLink: () => {
+                const qrLink = app.generateQRLink();
+                navigator.clipboard.writeText(qrLink).then(() => {
+                    const btn = event.target.tagName === 'BUTTON' ? event.target : event.target.closest('button');
+                    if (btn) {
+                        const originalText = btn.textContent;
+                        btn.textContent = '✓ Copied!';
+                        setTimeout(() => {
+                            btn.textContent = originalText;
+                        }, 2000);
+                    }
+                });
+            },
+
+            downloadQR: () => {
+                const canvas = document.querySelector('#qr-code-container canvas') || document.querySelector('#qr-code-container svg');
+                if (!canvas) return;
+
+                // If it's SVG, convert to canvas
+                let imageCanvas = canvas;
+                if (canvas.tagName === 'SVG') {
+                    imageCanvas = document.createElement('canvas');
+                    imageCanvas.width = 256;
+                    imageCanvas.height = 256;
+                    const ctx = imageCanvas.getContext('2d');
+                    const svg = new XMLSerializer().serializeToString(canvas);
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0);
+                        downloadQRCanvas(imageCanvas);
+                    };
+                    img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                } else {
+                    downloadQRCanvas(imageCanvas);
+                }
+
+                function downloadQRCanvas(canvas) {
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/png');
+                    link.download = 'nonogram-' + Date.now() + '.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
             }
         };
         const Confetti = () => {
@@ -1978,6 +2195,25 @@
             if (c) c.dataset.running = 'false';
         };
         window.onload = app.init;
+        
+        // Handle URL hash to restore game from shared link
+        window.addEventListener('hashchange', () => {
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                app.handleLoad(hash, true);
+            }
+        });
+
+        // On initial load, check if there's a hash and load the game
+        window.addEventListener('load', () => {
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    app.handleLoad(hash, true);
+                }, 100);
+            }
+        }, false);
         
         // Auto-fit on window resize (handles device rotation, etc.)
         window.addEventListener('resize', () => {
