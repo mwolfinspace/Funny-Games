@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nonogram Master</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -617,10 +620,11 @@
             justify-content: flex-end;
             align-items: center;
             border-right: 3px solid var(--border-frame);
-            font-size: 13px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 12px;
             font-weight: 700;
             color: var(--clue-text);
-            padding-bottom: 4px;
+            padding: 4px 0;
             background: var(--clue-zone-bg);
         }
 
@@ -630,11 +634,12 @@
             align-items: center;
             justify-content: flex-end;
             border-bottom: 3px solid var(--border-frame);
-            font-size: 13px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 12px;
             font-weight: 700;
             color: var(--clue-text);
-            padding-right: 6px;
-            gap: 4px;
+            padding: 0 6px;
+            gap: 3px;
             background: var(--clue-zone-bg);
         }
 
@@ -1796,8 +1801,6 @@
                     app.toggleNewGameBtn(false);
                 }
             },
-            toggleTheme: () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
-
             toggleFullscreen: () => {
                 const elem = document.documentElement;
                 const fullscreenIcon = document.getElementById('fullscreen-icon');
@@ -1833,28 +1836,33 @@
                 }
             },
 
+            palettes: {
+                light: [
+                    { name: "Ocean", border: '#4A90E2', corner: '#EAF3FB', zone: '#D4E3F3' },
+                    { name: "Forest", border: '#417505', corner: '#E9EFE6', zone: '#DAE4D0' },
+                    { name: "Ruby", border: '#d0021b', corner: '#FAE5E8', zone: '#f5d0d5' },
+                    { name: "Gold", border: '#F5A623', corner: '#FDF6E9', zone: '#FCEECF' },
+                    { name: "Amethyst", border: '#9013FE', corner: '#F4E7FD', zone: '#EAD7FE' },
+                    { name: "Mint", border: '#50E3C2', corner: '#E4FAF5', zone: '#D2F2E8' },
+                    { name: "Sakura", border: '#FF69B4', corner: '#FFEBF3', zone: '#FFD6E9' }
+                ],
+                dark: [
+                    { name: "Ocean", border: '#4A90E2', corner: '#1C2A3A', zone: '#25374C' },
+                    { name: "Forest", border: '#5DBE36', corner: '#222E1C', zone: '#2C3A25' },
+                    { name: "Ruby", border: '#F44336', corner: '#3A1C1C', zone: '#4C2525' },
+                    { name: "Gold", border: '#F8D862', corner: '#3A331C', zone: '#4C4225' },
+                    { name: "Amethyst", border: '#B886F9', corner: '#2E1C3A', zone: '#3B254C' },
+                    { name: "Mint", border: '#50E3C2', corner: '#1C3A33', zone: '#254C42' },
+                    { name: "Sakura", border: '#FF80C9', corner: '#3A1C2B', zone: '#4C2539' }
+                ]
+            },
+            paletteIndex: -1,
+
             initializeClueZoneColor: () => {
-                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-                
-                // Generate a random color for border, then derive clue zone as an alt version
-                const h = Math.floor(Math.random() * 360);
-                const s = Math.floor(Math.random() * 30) + 40; // 40-70% saturation
-                
-                let clueZoneBg;
-                if (isDark) {
-                    // In dark mode, use a muted version of the border color (lower saturation, medium lightness)
-                    const l = Math.floor(Math.random() * 15) + 30; // 30-45% lightness
-                    clueZoneBg = `hsl(${h}, ${Math.floor(s * 0.5)}%, ${l}%)`;
-                } else {
-                    // In light mode, use a very light pastel version of the border color (lower saturation, high lightness)
-                    const l = Math.floor(Math.random() * 20) + 80; // 80-100% lightness
-                    clueZoneBg = `hsl(${h}, ${Math.floor(s * 0.4)}%, ${l}%)`;
-                }
-                
-                document.documentElement.style.setProperty('--clue-zone-bg', clueZoneBg);
+                // On initial load, apply the first theme from the palettes
+                app.setRandomColor();
             },
 
-            /* ADD THESE TWO NEW FUNCTIONS HERE */
             setColor: (c) => {
                 // Sets the variable on the root, overriding the theme defaults until reload
                 document.documentElement.style.setProperty('--border-frame', c);
@@ -1862,36 +1870,15 @@
 
             setRandomColor: () => {
                 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const mode = isDark ? 'dark' : 'light';
+                
+                app.paletteIndex = (app.paletteIndex + 1) % app.palettes[mode].length;
+                
+                const palette = app.palettes[mode][app.paletteIndex];
 
-                // Generate color with good contrast for both border and clue cells
-                const h = Math.floor(Math.random() * 360);
-                const s = Math.floor(Math.random() * 40) + 55; // Higher saturation for better visibility
-
-                let borderL, clueL, cornerColor, clueZoneColor;
-
-                if (isDark) {
-                    // Dark mode: bright border, readable clue cells
-                    borderL = Math.floor(Math.random() * 25) + 55; // 55-80% for bright borders
-                    clueL = 25; // Keep clue bg dark for readability
-                    cornerColor = `hsl(${h}, ${Math.floor(s * 0.7)}%, 20%)`; // Darker corner
-                    // Clue zone: muted version of border color for dark mode
-                    clueZoneColor = `hsl(${h}, ${Math.floor(s * 0.5)}%, 30%)`; // Darker, less saturated
-                } else {
-                    // Light mode: saturated border, readable clue cells  
-                    borderL = Math.floor(Math.random() * 30) + 35; // 35-65% for good visibility
-                    clueL = 98; // Keep clue bg very light for readability
-                    cornerColor = `hsl(${h}, ${Math.floor(s * 0.6)}%, 96%)`; // Very light corner
-                    // Clue zone: muted version of border color for light mode
-                    clueZoneColor = `hsl(${h}, ${Math.floor(s * 0.4)}%, 92%)`; // Very light, less saturated
-                }
-
-                const borderColor = `hsl(${h}, ${s}%, ${borderL}%)`;
-
-                // Set colors
-                document.documentElement.style.setProperty('--border-frame', borderColor);
-                document.documentElement.style.setProperty('--clue-cell-bg', isDark ? '#1e293b' : '#ffffff');
-                document.documentElement.style.setProperty('--corner-bg', cornerColor);
-                document.documentElement.style.setProperty('--clue-zone-bg', clueZoneColor);
+                document.documentElement.style.setProperty('--border-frame', palette.border);
+                document.documentElement.style.setProperty('--corner-bg', palette.corner);
+                document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
             },
             toggleActionBtn: (isWin) => {
                 const b = document.getElementById('btn-action');
@@ -2327,7 +2314,34 @@
             applyZ: (v) => { app.d.scale = v; document.getElementById('game-scaler').style.transform = `scale(${v})`; document.getElementById('zoom-val').textContent = Math.round(v * 100) + "%"; },
             pan: (id) => { document.querySelectorAll('.control-panel').forEach(e => e.classList.remove('active')); document.getElementById('panel-' + id).classList.add('active'); app.d.mode = id; },
             showMenu: () => { Intro.e(); app.pan('menu'); Intro.s(); document.getElementById('menu-lvl-input').value = app.d.campLvl || 1; },
-            toggleTheme: () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
+            toggleTheme: () => {
+                const isCurrentlyDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const newTheme = isCurrentlyDark ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+
+                if (app.paletteIndex === -1) {
+                    document.documentElement.style.removeProperty('--border-frame');
+                    document.documentElement.style.removeProperty('--corner-bg');
+                    document.documentElement.style.removeProperty('--clue-zone-bg');
+                    return;
+                }
+                
+                const palette = app.palettes[newTheme][app.paletteIndex];
+                
+                if (!palette) {
+                    const fallbackPalette = app.palettes[newTheme][0];
+                    if (fallbackPalette) {
+                        document.documentElement.style.setProperty('--border-frame', fallbackPalette.border);
+                        document.documentElement.style.setProperty('--corner-bg', fallbackPalette.corner);
+                        document.documentElement.style.setProperty('--clue-zone-bg', fallbackPalette.zone);
+                    }
+                    return;
+                }
+
+                document.documentElement.style.setProperty('--border-frame', palette.border);
+                document.documentElement.style.setProperty('--corner-bg', palette.corner);
+                document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
+            },
             copyCode: (id) => { const txt = document.getElementById(id).textContent; if (!txt || txt === "...") return; navigator.clipboard.writeText(txt).then(() => { const t = document.getElementById("toast"); t.className = "show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }); },
             solve: () => {
                 if (app.d.solved) return;
