@@ -236,6 +236,27 @@
             transform: translateX(0);
         }
 
+        /* TALL NARROW SCREEN LAYOUT FOR TOP BUTTONS (aspect ratio < 0.5) */
+        @media (max-aspect-ratio: 0.5) and (max-width: 767px) {
+            #float-extra-controls {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                opacity: 1;
+                pointer-events: auto;
+                transform: translateX(0);
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                margin-right: 0;
+            }
+
+            body:not(.sidebar-collapsed) #float-extra-controls {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+
         #mobile-bottom-controls {
             position: fixed;
             bottom: 20px;
@@ -263,6 +284,25 @@
 
             body.sidebar-collapsed #mobile-bottom-controls {
                 display: flex !important;
+            }
+        }
+
+        /* TALL NARROW SCREEN LAYOUT FOR BOTTOM BUTTONS (aspect ratio < 0.5, like Samsung Galaxy S20, Xiaomi Mi 11i) */
+        @media (max-aspect-ratio: 0.5) and (max-width: 767px) {
+            #mobile-bottom-controls {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto auto;
+                gap: 8px;
+                width: auto;
+                z-index: 30;
+            }
+
+            body:not(.sidebar-collapsed) #mobile-bottom-controls {
+                display: grid;
             }
         }
 
@@ -1032,6 +1072,12 @@
                         <line x1="12" y1="19" x2="20" y2="19"></line>
                     </svg>
                 </button>
+                <button id="fullscreen-btn" class="float-btn" onclick="app.toggleFullscreen()" title="Toggle Fullscreen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" id="fullscreen-icon"></path>
+                        <path d="M16 3h3a2 2 0 0 1 2 2v3M3 8V5a2 2 0 0 1 2-2h3m18 18h-3a2 2 0 0 1-2-2v-3m0 0V8m3 16v3a2 2 0 0 1-2 2h-3" id="fullscreen-exit-icon" style="display:none"></path>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -1749,6 +1795,41 @@
                 }
             },
             toggleTheme: () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
+
+            toggleFullscreen: () => {
+                const elem = document.documentElement;
+                const fullscreenIcon = document.getElementById('fullscreen-icon');
+                const fullscreenExitIcon = document.getElementById('fullscreen-exit-icon');
+                const isCurrentlyFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+
+                if (!isCurrentlyFullscreen) {
+                    // Request fullscreen
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) {
+                        elem.mozRequestFullScreen();
+                    } else if (elem.msRequestFullscreen) {
+                        elem.msRequestFullscreen();
+                    }
+                    fullscreenIcon.style.display = 'none';
+                    fullscreenExitIcon.style.display = 'block';
+                } else {
+                    // Exit fullscreen
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                    fullscreenIcon.style.display = 'block';
+                    fullscreenExitIcon.style.display = 'none';
+                }
+            },
 
             initializeClueZoneColor: () => {
                 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -2499,6 +2580,77 @@
                     app.fit(false);
                 }, 100);
             }
+        });
+
+        // Update fullscreen icon when fullscreen mode changes
+        document.addEventListener('fullscreenchange', () => {
+            const fullscreenIcon = document.getElementById('fullscreen-icon');
+            const fullscreenExitIcon = document.getElementById('fullscreen-exit-icon');
+            const isCurrentlyFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+            if (isCurrentlyFullscreen) {
+                fullscreenIcon.style.display = 'none';
+                fullscreenExitIcon.style.display = 'block';
+            } else {
+                fullscreenIcon.style.display = 'block';
+                fullscreenExitIcon.style.display = 'none';
+            }
+        });
+
+        // Function to detect button overlap and force 2-row grid layout
+        function detectButtonOverlap() {
+            const topControls = document.getElementById('float-extra-controls');
+            const bottomControls = document.getElementById('mobile-bottom-controls');
+            
+            if (!topControls || !bottomControls) return;
+            
+            const checkOverlap = (container) => {
+                const buttons = container.querySelectorAll('.float-btn');
+                if (buttons.length < 2) return false;
+                
+                // Get bounding rectangles for all buttons
+                const rects = Array.from(buttons).map(btn => ({
+                    btn,
+                    rect: btn.getBoundingClientRect()
+                }));
+                
+                // Check if any two buttons overlap
+                for (let i = 0; i < rects.length; i++) {
+                    for (let j = i + 1; j < rects.length; j++) {
+                        const rect1 = rects[i].rect;
+                        const rect2 = rects[j].rect;
+                        
+                        // Check if rectangles overlap
+                        if (!(rect1.right < rect2.left || 
+                              rect1.left > rect2.right || 
+                              rect1.bottom < rect2.top || 
+                              rect1.top > rect2.bottom)) {
+                            return true; // Overlap detected
+                        }
+                    }
+                }
+                return false;
+            };
+            
+            // Check for overlap in top controls
+            if (checkOverlap(topControls)) {
+                topControls.style.display = 'grid';
+                topControls.style.gridTemplateColumns = '1fr 1fr';
+            }
+            
+            // Check for overlap in bottom controls
+            if (checkOverlap(bottomControls)) {
+                bottomControls.style.display = 'grid';
+                bottomControls.style.gridTemplateColumns = '1fr 1fr';
+            }
+        }
+        
+        // Run overlap detection on load and resize
+        window.addEventListener('load', () => {
+            setTimeout(detectButtonOverlap, 500);
+        });
+        
+        window.addEventListener('resize', () => {
+            setTimeout(detectButtonOverlap, 300);
         });
         
         (function () {
