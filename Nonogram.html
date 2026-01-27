@@ -533,9 +533,10 @@
             font-size: 14px;
         }
 
-        .corner-hint {
-            font-size: 16px;
+        .corner-emoji {
+            font-size: 24px;
             line-height: 1;
+            min-height: 30px;
         }
 
         .corner-preview {
@@ -545,6 +546,12 @@
 
         .corner-preview.hidden {
             display: none;
+        }
+
+        .corner-preview svg {
+            display: block;
+            width: 100%;
+            height: 100%;
         }
 
         .clues-col {
@@ -1888,7 +1895,10 @@
                 const corner = document.querySelector('.corner');
                 if (!corner || app.d.grid.length === 0) return;
                 
-                const maxSize = 40; // Maximum size for the preview (reduced from 60)
+                // Required clicks = board size (square board)
+                const requiredClicks = app.d.w;
+                
+                const maxSize = 40; // Maximum size for the preview
                 const size = Math.min(app.d.w, app.d.h, 12); // Cap at 12x12 for readability
                 const cellSize = Math.floor(maxSize / size);
                 
@@ -1898,51 +1908,91 @@
                 const bgColor = getComputedStyle(root).getPropertyValue('--cell-bg').trim();
                 const borderColor = getComputedStyle(root).getPropertyValue('--grid-line').trim();
                 
-                // Create canvas for solution preview
-                const canvas = document.createElement('canvas');
-                canvas.width = cellSize * size;
-                canvas.height = cellSize * size;
-                canvas.className = 'corner-preview';
+                // Create SVG for solution preview
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', `0 0 ${cellSize * size} ${cellSize * size}`);
+                svg.setAttribute('width', cellSize * size);
+                svg.setAttribute('height', cellSize * size);
+                svg.className = 'corner-preview';
+                svg.style.display = 'none'; // Ensure hidden initially
                 
-                const ctx = canvas.getContext('2d');
-                
-                // Draw solution grid
+                // Draw solution grid with SVG rectangles
                 for (let y = 0; y < size; y++) {
                     for (let x = 0; x < size; x++) {
                         const cell = app.d.grid[y][x];
-                        ctx.fillStyle = cell === 1 ? filledColor : bgColor;
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                         
-                        // Draw borders
-                        ctx.strokeStyle = borderColor;
-                        ctx.lineWidth = 0.5;
-                        ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        // Background rectangle
+                        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        bg.setAttribute('x', x * cellSize);
+                        bg.setAttribute('y', y * cellSize);
+                        bg.setAttribute('width', cellSize);
+                        bg.setAttribute('height', cellSize);
+                        bg.setAttribute('fill', cell === 1 ? filledColor : bgColor);
+                        svg.appendChild(bg);
+                        
+                        // Border rectangle
+                        const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        border.setAttribute('x', x * cellSize);
+                        border.setAttribute('y', y * cellSize);
+                        border.setAttribute('width', cellSize);
+                        border.setAttribute('height', cellSize);
+                        border.setAttribute('fill', 'none');
+                        border.setAttribute('stroke', borderColor);
+                        border.setAttribute('stroke-width', '0.5');
+                        svg.appendChild(border);
                     }
                 }
+                
+                // Emoji pool for random selection
+                const emojiPool = ['😀', '😂', '🎉', '🎊', '🌟', '✨', '🎁', '🎈', '🎮', '🎯', '🔥', '💎', '⭐', '🚀', '🌈', '🎪', '🎭', '🎨', '🎬', '🎸'];
                 
                 // Create content wrapper
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'corner-content';
-                contentDiv.title = 'Click to show/hide answer';
+                contentDiv.title = `Click ${requiredClicks} times to reveal answer (Easter Egg!)`;
                 
-                // Add hint emoji (always visible)
-                const hint = document.createElement('div');
-                hint.className = 'corner-hint';
-                hint.innerHTML = '💡';
-                contentDiv.appendChild(hint);
+                // Create emoji display area (hidden by default)
+                const emojiDisplay = document.createElement('div');
+                emojiDisplay.className = 'corner-emoji';
+                emojiDisplay.style.fontSize = '24px';
+                emojiDisplay.style.textAlign = 'center';
+                emojiDisplay.style.minHeight = '30px';
+                contentDiv.appendChild(emojiDisplay);
                 
-                // Add preview canvas (hidden by default)
-                canvas.classList.add('hidden');
-                contentDiv.appendChild(canvas);
+                // Add preview SVG (hidden by default)
+                contentDiv.appendChild(svg);
                 
                 corner.innerHTML = '';
                 corner.appendChild(contentDiv);
                 
-                // Add click handler to toggle answer visibility
+                // Add click handler with random emojis until reveal
+                let clickCount = 0;
+                let isRevealed = false;
                 corner.onclick = (e) => {
                     e.stopPropagation();
-                    canvas.classList.toggle('hidden');
-                    hint.innerHTML = canvas.classList.contains('hidden') ? '💡' : '👁️';
+                    
+                    if (!isRevealed) {
+                        clickCount++;
+                        
+                        if (clickCount <= requiredClicks) {
+                            // Show random emoji for each click
+                            const randomEmoji = emojiPool[Math.floor(Math.random() * emojiPool.length)];
+                            emojiDisplay.innerHTML = randomEmoji;
+                        }
+                        
+                        if (clickCount >= requiredClicks) {
+                            // Reveal SVG after enough clicks
+                            isRevealed = true;
+                            setTimeout(() => {
+                                emojiDisplay.innerHTML = '';
+                                emojiDisplay.style.display = 'none';
+                                svg.style.display = 'block';
+                            }, 200); // Brief delay to show last emoji
+                        }
+                    } else if (isRevealed) {
+                        // Toggle visibility after revealed
+                        svg.style.display = svg.style.display === 'none' ? 'block' : 'none';
+                    }
                 };
             },
 
