@@ -1723,7 +1723,7 @@
                 s.onmousedown = e => { if (e.target.closest('#game-scaler') || e.target.closest('.float-btn')) return; pan = true; sx = e.pageX - s.offsetLeft; sy = e.pageY - s.offsetTop; sl = s.scrollLeft; st = s.scrollTop };
                 window.onmouseup = () => { pan = false; app.d.drag = false };
                 window.onmousemove = e => { if (pan) { e.preventDefault(); s.scrollLeft = sl - ((e.pageX - s.offsetLeft) - sx); s.scrollTop = st - ((e.pageY - s.offsetTop) - sy) } if (app.d.drag) app.hov(e) };
-                window.onresize = () => { if (app.d.mode === 'game') app.fit() };
+                window.onresize = () => { if (app.d.mode === 'game' || Intro.a) app.fit() };
 
                 // Auto-hide sidebar on mobile or narrow desktop screens
                 const SIDEBAR_WIDTH = 340;
@@ -2718,11 +2718,22 @@
                     app.handleLoad(hash, true);
                 }, 100);
             }
+
+            // On mobile, force a refit after a short delay.
+            // This helps ensure the initial demo board is scaled correctly,
+            // as layout can be unstable on page load.
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    if (Intro.a && app.d.mode === 'menu') {
+                        app.fit(true);
+                    }
+                }, 500); // A slightly longer delay to be safe
+            }
         }, false);
         
         // Auto-fit on window resize (handles device rotation, etc.)
         window.addEventListener('resize', () => {
-            if (app.d && app.d.w && app.d.h && app.d.mode === 'game' && !Intro.a) {
+            if (app.d && app.d.w && app.d.h && app.d.mode === 'game') {
                 setTimeout(() => {
                     app.fit(false);
                 }, 100);
