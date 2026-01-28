@@ -1765,7 +1765,7 @@
                 s.onmousedown = e => { if (e.target.closest('#game-scaler') || e.target.closest('.float-btn')) return; pan = true; sx = e.pageX - s.offsetLeft; sy = e.pageY - s.offsetTop; sl = s.scrollLeft; st = s.scrollTop };
                 window.onmouseup = () => { pan = false; app.d.drag = false };
                 window.onmousemove = e => { if (pan) { e.preventDefault(); s.scrollLeft = sl - ((e.pageX - s.offsetLeft) - sx); s.scrollTop = st - ((e.pageY - s.offsetTop) - sy) } if (app.d.drag) app.hov(e) };
-                window.onresize = () => { if (app.d.mode === 'game' || Intro.a) app.fit() };
+                // window.onresize is handled by a single, debounced listener at the end of the script.
 
                 // Auto-hide sidebar on mobile or narrow desktop screens
                 const SIDEBAR_WIDTH = 340;
@@ -2058,6 +2058,11 @@
             },
 
             load: (g, w, h, t, preserveZoom = false) => {
+                if (window.innerWidth < 768) {
+                    if (!document.body.classList.contains('sidebar-collapsed')) {
+                        app.toggleSidebar();
+                    }
+                }
                 StopConfetti();
                 Sfx.stopHappyTune();
                 app.d.grid = g; app.d.w = w; app.d.h = h; app.d.player = Array(h).fill(0).map(() => Array(w).fill(0)); app.d.solved = false;
@@ -2375,34 +2380,30 @@
             fit: (f) => {
                 const s = document.getElementById('game-scaler'), c = document.getElementById('grid-container'), m = document.getElementById('main-stage');
                 if (!s || !c || !m.offsetParent) return;
-                s.style.transform = 'scale(1)';
 
-                // Force layout recalculation to get accurate measurements
-                void m.offsetWidth;
-                void c.offsetWidth;
+                // Measure the board's full scrollable size, which is independent of CSS transforms.
+                const boardWidth = c.scrollWidth;
+                const boardHeight = c.scrollHeight;
+
+                if (boardWidth === 0 || boardHeight === 0) {
+                    return; // Avoid division by zero if board is not rendered
+                }
 
                 let screenWidth = m.offsetWidth;
                 const screenHeight = m.offsetHeight;
 
-                // For mobile and tablet, if sidebar is open, calculate scale as if it was closed
-                // to prevent the board from shrinking.
-                if (window.innerWidth < 1024) {
-                    const isSidebarCollapsed = document.body.classList.contains('sidebar-collapsed');
-                    if (!isSidebarCollapsed) {
-                        // When sidebar is open on mobile, use full window width for scaling calculation
-                        screenWidth = window.innerWidth;
-                    }
+                // On mobile, ALWAYS use the full window width for scaling calculations.
+                // This ignores the main stage's animated width during sidebar transitions,
+                // ensuring the board scales to the final, full-screen space.
+                if (window.innerWidth < 768) {
+                    screenWidth = window.innerWidth;
                 }
 
                 const padding = window.innerWidth < 768 ? 20 : 40;
-
-                // Use the shorter dimension as standard for universal scaling
-                const availableWidth = (screenWidth - padding) / c.offsetWidth;
-                const availableHeight = (screenHeight - padding) / c.offsetHeight;
-                const sc = Math.min(availableWidth, availableHeight);
-
-                // Scale as much as possible, no upper limit when fitting to screen
-                const finalScale = Math.max(0.1, sc);
+                const scaleX = (screenWidth - padding) / boardWidth;
+                const scaleY = (screenHeight - padding) / boardHeight;
+                
+                const finalScale = Math.max(0.1, Math.min(scaleX, scaleY));
                 app.applyZ(finalScale);
             },
             zoom: (d) => app.applyZ(Math.max(0.1, Math.min(10, app.d.scale + d))),
@@ -2747,7 +2748,7 @@
         window.addEventListener('hashchange', () => {
             const hash = window.location.hash.substring(1);
             if (hash) {
-                app.handleLoad(hash, true);
+                app.handleLoad(hash, false);
             }
         });
 
@@ -2757,7 +2758,7 @@
             if (hash) {
                 // Small delay to ensure DOM is ready
                 setTimeout(() => {
-                    app.handleLoad(hash, true);
+                    app.handleLoad(hash, false);
                 }, 100);
             }
 
@@ -2854,19 +2855,7 @@
         });
         
         (function () {
-            // 1. Monkey-patch app.fit to allow skipping it
-            const originalFit = app.fit;
-            window.skipNextFit = false;
-
-            app.fit = function (force) {
-                if (window.skipNextFit) {
-                    window.skipNextFit = false; // Consume flag
-                    return; // Skip the auto-zoom
-                }
-                originalFit(force);
-            };
-
-            // 2. Override startNewGame to manage state and zoom
+            // Override startNewGame to keep some useful functionality but remove broken zoom preservation.
             app.startNewGame = function () {
                 // --- CLEANUP ---
                 if (typeof StopConfetti === 'function') StopConfetti();
@@ -2876,14 +2865,10 @@
 
                 // --- CAPTURE STATE ---
                 let w = 10, h = 10;
-                let savedZ = 3;
 
-                // Get size & zoom from active game data
+                // Get size from active game data
                 if (app.d) {
                     if (app.d.w) { w = app.d.w; h = app.d.h; }
-                    if (typeof app.d.z === 'number' && !isNaN(app.d.z)) {
-                        savedZ = app.d.z;
-                    }
                 }
                 // Fallback size from solution if app.d is empty
                 if ((!app.d || !app.d.w) && app.solution && app.solution.length) {
@@ -2891,13 +2876,9 @@
                     w = app.solution[0].length;
                 }
 
-                // --- PREPARE ZOOM PRESERVATION ---
-                // If we have a valid zoom, tell app.fit to SKIP the next auto-fit
-                if (savedZ !== null) {
-                    window.skipNextFit = true;
-                }
-
                 // --- START GAME ---
+                // This will start a new random game of a similar size, and app.fit() will be
+                // called automatically to scale it correctly.
                 const size = Math.max(w, h);
                 app.startRandom(size, size);
 
@@ -2917,7 +2898,6 @@
                     }
                     lastTouchTime = currentTime;
                 }, { passive: false });
-
             };
         })();
     </script>
