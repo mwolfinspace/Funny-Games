@@ -713,6 +713,23 @@
             z-index: 5;
         }
 
+        @keyframes rainbow-shift {
+            0%, 100% { background-color: hsl(0, 80%, 70%); }
+            10% { background-color: hsl(36, 80%, 70%); }
+            20% { background-color: hsl(72, 80%, 70%); }
+            30% { background-color: hsl(108, 80%, 70%); }
+            40% { background-color: hsl(144, 80%, 70%); }
+            50% { background-color: hsl(180, 80%, 70%); }
+            60% { background-color: hsl(216, 80%, 70%); }
+            70% { background-color: hsl(252, 80%, 70%); }
+            80% { background-color: hsl(288, 80%, 70%); }
+            90% { background-color: hsl(324, 80%, 70%); }
+        }
+
+        .cell.filled.rainbow-win {
+            animation: rainbow-shift 4s linear infinite;
+        }
+
 
 
         @keyframes flashHint {
@@ -929,15 +946,7 @@
             color: #991b1b;
         }
 
-        #confetti-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: 100;
-            width: 100%;
-            height: 100%;
-        }
+
 
         .code-display {
             font-size: 2em;
@@ -1129,7 +1138,7 @@
             </div>
         </div>
 
-        <canvas id="confetti-canvas"></canvas>
+
         <div id="game-scaler">
             <div id="grid-container" class="grid-frame"></div>
         </div>
@@ -1590,7 +1599,7 @@
                 if (overlay) overlay.style.display = 'none';
 
                 if (!Intro.isSolver) {
-                    StopConfetti();
+                    
                     Sfx.stopHappyTune();
                     const h1 = document.querySelector('#sidebar h1');
                     if (h1) h1.innerHTML = "Nonogram";
@@ -1774,7 +1783,7 @@
                     if (!Intro.isSolver) {
                         const duration = 10;
                         Sfx.happyTune(duration);
-                        Confetti();
+                        
                         Intro.t = setTimeout(Intro.n, duration * 1000);
                     } else {
                         app.check(); // Final check to trigger win state
@@ -2071,6 +2080,7 @@
             handleActionBtn: () => { if (app.d.solved) app.startNewGame(); else app.resetBoard(); },
 
             resetBoard: () => {
+                document.querySelectorAll('.rainbow-win').forEach(c => c.classList.remove('rainbow-win'));
                 app.d.player = Array(app.d.h).fill(0).map(() => Array(app.d.w).fill(0));
                 app.refreshPlayerView();
                 app.updateClueState();
@@ -2163,7 +2173,7 @@
                         app.toggleSidebar();
                     }
                 }
-                StopConfetti();
+                
                 Sfx.stopHappyTune();
                 app.d.grid = g; app.d.w = w; app.d.h = h; app.d.player = Array(h).fill(0).map(() => Array(w).fill(0)); app.d.solved = false;
 
@@ -2412,7 +2422,7 @@
                     checkLine(player_line, solution_line, colClueEl);
                 }
             },
-            check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); const duration = Math.max(app.d.w, app.d.h); Sfx.happyTune(duration); Confetti(); app.updShare(); app.toggleActionBtn(true); } },
+            check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); const duration = Math.max(app.d.w, app.d.h); Sfx.happyTune(duration); document.querySelectorAll('.cell.filled').forEach(c => c.classList.add('rainbow-win')); app.updShare(); app.toggleActionBtn(true); } },
             useHint: () => {
                 if (app.d.solved) return;
 
@@ -2529,7 +2539,7 @@
                 }
             },
             returnToEditor: () => {
-                StopConfetti();
+                
                 Sfx.stopHappyTune();
                 app.ren(true, true); // Re-render board to show editor grid state
                 app.pan('editor');
@@ -2834,53 +2844,7 @@
                 app.closeGameActionsModal();
             }
         };
-        const Confetti = () => {
-            const c = document.getElementById('confetti-canvas'), x = c.getContext('2d');
-            if (!c || !c.parentElement) return;
-            c.width = c.parentElement.clientWidth;
-            c.height = c.parentElement.clientHeight;
-
-            if (c.dataset.running === 'true') return;
-            c.dataset.running = 'true';
-
-            let p = Array(200).fill({}).map(() => createParticle());
-
-            function createParticle() {
-                return {
-                    x: Math.random() * c.width,
-                    y: -20 - Math.random() * 20,
-                    vx: (Math.random() - .5) * 8,
-                    vy: Math.random() * 4 + 2,
-                    c: `hsl(${Math.random() * 360}, 90%, 60%)`,
-                    s: Math.random() * 5 + 3
-                };
-            }
-
-            const t = () => {
-                if (c.dataset.running !== 'true') {
-                    x.clearRect(0, 0, c.width, c.height);
-                    return;
-                }
-
-                x.clearRect(0, 0, c.width, c.height);
-                p.forEach((k, i) => {
-                    k.x += k.vx;
-                    k.y += k.vy;
-                    k.vy += 0.1;
-
-                    x.fillStyle = k.c; x.beginPath(); x.arc(k.x, k.y, k.s, 0, 7); x.fill();
-
-                    if (k.y > c.height) p[i] = createParticle();
-                });
-
-                requestAnimationFrame(t);
-            };
-            t();
-        };
-        const StopConfetti = () => {
-            const c = document.getElementById('confetti-canvas');
-            if (c) c.dataset.running = 'false';
-        };
+        const StopConfetti = () => {};
         window.onload = app.init;
 
         // Handle URL hash to restore game from shared link
