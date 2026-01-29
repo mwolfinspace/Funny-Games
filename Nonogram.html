@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nonogram Master</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -993,6 +994,16 @@
             opacity: 1;
             bottom: 50px;
         }
+
+        @keyframes screen-shake {
+            0%, 100% { transform: translate(0, 0) rotate(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-4px, 4px) rotate(-1deg); }
+            20%, 40%, 60%, 80% { transform: translate(4px, -4px) rotate(1deg); }
+        }
+
+        .shake-win {
+            animation: screen-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
     </style>
 </head>
 
@@ -1005,7 +1016,7 @@
     <div id="toast">Code Copied!</div>
 
     <div id="main-stage">
-        <canvas id="particle-canvas"></canvas>
+        <canvas id="emoji-canvas" style="position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none;"></canvas>
         <div id="top-left-container">
             <a href="index.html" id="home-btn" class="float-btn" title="Back to Home">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
@@ -1802,7 +1813,7 @@
                 app.upd(m.x, m.y, m.v);
                 app.updateClueState();
 
-                if (m.v == 1) { Sfx.fill(); if (app.addRandomEmojis) app.addRandomEmojis(3); } else Sfx.cross();
+                if (m.v == 1) { Sfx.fill(); EmojiPhysics.add(3); } else Sfx.cross();
 
                 let delay = 500; // Slower speed for main menu demo
                 if (Intro.isSolver) {
@@ -1849,10 +1860,155 @@
             stop: () => { clearTimeout(Nav.t); Nav.t = null; document.removeEventListener('mouseup', Nav.stop); document.removeEventListener('touchend', Nav.stop); }
         };
 
+        const EmojiPhysics = {
+            engine: null,
+            runner: null,
+            render: null,
+            canvas: null,
+            bodies: [], // Keep track of our bodies to manage them
+
+            init() {
+                try {
+                    const Engine = Matter.Engine,
+                        Render = Matter.Render,
+                        Runner = Matter.Runner,
+                        Bodies = Matter.Bodies,
+                        Composite = Matter.Composite;
+
+                    this.engine = Engine.create({
+                        gravity: { y: 0.6 }
+                    });
+
+                    this.canvas = document.getElementById('emoji-canvas');
+                    const mainStage = document.getElementById('main-stage');
+
+                    this.render = Render.create({
+                        element: mainStage,
+                        canvas: this.canvas,
+                        engine: this.engine,
+                        options: {
+                            width: mainStage.clientWidth,
+                            height: mainStage.clientHeight,
+                            wireframes: false,
+                            background: 'transparent'
+                        }
+                    });
+
+                    const ground = Bodies.rectangle(mainStage.clientWidth / 2, mainStage.clientHeight + 30, mainStage.clientWidth + 200, 60, { isStatic: true, label: 'ground' });
+                    const wallLeft = Bodies.rectangle(-30, mainStage.clientHeight / 2, 60, mainStage.clientHeight, { isStatic: true, label: 'wallLeft' });
+                    const wallRight = Bodies.rectangle(mainStage.clientWidth + 30, mainStage.clientHeight / 2, 60, mainStage.clientHeight, { isStatic: true, label: 'wallRight' });
+
+                    Composite.add(this.engine.world, [ground, wallLeft, wallRight]);
+
+                    this.runner = Runner.create();
+                    Runner.run(this.runner, this.engine);
+
+                    Matter.Events.on(this.render, 'afterRender', () => {
+                        const ctx = this.canvas.getContext('2d');
+                        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                        this.bodies.forEach(body => {
+                            if (body.isDying) {
+                                body.opacity -= 0.03;
+                            }
+
+                            if (body.opacity <= 0) {
+                                Matter.Composite.remove(this.engine.world, body);
+                            } else {
+                                ctx.globalAlpha = body.opacity;
+                                ctx.font = `${body.size}px sans-serif`;
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.save();
+                                ctx.translate(body.position.x, body.position.y);
+                                ctx.rotate(body.angle);
+                                ctx.fillText(body.char, 0, 0);
+                                ctx.restore();
+                            }
+                        });
+                        this.bodies = this.bodies.filter(b => b.opacity > 0);
+                        ctx.globalAlpha = 1;
+                    });
+                    
+                    Render.run(this.render);
+
+                    window.addEventListener('resize', () => this.resize());
+                    this.resize();
+
+                } catch (e) {
+                    console.error("Matter.js not found or failed to initialize.", e);
+                    this.init = this.add = this.fillScreen = this.fadeOut = () => {};
+                }
+            },
+
+            resize() {
+                if (!this.render) return;
+                const mainStage = document.getElementById('main-stage');
+                this.render.canvas.width = mainStage.clientWidth;
+                this.render.canvas.height = mainStage.clientHeight;
+
+                this.engine.world.bodies.forEach(body => {
+                    if (body.isStatic && body.label.startsWith('wall')) {
+                         Matter.Body.setPosition(body, {
+                            x: body.label === 'wallLeft' ? -30 : mainStage.clientWidth + 30,
+                            y: mainStage.clientHeight / 2
+                         });
+                    } else if (body.isStatic && body.label === 'ground') {
+                         Matter.Body.setPosition(body, {
+                            x: mainStage.clientWidth / 2,
+                            y: mainStage.clientHeight + 30
+                        });
+                         Matter.Body.setVertices(body, Matter.Vertices.fromPath(`L 0 0 L ${mainStage.clientWidth + 200} 0 L ${mainStage.clientWidth + 200} 60 L 0 60`));
+                    }
+                });
+            },
+
+            add(count = 1, randomSize = false) {
+                if (!this.engine) return;
+                const Bodies = Matter.Bodies,
+                    Composite = Matter.Composite;
+                
+                const mainStage = document.getElementById('main-stage');
+
+                for (let i = 0; i < count; i++) {
+                    const size = randomSize ? (Math.random() * 30 + 15) : 30; // size between 15 and 45
+                    const x = Math.random() * mainStage.clientWidth;
+                    
+                    const body = Bodies.circle(x, -size, size / 1.8, {
+                        restitution: 0.5,
+                        friction: 0.01,
+                        angle: Math.random() * Math.PI * 2,
+                    });
+
+                    body.char = EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)];
+                    body.size = size;
+                    body.opacity = 1;
+                    body.isDying = false;
+
+                    this.bodies.push(body);
+                    Composite.add(this.engine.world, body);
+                }
+            },
+
+            fillScreen() {
+                 if (!this.engine) return;
+                const totalEmojis = Math.min(250, (window.innerWidth / 30) * (window.innerHeight / 30) / 1.5);
+                for (let i = 0; i < totalEmojis; i++) {
+                    setTimeout(() => this.add(1, true), Math.random() * 1500);
+                }
+            },
+
+            fadeOut() {
+                 if (!this.engine) return;
+                this.bodies.forEach(b => b.isDying = true);
+            }
+        };
+
         /* APP */
         const app = {
             d: { mode: 'menu', w: 10, h: 10, grid: [], player: [], seed: "", solved: false, drag: false, dt: 0, scale: 1, campLvl: 0, checkTimer: null },
             init: () => {
+                EmojiPhysics.init();
                 // Initialize random clue zone color on load
                 app.initializeClueZoneColor();
 
@@ -2165,9 +2321,7 @@
             },
 
             load: (g, w, h, t, preserveZoom = false) => {
-                if (app.triggerBackgroundChange) {
-                    app.triggerBackgroundChange();
-                }
+                EmojiPhysics.fadeOut();
                 if (window.innerWidth < 768) {
                     if (!document.body.classList.contains('sidebar-collapsed')) {
                         app.toggleSidebar();
@@ -2325,7 +2479,7 @@
             touch: (x, y, e) => { if (e.cancelable) e.preventDefault(); if (Intro.a || (app.d.solved && app.d.mode === 'game')) return; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player, v = g[y][x]; let n = 0; if (ed) { n = (v == 1 ? 0 : 1); } else { if (v == 0) n = 1; else if (v == 1) n = 2; else n = 0; } app.set(x, y, n); },
             hov: (e) => { if (!app.d.drag) return; const el = document.elementFromPoint(e.clientX, e.clientY); if (el?.classList.contains('cell')) app.set(parseInt(el.dataset.x), parseInt(el.dataset.y), app.d.dt); },
             set: (x, y, v) => {
-                if (Intro.a) return; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player; if (g[y][x] == v) return; g[y][x] = v; app.upd(x, y, v); if (v == 1) { Sfx.fill(); if (app.addRandomEmojis) app.addRandomEmojis(3); } if (v == 2) Sfx.cross(); if (!ed) {
+                if (Intro.a) return; const ed = app.d.mode === 'editor', g = ed ? app.d.grid : app.d.player; if (g[y][x] == v) return; g[y][x] = v; app.upd(x, y, v); if (v == 1) { Sfx.fill(); EmojiPhysics.add(3); } if (v == 2) Sfx.cross(); if (!ed) {
                     app.updShare(); if (!app.d.solved) {
                         app.check();
                         app.updateClueState();
@@ -2422,7 +2576,7 @@
                     checkLine(player_line, solution_line, colClueEl);
                 }
             },
-            check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); const duration = Math.max(app.d.w, app.d.h); Sfx.happyTune(duration); document.querySelectorAll('.cell.filled').forEach(c => c.classList.add('rainbow-win')); app.updShare(); app.toggleActionBtn(true); } },
+            check: () => { const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) { app.d.solved = true; Timer.stop(); const duration = Math.max(app.d.w, app.d.h); Sfx.happyTune(duration); document.querySelectorAll('.cell.filled').forEach(c => c.classList.add('rainbow-win')); app.updShare(); app.toggleActionBtn(true); EmojiPhysics.fillScreen(); const mainStage = document.getElementById('main-stage'); mainStage.classList.add('shake-win'); setTimeout(() => mainStage.classList.remove('shake-win'), 500); } },
             useHint: () => {
                 if (app.d.solved) return;
 
