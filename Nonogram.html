@@ -1942,23 +1942,34 @@
             },
 
             resize() {
-                if (!this.render) return;
+                if (!this.render || !this.engine) return;
                 const mainStage = document.getElementById('main-stage');
-                this.render.canvas.width = mainStage.clientWidth;
-                this.render.canvas.height = mainStage.clientHeight;
+                
+                const newWidth = mainStage.clientWidth;
+                const newHeight = mainStage.clientHeight;
 
-                this.engine.world.bodies.forEach(body => {
-                    if (body.isStatic && body.label.startsWith('wall')) {
-                         Matter.Body.setPosition(body, {
-                            x: body.label === 'wallLeft' ? -30 : mainStage.clientWidth + 30,
-                            y: mainStage.clientHeight / 2
-                         });
-                    } else if (body.isStatic && body.label === 'ground') {
-                         Matter.Body.setPosition(body, {
-                            x: mainStage.clientWidth / 2,
-                            y: mainStage.clientHeight + 30
-                        });
-                         Matter.Body.setVertices(body, Matter.Vertices.fromPath(`L 0 0 L ${mainStage.clientWidth + 200} 0 L ${mainStage.clientWidth + 200} 60 L 0 60`));
+                // Update canvas and renderer
+                this.render.canvas.width = newWidth;
+                this.render.canvas.height = newHeight;
+                this.render.options.width = newWidth;
+                this.render.options.height = newHeight;
+
+                // Update static bodies
+                Matter.Composite.allBodies(this.engine.world).forEach(body => {
+                    if (!body.isStatic) return;
+                    switch (body.label) {
+                        case 'ground':
+                            Matter.Body.setPosition(body, { x: newWidth / 2, y: newHeight + 30 });
+                            Matter.Body.setVertices(body, Matter.Vertices.fromPath(`L 0 0 L ${newWidth} 0 L ${newWidth} 60 L 0 60`));
+                            break;
+                        case 'wallRight':
+                            Matter.Body.setPosition(body, { x: newWidth + 30, y: newHeight / 2 });
+                            Matter.Body.setVertices(body, Matter.Vertices.fromPath(`L 0 0 L 60 0 L 60 ${newHeight} L 0 ${newHeight}`));
+                            break;
+                        case 'wallLeft':
+                            Matter.Body.setPosition(body, { x: -30, y: newHeight / 2 });
+                            Matter.Body.setVertices(body, Matter.Vertices.fromPath(`L 0 0 L 60 0 L 60 ${newHeight} L 0 ${newHeight}`));
+                            break;
                     }
                 });
             },
@@ -1969,9 +1980,14 @@
                     Composite = Matter.Composite;
                 
                 const mainStage = document.getElementById('main-stage');
+                const isMobile = window.innerWidth < 768;
+                const sizeMultiplier = isMobile ? 1.75 : 2.5;
 
                 for (let i = 0; i < count; i++) {
-                    const size = randomSize ? (Math.random() * 30 + 15) : 30; // size between 15 and 45
+                    // Original base sizes: regular 30, random 15-45
+                    const baseSize = randomSize ? (Math.random() * 30 + 15) : 30;
+                    const size = baseSize * sizeMultiplier;
+                    
                     const x = Math.random() * mainStage.clientWidth;
                     
                     const body = Bodies.circle(x, -size, size / 1.8, {
@@ -2113,7 +2129,12 @@
                 } else {
                     app.toggleNewGameBtn(false);
                 }
-                setTimeout(() => app.fit(true), 350);
+                setTimeout(() => {
+                    app.fit(true);
+                    if (EmojiPhysics.resize) {
+                        EmojiPhysics.resize();
+                    }
+                }, 350);
             },
             toggleFullscreen: () => {
                 const elem = document.documentElement;
