@@ -1045,7 +1045,7 @@
                         <polyline points="12 12 4 7.5"></polyline>
                     </svg>
                 </button>
-                <button class="float-btn hint-btn" onclick="app.useHint()" title="Hint">
+                <button id="floating-hint-btn" class="float-btn hint-btn" title="Hint (Hold for Give Up)">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                         stroke-linejoin="round">
                         <path d="M9 18h6"></path>
@@ -1080,7 +1080,7 @@
                         <line x1="19" y1="11" x2="19" y2="20"></line>
                     </svg>
                 </button>
-                <button class="float-btn" onclick="app.solve()" title="Give Up - Let AI Finish">
+                <button class="float-btn" onclick="app.showGameActionsModal()" title="Give Up - Let AI Finish">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
                         stroke-linejoin="round">
                         <polyline points="4 17 10 11 4 5"></polyline>
@@ -1214,7 +1214,7 @@
 
             <div class="row-group">
                 <button class="btn hint" onclick="app.useHint()">💡 Hint</button>
-                <button class="btn secondary" onclick="app.solve()">Give Up</button>
+                <button class="btn secondary" onclick="app.showGameActionsModal()">Give Up</button>
             </div>
 
             <div class="control-box">
@@ -2276,6 +2276,7 @@
                         // Toggle visibility after revealed
                         svg.style.display = svg.style.display === 'none' ? 'block' : 'none';
                     }
+                    setTimeout(() => app.fit(true), 50);
                 };
             },
 
@@ -2787,6 +2788,33 @@
                     link.click();
                     document.body.removeChild(link);
                 }
+            },
+
+            showGameActionsModal: () => {
+                document.getElementById('game-actions-modal').style.display = 'flex';
+            },
+
+            closeGameActionsModal: () => {
+                document.getElementById('game-actions-modal').style.display = 'none';
+            },
+
+            handleLoadFromModal: () => {
+                const val = document.getElementById('modal-load-input').value;
+                document.getElementById('load-input').value = val;
+                app.handleLoad();
+                app.closeGameActionsModal();
+            },
+
+            openEditorFromModal: () => {
+                const val = document.getElementById('modal-load-input').value;
+                document.getElementById('load-input').value = val;
+                app.openEditor();
+                app.closeGameActionsModal();
+            },
+
+            solveAndCloseModal: () => {
+                app.solve();
+                app.closeGameActionsModal();
             }
         };
         const Confetti = () => {
@@ -3112,6 +3140,58 @@
             } else {
                 // Fallback for older browsers
                 window.addEventListener('resize', restartAnimation);
+            }
+        });
+    </script>
+<div id="game-actions-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center;">
+            <div id="game-actions-modal-content" style="background: var(--sidebar-bg); border-radius: 12px; padding: 24px; max-width: 90%; width:320px; max-height: 80%; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top: 0; color: var(--text-main);">Game Actions</h2>
+                <div class="control-box">
+                    <input type="text" id="modal-load-input" placeholder="Paste Save Code or Seed">
+                    <div class="row-group">
+                        <button class="btn secondary small" style="flex:1" onclick="app.handleLoadFromModal()">Load</button>
+                        <button class="btn secondary small" style="flex:1" onclick="app.openEditorFromModal()">Editor</button>
+                    </div>
+                </div>
+                <div style="margin-top: 24px; display:flex; flex-direction:column; gap: 8px;">
+                    <button class="btn danger" onclick="app.solveAndCloseModal()">Give Up</button>
+                    <button class="btn secondary" onclick="app.closeGameActionsModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const hintBtn = document.getElementById('floating-hint-btn');
+            if (hintBtn) {
+                let hintHoldTimer = null;
+                let isLongPress = false;
+
+                const startPress = (e) => {
+                    e.preventDefault();
+                    if (document.body.classList.contains('sidebar-collapsed')) {
+                        isLongPress = false;
+                        hintHoldTimer = setTimeout(() => {
+                            isLongPress = true;
+                            app.solve();
+                        }, 1000);
+                    }
+                };
+
+                const endPress = (e) => {
+                    e.preventDefault();
+                    clearTimeout(hintHoldTimer);
+                    if (!isLongPress && document.body.classList.contains('sidebar-collapsed')) {
+                        app.useHint();
+                    } else if (!document.body.classList.contains('sidebar-collapsed')) {
+                        app.useHint();
+                    }
+                };
+
+                hintBtn.addEventListener('mousedown', startPress);
+                hintBtn.addEventListener('touchstart', startPress, { passive: false });
+                hintBtn.addEventListener('mouseup', endPress);
+                hintBtn.addEventListener('touchend', endPress);
+                hintBtn.addEventListener('mouseleave', () => clearTimeout(hintHoldTimer));
             }
         });
     </script>
