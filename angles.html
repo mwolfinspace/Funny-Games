@@ -1250,6 +1250,9 @@
       zoom: 1.0,
       snap: 'none',
       diffMode: 'easy',
+      flipH: false,
+      flipV: false,
+      fullCircle: false,
       answers: ['', '', '', '', '', '']
     };
 
@@ -1274,6 +1277,9 @@
       document.getElementById('card-bg-toggle').checked = cardConfig.bgEnabled;
       document.getElementById('card-border-color').value = cardConfig.borderColor;
       document.getElementById('card-bg-color').value = cardConfig.bgColor;
+      document.getElementById('btn-card-flip-h').classList.toggle('active', cardConfig.flipH);
+      document.getElementById('btn-card-flip-v').classList.toggle('active', cardConfig.flipV);
+      document.getElementById('btn-card-full-circle').classList.toggle('active', cardConfig.fullCircle);
       populateAnswerInputs();
     }
 
@@ -1281,6 +1287,23 @@
 
     function syncCardStyle(key, val) {
       cardConfig[key] = val;
+      updateCardPreview();
+    }
+
+    function toggleCardFlip(dir) {
+      if (dir === 'H') {
+        cardConfig.flipH = !cardConfig.flipH;
+        document.getElementById('btn-card-flip-h').classList.toggle('active', cardConfig.flipH);
+      } else {
+        cardConfig.flipV = !cardConfig.flipV;
+        document.getElementById('btn-card-flip-v').classList.toggle('active', cardConfig.flipV);
+      }
+      updateCardPreview();
+    }
+
+    function toggleCardFullCircle() {
+      cardConfig.fullCircle = !cardConfig.fullCircle;
+      document.getElementById('btn-card-full-circle').classList.toggle('active', cardConfig.fullCircle);
       updateCardPreview();
     }
 
@@ -1317,7 +1340,7 @@
       let correctVal = getCurrentStudyAngleValue();
       let diff = document.getElementById('card-diff-mode').value;
       cardConfig.diffMode = diff;
-      let maxV = fullCircle ? 350 : 180;
+      let maxV = cardConfig.fullCircle ? 350 : 180;
       let set = new Set([`${correctVal}°`]);
       while(set.size < 6) {
         let distractor;
@@ -1354,7 +1377,7 @@
       if (snap === 'horizontal') baseAngle = 0;
       else if (snap === 'vertical') baseAngle = 90;
       else baseAngle = Math.floor(Math.random() * 360);
-      let angleDiff = fullCircle ? Math.floor(Math.random() * 330) + 20 : Math.floor(Math.random() * 140) + 20;
+      let angleDiff = cardConfig.fullCircle ? Math.floor(Math.random() * 330) + 20 : Math.floor(Math.random() * 140) + 20;
       if (lines.length >= 2) {
         lines[0].angle = baseAngle;
         lines[1].angle = (baseAngle + angleDiff) % 360;
@@ -1386,11 +1409,12 @@
       const svgEl = document.getElementById('card-svg');
       svgEl.innerHTML = '';
       let zoom = parseFloat(cardConfig.zoom);
-      let cPts = getCenterCoords(lines, zoom, 'boundary');
+      let cPts = getCenterCoords(lines, zoom, 'boundary', 0, cardConfig.flipH, cardConfig.flipV);
       drawSVG(svgEl, {
         cx: cPts.cx, cy: cPts.cy, lines: lines, zoom: zoom,
         showL: document.getElementById('show-labels').checked,
-        showV: false, vPos: 'inside', fullCircle: false
+        showV: false, vPos: 'inside', fullCircle: cardConfig.fullCircle,
+        flipH: cardConfig.flipH, flipV: cardConfig.flipV
       });
       if (cardConfig.bgEnabled) {
         let bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1504,6 +1528,11 @@
           <div style="display: flex; gap: 8px;">
             <button class="btn-main" style="flex:1; margin-top: 0; font-size: 0.95rem; padding: 8px; background-color: #8B5CF6; box-shadow: 0 4px 0 #6D28D9;" onclick="generateRandomCard()">🔄 Sinh Góc Mới</button>
             <button class="btn-main" style="flex:1; margin-top: 0; font-size: 0.95rem; padding: 8px; background-color: #F59E0B; box-shadow: 0 4px 0 #D97706;" onclick="rotateRandomCard()">🔀 Xoay Góc</button>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button type="button" id="btn-card-flip-h" class="sub-tab-btn" style="flex:1; font-size:0.85rem;" onclick="toggleCardFlip('H')">↔️ Lật ngang</button>
+            <button type="button" id="btn-card-flip-v" class="sub-tab-btn" style="flex:1; font-size:0.85rem;" onclick="toggleCardFlip('V')">↕️ Lật dọc</button>
+            <button type="button" id="btn-card-full-circle" class="sub-tab-btn" style="flex:1; font-size:0.85rem;" onclick="toggleCardFullCircle()">🔄 360°</button>
           </div>
         </div>
 
