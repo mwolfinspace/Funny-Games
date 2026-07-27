@@ -1,0 +1,3894 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Shape Stack Creator</title>
+        <script src="confetti.min.js"></script>
+        <style>
+            :root {
+                /* Light Theme */
+                --bg-color: #f0f4f8;
+                --panel-bg: rgba(255, 255, 255, 0.6);
+                --panel-border: rgba(255, 255, 255, 0.4);
+                --text-color: #333;
+                --layer-bg: rgba(255, 255, 255, 0.8);
+                --layer-active: rgba(0, 120, 215, 0.15);
+                --btn-bg: rgba(255, 255, 255, 0.9);
+                --btn-hover: rgba(200, 200, 200, 0.5);
+                --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                --accent: #ff9800;
+                --radius: 12px;
+                --accent2: #ffb74d;
+                --muted: #718096;
+                --top-h: 40px;
+            }
+
+            [data-theme="dark"] {
+                --bg-color: #121212;
+                --panel-bg: rgba(30, 30, 30, 0.6);
+                --panel-border: rgba(255, 255, 255, 0.1);
+                --text-color: #eee;
+                --layer-bg: rgba(50, 50, 50, 0.8);
+                --layer-active: rgba(0, 120, 215, 0.4);
+                --btn-bg: rgba(60, 60, 60, 0.9);
+                --btn-hover: rgba(90, 90, 90, 0.5);
+                --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                --accent: #ff9800;
+                --muted: #8a8a8a;
+            }
+
+            * {
+                box-sizing: border-box;
+                user-select: none;
+            }
+            body {
+                margin: 0;
+                overflow: hidden;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    sans-serif;
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                transition: background-color 0.3s;
+                touch-action: none;
+            }
+
+            /* Glassmorphism Classes */
+            .glass {
+                background: var(--panel-bg);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: 1px solid var(--panel-border);
+                box-shadow: var(--shadow);
+                border-radius: 12px;
+            }
+
+            button {
+                background: var(--btn-bg);
+                border: 1px solid var(--panel-border);
+                color: var(--text-color);
+                border-radius: 6px;
+                padding: 6px 10px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.1rem;
+                transition: background 0.2s;
+            }
+            button:hover {
+                background: var(--btn-hover);
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            /* Layout */
+            .app-container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                padding: calc(var(--top-h) + 10px) 0 0;
+                gap: 10px;
+            }
+
+            /* ===== TOP BAR (shared sudoku-style) ===== */
+            #topBar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: var(--top-h);
+                z-index: 200;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 0 10px;
+                background: rgba(255, 255, 255, 0.78);
+                backdrop-filter: blur(24px) saturate(200%);
+                -webkit-backdrop-filter: blur(24px) saturate(200%);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.9);
+                box-shadow: 0 2px 14px rgba(80, 50, 120, 0.08);
+                overflow-x: auto;
+                overflow-y: hidden;
+                scrollbar-width: none;
+            }
+            #topBar::-webkit-scrollbar { display: none; }
+            body.dark #topBar {
+                background: rgba(18, 12, 32, 0.82);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+                box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+            }
+
+            .ttag {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 13px;
+                font-weight: 800;
+                color: var(--text-color);
+                white-space: nowrap;
+                letter-spacing: -0.3px;
+                flex-shrink: 0;
+            }
+            .ttag em { color: var(--accent); font-style: normal; }
+
+            .tbdiv {
+                width: 1px;
+                height: 20px;
+                background: rgba(0, 0, 0, 0.09);
+                flex-shrink: 0;
+            }
+            body.dark .tbdiv { background: rgba(255, 255, 255, 0.12); }
+
+            .tblbl {
+                font-size: 10px;
+                font-weight: 600;
+                color: var(--muted);
+                letter-spacing: 0.3px;
+                text-transform: uppercase;
+                flex-shrink: 0;
+            }
+
+            .cb {
+                height: 32px;
+                min-width: 28px;
+                padding: 0 8px;
+                background: transparent;
+                border: none;
+                font-family: inherit;
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--text-color);
+                cursor: pointer;
+                white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                transition: background 0.12s, color 0.12s, transform 0.09s;
+                touch-action: manipulation;
+                flex-shrink: 0;
+            }
+            .cb:hover { background: rgba(0, 0, 0, 0.05); }
+            body.dark .cb:hover { background: rgba(255, 255, 255, 0.08); }
+            .cb + .cb { border-left: 1px solid rgba(0, 0, 0, 0.07); }
+            body.dark .cb + .cb { border-left-color: rgba(255, 255, 255, 0.07); }
+
+            .cg {
+                display: inline-flex;
+                align-items: center;
+                border: 1px solid rgba(0, 0, 0, 0.07);
+                border-radius: var(--radius);
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+            body.dark .cg { border-color: rgba(255, 255, 255, 0.1); }
+            .cg .cb {
+                border: none;
+                border-radius: 0;
+                min-width: 30px;
+                height: 30px;
+                padding: 0 7px;
+            }
+            .cg .cb + .cb { border-left: 1px solid rgba(0, 0, 0, 0.07); }
+            body.dark .cg .cb + .cb { border-left-color: rgba(255, 255, 255, 0.08); }
+
+            .sb {
+                height: 32px;
+                padding: 0 11px;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(180, 150, 220, 0.4);
+                box-shadow: 0 2px 8px rgba(80, 50, 120, 0.07);
+                border-radius: var(--radius);
+                font-family: inherit;
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--text-color);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition: all 0.13s;
+                white-space: nowrap;
+                flex-shrink: 0;
+                touch-action: manipulation;
+            }
+            body.dark .sb {
+                background: rgba(30, 18, 52, 0.85);
+                border-color: rgba(120, 90, 180, 0.3);
+                color: var(--text-color);
+            }
+
+            #seedBox {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            #seedBox input {
+                background: rgba(0, 0, 0, 0.04);
+                border: 1px solid rgba(0, 0, 0, 0.07);
+                color: var(--text-color);
+                padding: 4px 8px;
+                border-radius: var(--radius);
+                width: 130px;
+                font-family: monospace;
+                font-size: 11px;
+                outline: none;
+                transition: border-color 0.15s;
+            }
+            #seedBox input:focus { border-color: var(--accent); }
+            body.dark #seedBox input {
+                background: rgba(255, 255, 255, 0.06);
+                border-color: rgba(255, 255, 255, 0.1);
+            }
+            body.dark #seedBox input:focus { border-color: var(--accent); }
+
+            /* Main Workspace */
+            .workspace-wrapper {
+                display: flex;
+                flex: 1;
+                gap: 10px;
+                overflow: hidden;
+                padding: 0 10px 10px 10px;
+            }
+
+            /* Left Panel */
+            .left-panel {
+                width: 280px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+                transition: all 0.3s ease;
+            }
+            .puzzle-view {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+                background: rgba(0, 0, 0, 0.05);
+                border-radius: 12px;
+                overflow: hidden;
+                position: relative;
+                padding: 35px 10px 10px 10px;
+                flex-shrink: 0;
+            }
+            .puzzle-view.active {
+                display: flex;
+            }
+            .puzzle-view span {
+                position: absolute;
+                top: 10px;
+                left: 12px;
+                font-size: 0.7rem;
+                letter-spacing: 1.5px;
+                opacity: 0.7;
+                font-weight: 800;
+                color: var(--text-color);
+                z-index: 10;
+            }
+            .puzzle-canvas-wrapper {
+                width: 100%;
+                aspect-ratio: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                overflow: hidden;
+                padding: 5%;
+            }
+            .puzzle-canvas-wrapper .render-layer {
+                width: 90%;
+                height: 90%;
+            }
+
+            .bank-view {
+                flex: 1;
+                overflow-y: auto;
+                padding-right: 5px;
+            }
+            .bank-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+            .bank-grid.hidden {
+                display: none;
+            }
+            .bank-section-header {
+                background: rgba(0, 0, 0, 0.05);
+                border: 1px solid var(--panel-border);
+                border-radius: 8px;
+                padding: 8px 12px;
+                margin-top: 10px;
+                margin-bottom: 8px;
+                cursor: pointer;
+                font-weight: bold;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--text-color);
+                transition: background 0.2s;
+            }
+            .bank-section-header:hover {
+                background: rgba(0, 0, 0, 0.1);
+            }
+            body.dark .bank-section-header {
+                background: rgba(255, 255, 255, 0.05);
+            }
+            body.dark .bank-section-header:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
+            .bank-section-header .arrow {
+                font-size: 0.8rem;
+                display: inline-block;
+                transition: transform 0.2s;
+            }
+            .bank-section-header.active .arrow {
+                transform: rotate(90deg);
+            }
+            .shape-thumb {
+                aspect-ratio: 1;
+                border-radius: 8px;
+                background: var(--layer-bg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                border: 2px solid transparent;
+                transition: border 0.2s;
+                padding: 10px;
+            }
+            .shape-thumb:hover {
+                border-color: #0078d7;
+            }
+            .shape-thumb img,
+            .shape-thumb svg {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                pointer-events: none;
+            }
+
+            /* Center Canvas */
+            .center-panel {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                position: relative;
+                background-image: radial-gradient(
+                    var(--panel-border) 1px,
+                    transparent 1px
+                );
+                background-size: 20px 20px;
+            }
+            .canvas-container {
+                position: relative;
+                width: 80vh;
+                height: 80vh;
+                max-width: 90%;
+                max-height: 90%;
+                aspect-ratio: 1;
+                border-radius: 20px;
+                overflow: hidden;
+                transform-origin: center center;
+                transition: transform 0.1s;
+            }
+            .canvas-container .render-layer {
+                width: 92%;
+                height: 92%;
+                top: 4%;
+                left: 4%;
+            }
+            .render-layer {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                transform-origin: center;
+                /* Added transition for continuous transformations */
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            /* Right Panel (Layers) */
+            .right-panel {
+                width: 380px;
+                display: flex;
+                flex-direction: column;
+                padding: 10px;
+            }
+            .layers-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-bottom: 10px;
+                border-bottom: 1px solid var(--panel-border);
+                margin-bottom: 10px;
+            }
+            .layers-header span {
+                font-weight: bold;
+            }
+            .layers-header-actions {
+                display: flex;
+                gap: 4px;
+            }
+            .layers-header-actions button {
+                font-size: 0.7rem;
+                padding: 3px 6px;
+                border-radius: 4px;
+            }
+            .layers-list {
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding-right: 5px;
+            }
+
+            .layer-card {
+                display: flex;
+                background: var(--layer-bg);
+                border-radius: 12px;
+                padding: 6px;
+                gap: 10px;
+                border: 2px solid transparent;
+                cursor: grab;
+                align-items: center;
+                height: 100px;
+            }
+            .layer-card:active {
+                cursor: grabbing;
+            }
+            .layer-card.active {
+                border-color: #0078d7;
+                background: var(--layer-active);
+            }
+            .layer-card.ghost {
+                opacity: 0.4;
+                border: 2px dashed #0078d7;
+            }
+
+            .layer-thumb {
+                width: 80px;
+                height: 80px;
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.05);
+                padding: 4px;
+                flex-shrink: 0;
+                cursor: pointer;
+            }
+            .layer-thumb.hidden {
+                opacity: 0.3;
+                filter: grayscale(100%);
+            }
+            .layer-thumb img,
+            .layer-thumb svg {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .layer-controls-v {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                justify-content: center;
+            }
+            .layer-controls-v button {
+                padding: 4px;
+                font-size: 0.9rem;
+                width: 32px;
+                height: 32px;
+            }
+
+            .layer-controls-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 4px;
+            }
+            .layer-controls-grid button {
+                padding: 4px;
+                font-size: 0.9rem;
+                width: 32px;
+                height: 32px;
+            }
+
+            .layer-title {
+                flex: 1;
+                font-size: 4rem;
+                text-align: center;
+                font-weight: 900;
+                color: var(--text-color);
+                opacity: 0.5;
+                line-height: 1;
+                pointer-events: none;
+                margin-left: -20px;
+                margin-right: -20px;
+                z-index: 0;
+            }
+
+            /* Background Utilities */
+            .bg-white {
+                background: #ffffff !important;
+            }
+            .bg-chess {
+                background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%)
+                    50% / 20px 20px !important;
+            }
+            .bg-chess-dark {
+                background: repeating-conic-gradient(#333 0% 25%, #000 0% 50%)
+                    50% / 20px 20px !important;
+            }
+            .bg-blue {
+                background: #e0f0ff !important;
+            }
+            .bg-green {
+                background: #e0ffec !important;
+            }
+
+            /* Modal */
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s;
+            }
+            .modal-overlay.active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .modal-content {
+                width: 500px;
+                max-width: 95%;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                padding: 20px;
+                overflow: hidden;
+            }
+            .modal-preview {
+                width: 100%;
+                aspect-ratio: 1;
+                border: 1px solid var(--panel-border);
+                border-radius: 8px;
+                background: #fff;
+            }
+            .modal-actions {
+                display: flex;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            /* Hint View */
+            .hint-grid {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+                padding: 24px;
+                background: rgba(0, 0, 0, 0.05);
+                border-radius: 12px;
+                width: 100%;
+                overflow: visible;
+            }
+            .hint-item {
+                width: 140px;
+                min-width: 140px;
+                padding: 12px;
+                background: var(--layer-bg);
+                border-radius: 8px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            }
+            .hint-item img {
+                width: 100px;
+                height: 100px;
+                object-fit: contain;
+            }
+            .hint-plus {
+                font-size: 1.5rem;
+                font-weight: bold;
+                opacity: 0.5;
+            }
+
+            /* Win Banner */
+            .win-banner {
+                position: absolute;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #4caf50;
+                color: white;
+                padding: 10px 30px;
+                border-radius: 20px;
+                font-weight: bold;
+                z-index: 500;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                pointer-events: none;
+                opacity: 0;
+                transition:
+                    opacity 0.3s,
+                    transform 0.3s;
+            }
+            .win-banner.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            /* Preloader */
+            #preloader {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: var(--bg-color);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                gap: 20px;
+            }
+            #preloader.hidden {
+                display: none;
+            }
+            .loader-spinner {
+                width: 60px;
+                height: 60px;
+                border: 4px solid var(--panel-border);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .loader-progress {
+                width: 200px;
+                height: 8px;
+                background: var(--panel-border);
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            .loader-bar {
+                height: 100%;
+                background: var(--accent);
+                width: 0%;
+                transition: width 0.2s;
+            }
+            .loader-text {
+                font-size: 1.1rem;
+                font-weight: bold;
+                color: var(--text-color);
+            }
+
+            /* Edge Flip Two Highlight & Toast */
+            .eft-cell {
+                transition:
+                    box-shadow 0.2s,
+                    border-color 0.2s;
+                user-select: none;
+                -webkit-user-drag: none;
+            }
+            .eft-cell.active-slot {
+                border: 3px solid #ff9800 !important;
+                box-shadow: 0 0 20px rgba(255, 152, 0, 0.6) !important;
+            }
+            .eft-cell.drag-hover {
+                background: rgba(255, 152, 0, 0.2) !important;
+                border: 3px dashed #ff9800 !important;
+            }
+            .eft-cell img {
+                pointer-events: none;
+            }
+            #eftWorkspace {
+                perspective: 2000px;
+                transform-style: preserve-3d;
+            }
+            .eft-cell {
+                position: relative;
+                transform-style: preserve-3d;
+                transition: all 0.3s ease;
+            }
+            #eft-center {
+                z-index: 1;
+            }
+            #sys-toast {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                z-index: 9999;
+                font-weight: bold;
+                pointer-events: none;
+                transition: opacity 0.3s;
+                opacity: 0;
+            }
+
+            /* Transform Puzzle Styles - Adaptive Layout */
+            #tpWorkspace {
+                display: none;
+                flex-direction: column;
+                gap: 10px;
+                background: var(--bg-color);
+                flex: 1;
+                height: 100%;
+            }
+
+            #tpViewport {
+                position: relative;
+                width: 100%;
+                flex: 1;
+                overflow: hidden;
+                touch-action: none;
+                cursor: grab;
+            }
+
+            #tpViewport:active {
+                cursor: grabbing;
+            }
+
+            #tpPanContainer {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                display: flex;
+                align-items: center;
+                gap: 20px;
+                width: max-content;
+                padding: 40px 30px;
+            }
+
+            #tpSequenceZone {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .tp-dragging .tp-board {
+                pointer-events: none;
+            }
+
+            .tp-card-col, .tp-seq-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                flex: 0 0 auto;
+                transition: all 0.5s ease;
+            }
+
+            .tp-header {
+                font-weight: 800;
+                font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+                color: var(--text-color);
+                text-align: center;
+            }
+
+            .tp-board {
+                width: clamp(140px, 35vh, 350px);
+                aspect-ratio: 1 / 1;
+                height: auto;
+                border: 3px solid var(--panel-border);
+                border-radius: 12px;
+                background: var(--layer-bg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                cursor: pointer;
+                box-shadow: var(--shadow);
+                transition: transform 0.2s, box-shadow 0.2s;
+            }
+
+            .tp-board:hover { transform: scale(1.03); }
+
+            .tp-empty-board {
+                border-style: dashed;
+                background: rgba(255, 255, 255, 0.3);
+                box-shadow: none;
+            }
+
+            .tp-content {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .tp-question-mark {
+                font-size: clamp(3rem, 5vw, 6rem);
+                font-weight: 900;
+                color: var(--accent);
+                opacity: 0.8;
+            }
+
+            .tp-action-icon {
+                width: 40%;
+                max-width: 35px;
+                aspect-ratio: 1 / 1;
+                object-fit: contain;
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            }
+
+            .tp-action-btn {
+                width: 70px;
+                height: 70px;
+                cursor: pointer;
+                transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--layer-bg);
+                border: 3px solid var(--panel-border);
+                border-radius: 16px;
+                box-shadow: var(--shadow);
+                padding: 12px;
+            }
+            .tp-action-btn:hover {
+                transform: scale(1.15) translateY(-5px);
+                border-color: var(--accent);
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            }
+            .tp-action-btn img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            }
+
+            .tp-action-zone {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                gap: 15px;
+                padding: 15px 20px;
+                border-top: 2px dashed var(--panel-border);
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 16px 16px 0 0;
+            }
+
+            .tp-divider {
+                width: 2px;
+                height: 50px;
+                background: var(--panel-border);
+                margin: 0 10px;
+                border-radius: 2px;
+            }
+
+            /* Floating Red Remove Button */
+            .tp-remove-btn {
+                position: absolute;
+                top: -12px;
+                right: -12px;
+                width: clamp(32px, 12%, 48px);
+                aspect-ratio: 1 / 1;
+                background: #e53935;
+                color: white;
+                border: 3px solid var(--layer-bg);
+                border-radius: 50%;
+                font-size: clamp(14px, 1.5vw, 22px);
+                font-weight: bold;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s;
+                z-index: 10;
+                padding: 0;
+                line-height: 1;
+            }
+            .tp-remove-btn:hover {
+                transform: scale(1.15) rotate(90deg);
+                background: #b71c1c;
+            }
+
+            .tp-insert-anim {
+                animation: flyInMiddle 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                overflow: visible;
+            }
+
+            @keyframes flyInMiddle {
+                0% {
+                    opacity: 0;
+                    max-width: 0px;
+                    margin: 0 -7px;
+                    transform: translateY(-80px) scale(0.4) rotate(5deg);
+                }
+                100% {
+                    opacity: 1;
+                    max-width: 400px;
+                    margin: 0;
+                    transform: translateY(0) scale(1) rotate(0deg);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="preloader">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">
+                Loading... <span id="loaderPercent">0</span>%
+            </div>
+            <div class="loader-progress">
+                <div class="loader-bar" id="loaderBar"></div>
+            </div>
+        </div>
+
+        <div class="app-container">
+            <div id="topBar">
+                <span class="ttag" onclick="document.getElementById('welcomeModal')?.classList.remove('hidden')">SHAPES <em>STACK</em></span>
+                <div class="tbdiv"></div>
+                <button class="sb" onclick="window.location.href='index.html'" title="Home">🏠</button>
+                <div id="seedBox">
+                    <button class="sb" id="btnNew" title="New Canvas">➕ New</button>
+                    <input type="text" id="seedInput" placeholder="Seed ID" />
+                    <button class="sb" id="btnSetSeed" title="Apply Seed">Set</button>
+                    <button class="sb" id="btnLoadCanvas" title="Load Canvas from Seed">📂 Load</button>
+                    <button class="sb" id="btnUploadImage" title="Upload a local image">Upload</button>
+                </div>
+                <div class="tbdiv"></div>
+                <div class="cg" id="puzzleControls" style="display:none">
+                    <button class="cb" id="btnNewPuzzle" title="New Puzzle">✨</button>
+                    <button class="cb" id="btnEasy" style="font-weight:700">Easy</button>
+                    <button class="cb" id="btnMedium" style="font-weight:700">Medium</button>
+                    <button class="cb" id="btnHard" style="font-weight:700">Hard</button>
+                </div>
+                <div class="tbdiv"></div>
+                <button class="cb" id="btnTogglePuzzle" title="Toggle Puzzle Mode">🧩</button>
+                <button class="cb" id="btnToggleExtraFlip" title="Toggle Edge Flip Mode">🔄 Flip</button>
+                <button class="cb" id="btnToggleEft" title="Edge Flip Two Shape Mode">🧱 EFT</button>
+                <button class="cb" id="btnToggleTp" title="Transform Puzzle Mode">🌀 Transform</button>
+                <button class="cb" id="btnToggleBank" title="Hide/Show Bank">👁️ Bank</button>
+                <button class="cb" id="btnLoadPuzzle" title="Load Puzzle Seed">🎯</button>
+                <button class="cb" id="btnShowHint" title="Show Answer Hint">💡</button>
+                <button class="cb" id="btnAutoZoom" title="Toggle Auto Zoom" style="background:var(--layer-active)">🔍</button>
+                <div class="tbdiv"></div>
+                <button class="cb" id="btnBg" title="Cycle Background">🏁</button>
+                <button class="cb" id="btnTheme" title="Light/Dark Mode">🌙</button>
+                <button class="cb" id="btnExport" title="Export PNG">💾</button>
+            </div>
+
+            <div class="workspace-wrapper">
+                <div class="left-panel glass">
+                    <div id="puzzleView" class="puzzle-view bg-white">
+                        <span>TARGET</span>
+                        <div
+                            class="puzzle-canvas-wrapper"
+                            id="puzzleCanvasWrapper"
+                        ></div>
+                    </div>
+                    <div class="bank-view">
+                        <div id="bankSections">
+                            <!-- Basic Shapes Section -->
+                            <div class="bank-section-header active" id="secHeaderBasic" onclick="toggleSec('Basic')">
+                                <span class="arrow">▼</span> Basic Shapes
+                            </div>
+                            <div class="bank-grid" id="shapeBankBasic"></div>
+
+                            <!-- Extra Shapes 1-59 -->
+                            <div class="bank-section-header" id="secHeaderExtra1" onclick="toggleSec('Extra1')">
+                                <span class="arrow">▶</span> Extra Shapes (1-59)
+                            </div>
+                            <div class="bank-grid hidden" id="shapeBankExtra1"></div>
+
+                            <!-- Extra Shapes 60+ -->
+                            <div class="bank-section-header" id="secHeaderExtra2" onclick="toggleSec('Extra2')">
+                                <span class="arrow">▶</span> Extra Shapes (60+)
+                            </div>
+                            <div class="bank-grid hidden" id="shapeBankExtra2"></div>
+
+                            <!-- Uploaded Shapes -->
+                            <div class="bank-section-header" id="secHeaderUploaded" onclick="toggleSec('Uploaded')" style="display: none;">
+                                <span class="arrow">▼</span> Uploaded Shapes
+                            </div>
+                            <div class="bank-grid" id="shapeBankUploaded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="center-panel" id="workspace">
+                    <div class="win-banner" id="winBanner">
+                        🎉 Match! Puzzle Solved! 🎉
+                    </div>
+                    <div
+                        class="canvas-container bg-white"
+                        id="mainCanvas"
+                    ></div>
+                </div>
+
+                <div
+                    class="center-panel"
+                    id="efWorkspace"
+                    style="display: none"
+                >
+                    <div
+                        id="efContainer"
+                        style="
+                            position: relative;
+                            width: 220px;
+                            height: 220px;
+                            perspective: 1200px;
+                            transform-style: preserve-3d;
+                        "
+                    >
+                        <div
+                            class="ef-cell"
+                            id="ef-center"
+                            style="
+                                width: 100%;
+                                height: 100%;
+                                border: 2px solid #0078d7;
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.9);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                position: relative;
+                                z-index: 5;
+                            "
+                        ></div>
+
+                        <div
+                            class="ef-cell"
+                            id="ef-top"
+                            style="
+                                position: absolute;
+                                bottom: calc(100% + 40px);
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        ></div>
+
+                        <div
+                            class="ef-cell"
+                            id="ef-bottom"
+                            style="
+                                position: absolute;
+                                top: calc(100% + 40px);
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        ></div>
+
+                        <div
+                            class="ef-cell"
+                            id="ef-left"
+                            style="
+                                position: absolute;
+                                right: calc(100% + 40px);
+                                top: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        ></div>
+
+                        <div
+                            class="ef-cell"
+                            id="ef-right"
+                            style="
+                                position: absolute;
+                                left: calc(100% + 40px);
+                                top: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        ></div>
+
+                        <button
+                            onclick="doEfFlip('top')"
+                            style="
+                                position: absolute;
+                                top: -20px;
+                                left: 50%;
+                                transform: translate(-50%, -50%);
+                                width: 44px;
+                                height: 44px;
+                                border-radius: 50%;
+                                z-index: 10;
+                                background: var(--btn-bg);
+                                border: 1px solid var(--panel-border);
+                                box-shadow: var(--shadow);
+                                font-size: 20px;
+                            "
+                        >
+                            ⬆️
+                        </button>
+
+                        <button
+                            onclick="doEfFlip('bottom')"
+                            style="
+                                position: absolute;
+                                bottom: -20px;
+                                left: 50%;
+                                transform: translate(-50%, 50%);
+                                width: 44px;
+                                height: 44px;
+                                border-radius: 50%;
+                                z-index: 10;
+                                background: var(--btn-bg);
+                                border: 1px solid var(--panel-border);
+                                box-shadow: var(--shadow);
+                                font-size: 20px;
+                            "
+                        >
+                            ⬇️
+                        </button>
+
+                        <button
+                            onclick="doEfFlip('left')"
+                            style="
+                                position: absolute;
+                                left: -20px;
+                                top: 50%;
+                                transform: translate(-50%, -50%);
+                                width: 44px;
+                                height: 44px;
+                                border-radius: 50%;
+                                z-index: 10;
+                                background: var(--btn-bg);
+                                border: 1px solid var(--panel-border);
+                                box-shadow: var(--shadow);
+                                font-size: 20px;
+                            "
+                        >
+                            ⬅️
+                        </button>
+
+                        <button
+                            onclick="doEfFlip('right')"
+                            style="
+                                position: absolute;
+                                right: -20px;
+                                top: 50%;
+                                transform: translate(50%, -50%);
+                                width: 44px;
+                                height: 44px;
+                                border-radius: 50%;
+                                z-index: 10;
+                                background: var(--btn-bg);
+                                border: 1px solid var(--panel-border);
+                                box-shadow: var(--shadow);
+                                font-size: 20px;
+                            "
+                        >
+                            ➡️
+                        </button>
+                    </div>
+                </div>
+
+                <div
+                    class="center-panel"
+                    id="eftWorkspace"
+                    style="
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100%;
+                    "
+                >
+                    <div
+                        id="eftContainer"
+                        style="
+                            position: relative;
+                            width: 220px;
+                            height: 220px;
+                            perspective: 1200px;
+                            transform-style: preserve-3d;
+                        "
+                    >
+                        <div
+                            class="eft-cell"
+                            id="eft-center"
+                            draggable="true"
+                            onclick="selectEftCell('center')"
+                            ondragstart="handleEftDragStart(event, 'center')"
+                            ondragend="handleEftDragEnd(event)"
+                            ondragover="handleEftDragOver(event)"
+                            ondragleave="handleEftDragLeave(event)"
+                            ondrop="handleEftDrop(event, 'center')"
+                            oncontextmenu="return false;"
+                            style="
+                                width: 100%;
+                                height: 100%;
+                                border: 2px solid #0078d7;
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.9);
+                                position: relative;
+                                z-index: 5;
+                                cursor: pointer;
+                            "
+                        ></div>
+
+                        <div
+                            class="eft-cell"
+                            id="eft-top"
+                            draggable="true"
+                            onclick="selectEftCell('top')"
+                            ondragstart="handleEftDragStart(event, 'top')"
+                            ondragend="handleEftDragEnd(event)"
+                            ondragover="handleEftDragOver(event)"
+                            ondragleave="handleEftDragLeave(event)"
+                            ondrop="handleEftDrop(event, 'top')"
+                            oncontextmenu="return false;"
+                            style="
+                                position: absolute;
+                                bottom: calc(100% + 40px);
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                cursor: pointer;
+                            "
+                        ></div>
+                        <div
+                            style="
+                                position: absolute;
+                                top: -35px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                display: flex;
+                                gap: 8px;
+                                z-index: 10;
+                            "
+                        >
+                            <button
+                                onclick="doEftFlip('top')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                ⬇️
+                            </button>
+                            <button
+                                onclick="doEftReset('top')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                🔄
+                            </button>
+                        </div>
+
+                        <div
+                            class="eft-cell"
+                            id="eft-bottom"
+                            draggable="true"
+                            onclick="selectEftCell('bottom')"
+                            ondragstart="handleEftDragStart(event, 'bottom')"
+                            ondragend="handleEftDragEnd(event)"
+                            ondragover="handleEftDragOver(event)"
+                            ondragleave="handleEftDragLeave(event)"
+                            ondrop="handleEftDrop(event, 'bottom')"
+                            oncontextmenu="return false;"
+                            style="
+                                position: absolute;
+                                top: calc(100% + 40px);
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                cursor: pointer;
+                            "
+                        ></div>
+                        <div
+                            style="
+                                position: absolute;
+                                bottom: -35px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                display: flex;
+                                gap: 8px;
+                                z-index: 10;
+                            "
+                        >
+                            <button
+                                onclick="doEftFlip('bottom')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                ⬆️
+                            </button>
+                            <button
+                                onclick="doEftReset('bottom')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                🔄
+                            </button>
+                        </div>
+
+                        <div
+                            class="eft-cell"
+                            id="eft-left"
+                            draggable="true"
+                            onclick="selectEftCell('left')"
+                            ondragstart="handleEftDragStart(event, 'left')"
+                            ondragend="handleEftDragEnd(event)"
+                            ondragover="handleEftDragOver(event)"
+                            ondragleave="handleEftDragLeave(event)"
+                            ondrop="handleEftDrop(event, 'left')"
+                            oncontextmenu="return false;"
+                            style="
+                                position: absolute;
+                                right: calc(100% + 40px);
+                                top: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                cursor: pointer;
+                            "
+                        ></div>
+                        <div
+                            style="
+                                position: absolute;
+                                left: -35px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                z-index: 10;
+                            "
+                        >
+                            <button
+                                onclick="doEftFlip('left')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                ➡️
+                            </button>
+                            <button
+                                onclick="doEftReset('left')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                🔄
+                            </button>
+                        </div>
+
+                        <div
+                            class="eft-cell"
+                            id="eft-right"
+                            draggable="true"
+                            onclick="selectEftCell('right')"
+                            ondragstart="handleEftDragStart(event, 'right')"
+                            ondragend="handleEftDragEnd(event)"
+                            ondragover="handleEftDragOver(event)"
+                            ondragleave="handleEftDragLeave(event)"
+                            ondrop="handleEftDrop(event, 'right')"
+                            oncontextmenu="return false;"
+                            style="
+                                position: absolute;
+                                left: calc(100% + 40px);
+                                top: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--panel-border);
+                                border-radius: 12px;
+                                background: rgba(255, 255, 255, 0.4);
+                                cursor: pointer;
+                            "
+                        ></div>
+                        <div
+                            style="
+                                position: absolute;
+                                right: -35px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                z-index: 10;
+                            "
+                        >
+                            <button
+                                onclick="doEftFlip('right')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                ⬅️
+                            </button>
+                            <button
+                                onclick="doEftReset('right')"
+                                style="
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                "
+                            >
+                                🔄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="center-panel" id="tpWorkspace">
+                    <div id="tpViewport">
+                        <div id="tpPanContainer">
+                            <div class="tp-card-col">
+                                <div class="tp-header">Original</div>
+                                <div class="tp-board" id="tpOriginal" onclick="selectTpOriginal()">
+                                    <div class="tp-content" id="tpOriginalContent" style="display:none;"></div>
+                                    <div class="tp-question-mark" id="tpOriginalPlus">+</div>
+                                </div>
+                            </div>
+
+                            <div id="tpSequenceZone"></div>
+
+                            <div class="tp-card-col">
+                                <div class="tp-header">Result</div>
+                                <div class="tp-board" id="tpResult" onclick="revealTpResult()" style="border-color: var(--accent);">
+                                    <div class="tp-content" id="tpResultContent" style="display: none;"></div>
+                                    <div class="tp-question-mark" id="tpResultQuestion">?</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tp-action-zone">
+
+                        <div class="tp-action-btn" onclick="addTpAction('rotCW')" title="Turn 90° Clockwise">
+                            <img src="./shapes/icon1.svg" alt="Turn 90 CW" />
+                        </div>
+                        <div class="tp-action-btn" onclick="addTpAction('rotCCW')" title="Turn 90° Counter-Clockwise">
+                            <img src="./shapes/icon2.svg" alt="Turn 90 CCW" />
+                        </div>
+                        <div class="tp-action-btn" onclick="addTpAction('flipV')" title="Flip Down">
+                            <img src="./shapes/icon3.svg" alt="Flip Down" />
+                        </div>
+                        <div class="tp-action-btn" onclick="addTpAction('flipH')" title="Flip Left">
+                            <img src="./shapes/icon4.svg" alt="Flip Left" />
+                        </div>
+
+                        <div class="tp-divider"></div>
+
+                        <button class="cb" onclick="clearTpActions()">🧹 Clear Actions</button>
+                        <button class="cb" onclick="resetTpGame()" style="color: #d32f2f;">🗑️ Reset Game</button>
+
+                    </div>
+                </div>
+                <div class="right-panel glass" id="rightPanel">
+                    <div class="layers-header">
+                        <span>Layers</span>
+                        <div class="layers-header-actions">
+                            <button
+                                onclick="deleteAllLayers()"
+                                title="Delete all unlocked layers"
+                            >
+                                🗑️ All
+                            </button>
+                            <button
+                                onclick="toggleLockAll()"
+                                title="Lock/Unlock all layers"
+                            >
+                                🔒 All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="layers-list" id="layerManager"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modalOverlay">
+            <div class="modal-content glass" id="modalContent">
+                <h3 id="modalTitle" style="margin: 0; text-align: center">
+                    Action
+                </h3>
+                <div
+                    id="modalExportContent"
+                    style="display: none; flex-direction: column; gap: 10px"
+                >
+                    <canvas
+                        id="exportPreviewCanvas"
+                        class="modal-preview bg-chess"
+                    ></canvas>
+                    <label
+                        style="display: flex; align-items: center; gap: 10px"
+                    >
+                        <input type="checkbox" id="chkTransparentBg" checked />
+                        Transparent Background
+                    </label>
+                </div>
+                <div
+                    id="modalInputContent"
+                    style="display: none; flex-direction: column; gap: 10px"
+                >
+                    <input
+                        type="text"
+                        id="modalTextInput"
+                        style="
+                            width: 100%;
+                            padding: 8px;
+                            border-radius: 6px;
+                            font-size: 1rem;
+                        "
+                    />
+                </div>
+                <div
+                    id="modalWinContent"
+                    style="
+                        display: none;
+                        flex-direction: column;
+                        gap: 15px;
+                        text-align: center;
+                    "
+                >
+                    <div style="font-size: 3rem">🏆</div>
+                    <p>
+                        Congratulations! You've perfectly matched the target
+                        shape!
+                    </p>
+                </div>
+                <div
+                    id="modalHintContent"
+                    style="display: none; flex-direction: column; gap: 15px"
+                >
+                    <div class="hint-grid" id="hintGrid"></div>
+                    <p
+                        style="
+                            text-align: center;
+                            opacity: 0.7;
+                            font-size: 0.9rem;
+                        "
+                    >
+                        Order: Bottom-to-Top (Left to Right)
+                    </p>
+                </div>
+                <div class="modal-actions" id="modalActions">
+                    <button id="btnModalCancel">❌ Cancel</button>
+                    <button id="btnModalClose" style="display: none">
+                        👁️ View
+                    </button>
+                    <button
+                        id="btnModalConfirm"
+                        style="background: #0078d7; color: white"
+                    >
+                        ✅ Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            /** STATE & CONFIG */
+            const SHAPES_COUNT = 20;
+            const TEMP_UPLOAD_ID_START = 10001;
+            const BASE81_CHARS =
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%\x26()*+,-./:;<=>?";
+            let nextTempUploadId = TEMP_UPLOAD_ID_START;
+
+            let state = {
+                layers: [],
+                puzzleMode: false,
+                puzzleLayers: [],
+                activeLayerId: null,
+                zoom: 1,
+                panX: 0,
+                panY: 0,
+                autoZoom: true,
+                bgIndex: 0,
+                theme: "light",
+                nextLayerId: 1,
+                difficulty: "medium",
+
+                // New states for feature
+                extraShapes: [],
+                uploadedShapeIds: [],
+                extraFlipMode: false,
+                efCurrentImage: null,
+
+                // Edge Flip Two Shape mode
+                eftMode: false,
+                eftActiveCell: null,
+                eftImages: {
+                    center: null,
+                    top: null,
+                    bottom: null,
+                    left: null,
+                    right: null,
+                },
+                eftMerged: {
+                    top: false,
+                    bottom: false,
+                    left: false,
+                    right: false,
+                },
+                // Shape Bank Expanded sections
+                bankExpanded: {
+                    Basic: true,
+                    Extra1: false,
+                    Extra2: false,
+                    Uploaded: true
+                },
+            };
+
+            const bgs = [
+                "bg-blue",
+                "bg-chess",
+                "bg-white",
+                "bg-green",
+                "bg-chess-dark",
+            ];
+            const shapeCache = {};
+            const shapeCacheNoOutline = {};
+
+            function updateLoader(percent) {
+                document.getElementById("loaderPercent").innerText = percent;
+                const bar = document.getElementById("loaderBar");
+                bar.style.width = percent + "%";
+
+                // Color based on progress
+                let color;
+                if (percent < 30) color = "#ff4444";
+                else if (percent < 60) color = "#ffaa00";
+                else if (percent < 90) color = "#88cc00";
+                else color = "#44bb44";
+                bar.style.background = color;
+            }
+
+            /** INIT SHAPES & EXTRAS */
+            async function initShapes() {
+                updateLoader(10);
+
+                // Stage 1: Load base shapes in parallel
+                const totalBase = SHAPES_COUNT;
+                const basePromises = [];
+                for (let i = 1; i <= totalBase; i++) {
+                    const url = `./shapes/Shape${i}.svg`;
+                    basePromises.push(
+                        fetch(url, { method: "HEAD" })
+                            .then(res => {
+                                if (res.ok) shapeCache[i] = url;
+                            })
+                            .catch(() => {})
+                    );
+                }
+
+                // Also check Shape12A.svg
+                basePromises.push(
+                    fetch(`./shapes/Shape12A.svg`, { method: "HEAD" })
+                        .then(res => {
+                            if (res.ok) shapeCacheNoOutline[12] = `./shapes/Shape12A.svg`;
+                        })
+                        .catch(() => {})
+                );
+
+                await Promise.all(basePromises);
+                
+                // Set fallbacks for missing base shapes
+                for (let i = 1; i <= totalBase; i++) {
+                    if (!shapeCache[i]) shapeCache[i] = generateFallbackSVG(i);
+                }
+                if (!shapeCacheNoOutline[12]) shapeCacheNoOutline[12] = shapeCache[12];
+
+                updateLoader(50);
+
+                // Stage 2: Check extra shapes in parallel (up to 150 shapes to be future-proof)
+                const maxExtra = 150;
+                const extraPromises = [];
+                for (let i = 1; i <= maxExtra; i++) {
+                    const url = `./shapes/extra${i}.svg`;
+                    extraPromises.push(
+                        fetch(url, { method: "HEAD" })
+                            .then(res => {
+                                if (res.ok) {
+                                    const id = SHAPES_COUNT + i;
+                                    shapeCache[id] = url;
+                                    state.extraShapes.push(id);
+                                }
+                            })
+                            .catch(() => {})
+                    );
+                }
+
+                await Promise.all(extraPromises);
+                state.extraShapes.sort((a, b) => a - b);
+
+                updateLoader(80);
+
+                // Stage 3: Preload only basic shapes & active layers
+                const activeShapeIds = new Set(state.layers.map(l => l.shapeId));
+                const preloadIds = Array.from({ length: totalBase }, (_, i) => i + 1);
+                activeShapeIds.forEach(id => {
+                    if (id > totalBase) preloadIds.push(id);
+                });
+
+                let preloadCount = 0;
+                const preloadPromises = preloadIds.map(id => {
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            preloadCount++;
+                            updateLoader(80 + Math.round((preloadCount / preloadIds.length) * 20));
+                            resolve();
+                        };
+                        img.onerror = () => {
+                            preloadCount++;
+                            updateLoader(80 + Math.round((preloadCount / preloadIds.length) * 20));
+                            resolve();
+                        };
+                        img.src = shapeCache[id];
+                    });
+                });
+
+                await Promise.all(preloadPromises);
+                updateLoader(100);
+
+                document.getElementById("preloader").classList.add("hidden");
+                buildBank();
+                updateView();
+                setDiff("medium");
+            }
+
+            function generateFallbackSVG(index) {
+                const colors = [
+                    "#ff595e",
+                    "#ffca3a",
+                    "#8ac926",
+                    "#1982c4",
+                    "#6a4c93",
+                    "#f15bb5",
+                    "#00bbf9",
+                ];
+                const color = colors[index % colors.length];
+                let p = "";
+                const s = index % 5;
+                if (s === 0)
+                    p = `<circle cx="50" cy="50" r="40" fill="${color}" opacity="0.8"/>`;
+                else if (s === 1)
+                    p = `<rect x="20" y="20" width="60" height="60" fill="${color}" opacity="0.8"/>`;
+                else if (s === 2)
+                    p = `<polygon points="50,10 90,90 10,90" fill="${color}" opacity="0.8"/>`;
+                else if (s === 3)
+                    p = `<path d="M50 10 A40 40 0 0 1 90 50 L10 50 Z" fill="${color}" opacity="0.8"/>`;
+                else
+                    p = `<polygon points="50,10 80,40 60,90 40,90 20,40" fill="${color}" opacity="0.8"/>`;
+
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${p}</svg>`;
+                return "data:image/svg+xml;base64," + btoa(svg);
+            }
+
+            /** SOUND EFFECTS */
+            const SFX = (() => {
+                let ac = null;
+                function ctx() {
+                    if (!ac)
+                        ac = new (
+                            window.AudioContext || window.webkitAudioContext
+                        )();
+                    if (ac.state === "suspended") ac.resume();
+                    return ac;
+                }
+                function tone(freq, dur, type = "sine", vol = 0.12) {
+                    try {
+                        const c = ctx(),
+                            osc = c.createOscillator(),
+                            g = c.createGain();
+                        osc.type = type;
+                        osc.connect(g);
+                        g.connect(c.destination);
+                        osc.frequency.value = freq;
+                        g.gain.setValueAtTime(vol, c.currentTime);
+                        g.gain.exponentialRampToValueAtTime(
+                            0.001,
+                            c.currentTime + dur,
+                        );
+                        osc.start();
+                        osc.stop(c.currentTime + dur);
+                    } catch (e) {}
+                }
+                return {
+                    ui() {
+                        tone(420, 0.05, "triangle", 0.04);
+                    },
+                    select() {
+                        tone(520, 0.06, "sine", 0.045);
+                    },
+                    toggle() {
+                        tone(360, 0.06, "sine", 0.045);
+                    },
+                    click() {
+                        tone(680, 0.04, "square", 0.03);
+                    },
+                    drop() {
+                        tone(380, 0.06, "sine", 0.08);
+                        setTimeout(() => tone(260, 0.08, "sine", 0.05), 30);
+                    },
+                    delete() {
+                        tone(180, 0.12, "square", 0.06);
+                    },
+                    move() {
+                        tone(440, 0.03, "sine", 0.03);
+                    },
+                    win() {
+                        const notes = [
+                            [523, 0],
+                            [659, 100],
+                            [784, 200],
+                            [1047, 300],
+                            [1319, 400],
+                            [1568, 500],
+                            [2093, 600],
+                        ];
+                        notes.forEach(([f, d]) =>
+                            setTimeout(() => tone(f, 0.5, "sine", 0.14), d),
+                        );
+                    },
+                    initOnClick() {
+                        try {
+                            ctx();
+                        } catch (e) {}
+                    },
+                };
+            })();
+
+            /** DOM ELEMENTS */
+            const UI = {
+                canvas: document.getElementById("mainCanvas"),
+                layerMgr: document.getElementById("layerManager"),
+                seedInput: document.getElementById("seedInput"),
+                workspace: document.getElementById("workspace"),
+                efWorkspace: document.getElementById("efWorkspace"),
+                eftWorkspace: document.getElementById("eftWorkspace"),
+                efContainer: document.getElementById("efContainer"),
+                eftContainer: document.getElementById("eftContainer"),
+                rightPanel: document.getElementById("rightPanel"),
+                puzzleView: document.getElementById("puzzleView"),
+                puzzleCanvas: document.getElementById("puzzleCanvasWrapper"),
+                winBanner: document.getElementById("winBanner"),
+                modal: document.getElementById("modalOverlay"),
+                modalTitle: document.getElementById("modalTitle"),
+                modalExport: document.getElementById("modalExportContent"),
+                modalInput: document.getElementById("modalInputContent"),
+                modalWin: document.getElementById("modalWinContent"),
+                modalHint: document.getElementById("modalHintContent"),
+                modalActions: document.getElementById("modalActions"),
+                hintGrid: document.getElementById("hintGrid"),
+                exportPreview: document.getElementById("exportPreviewCanvas"),
+                textInput: document.getElementById("modalTextInput"),
+                btnCancel: document.getElementById("btnModalCancel"),
+                btnConfirm: document.getElementById("btnModalConfirm"),
+                btnClose: document.getElementById("btnModalClose"),
+                puzzleControls: document.getElementById("puzzleControls"),
+                secBasic: document.getElementById("secHeaderBasic"),
+                secExtra1: document.getElementById("secHeaderExtra1"),
+                secExtra2: document.getElementById("secHeaderExtra2"),
+                secUploaded: document.getElementById("secHeaderUploaded"),
+                gridBasic: document.getElementById("shapeBankBasic"),
+                gridExtra1: document.getElementById("shapeBankExtra1"),
+                gridExtra2: document.getElementById("shapeBankExtra2"),
+                gridUploaded: document.getElementById("shapeBankUploaded"),
+            };
+
+            /** CORE LOGIC */
+            function isTempUploadedShape(shapeId) {
+                return shapeId >= TEMP_UPLOAD_ID_START;
+            }
+
+            function buildBankSection(secName) {
+                let grid, ids;
+                if (secName === "Basic") {
+                    grid = UI.gridBasic;
+                    ids = Array.from({ length: SHAPES_COUNT }, (_, i) => i + 1);
+                } else if (secName === "Extra1") {
+                    grid = UI.gridExtra1;
+                    ids = state.extraShapes.filter(id => id >= 21 && id <= 79);
+                } else if (secName === "Extra2") {
+                    grid = UI.gridExtra2;
+                    ids = state.extraShapes.filter(id => id >= 80);
+                } else if (secName === "Uploaded") {
+                    grid = UI.gridUploaded;
+                    ids = state.uploadedShapeIds;
+                }
+                
+                if (!grid) return;
+                
+                grid.innerHTML = "";
+                ids.forEach((id) => {
+                    const div = document.createElement("div");
+                    div.className = `shape-thumb ${bgs[state.bgIndex]}`;
+                    const alt = isTempUploadedShape(id)
+                        ? "Uploaded image"
+                        : `Shape ${id}`;
+                    div.innerHTML = `<img src="${shapeCache[id]}" alt="${alt}">`;
+                    div.onclick = () => {
+                        if (tpState.active) { setTpOriginal(shapeCache[id]); return; }
+                        if (state.extraFlipMode) setEfCenterImage(id);
+                        else if (state.eftMode) setEftImage(id);
+                        else addLayer(id);
+                    };
+                    grid.appendChild(div);
+                });
+            }
+
+            function buildBank() {
+                const isExtraOnly = state.extraFlipMode || state.eftMode;
+                
+                if (isExtraOnly) {
+                    UI.secBasic.style.display = "none";
+                    UI.gridBasic.style.display = "none";
+                } else {
+                    UI.secBasic.style.display = "flex";
+                    if (state.bankExpanded.Basic) {
+                        UI.gridBasic.style.display = "grid";
+                        buildBankSection("Basic");
+                    } else {
+                        UI.gridBasic.style.display = "none";
+                    }
+                }
+
+                // Extra 1-59 Section
+                const hasExtra1 = state.extraShapes.some(id => id >= 21 && id <= 79);
+                if (hasExtra1) {
+                    UI.secExtra1.style.display = "flex";
+                    if (state.bankExpanded.Extra1) {
+                        UI.gridExtra1.style.display = "grid";
+                        buildBankSection("Extra1");
+                    } else {
+                        UI.gridExtra1.style.display = "none";
+                    }
+                } else {
+                    UI.secExtra1.style.display = "none";
+                    UI.gridExtra1.style.display = "none";
+                }
+
+                // Extra 60+ Section
+                const hasExtra2 = state.extraShapes.some(id => id >= 80);
+                if (hasExtra2) {
+                    UI.secExtra2.style.display = "flex";
+                    if (state.bankExpanded.Extra2) {
+                        UI.gridExtra2.style.display = "grid";
+                        buildBankSection("Extra2");
+                    } else {
+                        UI.gridExtra2.style.display = "none";
+                    }
+                } else {
+                    UI.secExtra2.style.display = "none";
+                    UI.gridExtra2.style.display = "none";
+                }
+
+                // Uploaded Section
+                const hasUploaded = state.uploadedShapeIds.length > 0;
+                if (hasUploaded) {
+                    UI.secUploaded.style.display = "flex";
+                    if (state.bankExpanded.Uploaded) {
+                        UI.gridUploaded.style.display = "grid";
+                        buildBankSection("Uploaded");
+                    } else {
+                        UI.gridUploaded.style.display = "none";
+                    }
+                } else {
+                    UI.secUploaded.style.display = "none";
+                    UI.gridUploaded.style.display = "none";
+                }
+            }
+
+            window.toggleSec = function(secName) {
+                SFX.click();
+                state.bankExpanded[secName] = !state.bankExpanded[secName];
+                
+                const header = document.getElementById(`secHeader${secName}`);
+                const grid = document.getElementById(`shapeBank${secName}`);
+                
+                if (state.bankExpanded[secName]) {
+                    header.classList.add("active");
+                    grid.style.display = "grid";
+                    buildBankSection(secName);
+                } else {
+                    header.classList.remove("active");
+                    grid.style.display = "none";
+                }
+            };
+
+            function addLayer(shapeId) {
+                const id = state.nextLayerId++;
+                state.layers.push({
+                    id,
+                    shapeId,
+                    rotation: 0,
+                    flipH: false,
+                    flipV: false,
+                    locked: false,
+                    visible: true,
+                });
+                state.activeLayerId = id;
+                updateView();
+                saveState();
+                SFX.drop();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            function readImageFileAsDataUrl(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () =>
+                        reject(reader.error || new Error("Failed to read image"));
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            async function addUploadedImage(file) {
+                if (!file) return;
+                if (!file.type || !file.type.startsWith("image/")) {
+                    showToast("Please choose an image file.");
+                    return;
+                }
+
+                try {
+                    const dataUrl = await readImageFileAsDataUrl(file);
+                    const shapeId = nextTempUploadId++;
+                    shapeCache[shapeId] = dataUrl;
+                    state.uploadedShapeIds.push(shapeId);
+
+                    if (tpState.active) {
+                        setTpOriginal(dataUrl);
+                    } else {
+                        // Expand uploaded section
+                        state.bankExpanded.Uploaded = true;
+                        const header = document.getElementById("secHeaderUploaded");
+                        if (header) header.classList.add("active");
+
+                        buildBank();
+                        if (state.extraFlipMode) {
+                            setEfCenterImage(shapeId);
+                        } else if (state.eftMode) {
+                            if (!state.eftActiveCell) selectEftCell("center");
+                            setEftImage(shapeId);
+                        } else {
+                            addLayer(shapeId);
+                        }
+                    }
+
+                    showToast("Image added locally for this session only.");
+                } catch (err) {
+                    showToast("Could not load that image.");
+                }
+            }
+
+            function removeLayer(id) {
+                state.layers = state.layers.filter((l) => l.id !== id);
+                if (state.activeLayerId === id)
+                    state.activeLayerId = state.layers.length
+                        ? state.layers[state.layers.length - 1].id
+                        : null;
+                updateView();
+                saveState();
+                SFX.delete();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            function moveLayer(id, dir) {
+                const idx = state.layers.findIndex((l) => l.id === id);
+                if (idx < 0) return;
+                if (dir === "up" && idx < state.layers.length - 1) {
+                    [state.layers[idx], state.layers[idx + 1]] = [
+                        state.layers[idx + 1],
+                        state.layers[idx],
+                    ];
+                } else if (dir === "down" && idx > 0) {
+                    [state.layers[idx], state.layers[idx - 1]] = [
+                        state.layers[idx - 1],
+                        state.layers[idx],
+                    ];
+                }
+                updateView();
+                saveState();
+                SFX.move();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            function updateLayerTransform(id, action) {
+                const l = state.layers.find((x) => x.id === id);
+                if (!l || l.locked) return;
+                if (action === "rotCW") {
+                    let degrees = 90;
+                    const isMirrored = l.flipH !== l.flipV;
+                    if (isMirrored) degrees *= -1;
+                    l.rotation += degrees;
+                }
+                if (action === "rotCCW") {
+                    let degrees = -90;
+                    const isMirrored = l.flipH !== l.flipV;
+                    if (isMirrored) degrees *= -1;
+                    l.rotation += degrees;
+                }
+                if (action === "flipH") l.flipH = !l.flipH;
+                if (action === "flipV") l.flipV = !l.flipV;
+                updateView();
+                saveState();
+                SFX.toggle();
+            }
+            function toggleLock(id) {
+                const l = state.layers.find((x) => x.id === id);
+                if (l) l.locked = !l.locked;
+                updateView();
+                saveState();
+                SFX.toggle();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            function deleteAllLayers() {
+                state.layers = state.layers.filter((l) => l.locked);
+                updateView();
+                saveState();
+                SFX.delete();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            function toggleLockAll() {
+                const hasUnlocked = state.layers.some((l) => !l.locked);
+                state.layers.forEach((l) => (l.locked = hasUnlocked));
+                updateView();
+                saveState();
+                SFX.toggle();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            function toggleVisibility(id) {
+                const l = state.layers.find((x) => x.id === id);
+                if (l) l.visible = !l.visible;
+                updateView();
+                saveState();
+                SFX.toggle();
+                if (state.puzzleMode) checkWinCondition();
+            }
+
+            /** RENDERING */
+            function updateView() {
+                // Render Canvas Elements (reusing DOM nodes to trigger CSS transitions!)
+                const currentLayerIds = new Set(
+                    state.layers
+                        .filter((l) => l.visible !== false)
+                        .map((l) => l.id),
+                );
+
+                Array.from(UI.canvas.children).forEach((child) => {
+                    if (!child.dataset || !child.dataset.id) return;
+                    const id = parseInt(child.dataset.id);
+                    if (!currentLayerIds.has(id)) child.remove();
+                });
+
+                state.layers.forEach((l, index) => {
+                    if (l.visible === false) return;
+                    let img = UI.canvas.querySelector(`img[data-id='${l.id}']`);
+
+                    const src =
+                        l.shapeId === 12 && shapeCacheNoOutline[12]
+                            ? shapeCacheNoOutline[12]
+                            : shapeCache[l.shapeId];
+
+                    if (!img) {
+                        img = document.createElement("img");
+                        img.dataset.id = l.id;
+                        img.className = "render-layer";
+                        img.src = src;
+                        img.dataset.shapeId = l.shapeId;
+                        UI.canvas.appendChild(img);
+
+                        // Force reflow immediately so transform transitions work from origin on new items
+                        void img.offsetWidth;
+                    } else if (img.dataset.shapeId != l.shapeId) {
+                        img.src = src;
+                        img.dataset.shapeId = l.shapeId;
+                    }
+
+                    img.style.zIndex = index + 1;
+                    const scaleX = l.flipH ? -1 : 1;
+                    const scaleY = l.flipV ? -1 : 1;
+                    img.style.transform = `scale(${scaleX}, ${scaleY}) rotate(${l.rotation}deg)`;
+                });
+
+                // Render Layers Panel
+                UI.layerMgr.innerHTML = "";
+                [...state.layers].reverse().forEach((l, revIdx) => {
+                    const zIndex = state.layers.length - revIdx;
+                    const card = document.createElement("div");
+                    card.className = `layer-card ${state.activeLayerId === l.id ? "active" : ""}`;
+                    card.draggable = true;
+                    card.dataset.id = l.id;
+
+                    card.ondragstart = (e) => {
+                        e.dataTransfer.setData("text/plain", l.id);
+                        card.classList.add("ghost");
+                    };
+                    card.ondragend = () => card.classList.remove("ghost");
+                    card.ondragover = (e) => {
+                        e.preventDefault();
+                        card.style.borderTop = "2px solid #0078d7";
+                    };
+                    card.ondragleave = () =>
+                        (card.style.borderTop = "2px solid transparent");
+                    card.ondrop = (e) => {
+                        e.preventDefault();
+                        card.style.borderTop = "2px solid transparent";
+                        const dragId = parseInt(
+                            e.dataTransfer.getData("text/plain"),
+                        );
+                        handleDrop(dragId, l.id);
+                    };
+                    card.onclick = (e) => {
+                        if (e.target.tagName !== "BUTTON") {
+                            state.activeLayerId = l.id;
+                            updateView();
+                        }
+                    };
+
+                    const scaleX = l.flipH ? -1 : 1;
+                    const scaleY = l.flipV ? -1 : 1;
+                    const thumb = `<div class="layer-thumb ${bgs[state.bgIndex]} ${l.visible === false ? "hidden" : ""}" onclick="toggleVisibility(${l.id})" title="Click to toggle visibility"><img src="${shapeCache[l.shapeId]}" style="transform: scale(${scaleX}, ${scaleY}) rotate(${l.rotation}deg);"></div>`;
+
+                    const leftControls = `
+                <div class="layer-controls-grid">
+                    <button onclick="updateLayerTransform(${l.id}, 'rotCCW')" ${l.locked ? "disabled" : ""} title="Rotate CCW"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/></svg></button>
+                    <button onclick="updateLayerTransform(${l.id}, 'rotCW')" ${l.locked ? "disabled" : ""} title="Rotate CW"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg></button>
+                    <button onclick="updateLayerTransform(${l.id}, 'flipH')" ${l.locked ? "disabled" : ""} title="Flip Horizontal"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M1.146 8.354a.5.5 0 0 1 0-.708l2-2a.5.5 0 1 1 .708.708L2.707 7.5h10.586l-1.147-1.146a.5.5 0 0 1 .708-.708l2 2a.5.5 0 0 1 0 .708l-2 2a.5.5 0 0 1-.708-.708L13.293 8.5H2.707l1.147 1.146a.5.5 0 0 1-.708.708z"/></svg></button>
+                    <button onclick="updateLayerTransform(${l.id}, 'flipV')" ${l.locked ? "disabled" : ""} title="Flip Vertical"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.354 14.854a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 .708-.708L7.5 13.293V2.707L6.354 3.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 2.707v10.586l1.146-1.147a.5.5 0 0 1 .708.708z"/></svg></button>
+                </div>`;
+
+                    const rightControls = `
+                <div class="layer-controls-v">
+                    <button onclick="moveLayer(${l.id}, 'up')" ${zIndex === state.layers.length ? "disabled" : ""} title="Move Up">⬆️</button>
+                    <button onclick="moveLayer(${l.id}, 'down')" ${zIndex === 1 ? "disabled" : ""} title="Move Down">⬇️</button>
+                </div>
+                <div class="layer-controls-v">
+                    <button onclick="toggleLock(${l.id})" title="Lock"> ${l.locked ? "🔒" : "🔓"} </button>
+                    <button onclick="removeLayer(${l.id})" ${l.locked ? "disabled" : ""} title="Delete">🗑️</button>
+                </div>`;
+
+                    card.innerHTML = `${thumb} ${leftControls} <div class="layer-title">${zIndex}</div> ${rightControls}`;
+                    UI.layerMgr.appendChild(card);
+                });
+
+                UI.seedInput.value = encodeSeed(state.layers);
+                if (state.puzzleMode && state.puzzleLayers.length > 0)
+                    checkWinCondition();
+            }
+
+            function handleDrop(draggedId, targetId) {
+                if (draggedId === targetId) return;
+                const dragIdx = state.layers.findIndex(
+                    (l) => l.id === draggedId,
+                );
+                const targIdx = state.layers.findIndex(
+                    (l) => l.id === targetId,
+                );
+                const [draggedLayer] = state.layers.splice(dragIdx, 1);
+                state.layers.splice(targIdx, 0, draggedLayer);
+                updateView();
+            }
+
+            /** TRANSFORM PUZZLE LOGIC */
+            let tpState = {
+                active: false,
+                originalImgSrc: null,
+                sequence: [],
+                resultVisible: false
+            };
+
+            document.getElementById("btnToggleBank").onclick = () => {
+                const bank = document.querySelector(".left-panel");
+                bank.style.display = bank.style.display === "none" ? "flex" : "none";
+                if (typeof tpState !== "undefined" && tpState.active) {
+                    autoFitTp();
+                    setTimeout(() => autoFitTp(), 100);
+                } else {
+                    applyTransform();
+                    setTimeout(() => applyTransform(), 100);
+                }
+            };
+
+            document.getElementById("btnToggleTp").onclick = (e) => {
+                SFX.click();
+                tpState.active = !tpState.active;
+                e.currentTarget.style.background = tpState.active ? "var(--layer-active)" : "var(--btn-bg)";
+
+                if (tpState.active) {
+                    if (state.puzzleMode) document.getElementById("btnTogglePuzzle").click();
+                    if (state.extraFlipMode) document.getElementById("btnToggleExtraFlip").click();
+                    if (state.eftMode) document.getElementById("btnToggleEft").click();
+                    UI.workspace.style.display = "none";
+                    UI.rightPanel.style.display = "none";
+                    UI.efWorkspace.style.display = "none";
+                    UI.eftWorkspace.style.display = "none";
+                    document.getElementById("tpWorkspace").style.display = "flex";
+                    if (window.innerWidth < 800) {
+                        document.querySelector(".left-panel").style.display = "none";
+                    }
+                    const cached = localStorage.getItem("tpCachedImage");
+                    if (cached) setTpOriginal(cached);
+                    renderTp();
+                } else {
+                    UI.workspace.style.display = "flex";
+                    UI.rightPanel.style.display = "flex";
+                    document.getElementById("tpWorkspace").style.display = "none";
+                }
+                buildBank();
+            };
+
+            function setTpOriginal(imgSrc) {
+                if (!tpState.active) return;
+                tpState.originalImgSrc = imgSrc;
+                try { localStorage.setItem("tpCachedImage", imgSrc); } catch (_) {}
+                tpState.sequence = [];
+                tpState.resultVisible = false;
+                renderTp();
+            }
+
+            window.selectTpOriginal = function() {
+                if (!tpState.active) return;
+                if (!tpState.originalImgSrc) { uploadInput.click(); return; }
+                tpState.originalImgSrc = null;
+                tpState.sequence = [];
+                tpState.resultVisible = false;
+                try { localStorage.removeItem("tpCachedImage"); } catch (_) {}
+                renderTp();
+            };
+
+            window.addTpAction = function(action) {
+                if (!tpState.originalImgSrc) { showToast("Select an image from the bank first!"); return; }
+                tpState.sequence.push({ action: action, revealed: false });
+                tpState.resultVisible = false;
+                renderTp();
+            };
+
+            window.revealTpStep = function(index) {
+                if (tpViewState.hasMoved) return;
+                if (index === 0 || tpState.sequence[index - 1].revealed) {
+                    tpState.sequence[index].revealed = true;
+                    renderTp();
+                } else {
+                    showToast("Reveal the previous steps from left to right first!");
+                }
+            };
+
+            window.revealTpResult = function() {
+                if (!tpState.originalImgSrc) return;
+                tpState.resultVisible = true;
+                renderTp();
+            };
+
+            // New Control Functions
+            window.resetTpGame = function() {
+                tpState.originalImgSrc = null;
+                tpState.sequence = [];
+                tpState.resultVisible = false;
+                try { localStorage.removeItem("tpCachedImage"); } catch (_) {}
+                renderTp();
+            };
+
+            window.clearTpActions = function() {
+                tpState.sequence = [];
+                tpState.resultVisible = false;
+                renderTp();
+            };
+
+            window.removeTpStep = function(event, index) {
+                event.stopPropagation();
+                tpState.sequence.splice(index, 1);
+                for (let i = index; i < tpState.sequence.length; i++) {
+                    tpState.sequence[i].revealed = false;
+                }
+                tpState.resultVisible = false;
+                renderTp();
+            };
+
+            function renderTp() {
+                const origContent = document.getElementById("tpOriginalContent");
+                const origPlus = document.getElementById("tpOriginalPlus");
+                if (tpState.originalImgSrc) {
+                    origContent.style.display = "flex";
+                    origPlus.style.display = "none";
+                    origContent.innerHTML = `<img src="${tpState.originalImgSrc}" style="position:absolute;top:3px;left:3px;width:calc(100% - 6px);height:calc(100% - 6px);object-fit:fill;border-radius:9px;" />`;
+                } else {
+                    origContent.style.display = "none";
+                    origPlus.style.display = "block";
+                }
+
+                const seqZone = document.getElementById("tpSequenceZone");
+                while (seqZone.children.length > tpState.sequence.length) {
+                    seqZone.removeChild(seqZone.lastChild);
+                }
+
+                const iconMap = { rotCW: "icon1.svg", rotCCW: "icon2.svg", flipV: "icon3.svg", flipH: "icon4.svg" };
+                let currentTransform = { rot: 0, scaleX: 1, scaleY: 1 };
+
+                tpState.sequence.forEach((step, index) => {
+                    if (step.action === "rotCW") currentTransform.rot += 90;
+                    if (step.action === "rotCCW") currentTransform.rot -= 90;
+                    if (step.action === "flipV") currentTransform.scaleY *= -1;
+                    if (step.action === "flipH") currentTransform.scaleX *= -1;
+
+                    let seqEl = seqZone.children[index];
+                    if (!seqEl) {
+                        seqEl = document.createElement("div");
+                        seqEl.className = "tp-seq-item tp-insert-anim";
+                        seqZone.appendChild(seqEl);
+                        setTimeout(() => {
+                            if (seqEl) seqEl.classList.remove("tp-insert-anim");
+                        }, 650);
+                    }
+
+                    let iconSrc = `./shapes/${iconMap[step.action]}`;
+                    let innerHtml = `
+                        <div class="tp-header" style="display:flex;align-items:center;justify-content:center;min-height:1.5em;margin-bottom:5px;">
+                            <img src="${iconSrc}" style="height:2.4em;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));" title="Action applied" />
+                        </div>
+                    `;
+                    innerHtml += `<div class="tp-board tp-empty-board" style="position:relative;display:flex;align-items:center;justify-content:center;" onclick="revealTpStep(${index})">`;
+
+                    if (step.revealed) {
+                        const transformStr = `rotate(${currentTransform.rot}deg) scale(${currentTransform.scaleX}, ${currentTransform.scaleY})`;
+                        innerHtml += `<img src="${tpState.originalImgSrc}" style="position:absolute;top:3px;left:3px;width:calc(100% - 6px);height:calc(100% - 6px);object-fit:fill;border-radius:9px;transform:${transformStr};transition:transform 0.6s ease;" />`;
+                    } else {
+                        innerHtml += `<img src="${iconSrc}" style="width:60%;height:60%;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.2));transition:all 0.3s ease;" />`;
+                    }
+
+                    innerHtml += `<button class="tp-remove-btn" onclick="removeTpStep(event, ${index})" title="Remove this step">✖</button>`;
+                    innerHtml += `</div>`;
+
+                    seqEl.innerHTML = innerHtml;
+                });
+
+                const resultContent = document.getElementById("tpResultContent");
+                const resultQ = document.getElementById("tpResultQuestion");
+                if (tpState.resultVisible && tpState.originalImgSrc) {
+                    const transformStr = `rotate(${currentTransform.rot}deg) scale(${currentTransform.scaleX}, ${currentTransform.scaleY})`;
+                    resultContent.innerHTML = `<img src="${tpState.originalImgSrc}" style="position:absolute;top:3px;left:3px;width:calc(100% - 6px);height:calc(100% - 6px);object-fit:fill;border-radius:9px;transform:${transformStr};transition:transform 0.6s ease;" />`;
+                    resultContent.style.display = "flex";
+                    resultQ.style.display = "none";
+                } else {
+                    resultContent.style.display = "none";
+                    resultQ.style.display = "block";
+                }
+
+                setTimeout(() => { autoFitTp(); }, 50);
+                setTimeout(() => { autoFitTp(); }, 650);
+            }
+
+            // --- TP Viewport: Pan, Zoom, Auto-Fit ---
+            let tpViewState = {
+                scale: 1,
+                panX: 0,
+                panY: 0,
+                isDragging: false,
+                startX: 0,
+                startY: 0,
+                hasMoved: false
+            };
+
+            function applyTpView(animate = false) {
+                const container = document.getElementById("tpPanContainer");
+                if (!container) return;
+                container.style.transition = animate ? "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)" : "none";
+                container.style.transform = `translate(calc(-50% + ${tpViewState.panX}px), calc(-50% + ${tpViewState.panY}px)) scale(${tpViewState.scale})`;
+            }
+
+            window.autoFitTp = function() {
+                const viewport = document.getElementById("tpViewport");
+                const container = document.getElementById("tpPanContainer");
+                if (!viewport || !container) return;
+                const vWidth = viewport.clientWidth;
+                const cWidth = container.scrollWidth;
+                tpViewState.scale = Math.min(1, (vWidth - 40) / cWidth);
+                tpViewState.panX = 0;
+                tpViewState.panY = 0;
+                applyTpView(true);
+            };
+
+            // --- Panning Event Listeners (Fixed to allow clicking) ---
+            (function initTpViewport() {
+                const viewport = document.getElementById("tpViewport");
+                const container = document.getElementById("tpPanContainer");
+                if (!viewport) return;
+
+                const startDrag = (x, y, target) => {
+                    if (target.closest("button")) return;
+                    tpViewState.isDragging = true;
+                    tpViewState.hasMoved = false;
+                    tpViewState.startX = x - tpViewState.panX;
+                    tpViewState.startY = y - tpViewState.panY;
+                    if (container) container.style.cursor = "grabbing";
+                };
+
+                const moveDrag = (x, y) => {
+                    if (!tpViewState.isDragging) return;
+                    const dx = x - tpViewState.startX - tpViewState.panX;
+                    const dy = y - tpViewState.startY - tpViewState.panY;
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                        tpViewState.hasMoved = true;
+                    }
+                    tpViewState.panX = x - tpViewState.startX;
+                    tpViewState.panY = y - tpViewState.startY;
+                    applyTpView(false);
+                };
+
+                const endDrag = () => {
+                    tpViewState.isDragging = false;
+                    if (container) container.style.cursor = "grab";
+                    setTimeout(() => { tpViewState.hasMoved = false; }, 100);
+                };
+
+                viewport.addEventListener("mousedown", (e) => startDrag(e.clientX, e.clientY, e.target));
+                window.addEventListener("mousemove", (e) => moveDrag(e.clientX, e.clientY));
+                window.addEventListener("mouseup", endDrag);
+
+                viewport.addEventListener("touchstart", (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY, e.target), { passive: true });
+                window.addEventListener("touchmove", (e) => moveDrag(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+                window.addEventListener("touchend", endDrag);
+
+                // Wheel Zoom
+                viewport.addEventListener("wheel", (e) => {
+                    e.preventDefault();
+                    const zoomIntensity = 0.05;
+                    if (e.deltaY < 0) {
+                        tpViewState.scale += zoomIntensity;
+                    } else {
+                        tpViewState.scale -= zoomIntensity;
+                    }
+                    tpViewState.scale = Math.max(0.2, Math.min(tpViewState.scale, 3.0));
+                    applyTpView(false);
+                }, { passive: false });
+            })();
+
+            /** EXTRA FLIP LOGIC */
+            document.getElementById("btnToggleExtraFlip").onclick = (e) => {
+                SFX.click();
+                state.extraFlipMode = !state.extraFlipMode;
+                e.currentTarget.style.background = state.extraFlipMode
+                    ? "var(--layer-active)"
+                    : "var(--btn-bg)";
+
+                if (state.extraFlipMode) {
+                    if (state.puzzleMode)
+                        document.getElementById("btnTogglePuzzle").click();
+                    if (state.eftMode)
+                        document.getElementById("btnToggleEft").click();
+                    if (tpState.active)
+                        document.getElementById("btnToggleTp").click();
+                    UI.workspace.style.display = "none";
+                    UI.rightPanel.style.display = "none";
+                    UI.efWorkspace.style.display = "flex";
+                } else {
+                    UI.workspace.style.display = "flex";
+                    UI.rightPanel.style.display = "flex";
+                    UI.efWorkspace.style.display = "none";
+                }
+                setAutoZoom(true);
+                buildBank();
+            };
+
+            /** EDGE FLIP TWO SHAPE LOGIC */
+            document.getElementById("btnToggleEft").onclick = (e) => {
+                SFX.click();
+                state.eftMode = !state.eftMode;
+                e.currentTarget.style.background = state.eftMode
+                    ? "var(--layer-active)"
+                    : "var(--btn-bg)";
+
+                if (state.eftMode) {
+                    if (state.puzzleMode)
+                        document.getElementById("btnTogglePuzzle").click();
+                    if (state.extraFlipMode)
+                        document.getElementById("btnToggleExtraFlip").click();
+                    if (tpState.active)
+                        document.getElementById("btnToggleTp").click();
+                    UI.workspace.style.display = "none";
+                    UI.rightPanel.style.display = "none";
+                    UI.efWorkspace.style.display = "none";
+                    UI.eftWorkspace.style.display = "flex";
+                    // Reset EFT state
+                    state.eftActiveCell = null;
+                    state.eftImages = {
+                        center: null,
+                        top: null,
+                        bottom: null,
+                        left: null,
+                        right: null,
+                    };
+                    state.eftMerged = {
+                        top: false,
+                        bottom: false,
+                        left: false,
+                        right: false,
+                    };
+                    ["center", "top", "bottom", "left", "right"].forEach(
+                        (dir) => {
+                            document.getElementById(`eft-${dir}`).innerHTML =
+                                "";
+                            document
+                                .getElementById(`eft-${dir}`)
+                                .classList.remove("active-slot");
+                        },
+                    );
+                } else {
+                    UI.workspace.style.display = "flex";
+                    UI.rightPanel.style.display = "flex";
+                    UI.eftWorkspace.style.display = "none";
+                }
+                setAutoZoom(true);
+                buildBank();
+            };
+
+            function setEfCenterImage(id) {
+                SFX.click();
+                state.efCurrentImage = id;
+                document.getElementById("ef-center").innerHTML =
+                    `<img src="${shapeCache[id]}" style="width: 100%; height: 100%; object-fit: contain;">`;
+                ["top", "bottom", "left", "right"].forEach(
+                    (dir) =>
+                        (document.getElementById(`ef-${dir}`).innerHTML = ""),
+                );
+            }
+
+            function doEfFlip(dir) {
+                if (!state.efCurrentImage) return;
+                const centerDiv = document.getElementById("ef-center");
+                const targetDiv = document.getElementById(`ef-${dir}`);
+
+                if (targetDiv.querySelector(".ef-animating")) return;
+
+                SFX.toggle();
+                targetDiv.innerHTML = "";
+
+                const clone = document.createElement("img");
+                clone.src = shapeCache[state.efCurrentImage];
+                clone.className = "ef-animating";
+                clone.style.position = "absolute";
+                clone.style.top = "0";
+                clone.style.left = "0";
+                clone.style.width = "100%";
+                clone.style.height = "100%";
+                clone.style.objectFit = "contain";
+                clone.style.transition =
+                    "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
+
+                centerDiv.appendChild(clone);
+
+                let tOrigin = "",
+                    tTransform = "",
+                    finalScale = "";
+
+                if (dir === "right") {
+                    tOrigin = "calc(100% + 20px) 50%";
+                    tTransform = "rotateY(180deg)";
+                    finalScale = "scaleX(-1)";
+                } else if (dir === "left") {
+                    tOrigin = "-20px 50%";
+                    tTransform = "rotateY(-180deg)";
+                    finalScale = "scaleX(-1)";
+                } else if (dir === "top") {
+                    tOrigin = "50% -20px";
+                    tTransform = "rotateX(180deg)";
+                    finalScale = "scaleY(-1)";
+                } else if (dir === "bottom") {
+                    tOrigin = "50% calc(100% + 20px)";
+                    tTransform = "rotateX(-180deg)";
+                    finalScale = "scaleY(-1)";
+                }
+
+                clone.style.transformOrigin = tOrigin;
+                void clone.offsetWidth; // Trigger reflow
+                clone.style.transform = tTransform;
+
+                setTimeout(() => {
+                    if (clone.parentNode) clone.remove();
+                    // Lock final orientation
+                    if (state.efCurrentImage) {
+                        targetDiv.innerHTML = `<img src="${shapeCache[state.efCurrentImage]}" style="width: 100%; height: 100%; object-fit: contain; transform: ${finalScale};">`;
+                    }
+                }, 500);
+            }
+
+            // --- UPDATED EFT LOGIC ---
+            let draggedFrom = null;
+
+            function showToast(msg) {
+                let toast = document.getElementById("sys-toast");
+                if (!toast) {
+                    toast = document.createElement("div");
+                    toast.id = "sys-toast";
+                    document.body.appendChild(toast);
+                }
+                toast.innerText = msg;
+                toast.style.opacity = "1";
+                clearTimeout(toast.timer);
+                toast.timer = setTimeout(() => {
+                    toast.style.opacity = "0";
+                }, 3000);
+            }
+
+            /** 1. Slot Management & Right Click */
+            function selectEftCell(dir) {
+                state.eftActiveCell = dir;
+                document
+                    .querySelectorAll(".eft-cell")
+                    .forEach((c) => c.classList.remove("active-slot"));
+                const el = document.getElementById(`eft-${dir}`);
+                if (el) el.classList.add("active-slot");
+            }
+
+            // Right-click to clear slot
+            window.addEventListener("contextmenu", (e) => {
+                const cell = e.target.closest(".eft-cell");
+                if (state.eftMode && cell) {
+                    e.preventDefault();
+                    const dir = cell.id.replace("eft-", "");
+                    clearEftSlot(dir);
+                }
+            });
+
+            function clearEftSlot(dir) {
+                state.eftImages[dir] = null;
+                state.eftMerged[dir] = false;
+                renderEftOuter(dir);
+                renderEftCenter();
+                showToast(`Cleared ${dir} slot`);
+            }
+
+            /** 2. Drag and Drop Logic */
+            function handleEftDragStart(e, dir) {
+                if (!state.eftImages[dir]) {
+                    e.preventDefault();
+                    return;
+                }
+                draggedFrom = dir;
+                e.dataTransfer.setData("text/plain", dir);
+                e.currentTarget.style.opacity = "0.5";
+            }
+
+            function handleEftDragEnd(e) {
+                e.currentTarget.style.opacity = "1";
+                document
+                    .querySelectorAll(".eft-cell")
+                    .forEach((c) => c.classList.remove("drag-hover"));
+            }
+
+            function handleEftDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add("drag-hover");
+            }
+
+            function handleEftDragLeave(e) {
+                e.currentTarget.classList.remove("drag-hover");
+            }
+
+            function handleEftDrop(e, targetDir) {
+                e.preventDefault();
+                const sourceDir = e.dataTransfer.getData("text/plain");
+                if (sourceDir === targetDir) return;
+
+                // Swap images
+                const temp = state.eftImages[targetDir];
+                state.eftImages[targetDir] = state.eftImages[sourceDir];
+                state.eftImages[sourceDir] = temp;
+
+                // Reset merged status on swap
+                state.eftMerged[targetDir] = false;
+                state.eftMerged[sourceDir] = false;
+
+                renderEftOuter(sourceDir);
+                renderEftOuter(targetDir);
+                renderEftCenter();
+                selectEftCell(targetDir);
+            }
+
+            /** 3. Rendering */
+            function setEftImage(shapeId) {
+                if (!state.eftActiveCell) {
+                    showToast("Please select a canvas slot first!");
+                    return;
+                }
+                const dir = state.eftActiveCell;
+                state.eftImages[dir] = shapeId;
+                state.eftMerged[dir] = false;
+                renderEftOuter(dir);
+                renderEftCenter();
+            }
+
+            function renderEftOuter(dir) {
+                if (dir === "center") return;
+                const cell = document.getElementById(`eft-${dir}`);
+                if (!cell) return;
+                cell.innerHTML = "";
+                if (state.eftImages[dir]) {
+                    const img = document.createElement("img");
+                    img.src = shapeCache[state.eftImages[dir]];
+                    img.style.width = "100%";
+                    img.style.height = "100%";
+                    img.style.objectFit = "contain";
+                    img.style.opacity = state.eftMerged[dir] ? "0.2" : "1";
+                    cell.appendChild(img);
+                }
+            }
+
+            function renderEftCenter() {
+                const centerCell = document.getElementById("eft-center");
+                centerCell.innerHTML = "";
+
+                // Draw Base (Center Slot)
+                if (state.eftImages.center) {
+                    const img = document.createElement("img");
+                    img.src = shapeCache[state.eftImages.center];
+                    img.style.width = "100%";
+                    img.style.height = "100%";
+                    img.style.objectFit = "contain";
+                    centerCell.appendChild(img);
+                }
+
+                // Draw Merged Layers with Correct Mirroring
+                ["top", "bottom", "left", "right"].forEach((dir) => {
+                    if (state.eftMerged[dir] && state.eftImages[dir]) {
+                        const img = document.createElement("img");
+                        img.src = shapeCache[state.eftImages[dir]];
+                        img.style.position = "absolute";
+                        img.style.top = "0";
+                        img.style.left = "0";
+                        img.style.width = "100%";
+                        img.style.height = "100%";
+                        img.style.objectFit = "contain";
+
+                        // Mirroring logic to match the 180-degree fold
+                        if (dir === "top" || dir === "bottom") {
+                            img.style.transform = "scaleY(-1)";
+                        } else {
+                            img.style.transform = "scaleX(-1)";
+                        }
+
+                        centerCell.appendChild(img);
+                    }
+                });
+            }
+
+            function doEftFlip(dir) {
+                const shapeId = state.eftImages[dir];
+                if (!shapeId || state.eftMerged[dir]) return;
+
+                const sourceCell = document.getElementById(`eft-${dir}`);
+                const container = document.getElementById("eftContainer");
+                const imgToFlip = sourceCell.querySelector("img");
+                if (!imgToFlip) return;
+
+                // 1. Create the animation clone
+                const clone = imgToFlip.cloneNode();
+                clone.style.position = "absolute";
+                clone.style.width = "220px";
+                clone.style.height = "220px";
+                clone.style.zIndex = "1000";
+                clone.style.transition =
+                    "transform 1.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.2s";
+                clone.style.pointerEvents = "none";
+
+                // 2. Position clone exactly over source using offset position
+                clone.style.left = sourceCell.offsetLeft + "px";
+                clone.style.top = sourceCell.offsetTop + "px";
+
+                /** * 3. THE AXIS MATH
+                 * The gap is 40px. The "hinge" is at 20px into that gap.
+                 * Half-width of shape is 110px.
+                 * Total distance from shape start to hinge = 110 + 20 = 130px.
+                 */
+                if (dir === "top") clone.style.transformOrigin = "50% 240px"; // 220 (height) + 20 (half gap)
+                if (dir === "bottom") clone.style.transformOrigin = "50% -20px";
+                if (dir === "left") clone.style.transformOrigin = "240px 50%"; // 220 (width) + 20 (half gap)
+                if (dir === "right") clone.style.transformOrigin = "-20px 50%";
+
+                container.appendChild(clone);
+                imgToFlip.style.opacity = "0.2"; // Ghost the source
+
+                // 4. Trigger Animation
+                requestAnimationFrame(() => {
+                    // We use translateZ to ensure it flips "Frontward" towards the camera
+                    if (dir === "top")
+                        clone.style.transform =
+                            "translateZ(50px) rotateX(-180deg)";
+                    if (dir === "bottom")
+                        clone.style.transform =
+                            "translateZ(50px) rotateX(180deg)";
+                    if (dir === "left")
+                        clone.style.transform =
+                            "translateZ(50px) rotateY(180deg)";
+                    if (dir === "right")
+                        clone.style.transform =
+                            "translateZ(50px) rotateY(-180deg)";
+                });
+
+                // 5. Finalize Merge
+                setTimeout(() => {
+                    clone.style.transform += " translateZ(-50px)"; // "Lowering" effect
+                    clone.style.opacity = "0";
+                    setTimeout(() => {
+                        clone.remove();
+                        state.eftMerged[dir] = true;
+                        renderEftCenter();
+                    }, 200);
+                }, 1100);
+            }
+
+            function doEftReset(dir) {
+                if (!state.eftMerged[dir]) return;
+                state.eftMerged[dir] = false;
+                renderEftOuter(dir);
+                renderEftCenter();
+            }
+            // ------------------------------------------
+
+            /** SEED SYSTEM (BASE-81) */
+            function encodeSeed(layers) {
+                let seed = "";
+                layers.forEach((l) => {
+                    if (l.shapeId > SHAPES_COUNT) return;
+
+                    const normRot = ((l.rotation % 360) + 360) % 360;
+                    const rot = normRot / 90;
+                    const fH = l.flipH ? 1 : 0;
+                    const fV = l.flipV ? 1 : 0;
+                    const vis = l.visible === false ? 1 : 0;
+                    const tCode = rot + fH * 4 + fV * 8 + vis * 16;
+                    const sCode = l.shapeId - 1;
+                    const val = sCode * 32 + tCode;
+                    const c1 = BASE81_CHARS[Math.floor(val / 81)];
+                    const c2 = BASE81_CHARS[val % 81];
+                    seed += c1 + c2;
+                });
+                return seed;
+            }
+
+            function decodeSeed(seed) {
+                const layers = [];
+                for (let i = 0; i < seed.length; i += 2) {
+                    if (i + 1 >= seed.length) break;
+                    const c1 = BASE81_CHARS.indexOf(seed[i]);
+                    const c2 = BASE81_CHARS.indexOf(seed[i + 1]);
+                    if (c1 < 0 || c2 < 0) continue;
+                    const val = c1 * 81 + c2;
+                    const sCode = Math.floor(val / 32);
+                    const tCode = val % 32;
+
+                    const shapeId = sCode + 1;
+                    const rot = (tCode % 4) * 90;
+                    const flipH = Math.floor((tCode % 8) / 4) === 1;
+                    const flipV = Math.floor((tCode % 16) / 8) === 1;
+                    const visible = Math.floor(tCode / 16) === 0;
+
+                    layers.push({
+                        id: state.nextLayerId++,
+                        shapeId,
+                        rotation: rot,
+                        flipH,
+                        flipV,
+                        locked: false,
+                        visible,
+                    });
+                }
+                return layers;
+            }
+
+            /** PAN & ZOOM */
+            function getAutoZoomScale() {
+                if (state.extraFlipMode) {
+                    const vpWidth = UI.efWorkspace.clientWidth;
+                    const vpHeight = UI.efWorkspace.clientHeight;
+                    return Math.min(1, (vpWidth - 40) / 740, (vpHeight - 40) / 740);
+                } else if (state.eftMode) {
+                    const vpWidth = UI.eftWorkspace.clientWidth;
+                    const vpHeight = UI.eftWorkspace.clientHeight;
+                    return Math.min(1, (vpWidth - 40) / 740, (vpHeight - 40) / 740);
+                } else {
+                    return 1;
+                }
+            }
+
+            function setAutoZoom(val) {
+                state.autoZoom = val;
+                const btn = document.getElementById("btnAutoZoom");
+                if (btn) {
+                    btn.style.background = val ? "var(--layer-active)" : "var(--btn-bg)";
+                }
+                if (val) {
+                    state.zoom = getAutoZoomScale();
+                    state.panX = 0;
+                    state.panY = 0;
+                }
+                applyTransform();
+            }
+
+            function applyTransform() {
+                if (state.extraFlipMode) {
+                    const container = UI.efContainer;
+                    if (!container) return;
+                    if (state.autoZoom) {
+                        const autoScale = getAutoZoomScale();
+                        container.style.transform = `translate(0px, 0px) scale(${autoScale})`;
+                    } else {
+                        container.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+                    }
+                } else if (state.eftMode) {
+                    const container = UI.eftContainer;
+                    if (!container) return;
+                    if (state.autoZoom) {
+                        const autoScale = getAutoZoomScale();
+                        container.style.transform = `translate(0px, 0px) scale(${autoScale})`;
+                    } else {
+                        container.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+                    }
+                } else {
+                    if (state.autoZoom)
+                        UI.canvas.style.transform = `translate(0px, 0px) scale(1)`;
+                    else
+                        UI.canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+                }
+            }
+
+            let isPanning = false,
+                startMouseX,
+                startMouseY,
+                startPanX,
+                startPanY;
+
+            function setupPanZoom(element) {
+                element.addEventListener("contextmenu", (e) => e.preventDefault());
+                element.addEventListener("mousedown", (e) => {
+                    if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
+                        isPanning = true;
+                        if (state.autoZoom) {
+                            state.zoom = getAutoZoomScale();
+                            state.panX = 0;
+                            state.panY = 0;
+                            state.autoZoom = false;
+                            const btn = document.getElementById("btnAutoZoom");
+                            if (btn) btn.style.background = "var(--btn-bg)";
+                        }
+                        startMouseX = e.clientX;
+                        startMouseY = e.clientY;
+                        startPanX = state.panX;
+                        startPanY = state.panY;
+                    }
+                });
+                element.addEventListener(
+                    "wheel",
+                    (e) => {
+                        if (state.autoZoom) {
+                            state.zoom = getAutoZoomScale();
+                            state.panX = 0;
+                            state.panY = 0;
+                            state.autoZoom = false;
+                            const btn = document.getElementById("btnAutoZoom");
+                            if (btn) btn.style.background = "var(--btn-bg)";
+                        }
+                        e.preventDefault();
+                        const z = e.deltaY > 0 ? 0.9 : 1.1;
+                        state.zoom = Math.max(0.1, Math.min(state.zoom * z, 10));
+                        applyTransform();
+                    },
+                    { passive: false },
+                );
+                element.addEventListener(
+                    "touchstart",
+                    (e) => {
+                        if (e.touches.length > 1) e.preventDefault();
+                    },
+                    { passive: false },
+                );
+            }
+
+            setupPanZoom(UI.workspace);
+            setupPanZoom(UI.efWorkspace);
+            setupPanZoom(UI.eftWorkspace);
+
+            window.addEventListener("mousemove", (e) => {
+                if (!isPanning) return;
+                state.panX = startPanX + (e.clientX - startMouseX);
+                state.panY = startPanY + (e.clientY - startMouseY);
+                applyTransform();
+            });
+            window.addEventListener("mouseup", () => (isPanning = false));
+            window.addEventListener("resize", () => {
+                applyTransform();
+            });
+
+            /** BUTTONS & ACTIONS */
+            document.getElementById("btnNew").onclick = () => {
+                SFX.click();
+                state.layers = [];
+                state.activeLayerId = null;
+                updateView();
+            };
+
+            document.getElementById("btnAutoZoom").onclick = (e) => {
+                SFX.click();
+                if (typeof tpState !== "undefined" && tpState.active) {
+                    autoFitTp();
+                    return;
+                }
+                setAutoZoom(!state.autoZoom);
+            };
+
+            document.getElementById("btnTheme").onclick = () => {
+                SFX.click();
+                state.theme = state.theme === "light" ? "dark" : "light";
+                document.documentElement.setAttribute(
+                    "data-theme",
+                    state.theme,
+                );
+            };
+
+            document.getElementById("btnBg").onclick = () => {
+                SFX.click();
+                state.bgIndex = (state.bgIndex + 1) % bgs.length;
+                const cls = bgs[state.bgIndex];
+                const updateElementBg = (el) => {
+                    bgs.forEach((b) => el.classList.remove(b));
+                    el.classList.add(cls);
+                };
+                updateElementBg(UI.canvas);
+                updateElementBg(UI.puzzleView);
+                document
+                    .querySelectorAll(
+                        ".shape-thumb, .layer-thumb, .modal-preview",
+                    )
+                    .forEach(updateElementBg);
+                saveState();
+            };
+
+            const uploadInput = document.createElement("input");
+            uploadInput.type = "file";
+            uploadInput.id = "uploadImageInput";
+            uploadInput.accept = "image/*";
+            uploadInput.hidden = true;
+            document.body.appendChild(uploadInput);
+
+            document.getElementById("btnUploadImage").onclick = () => {
+                SFX.click();
+                uploadInput.click();
+            };
+
+            uploadInput.onchange = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                await addUploadedImage(file);
+                e.target.value = "";
+            };
+
+            document.getElementById("btnTogglePuzzle").onclick = async (e) => {
+                SFX.click();
+                state.puzzleMode = !state.puzzleMode;
+                e.currentTarget.style.background = state.puzzleMode
+                    ? "var(--layer-active)"
+                    : "var(--btn-bg)";
+                UI.puzzleControls.style.display = state.puzzleMode
+                    ? "flex"
+                    : "none";
+
+                if (state.puzzleMode) {
+                    if (state.extraFlipMode)
+                        document.getElementById("btnToggleExtraFlip").click();
+                    if (state.eftMode)
+                        document.getElementById("btnToggleEft").click();
+                    if (tpState.active)
+                        document.getElementById("btnToggleTp").click();
+                    UI.puzzleView.classList.add("active");
+                    if (state.puzzleLayers.length === 0)
+                        await generateRandomPuzzle();
+                    renderPuzzleCanvas();
+                } else {
+                    UI.puzzleView.classList.remove("active");
+                    UI.winBanner.classList.remove("show");
+                    lastWinState = false;
+                }
+                setAutoZoom(true);
+            };
+
+            document.getElementById("btnNewPuzzle").onclick = async () => {
+                state.layers = [];
+                lastWinState = false;
+                await generateRandomPuzzle();
+                renderPuzzleCanvas();
+                updateView();
+            };
+
+            const setDiff = (diff) => {
+                SFX.click();
+                state.difficulty = diff;
+                document
+                    .querySelectorAll("#btnEasy, #btnMedium, #btnHard")
+                    .forEach((b) => (b.style.background = "var(--btn-bg)"));
+                document.getElementById(
+                    "btn" + diff.charAt(0).toUpperCase() + diff.slice(1),
+                ).style.background = "var(--layer-active)";
+                document.getElementById("btnNewPuzzle").click();
+            };
+
+            document.getElementById("btnEasy").onclick = () => setDiff("easy");
+            document.getElementById("btnMedium").onclick = () =>
+                setDiff("medium");
+            document.getElementById("btnHard").onclick = () => setDiff("hard");
+
+            document.getElementById("btnShowHint").onclick = () => {
+                if (!state.puzzleMode) return;
+                UI.hintGrid.innerHTML = "";
+                state.puzzleLayers.forEach((l, index) => {
+                    if (index > 0) {
+                        const plus = document.createElement("div");
+                        plus.className = "hint-plus";
+                        plus.innerText = "+";
+                        UI.hintGrid.appendChild(plus);
+                    }
+                    const item = document.createElement("div");
+                    item.className = "hint-item";
+                    const src =
+                        l.shapeId === 12 && shapeCacheNoOutline[12]
+                            ? shapeCacheNoOutline[12]
+                            : shapeCache[l.shapeId];
+                    const scaleX = l.flipH ? -1 : 1;
+                    const scaleY = l.flipV ? -1 : 1;
+                    item.innerHTML = `<img src="${src}" style="transform: scale(${scaleX}, ${scaleY}) rotate(${l.rotation}deg)">`;
+                    UI.hintGrid.appendChild(item);
+                });
+                showModal("Puzzle Solution Hint", "hint");
+            };
+
+            // Modal logic
+            let modalAction = null;
+            function showModal(title, type) {
+                UI.modalTitle.innerText = title;
+                UI.modalExport.style.display =
+                    type === "export" ? "flex" : "none";
+                const isInput =
+                    type === "input" ||
+                    type === "loadCreate" ||
+                    type === "loadPuzzle";
+                UI.modalInput.style.display = isInput ? "flex" : "none";
+                UI.modalWin.style.display = type === "win" ? "flex" : "none";
+                UI.modalHint.style.display = type === "hint" ? "flex" : "none";
+
+                const modalContent = document.getElementById("modalContent");
+                if (type === "hint") {
+                    modalContent.style.width = "calc(100vw - 60px)";
+                    modalContent.style.maxWidth = "none";
+                    modalContent.style.maxHeight = "90vh";
+                    modalContent.style.overflowX = "hidden";
+                    modalContent.style.overflowY = "auto";
+                } else {
+                    modalContent.style.width = "500px";
+                    modalContent.style.overflow = "hidden";
+                }
+
+                UI.modalActions.style.display = "flex";
+                if (type === "win") {
+                    UI.btnCancel.innerHTML = "🏠 Home";
+                    UI.btnClose.style.display = "flex";
+                    UI.btnClose.innerHTML = "❌ Close";
+                    UI.btnConfirm.innerHTML = "➕ New Puzzle";
+                } else if (type === "hint") {
+                    UI.btnCancel.innerHTML = "❌ Close";
+                    UI.btnClose.style.display = "none";
+                    UI.btnConfirm.innerHTML = "✅ Got it";
+                } else {
+                    UI.btnCancel.innerHTML = "❌ Cancel";
+                    UI.btnClose.style.display = "none";
+                    UI.btnConfirm.innerHTML = "✅ Confirm";
+                }
+
+                UI.modal.classList.add("active");
+                if (isInput) UI.textInput.focus();
+                modalAction = type;
+            }
+
+            function hideModal() {
+                UI.modal.classList.remove("active");
+                modalAction = null;
+            }
+
+            UI.btnCancel.onclick = () => {
+                if (modalAction === "win") window.location.href = "index.html";
+                hideModal();
+            };
+            UI.btnClose.onclick = () => {
+                hideModal();
+            };
+
+            UI.btnConfirm.onclick = async () => {
+                if (modalAction === "win") {
+                    document.getElementById("btnNewPuzzle").click();
+                } else if (modalAction === "hint") {
+                } else if (
+                    modalAction === "loadCreate" ||
+                    modalAction === "loadPuzzle"
+                ) {
+                    const seed = UI.textInput.value.trim();
+                    if (seed) {
+                        if (modalAction === "loadCreate") {
+                            state.layers = decodeSeed(seed);
+                            updateView();
+                        } else {
+                            state.puzzleLayers = decodeSeed(seed);
+                            if (!state.puzzleMode)
+                                document
+                                    .getElementById("btnTogglePuzzle")
+                                    .click();
+                            else {
+                                renderPuzzleCanvas();
+                                checkWinCondition();
+                            }
+                        }
+                    }
+                } else if (modalAction === "export") {
+                    await doExport();
+                }
+                hideModal();
+            };
+
+            document.getElementById("btnLoadCanvas").onclick = () => {
+                UI.textInput.value = "";
+                showModal("Load Canvas (Seed ID)", "loadCreate");
+            };
+            document.getElementById("btnLoadPuzzle").onclick = () => {
+                UI.textInput.value = "";
+                showModal("Load Puzzle (Seed ID)", "loadPuzzle");
+            };
+
+            // Export Logic
+            document.getElementById("btnExport").onclick = async () => {
+                showModal("Export Canvas", "export");
+                await renderToCanvasContext(
+                    UI.exportPreview,
+                    state.layers,
+                    500,
+                    document.getElementById("chkTransparentBg").checked,
+                );
+            };
+
+            document.getElementById("chkTransparentBg").onchange = () => {
+                renderToCanvasContext(
+                    UI.exportPreview,
+                    state.layers,
+                    500,
+                    document.getElementById("chkTransparentBg").checked,
+                );
+            };
+
+            async function renderToCanvasContext(
+                canvas,
+                layers,
+                size,
+                transparent = true,
+            ) {
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d", {
+                    willReadFrequently: true,
+                });
+                ctx.clearRect(0, 0, size, size);
+                if (!transparent) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, size, size);
+                }
+
+                for (const l of layers) {
+                    if (l.visible === false) continue;
+                    await new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.save();
+                            ctx.translate(size / 2, size / 2);
+                            ctx.scale(l.flipH ? -1 : 1, l.flipV ? -1 : 1);
+                            ctx.rotate((l.rotation * Math.PI) / 180);
+                            const aspect =
+                                img.naturalWidth && img.naturalHeight
+                                    ? img.naturalWidth / img.naturalHeight
+                                    : 1;
+                            let drawWidth = size;
+                            let drawHeight = size;
+                            if (aspect > 1) drawHeight = size / aspect;
+                            else if (aspect > 0) drawWidth = size * aspect;
+                            ctx.drawImage(
+                                img,
+                                -drawWidth / 2,
+                                -drawHeight / 2,
+                                drawWidth,
+                                drawHeight,
+                            );
+                            ctx.restore();
+                            resolve();
+                        };
+                        img.src =
+                            l.shapeId === 12 && shapeCacheNoOutline[12]
+                                ? shapeCacheNoOutline[12]
+                                : shapeCache[l.shapeId];
+                    });
+                }
+                return ctx;
+            }
+
+            async function doExport() {
+                const tempCanvas = document.createElement("canvas");
+                await renderToCanvasContext(
+                    tempCanvas,
+                    state.layers,
+                    2400,
+                    document.getElementById("chkTransparentBg").checked,
+                );
+                const link = document.createElement("a");
+                link.download = `ShapeStack_${encodeSeed(state.layers) || "empty"}.png`;
+                link.href = tempCanvas.toDataURL("image/png", 1.0);
+                link.click();
+            }
+
+            /** PUZZLE MATCHING */
+            async function generateRandomPuzzle() {
+                let min = 2,
+                    max = 3;
+                if (state.difficulty === "easy") {
+                    min = 2;
+                    max = 3;
+                } else if (state.difficulty === "medium") {
+                    min = 4;
+                    max = 5;
+                } else if (state.difficulty === "hard") {
+                    min = 6;
+                    max = 8;
+                }
+
+                const targetCount =
+                    Math.floor(Math.random() * (max - min + 1)) + min;
+                state.puzzleLayers = [];
+
+                const SIZE = 200;
+                const canvas = document.createElement("canvas");
+                canvas.width = SIZE;
+                canvas.height = SIZE;
+                const ctx = canvas.getContext("2d", {
+                    willReadFrequently: true,
+                });
+
+                for (let i = 0; i < targetCount; i++) {
+                    let attempts = 0,
+                        success = false;
+                    while (attempts < 30 && !success) {
+                        attempts++;
+                        const candidate = {
+                            id: state.nextLayerId++,
+                            shapeId:
+                                Math.floor(Math.random() * SHAPES_COUNT) + 1,
+                            rotation: Math.floor(Math.random() * 4) * 90,
+                            flipH: Math.random() > 0.5,
+                            flipV: Math.random() > 0.5,
+                            locked: false,
+                        };
+
+                        const testLayers = [...state.puzzleLayers, candidate];
+                        ctx.clearRect(0, 0, SIZE, SIZE);
+                        await renderToCanvasContext(canvas, testLayers, SIZE);
+                        const fullData = ctx.getImageData(
+                            0,
+                            0,
+                            SIZE,
+                            SIZE,
+                        ).data;
+
+                        let allLayersValid = true;
+                        for (let t = 0; t < testLayers.length; t++) {
+                            const subsetLayers = testLayers.filter(
+                                (_, idx) => idx !== t,
+                            );
+                            ctx.clearRect(0, 0, SIZE, SIZE);
+                            await renderToCanvasContext(
+                                canvas,
+                                subsetLayers,
+                                SIZE,
+                            );
+                            const subsetData = ctx.getImageData(
+                                0,
+                                0,
+                                SIZE,
+                                SIZE,
+                            ).data;
+
+                            let changedPixels = 0;
+                            for (let j = 0; j < fullData.length; j += 4) {
+                                if (
+                                    Math.abs(fullData[j] - subsetData[j]) > 5 ||
+                                    Math.abs(
+                                        fullData[j + 1] - subsetData[j + 1],
+                                    ) > 5 ||
+                                    Math.abs(
+                                        fullData[j + 2] - subsetData[j + 2],
+                                    ) > 5 ||
+                                    Math.abs(
+                                        fullData[j + 3] - subsetData[j + 3],
+                                    ) > 5
+                                ) {
+                                    changedPixels++;
+                                }
+                            }
+                            if (changedPixels / (SIZE * SIZE) < 0.03) {
+                                allLayersValid = false;
+                                break;
+                            }
+                        }
+                        if (allLayersValid) {
+                            state.puzzleLayers.push(candidate);
+                            success = true;
+                        }
+                    }
+                }
+
+                const tempCanvas1 = document.createElement("canvas");
+                tempCanvas1.width = SIZE;
+                tempCanvas1.height = SIZE;
+                const tCtx1 = tempCanvas1.getContext("2d", {
+                    willReadFrequently: true,
+                });
+
+                const tempCanvas2 = document.createElement("canvas");
+                tempCanvas2.width = SIZE;
+                tempCanvas2.height = SIZE;
+                const tCtx2 = tempCanvas2.getContext("2d", {
+                    willReadFrequently: true,
+                });
+
+                let optimizedLayers = [...state.puzzleLayers];
+                let hasChanges = true;
+
+                while (hasChanges) {
+                    hasChanges = false;
+                    await renderToCanvasContext(
+                        tempCanvas1,
+                        optimizedLayers,
+                        SIZE,
+                    );
+                    const fullData = tCtx1.getImageData(0, 0, SIZE, SIZE).data;
+
+                    for (let i = 0; i < optimizedLayers.length; i++) {
+                        const testStack = optimizedLayers.filter(
+                            (_, idx) => idx !== i,
+                        );
+                        tCtx2.clearRect(0, 0, SIZE, SIZE);
+                        await renderToCanvasContext(
+                            tempCanvas2,
+                            testStack,
+                            SIZE,
+                        );
+                        const subsetData = tCtx2.getImageData(
+                            0,
+                            0,
+                            SIZE,
+                            SIZE,
+                        ).data;
+
+                        let changedPixels = 0;
+                        for (let j = 0; j < fullData.length; j += 4) {
+                            if (
+                                Math.abs(fullData[j] - subsetData[j]) > 5 ||
+                                Math.abs(fullData[j + 1] - subsetData[j + 1]) >
+                                    5 ||
+                                Math.abs(fullData[j + 2] - subsetData[j + 2]) >
+                                    5 ||
+                                Math.abs(fullData[j + 3] - subsetData[j + 3]) >
+                                    5
+                            ) {
+                                changedPixels++;
+                            }
+                        }
+
+                        if (changedPixels / (SIZE * SIZE) < 0.01) {
+                            optimizedLayers.splice(i, 1);
+                            hasChanges = true;
+                            break;
+                        }
+                    }
+                }
+                state.puzzleLayers = optimizedLayers;
+            }
+
+            function renderPuzzleCanvas() {
+                UI.puzzleCanvas.innerHTML = "";
+                state.puzzleLayers.forEach((l, index) => {
+                    const img = document.createElement("img");
+                    img.src =
+                        l.shapeId === 12 && shapeCacheNoOutline[12]
+                            ? shapeCacheNoOutline[12]
+                            : shapeCache[l.shapeId];
+                    img.className = "render-layer";
+                    img.style.zIndex = index + 1;
+                    const scaleX = l.flipH ? -1 : 1;
+                    const scaleY = l.flipV ? -1 : 1;
+                    img.style.transform = `scale(${scaleX}, ${scaleY}) rotate(${l.rotation}deg)`;
+                    UI.puzzleCanvas.appendChild(img);
+                });
+                checkWinCondition();
+            }
+
+            let lastWinState = false;
+            let isCheckingWin = false;
+            async function checkWinCondition() {
+                if (!state.puzzleMode || isCheckingWin) return;
+                isCheckingWin = true;
+
+                try {
+                    const SIZE = 400;
+                    const c1 = document.createElement("canvas"),
+                        c2 = document.createElement("canvas");
+                    const ctx1 = await renderToCanvasContext(
+                        c1,
+                        state.layers,
+                        SIZE,
+                    );
+                    const ctx2 = await renderToCanvasContext(
+                        c2,
+                        state.puzzleLayers,
+                        SIZE,
+                    );
+
+                    const d1 = ctx1.getImageData(0, 0, SIZE, SIZE).data,
+                        d2 = ctx2.getImageData(0, 0, SIZE, SIZE).data;
+                    let mismatchCount = 0;
+                    for (let i = 0; i < d1.length; i += 4) {
+                        const adiff = Math.abs(d1[i + 3] - d2[i + 3]);
+                        const cdiff =
+                            Math.abs(d1[i] - d2[i]) +
+                            Math.abs(d1[i + 1] - d2[i + 1]) +
+                            Math.abs(d1[i + 2] - d2[i + 2]);
+
+                        // Slightly more lenient color/alpha thresholds
+                        if (d1[i + 3] > 180 || d2[i + 3] > 180) {
+                            if (adiff > 25 || cdiff > 40) mismatchCount++;
+                        } else if (adiff > 60 || cdiff > 120) mismatchCount++;
+                    }
+
+                    // Threshold increased from 0.003 to 0.01 (1% of pixels can differ)
+                    if (
+                        mismatchCount / (SIZE * SIZE) < 0.01 &&
+                        state.layers.length > 0
+                    ) {
+                        UI.winBanner.classList.add("show");
+                        if (!lastWinState) {
+                            SFX.win();
+                            confetti({
+                                particleCount: 150,
+                                spread: 70,
+                                origin: { y: 0.6 },
+                            });
+                            setTimeout(() => {
+                                showModal("Puzzle Solved!", "win");
+                            }, 1500);
+                        }
+                        lastWinState = true;
+                    } else {
+                        UI.winBanner.classList.remove("show");
+                        lastWinState = false;
+                    }
+                } finally {
+                    isCheckingWin = false;
+                }
+            }
+
+            UI.seedInput.onclick = () => {
+                UI.seedInput.select();
+                navigator.clipboard
+                    .writeText(UI.seedInput.value)
+                    .catch(() => {});
+            };
+            UI.seedInput.onkeydown = (e) => {
+                if (e.key === "Enter") {
+                    const seed = UI.seedInput.value.trim();
+                    if (seed) {
+                        try {
+                            state.layers = decodeSeed(seed);
+                            state.activeLayerId = state.layers.length
+                                ? state.layers[state.layers.length - 1].id
+                                : null;
+                            state.nextLayerId =
+                                Math.max(...state.layers.map((l) => l.id), 0) +
+                                1;
+                            updateView();
+                            saveState();
+                            if (state.puzzleMode) checkWinCondition();
+                        } catch (err) {}
+                    }
+                }
+            };
+
+            document.getElementById("btnSetSeed").onclick = () => {
+                const seed = UI.seedInput.value.trim();
+                if (seed) {
+                    try {
+                        state.layers = decodeSeed(seed);
+                        state.activeLayerId = state.layers.length
+                            ? state.layers[state.layers.length - 1].id
+                            : null;
+                        state.nextLayerId =
+                            Math.max(...state.layers.map((l) => l.id), 0) + 1;
+                        updateView();
+                        saveState();
+                        if (state.puzzleMode) checkWinCondition();
+                    } catch (err) {}
+                }
+            };
+
+            function saveState() {
+                try {
+                    localStorage.setItem(
+                        "shapesStackState",
+                        JSON.stringify({
+                            layers: state.layers.filter(
+                                (l) => !isTempUploadedShape(l.shapeId),
+                            ),
+                            bgIndex: state.bgIndex,
+                            nextLayerId: state.nextLayerId,
+                        }),
+                    );
+                } catch (e) {}
+            }
+
+            function loadState() {
+                try {
+                    const saved = localStorage.getItem("shapesStackState");
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        if (data.layers && Array.isArray(data.layers)) {
+                            state.layers = data.layers.filter(
+                                (l) => !isTempUploadedShape(l.shapeId),
+                            );
+                            state.bgIndex = data.bgIndex ?? 0;
+                            state.nextLayerId = data.nextLayerId ?? 1;
+                            state.activeLayerId = state.layers.length
+                                ? state.layers[state.layers.length - 1].id
+                                : null;
+                            return true;
+                        }
+                    }
+                } catch (e) {}
+                return false;
+            }
+
+            const hadState = loadState();
+            const applyBg = () => {
+                const cls = bgs[state.bgIndex];
+                const updateElementBg = (el) => {
+                    bgs.forEach((b) => el.classList.remove(b));
+                    if (cls) el.classList.add(cls);
+                };
+                updateElementBg(UI.canvas);
+                updateElementBg(UI.puzzleView);
+                document
+                    .querySelectorAll(
+                        ".shape-thumb, .layer-thumb, .modal-preview",
+                    )
+                    .forEach(updateElementBg);
+            };
+            applyBg();
+            initShapes();
+            document.addEventListener("click", SFX.initOnClick, { once: true });
+        </script>
+    </body>
+</html>

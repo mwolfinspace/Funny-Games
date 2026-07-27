@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SET - Pick The Path</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .setup-screen, .game-screen, .end-screen {
+            display: none;
+        }
+
+        .setup-screen.active, .game-screen.active, .end-screen.active {
+            display: block;
+        }
+
+        .setup-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .setup-left {
+            flex: 1;
+        }
+
+        .setup-right {
+            width: 350px;
+            padding-left: 30px;
+            border-left: 2px solid #eee;
+        }
+
+        .setup-group {
+            margin-bottom: 25px;
+        }
+
+        .setup-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        .color-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .color-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-input input[type="color"] {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .symbol-select {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .symbol-option {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .symbol-option:hover {
+            border-color: #667eea;
+        }
+
+        .symbol-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .orientation-select {
+            display: flex;
+            gap: 20px;
+        }
+
+        .orientation-option {
+            padding: 15px 30px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .orientation-option:hover {
+            border-color: #667eea;
+        }
+
+        .orientation-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .start-btn {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .start-btn:hover {
+            background: #5568d3;
+        }
+
+        .card {
+            background: white;
+            border: 3px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            width: 200px;
+            height: 280px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .card.horizontal {
+            width: 280px;
+            height: 200px;
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .card-info {
+            margin-top: 10px;
+            font-size: 11px;
+            text-align: center;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .wrong-mark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: red;
+            font-weight: bold;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .wrong-mark.show {
+            opacity: 1;
+        }
+
+        .game-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 600px;
+        }
+
+        .path-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            height: 500px;
+        }
+
+        .card-slot {
+            width: 210px;
+            height: 290px;
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .slot-a, .slot-b {
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .slot-a:hover, .slot-b:hover {
+            background: #f0f0f0;
+            border-color: #5568d3;
+        }
+
+        .slots {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .path-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .path {
+            fill: none;
+            stroke: #333;
+            stroke-width: 6;
+            stroke-dasharray: 10, 5;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -20;
+            }
+        }
+
+        .intersection {
+            fill: #667eea;
+        }
+
+        .sign {
+            position: absolute;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .demo-area {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+            min-height: 300px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        .demo-card {
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            width: 100px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .demo-card.horizontal {
+            width: 140px;
+            height: 100px;
+        }
+
+        .demo-card .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .end-screen {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .end-screen h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            font-size: 20px;
+            margin-bottom: 30px;
+            color: #555;
+        }
+
+        .restart-btn {
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .restart-btn:hover {
+            background: #5568d3;
+        }
+
+        .symbol-count {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+    <style>
+        a.return-to-menu {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            background-color: rgba(0,0,0,0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-decoration: none;
+            opacity: 0.5;
+            transition: opacity 0.3s, background-color 0.3s;
+            z-index: 1000;
+        }
+        a.return-to-menu:hover {
+            opacity: 1;
+            background-color: rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+<a class="return-to-menu" href="index.html">🏠</a>
+    <div class="container">
+        <h1>SET - Pick The Path</h1>
+        
+        <div class="setup-screen active">
+            <div class="setup-container">
+                <div class="setup-left">
+                    <div class="setup-group">
+                        <label>Choose 3 Colors:</label>
+                        <div class="color-inputs">
+                            <div class="color-input">
+                                <input type="color" id="color1" value="#FF0000">
+                                <span>Color 1</span>
+                            </div>
+                            <div class="color-input">
+                                <input type="color" id="color2" value="#00FF00">
+                                <span>Color 2</span>
+                            </div>
+                            <div class="color-input">
+                                <input type="color" id="color3" value="#0000FF">
+                                <span>Color 3</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setup-group">
+                        <label>Card Background Color:</label>
+                        <input type="color" id="cardBg" value="#FFFFFF">
+                    </div>
+
+                    <div class="setup-group">
+                        <label>Choose 3 Symbols:</label>
+                        <div class="symbol-select">
+                            <div class="symbol-option selected" data-symbol="diamond">
+                                <div></div>
+                                <span>Diamond</span>
+                            </div>
+                            <div class="symbol-option selected" data-symbol="circle">
+                                <div></div>
+                                <span>Circle</span>
+                            </div>
+                            <div class="symbol-option selected" data-symbol="pill">
+                                <div></div>
+                                <span>Pill</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="wave">
+                                <div></div>
+                                <span>Wave</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="triangle">
+                                <div></div>
+                                <span>Triangle</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="square">
+                                <div></div>
+                                <span>Square</span>
+                            </div>
+                            <div class="symbol-option" data-symbol="star">
+                                <div></div>
+                                <span>Star</span>
+                            </div>
+                        </div>
+                        <div class="symbol-count">Selected: 3 symbols</div>
+                    </div>
+
+                    <div class="setup-group">
+                        <label>Card Orientation:</label>
+                        <div class="orientation-select">
+                            <div class="orientation-option selected" data-orientation="vertical">Vertical</div>
+                            <div class="orientation-option" data-orientation="horizontal">Horizontal</div>
+                        </div>
+                    </div>
+
+                    <button class="start-btn" onclick="startGame()">Start The Game</button>
+                </div>
+                <div class="setup-right">
+                    <label style="display: block; font-weight: bold; margin-bottom: 10px; color: #555;">Live Preview</label>
+                    <div class="demo-area" id="demoArea"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-screen">
+            <div class="game-area">
+                <div id="card-slot" class="card-slot"></div>
+                <div class="path-area">
+                    <svg id="path-svg" class="path-svg"></svg>
+                    <div id="sign1" class="sign"></div>
+                    <div id="sign2" class="sign"></div>
+                </div>
+                <div class="slots">
+                    <div id="slot-a" class="card-slot slot-a">A</div>
+                    <div id="slot-b" class="card-slot slot-b">B</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="end-screen">
+            <h2>Congratulations! 🎉</h2>
+            <div class="stats" id="stats"></div>
+            <button class="restart-btn" onclick="location.reload()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let settings = {
+            colors: ['#FF0000', '#00FF00', '#0000FF'],
+            cardBg: '#FFFFFF',
+            symbols: ['diamond', 'circle', 'pill'],
+            orientation: 'vertical'
+        };
+
+        let deck = [];
+        let currentCard = null;
+        let sign1Feature = null;
+        let sign2Feature = null;
+        let score = 0;
+
+        const symbolNames = {
+            'diamond': 'Diamond',
+            'circle': 'Circle',
+            'pill': 'Pill',
+            'wave': 'Wave',
+            'triangle': 'Triangle',
+            'square': 'Square',
+            'star': 'Star'
+        };
+
+        // Setup screen handlers
+        document.querySelectorAll('.symbol-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                this.classList.toggle('selected');
+                
+                const count = document.querySelectorAll('.symbol-option.selected').length;
+                document.querySelector('.symbol-count').textContent = `Selected: ${count} symbols`;
+                updateDemo();
+            });
+        });
+
+        document.querySelectorAll('.orientation-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                document.querySelectorAll('.orientation-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                settings.orientation = this.dataset.orientation;
+                updateDemo();
+            });
+        });
+
+        function updateSymbolOptions() {
+            document.querySelectorAll('.symbol-option').forEach(opt => {
+                const symbol = opt.dataset.symbol;
+                const svg = drawShape(symbol, '#333', 'solid', 30);
+                opt.querySelector('div').innerHTML = '';
+                opt.querySelector('div').appendChild(svg);
+            });
+        }
+
+        function updateDemo() {
+            const demoArea = document.getElementById('demoArea');
+            demoArea.innerHTML = '';
+
+            const colors = [
+                document.getElementById('color1').value,
+                document.getElementById('color2').value,
+                document.getElementById('color3').value
+            ];
+            const cardBg = document.getElementById('cardBg').value;
+            const selectedSymbols = Array.from(document.querySelectorAll('.symbol-option.selected'))
+                .map(opt => opt.dataset.symbol);
+
+            if (selectedSymbols.length === 0) return;
+
+            const shadings = ['solid', 'striped', 'outline'];
+            const counts = [1, 2, 3];
+
+            for (let i = 0; i < 9; i++) {
+                const card = document.createElement('div');
+                card.className = 'demo-card';
+                card.style.background = cardBg;
+                
+                if (settings.orientation === 'horizontal') {
+                    card.classList.add('horizontal');
+                }
+                
+                const cardContent = document.createElement('div');
+                cardContent.className = 'card-content';
+
+                const symbol = selectedSymbols[i % selectedSymbols.length];
+                const color = colors[Math.floor(i / 3) % colors.length];
+                const shading = shadings[i % shadings.length];
+                const count = counts[i % counts.length];
+
+                for (let j = 0; j < count; j++) {
+                    const shape = drawShape(symbol, color, shading, 25);
+                    cardContent.appendChild(shape);
+                }
+
+                card.appendChild(cardContent);
+                demoArea.appendChild(card);
+            }
+        }
+
+        document.querySelectorAll('.color-input input').forEach(input => input.addEventListener('input', updateDemo));
+        document.getElementById('cardBg').addEventListener('input', updateDemo);
+
+        updateSymbolOptions();
+        updateDemo();
+
+        function createDeck() {
+            deck = [];
+            const counts = [1, 2, 3];
+            const colors = [0, 1, 2];
+            const shadings = ['solid', 'striped', 'outline'];
+            const shapes = [0, 1, 2];
+
+            for (let count of counts) {
+                for (let color of colors) {
+                    for (let shading of shadings) {
+                        for (let shape of shapes) {
+                            deck.push({ count, color, shading, shape });
+                        }
+                    }
+                }
+            }
+            
+            // Shuffle deck
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        function drawShape(symbol, color, shading, size = 30) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            svg.classList.add('shape');
+
+            let shape;
+            const fillColor = shading === 'solid' ? color : 'none';
+            const strokeColor = color;
+            const strokeWidth = 2;
+
+            switch(symbol) {
+                case 'circle':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    shape.setAttribute('cx', size/2);
+                    shape.setAttribute('cy', size/2);
+                    shape.setAttribute('r', size/2 - 2);
+                    break;
+                case 'square':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    shape.setAttribute('x', 2);
+                    shape.setAttribute('y', 2);
+                    shape.setAttribute('width', size - 4);
+                    shape.setAttribute('height', size - 4);
+                    break;
+                case 'diamond':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    shape.setAttribute('points', `${size/2},2 ${size-2},${size/2} ${size/2},${size-2} 2,${size/2}`);
+                    break;
+                case 'triangle':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    shape.setAttribute('points', `${size/2},2 ${size-2},${size-2} 2,${size-2}`);
+                    break;
+                case 'pill':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    shape.setAttribute('x', 2);
+                    shape.setAttribute('y', size/4);
+                    shape.setAttribute('width', size - 4);
+                    shape.setAttribute('height', size/2);
+                    shape.setAttribute('rx', size/4);
+                    break;
+                case 'star':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    const points = [];
+                    for (let i = 0; i < 10; i++) {
+                        const angle = (i * Math.PI) / 5 - Math.PI / 2;
+                        const r = i % 2 === 0 ? size/2 - 2 : size/4;
+                        points.push(`${size/2 + r * Math.cos(angle)},${size/2 + r * Math.sin(angle)}`);
+                    }
+                    shape.setAttribute('points', points.join(' '));
+                    break;
+                case 'wave':
+                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const waveHeight = size / 4;
+                    shape.setAttribute('d', `
+                        M 2,${size/2 - waveHeight/2}
+                        Q ${size/4},${size/2 - waveHeight*1.5} ${size/2},${size/2 - waveHeight/2}
+                        T ${size-2},${size/2 - waveHeight/2}
+                        L ${size-2},${size/2 + waveHeight/2}
+                        Q ${size*3/4},${size/2 + waveHeight*2} ${size/2},${size/2 + waveHeight/2}
+                        T 2,${size/2 + waveHeight/2}
+                        Z
+                    `);
+                    break;
+            }
+
+            shape.setAttribute('fill', fillColor);
+            shape.setAttribute('stroke', strokeColor);
+            shape.setAttribute('stroke-width', strokeWidth);
+
+            if (shading === 'striped') {
+                const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+                pattern.setAttribute('id', `stripe-${Math.random()}`);
+                pattern.setAttribute('width', '4');
+                pattern.setAttribute('height', '4');
+                pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', '0');
+                line.setAttribute('y1', '0');
+                line.setAttribute('x2', '0');
+                line.setAttribute('y2', '4');
+                line.setAttribute('stroke', color);
+                line.setAttribute('stroke-width', '2');
+                
+                pattern.appendChild(line);
+                svg.appendChild(pattern);
+                shape.setAttribute('fill', `url(#${pattern.getAttribute('id')})`);
+            }
+
+            svg.appendChild(shape);
+            return svg;
+        }
+
+        function createCardElement(cardData) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'card-wrapper';
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            if (settings.orientation === 'horizontal') {
+                card.classList.add('horizontal');
+            }
+            card.style.background = settings.cardBg;
+
+            const content = document.createElement('div');
+            content.className = 'card-content';
+
+            const color = settings.colors[cardData.color];
+            const symbol = settings.symbols[cardData.shape];
+            
+            for (let i = 0; i < cardData.count; i++) {
+                const shape = drawShape(symbol, color, cardData.shading, 40);
+                content.appendChild(shape);
+            }
+
+            card.appendChild(content);
+
+            const info = document.createElement('div');
+            info.className = 'card-info';
+            info.innerHTML = getCardInfoText(cardData);
+            card.appendChild(info);
+
+            const wrongMark = document.createElement('div');
+            wrongMark.className = 'wrong-mark';
+            wrongMark.textContent = '✗';
+            card.appendChild(wrongMark);
+
+            wrapper.appendChild(card);
+            return wrapper;
+        }
+
+        function getCardInfoText(cardData) {
+            const countText = `${cardData.count}`;
+            const colorText = `Color ${cardData.color + 1}`;
+            const shadingText = cardData.shading;
+            const shapeText = symbolNames[settings.symbols[cardData.shape]];
+
+            return `${countText} ${shapeText}<br>${colorText}, ${shadingText}`;
+        }
+
+        function drawPath() {
+            const svg = document.getElementById('path-svg');
+            svg.innerHTML = '';
+            const pathArea = document.querySelector('.path-area');
+            const width = pathArea.offsetWidth;
+            const height = pathArea.offsetHeight;
+
+            const startX = 50;
+            const startY = height / 2;
+            
+            const int1X = width / 3;
+            const int1Y = height / 2;
+            
+            const int2X = width * 2 / 3;
+            const int2Y = height / 3;
+            
+            const mergeX = width * 3 / 4;
+            const mergeY = height * 2 / 3;
+            
+            const slotAX = width - 50;
+            const slotAY = height / 4;
+            
+            const slotBX = width - 50;
+            const slotBY = height * 3 / 4;
+
+            svg.innerHTML = `
+                <path d="M ${startX},${startY} L ${int1X},${int1Y}" class="path" />
+                <path d="M ${int1X},${int1Y} L ${int2X},${int2Y}" class="path" />
+                <path d="M ${int1X},${int1Y} L ${mergeX},${mergeY}" class="path" />
+                <path d="M ${int2X},${int2Y} L ${slotAX},${slotAY}" class="path" />
+                <path d="M ${int2X},${int2Y} L ${mergeX},${mergeY}" class="path" />
+                <path d="M ${mergeX},${mergeY} L ${slotBX},${slotBY}" class="path" />
+                <circle cx="${int1X}" cy="${int1Y}" r="8" fill="#667eea" stroke="#333" stroke-width="2" />
+                <circle cx="${int2X}" cy="${int2Y}" r="8" fill="#667eea" stroke="#333" stroke-width="2" />
+                <circle cx="${mergeX}" cy="${mergeY}" r="8" fill="#ff6b6b" stroke="#333" stroke-width="2" />
+            `;
+
+            const sign1X = (int1X + int2X) / 2;
+            const sign1Y = (int1Y + int2Y) / 2 - 40;
+            
+            const sign2X = (int2X + slotAX) / 2;
+            const sign2Y = (int2Y + slotAY) / 2 - 40;
+            
+            const sign1 = document.getElementById('sign1');
+            sign1.style.left = `${sign1X - 40}px`;
+            sign1.style.top = `${sign1Y}px`;
+            
+            const sign2 = document.getElementById('sign2');
+            sign2.style.left = `${sign2X - 40}px`;
+            sign2.style.top = `${sign2Y}px`;
+        }
+
+        function hasFeature(card, feature) {
+            if(feature.type === 'color') return card.color === feature.value;
+            if(feature.type === 'shape') return card.shape === feature.value;
+            if(feature.type === 'shading') return card.shading === feature.value;
+            if(feature.type === 'count') return card.count === feature.value;
+            return false;
+        }
+
+        function getFeatureElement(feature) {
+            const el = document.createElement('div');
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.gap = '5px';
+
+            if (feature.type === 'color') {
+                const colorBox = document.createElement('div');
+                colorBox.style.width = '20px';
+                colorBox.style.height = '20px';
+                colorBox.style.backgroundColor = settings.colors[feature.value];
+                colorBox.style.border = '1px solid #333';
+                el.appendChild(colorBox);
+                const text = document.createElement('span');
+                text.textContent = `Color ${feature.value + 1}`;
+                el.appendChild(text);
+            } else if (feature.type === 'shape') {
+                const svg = drawShape(settings.symbols[feature.value], '#333', 'solid', 25);
+                el.appendChild(svg);
+                const text = document.createElement('span');
+                text.textContent = symbolNames[settings.symbols[feature.value]];
+                el.appendChild(text);
+            } else {
+                const text = document.createElement('span');
+                if (feature.type === 'shading') {
+                    text.textContent = feature.value;
+                } else if (feature.type === 'count') {
+                    text.textContent = `${feature.value} shape(s)`;
+                }
+                el.appendChild(text);
+            }
+            return el;
+        }
+
+        function drawCard() {
+            const cardSlot = document.getElementById('card-slot');
+            cardSlot.innerHTML = '';
+            if (deck.length > 0) {
+                currentCard = deck.pop();
+                const cardEl = createCardElement(currentCard);
+                cardSlot.appendChild(cardEl);
+            } else {
+                endGame();
+            }
+        }
+        
+        function handleChoice(slot) {
+            const hasSign1Feature = sign1Feature ? hasFeature(currentCard, sign1Feature) : false;
+            
+            let goesToSlotA = false;
+            
+            if (hasSign1Feature) {
+                const hasSign2Feature = sign2Feature ? hasFeature(currentCard, sign2Feature) : false;
+                
+                if (hasSign2Feature) {
+                    goesToSlotA = true;
+                } else {
+                    goesToSlotA = false;
+                }
+            } else {
+                goesToSlotA = false;
+            }
+            
+            const correctSlot = goesToSlotA ? 'a' : 'b';
+
+            if (slot === correctSlot) {
+                score++;
+                playSuccessSound();
+                drawCard();
+            } else {
+                playErrorSound();
+                const cardSlot = document.getElementById('card-slot');
+                const wrongMark = cardSlot.querySelector('.wrong-mark');
+                wrongMark.classList.add('show');
+                setTimeout(() => {
+                    wrongMark.classList.remove('show');
+                }, 1000);
+            }
+        }
+
+        function endGame() {
+            document.querySelector('.game-screen').classList.remove('active');
+            document.querySelector('.end-screen').classList.add('active');
+            document.getElementById('stats').textContent = `You sorted ${score} out of 81 cards correctly!`;
+        }
+
+        function playSuccessSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 523.25;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function playErrorSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 200;
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        function startGame() {
+            settings.colors = [
+                document.getElementById('color1').value,
+                document.getElementById('color2').value,
+                document.getElementById('color3').value
+            ];
+            settings.cardBg = document.getElementById('cardBg').value;
+            
+            const selectedSymbols = Array.from(document.querySelectorAll('.symbol-option.selected'))
+                .map(opt => opt.dataset.symbol);
+            
+            if (selectedSymbols.length !== 3) {
+                alert('Please select exactly 3 symbols');
+                return;
+            }
+            
+            settings.symbols = selectedSymbols;
+
+            createDeck();
+            
+            const allFeatures = [];
+            
+            for (let i = 0; i < 3; i++) {
+                allFeatures.push({ type: 'color', value: i });
+            }
+            
+            for (let i = 0; i < 3; i++) {
+                allFeatures.push({ type: 'shape', value: i });
+            }
+            
+            const shadings = ['solid', 'striped', 'outline'];
+            for (let i = 0; i < 3; i++) {
+                allFeatures.push({ type: 'shading', value: shadings[i] });
+            }
+            
+            for (let i = 1; i <= 3; i++) {
+                allFeatures.push({ type: 'count', value: i });
+            }
+            
+            for (let i = allFeatures.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allFeatures[i], allFeatures[j]] = [allFeatures[j], allFeatures[i]];
+            }
+            
+            const possibleFeatures = allFeatures.slice(0, 4);
+            
+            sign1Feature = Math.random() < 0.5 ? possibleFeatures[0] : possibleFeatures[1];
+            sign2Feature = Math.random() < 0.5 ? possibleFeatures[2] : possibleFeatures[3];
+            
+            const sign1El = document.getElementById('sign1');
+            sign1El.innerHTML = '';
+            sign1El.appendChild(getFeatureElement(sign1Feature));
+            
+            const sign2El = document.getElementById('sign2');
+            sign2El.innerHTML = '';
+            sign2El.appendChild(getFeatureElement(sign2Feature));
+            
+            sign1El.style.borderColor = '#ff0000';
+            sign1El.style.borderWidth = '3px';
+            
+            sign2El.style.borderColor = '#ff0000';
+            sign2El.style.borderWidth = '3px';
+
+            document.querySelector('.setup-screen').classList.remove('active');
+            document.querySelector('.game-screen').classList.add('active');
+            
+            setTimeout(() => {
+                drawPath();
+                drawCard();
+            }, 100);
+
+            document.getElementById('slot-a').addEventListener('click', () => handleChoice('a'));
+            document.getElementById('slot-b').addEventListener('click', () => handleChoice('b'));
+        }
+
+        window.addEventListener('resize', function() {
+            if (document.querySelector('.game-screen').classList.contains('active')) {
+                drawPath();
+            }
+        });
+    </script>
+</body>
+</html>

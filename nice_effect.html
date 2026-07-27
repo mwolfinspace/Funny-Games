@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Cube Projection Matching Game (Bright)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: Segoe UI, Tahoma, sans-serif;
+    background: linear-gradient(135deg, #eef2ff, #f8fafc);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+#game-container {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    width: 100%;
+    max-width: 1200px;
+    box-shadow: 0 25px 60px rgba(0,0,0,.2);
+}
+h1 { text-align:center; color:#4f46e5; font-size:1.4em; }
+.subtitle { text-align:center; color:#666; margin-bottom:15px; }
+
+#controls {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+    flex-wrap:wrap;
+    gap:10px;
+}
+#status { font-weight:bold; color:#4338ca; }
+
+button {
+    background: linear-gradient(135deg,#6366f1,#4f46e5);
+    color:white;
+    border:none;
+    padding:10px 20px;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+}
+button:hover { opacity:.9; }
+
+select {
+    padding:8px 12px;
+    border-radius:10px;
+    border:2px solid #6366f1;
+    color:#4338ca;
+}
+
+#grid {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+}
+.flashcard {
+    aspect-ratio:1;
+    border-radius:15px;
+    overflow:hidden;
+    border:3px solid #e5e7eb;
+    background:#f9fafb;
+    cursor:pointer;
+    position:relative;
+    transition:.25s;
+}
+.flashcard:hover {
+    transform:scale(1.05);
+    box-shadow:0 12px 30px rgba(0,0,0,.15);
+}
+.flashcard.selected {
+    border-color:#6366f1;
+    box-shadow:0 0 20px rgba(99,102,241,.5);
+}
+.flashcard.matched {
+    opacity:.55;
+    pointer-events:none;
+    border-color:#10b981;
+}
+.flashcard img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+.flashcard-label {
+    position:absolute;
+    top:8px;
+    left:8px;
+    background:rgba(0,0,0,.65);
+    color:white;
+    padding:4px 10px;
+    border-radius:6px;
+    font-weight:bold;
+}
+
+@media (max-width:768px) {
+    #grid { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+
+<style>
+    a.return-to-menu {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        font-size: 24px;
+        background-color: rgba(0,0,0,0.2);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        text-decoration: none;
+        opacity: 0.5;
+        transition: opacity 0.3s, background-color 0.3s;
+        z-index: 1000;
+    }
+    a.return-to-menu:hover {
+        opacity: 1;
+        background-color: rgba(0,0,0,0.5);
+    }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.164.1/build/three.module.js"
+  }
+}
+</script>
+</head>
+
+<body>
+<a class="return-to-menu" href="index.html">🏠</a>
+<div id="game-container">
+<h1>Cube Projection Matching Game</h1>
+<p class="subtitle">Hình khối sáng – rõ – dễ nhìn</p>
+
+<div id="controls">
+<div id="status">Đã tìm thấy: 0/3 cặp</div>
+<div>
+<select id="difficulty">
+<option value="1">Dễ</option>
+<option value="2">Trung bình</option>
+<option value="3">Khó</option>
+</select>
+<button id="newGame">Trò chơi mới</button>
+</div>
+</div>
+
+<div id="grid"></div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+
+const NUM_PAIRS = 3;
+const TOTAL = 8;
+let matched = 0;
+let selected = [];
+let cards = [];
+
+function generateShape(n=6) {
+    const set = new Set(["0,0,0"]);
+    const list = [new THREE.Vector3(0,0,0)];
+    const dirs = [
+        [1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]
+    ];
+    while (list.length < n) {
+        const base = list[Math.floor(Math.random()*list.length)];
+        const d = dirs[Math.floor(Math.random()*dirs.length)];
+        const p = new THREE.Vector3(base.x+d[0],base.y+d[1],base.z+d[2]);
+        const k = `${p.x},${p.y},${p.z}`;
+        if (!set.has(k)) {
+            set.add(k);
+            list.push(p);
+        }
+    }
+    return list;
+}
+
+function projectionTop(shape) {
+    return [...new Set(shape.map(p=>`${p.x},${p.z}`))].sort().join("|");
+}
+
+async function renderShape(shape) {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf7f9fc);
+
+    const bbox = new THREE.Box3();
+    shape.forEach(p=>{
+        bbox.expandByPoint(p.clone().addScalar(.5));
+        bbox.expandByPoint(p.clone().addScalar(-.5));
+    });
+    const center = bbox.getCenter(new THREE.Vector3());
+    const size = bbox.getSize(new THREE.Vector3()).length();
+
+    const camera = new THREE.PerspectiveCamera(50,1,.1,100);
+    camera.position.set(size, size*1.2, size);
+    camera.lookAt(center);
+
+    // LIGHTING (bright & readable)
+    scene.add(new THREE.AmbientLight(0xffffff,0.85));
+
+    const main = new THREE.DirectionalLight(0xfff2d5,1.1);
+    main.position.set(6,10,6);
+    scene.add(main);
+
+    const fill = new THREE.DirectionalLight(0xdbeafe,.6);
+    fill.position.set(-6,4,-6);
+    scene.add(fill);
+
+    const rim = new THREE.DirectionalLight(0xffffff,.4);
+    rim.position.set(0,8,-10);
+    scene.add(rim);
+
+    const palette = [0x60a5fa,0x34d399,0xfbbf24,0xfb7185,0xa78bfa];
+    const baseColor = new THREE.Color(palette[Math.floor(Math.random()*palette.length)]);
+
+    shape.forEach(pos=>{
+        const geo = new THREE.BoxGeometry(1,1,1);
+        const colors=[];
+        for(let i=0;i<geo.attributes.position.count;i++){
+            const y=geo.attributes.position.getY(i);
+            const t=(y+0.5);
+            const c=baseColor.clone().lerp(new THREE.Color(0xffffff),0.25+t*0.25);
+            colors.push(c.r,c.g,c.b);
+        }
+        geo.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
+
+        const mat = new THREE.MeshStandardMaterial({
+            vertexColors:true,
+            roughness:.45,
+            metalness:.15
+        });
+        const cube = new THREE.Mesh(geo,mat);
+        cube.position.copy(pos);
+        scene.add(cube);
+
+        const edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geo),
+            new THREE.LineBasicMaterial({color:0x444444})
+        );
+        edges.position.copy(pos);
+        scene.add(edges);
+    });
+
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(512,512);
+    renderer.render(scene,camera);
+    const img = renderer.domElement.toDataURL();
+    renderer.dispose();
+    return img;
+}
+
+async function newGame() {
+    matched = 0;
+    selected = [];
+    cards = [];
+    document.getElementById("status").textContent="Đã tìm thấy: 0/3 cặp";
+
+    const used = new Set();
+    for(let i=0;i<NUM_PAIRS;i++){
+        let shape,proj;
+        do {
+            shape = generateShape(6+Math.floor(Math.random()*3));
+            proj = projectionTop(shape);
+        } while(used.has(proj));
+        used.add(proj);
+
+        cards.push({img:await renderShape(shape),pair:i});
+        cards.push({img:await renderShape(shape),pair:i});
+    }
+
+    cards.sort(()=>Math.random()-.5);
+    const grid=document.getElementById("grid");
+    grid.innerHTML="";
+
+    cards.forEach((c,i)=>{
+        const d=document.createElement("div");
+        d.className="flashcard";
+        d.innerHTML=`<div class="flashcard-label">${String.fromCharCode(65+i)}</div><img src="${c.img}">`;
+        d.onclick=()=>clickCard(d,c);
+        grid.appendChild(d);
+    });
+}
+
+function clickCard(el,card){
+    if(el.classList.contains("matched")||selected.includes(el)) return;
+    el.classList.add("selected");
+    selected.push(el);
+    if(selected.length===2){
+        const [a,b]=selected;
+        const ia=[...a.parentNode.children].indexOf(a);
+        const ib=[...b.parentNode.children].indexOf(b);
+        if(cards[ia].pair===cards[ib].pair){
+            a.classList.add("matched");
+            b.classList.add("matched");
+            matched++;
+            document.getElementById("status").textContent=`Đã tìm thấy: ${matched}/3 cặp`;
+        } else {
+            setTimeout(()=>{
+                a.classList.remove("selected");
+                b.classList.remove("selected");
+            },600);
+        }
+        selected=[];
+    }
+}
+
+document.getElementById("newGame").onclick=newGame;
+newGame();
+</script>
+</body>
+</html>

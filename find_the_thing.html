@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tìm Đồ Vật</title>
+    <link rel="stylesheet" href="ui_popup.css">
+    <style>
+        :root {
+            --bg-color: #F0F8FF;
+            --cabinet-bg: #DEB887;
+            --cabinet-border: #8B4513;
+            --text-primary: #333333;
+            --label-bg: rgba(255, 255, 255, 0.8);
+            --label-text: #222222;
+            --panel-bg: rgba(255, 255, 255, 0.6);
+            --panel-border: rgba(255, 255, 255, 0.2);
+            --shadow: rgba(0,0,0,0.1);
+            --success-color: #28a745;
+            --fail-color: #dc3545;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1A1A2E;
+            --cabinet-bg: #3E2723;
+            --cabinet-border: #1B0000;
+            --text-primary: #E0E0E0;
+            --label-bg: rgba(0, 0, 0, 0.6);
+            --label-text: #FFD54F;
+            --panel-bg: rgba(20, 20, 20, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --shadow: rgba(0,0,0,0.5);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        #game-zone {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #top-control {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 15px;
+            background-color: var(--panel-bg);
+            padding: 8px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px var(--shadow);
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .control-group button, .control-group span {
+            font-size: 16px;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        
+        .control-group button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 5;
+            padding: 15px;
+            background: var(--panel-bg);
+            border-top: 1px solid var(--panel-border);
+            box-shadow: 0 -8px 32px 0 var(--shadow);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: stretch;
+            gap: 15px;
+            transition: all 0.3s ease-in-out;
+            min-height: 110px;
+            box-sizing: border-box;
+        }
+
+        #bottom-panel.collapsed {
+            width: auto;
+            min-height: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            right: auto;
+            bottom: 20px;
+            border: 1px solid var(--panel-border);
+            border-radius: 15px;
+        }
+
+        #bottom-panel.hidden {
+            bottom: -200px;
+            opacity: 0;
+        }
+
+        #avatar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        #avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        #avatar-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        #dialogue-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center content vertically */
+            gap: 15px;
+        }
+
+        #dialogue-text {
+            font-size: clamp(1.2rem, 3vw, 3.2rem);
+            text-align: center;
+            font-weight: 500;
+            padding: 0 10px;
+        }
+
+        #timer-bar-container {
+            width: 100%;
+            height: 10px;
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.1s linear;
+        }
+
+        #start-button {
+            font-size: 1.5rem;
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 10px;
+            margin: 0 auto;
+        }
+
+        #cabinet-container {
+            position: absolute;
+            transform-origin: center center;
+            /* Add some padding at the bottom for the feet */
+            padding-bottom: 30px; 
+        }
+
+        .cabinet-foot {
+            position: absolute;
+            bottom: 0;
+            width: 40px;
+            height: 30px;
+            background-color: var(--cabinet-border);
+            border-radius: 5px 5px 0 0;
+            z-index: -1; /* Position behind the cabinet area */
+        }
+
+        .cabinet-foot.left {
+            left: 20px;
+        }
+
+        .cabinet-foot.right {
+            right: 20px;
+        }
+
+        #cabinet-area {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 15px; /* Space between shelf and next row */
+            background-color: var(--cabinet-bg);
+            border: 5px solid var(--cabinet-border);
+            border-radius: 10px;
+            position: relative; /* Needed for z-index to work correctly */
+            z-index: 1;
+        }
+
+        .cabinet-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px; /* Gap between items */
+        }
+        
+        .cabinet-shelf {
+            width: 100%;
+            height: 20px;
+            background-color: var(--cabinet-border);
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2) inset;
+        }
+
+        .cabinet-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1; /* Ensure items are above shelves */
+        }
+
+        .cabinet-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform 0.2s ease;
+            filter: drop-shadow(5px 5px 5px rgba(0,0,0,0.3));
+        }
+
+        .cabinet-item:hover img {
+            transform: scale(1.1);
+        }
+
+        .item-label {
+            position: absolute;
+            bottom: -30px; /* Adjusted for larger font */
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--label-bg);
+            color: var(--label-text);
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 2rem; /* Increased font size */
+            font-weight: bold;
+        }
+        
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #progress-bar-container {
+            width: 80%;
+            max-width: 400px;
+            height: 30px;
+            border: 2px solid var(--text-primary);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--cabinet-border);
+            transition: width 0.2s ease;
+        }
+        
+        #loading-text {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        /* New Summary Styles */
+        #ui-popup {
+            width: min(1400px, 95vw);
+        }
+
+        #summary-details {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .summary-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 15px;
+            background-color: var(--panel-bg);
+            border-radius: 10px;
+            flex-basis: 160px;
+            position: relative;
+        }
+
+        .summary-avatar-img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .summary-avatar-name {
+            font-weight: bold;
+            flex-grow: 0;
+            text-align: center;
+        }
+
+        .summary-item-img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            background: rgba(0,0,0,0.05);
+            border-radius: 5px;
+            padding: 5px;
+            flex-shrink: 0;
+        }
+
+        .summary-status {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 30px;
+            height: 30px;
+            font-size: 24px;
+            background: var(--bg-color);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .summary-status.success { color: var(--success-color); }
+        .summary-status.fail { color: var(--fail-color); }
+
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="loading-text">Loading... 0%</div>
+    </div>
+
+    <div id="top-control">
+        <div class="control-group">
+            <button id="theme-toggle">🌞</button>
+        </div>
+        <div class="control-group">
+            <span>🔄</span>
+            <button id="autoZoom-btn">On</button>
+        </div>
+        <div class="control-group">
+            <span>🧠</span>
+            <button id="toggle-hardMode">Off</button>
+        </div>
+        <div class="control-group">
+            <span>🏷️</span>
+            <button id="toggle-labels">On</button>
+        </div>
+        <div class="control-group">
+            <span>🧑‍🤝‍🧑</span>
+            <button class="setting-btn" data-setting="customers" data-op="-">-</button>
+            <span id="customers-value">5</span>
+            <button class="setting-btn" data-setting="customers" data-op="+">+</button>
+        </div>
+        <div class="control-group">
+            <span>⏱️</span>
+            <button class="setting-btn" data-setting="timeLimit" data-op="-">-</button>
+            <span id="timeLimit-value">30</span>
+            <button class="setting-btn" data-setting="timeLimit" data-op="+">+</button>
+        </div>
+        <div class="control-group">
+            <span>❌</span>
+            <button class="setting-btn" data-setting="maxMistakes" data-op="-">-</button>
+            <span id="maxMistakes-value">3</span>
+            <button class="setting-btn" data-setting="maxMistakes" data-op="+">+</button>
+        </div>
+        <div class="control-group">
+            <span>↔️</span>
+            <button class="setting-btn" data-setting="cols" data-op="-">-</button>
+            <span id="cols-value">3</span>
+            <button class="setting-btn" data-setting="cols" data-op="+">+</button>
+        </div>
+        <div class="control-group">
+            <span>↕️</span>
+            <button class="setting-btn" data-setting="rows" data-op="-">-</button>
+            <span id="rows-value">3</span>
+            <button class="setting-btn" data-setting="rows" data-op="+">+</button>
+        </div>
+        <div class="control-group">
+            <a href="index.html" style="text-decoration: none; color: var(--text-primary); font-size: 24px; cursor: pointer;">🏠</a>
+        </div>
+    </div>
+
+    <div id="game-zone">
+        <div id="cabinet-container">
+            <div id="cabinet-area"></div>
+            <div class="cabinet-foot left"></div>
+            <div class="cabinet-foot right"></div>
+        </div>
+    </div>
+
+    <div id="bottom-panel">
+        <button id="start-button">Mở Cửa Hàng 🏪</button>
+        <div id="avatar-container" style="display: none;">
+            <img id="avatar" src="">
+            <div id="avatar-name"></div>
+        </div>
+        <div id="dialogue-container" style="display: none;">
+            <div id="dialogue-text"></div>
+            <div id="timer-bar-container">
+                <div id="timer-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ui-popup-overlay">
+        <div id="ui-popup">
+            <h2 id="ui-popup-title">Tổng kết ca làm</h2>
+            <div id="summary-details"></div>
+             <div id="ui-popup-actions">
+                <button id="play-again-btn" class="ui-popup-btn">Chơi lại</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Game State
+        let gameState = {
+            status: 'LOADING', // LOADING, PREPARING, PLAYING, ENDED
+            settings: {
+                rows: 3, cols: 3, customers: 5, timeLimit: 30, maxMistakes: 3, showLabels: true, autoZoom: true, hardMode: false
+            },
+            cabinet: [],
+            currentCustomer: null,
+            history: [],
+            theme: 'light'
+        };
+
+        const allItems = Array.from({ length: 36 }, (_, i) => `things/${i + 1}.png`);
+        const allAvatars = ['John', 'Mary', 'Tom', 'Anna', 'Mike', 'Lucy', 'Jack', 'Emma', 'Paul', 'Kate'].map(name => `things/${name}.png`);
+        
+        // DOM Elements
+        const loader = document.getElementById('loader');
+        const progressBar = document.getElementById('progress-bar');
+        const loadingText = document.getElementById('loading-text');
+        const gameZone = document.getElementById('game-zone');
+        const cabinetContainer = document.getElementById('cabinet-container');
+        const cabinetArea = document.getElementById('cabinet-area');
+        const topControl = document.getElementById('top-control');
+        const bottomPanel = document.getElementById('bottom-panel');
+        const startButton = document.getElementById('start-button');
+        const avatarContainer = document.getElementById('avatar-container');
+        const avatarImg = document.getElementById('avatar');
+        const avatarName = document.getElementById('avatar-name');
+        const dialogueContainer = document.getElementById('dialogue-container');
+        const dialogueText = document.getElementById('dialogue-text');
+        const timerBar = document.getElementById('timer-bar');
+        const summaryPopup = document.getElementById('ui-popup-overlay');
+        const summaryDetails = document.getElementById('summary-details');
+        const playAgainButton = document.getElementById('play-again-btn');
+        const themeToggleButton = document.getElementById('theme-toggle');
+        const toggleLabelsButton = document.getElementById('toggle-labels');
+        const toggleHardModeButton = document.getElementById('toggle-hardMode');
+        const autoZoomBtn = document.getElementById('autoZoom-btn');
+
+        let customerTimer;
+        let audioCtx;
+        const sfxYeah = new Audio('kid_yeah.wav');
+
+        // --- SFX ---
+        function playNote(frequency, duration, type = 'sine') {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.error("Web Audio API is not supported in this browser");
+                    return;
+                }
+            }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration / 1000);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration / 1000);
+        }
+
+        function sfxOpenStore() { playNote(440, 100); setTimeout(() => playNote(660, 150), 100); }
+        function sfxCustomerIn() { playNote(523, 150); }
+        function sfxCustomerOut() { playNote(330, 200); }
+        function sfxHappyTune() { playNote(523, 100); setTimeout(() => playNote(659, 100), 100); setTimeout(() => playNote(784, 100), 200); }
+        function sfxSadTune() { playNote(440, 150); setTimeout(() => playNote(330, 250), 150); }
+        function sfxEndDay() { playNote(784, 100); setTimeout(() => playNote(659, 200), 100); }
+        function sfxTick() { playNote(880, 50, 'square'); }
+
+
+        // --- Pan and Zoom ---
+        let scale = 1, panning = false, pointX = 0, pointY = 0, start = { x: 0, y: 0 };
+
+        function setTransform() {
+            cabinetContainer.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+        }
+
+        function disableAutoZoom() {
+            if (gameState.settings.autoZoom) {
+                gameState.settings.autoZoom = false;
+                updateSettingsUI();
+            }
+        }
+
+        gameZone.onmousedown = (e) => {
+            e.preventDefault();
+            start = { x: e.clientX - pointX, y: e.clientY - pointY };
+            panning = true;
+        };
+
+        gameZone.onmouseup = () => {
+            panning = false;
+        };
+
+        gameZone.onmousemove = (e) => {
+            if (!panning) return;
+            disableAutoZoom();
+            pointX = e.clientX - start.x;
+            pointY = e.clientY - start.y;
+            setTransform();
+        };
+
+        gameZone.onwheel = (e) => {
+            e.preventDefault();
+            disableAutoZoom();
+            const xs = (e.clientX - pointX) / scale;
+            const ys = (e.clientY - pointY) / scale;
+            const delta = (e.wheelDelta ? e.wheelDelta : -e.deltaY);
+            (delta > 0) ? (scale *= 1.2) : (scale /= 1.2);
+            pointX = e.clientX - xs * scale;
+            pointY = e.clientY - ys * scale;
+            setTransform();
+        };
+
+
+        // --- Settings ---
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('findTheThingSettings');
+            if (savedSettings) {
+                // Keep autoZoom setting from session, but default to true if not present
+                const loaded = JSON.parse(savedSettings);
+                if (typeof loaded.autoZoom === 'undefined') {
+                    loaded.autoZoom = true;
+                }
+                gameState.settings = loaded;
+            }
+            const savedTheme = localStorage.getItem('findTheThingTheme');
+            if(savedTheme) {
+                gameState.theme = savedTheme;
+                document.documentElement.setAttribute('data-theme', gameState.theme);
+                themeToggleButton.textContent = gameState.theme === 'dark' ? '🌞' : '🌙';
+            }
+            updateSettingsUI();
+        }
+
+        function saveSettings() {
+            localStorage.setItem('findTheThingSettings', JSON.stringify(gameState.settings));
+        }
+        
+        function saveTheme() {
+            localStorage.setItem('findTheThingTheme', gameState.theme);
+        }
+
+        function updateSettingsUI() {
+            // Enforce customer limit before updating UI
+            const maxCustomers = gameState.settings.rows * gameState.settings.cols;
+            if (gameState.settings.customers > maxCustomers) {
+                gameState.settings.customers = maxCustomers;
+            }
+
+            for (const key in gameState.settings) {
+                const el = document.getElementById(`${key}-value`);
+                if (el) el.textContent = gameState.settings[key];
+            }
+
+            // Handle disabled state for customer button
+            const customerPlusBtn = document.querySelector('.setting-btn[data-setting="customers"][data-op="+"]');
+            if (customerPlusBtn) {
+                customerPlusBtn.disabled = gameState.settings.customers >= maxCustomers;
+            }
+            
+            toggleLabelsButton.textContent = gameState.settings.showLabels ? 'On' : 'Off';
+            toggleHardModeButton.textContent = gameState.settings.hardMode ? 'On' : 'Off';
+            autoZoomBtn.textContent = gameState.settings.autoZoom ? 'On' : 'Off';
+        }
+
+        topControl.addEventListener('click', (e) => {
+            if(gameState.status === 'PLAYING') return;
+
+            if (e.target.classList.contains('setting-btn')) {
+                const setting = e.target.dataset.setting;
+                const op = e.target.dataset.op;
+                let value = gameState.settings[setting];
+                value += (op === '+') ? 1 : -1;
+
+                if (setting === 'rows' || setting === 'cols') {
+                    if (value < 1) value = 1;
+                    if (value > 10) value = 10;
+                } else if (value < 1) {
+                    value = 1;
+                }
+                
+                if (gameState.settings[setting] === value) return;
+
+                gameState.settings[setting] = value;
+                updateSettingsUI();
+                saveSettings();
+
+                if (setting === 'rows' || setting === 'cols') {
+                    rebuildCabinet();
+                }
+            }
+
+            if (e.target.id === 'theme-toggle') {
+                gameState.theme = gameState.theme === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', gameState.theme);
+                themeToggleButton.textContent = gameState.theme === 'dark' ? '🌞' : '🌙';
+                saveTheme();
+            }
+            
+            if(e.target.id === 'toggle-labels') {
+                gameState.settings.showLabels = !gameState.settings.showLabels;
+                updateSettingsUI();
+                saveSettings();
+                renderCabinet();
+            }
+
+            if(e.target.id === 'toggle-hardMode') {
+                gameState.settings.hardMode = !gameState.settings.hardMode;
+                updateSettingsUI();
+                saveSettings();
+            }
+        });
+
+        // --- Game Flow ---
+        function rebuildCabinet() {
+            setupCabinet();
+            renderCabinet();
+            updateAutoZoom();
+        }
+
+        function initializeGame() {
+            clearInterval(customerTimer);
+            gameState.status = 'PREPARING';
+            gameState.history = [];
+            cabinetArea.innerHTML = '';
+            
+            // --- Auto-zoom logic ---
+            gameState.settings.autoZoom = true;
+            updateSettingsUI();
+            
+            // Create AudioContext on a user gesture if it doesn't exist
+            if (!audioCtx) {
+                document.body.addEventListener('click', () => {
+                    if (!audioCtx) {
+                         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                }, { once: true });
+            }
+            
+            rebuildCabinet();
+            
+            startButton.style.display = 'block';
+            avatarContainer.style.display = 'none';
+            dialogueContainer.style.display = 'none';
+            bottomPanel.classList.remove('hidden');
+            bottomPanel.classList.add('collapsed');
+            summaryPopup.style.display = 'none';
+        }
+        
+        function startGame() {
+            gameState.status = 'PLAYING';
+            sfxOpenStore();
+            bottomPanel.classList.remove('collapsed');
+            startButton.style.display = 'none';
+            avatarContainer.style.display = 'flex';
+            dialogueContainer.style.display = 'flex';
+            nextCustomer();
+        }
+
+        function updateTimer() {
+            if (!gameState.currentCustomer) return;
+            
+            const oldTimeInt = Math.floor(gameState.currentCustomer.timeRemaining);
+            gameState.currentCustomer.timeRemaining -= 0.1;
+            const newTimeInt = Math.floor(gameState.currentCustomer.timeRemaining);
+
+            const percent = (gameState.currentCustomer.timeRemaining / gameState.settings.timeLimit) * 100;
+            timerBar.style.width = `${percent}%`;
+
+            if (gameState.currentCustomer.timeRemaining <= 5 && oldTimeInt > newTimeInt) {
+                sfxTick();
+            }
+
+            if (gameState.currentCustomer.timeRemaining <= 0) {
+                clearInterval(customerTimer);
+                sfxSadTune();
+                dialogueText.textContent = `Hết giờ rồi! ${gameState.currentCustomer.avatar.split('/')[1].split('.')[0]} đi đây...`;
+                gameState.history.push({ ...gameState.currentCustomer, status: 'FAIL_TIME' });
+                setTimeout(() => {
+                    sfxCustomerOut();
+                    nextCustomer();
+                }, 2000);
+            }
+        }
+        
+        // ... (rest of the functions remain mostly the same)
+        function nextCustomer() {
+            clearInterval(customerTimer); // Clear previous timer just in case
+
+            if (gameState.history.length >= gameState.settings.customers) {
+                endGame();
+                return;
+            }
+
+            const availableItems = gameState.cabinet.flat().filter(item => item !== null);
+            if (availableItems.length === 0) {
+                 endGame();
+                 return;
+            }
+            
+            sfxCustomerIn();
+
+            const targetItem = availableItems[Math.floor(Math.random() * availableItems.length)];
+            const avatarSrc = allAvatars[Math.floor(Math.random() * allAvatars.length)];
+            const currentAvatarName = avatarSrc.split('/')[1].split('.')[0];
+            const hint = generateDialogue(targetItem, gameState.settings.rows, gameState.settings.cols, currentAvatarName);
+            
+            gameState.currentCustomer = {
+                avatar: avatarSrc,
+                targetItem,
+                mistakesMade: 0,
+                timeRemaining: gameState.settings.timeLimit,
+                hint: hint
+            };
+            
+            timerBar.style.width = '100%';
+            timerBar.style.backgroundColor = '#4CAF50';
+            avatarImg.src = avatarSrc;
+            avatarName.textContent = currentAvatarName;
+            dialogueText.innerHTML = hint;
+            
+            // Re-calculate zoom if enabled, as panel height may have changed
+            if (gameState.settings.autoZoom) {
+                // Use a short timeout to allow the browser to render the new text and calculate the new panel height
+                setTimeout(() => updateAutoZoom(), 50);
+            }
+
+            customerTimer = setInterval(updateTimer, 100);
+        }
+
+        function generateDialogue(targetItem, maxRow, maxCol, avatarName) {
+            // If hard mode is on, 50% chance to try for a hard hint
+            if (gameState.settings.hardMode && Math.random() > 0.5) {
+                const hardHint = generateHardHint(targetItem, maxRow, maxCol, avatarName);
+                if (hardHint) return hardHint;
+            }
+            // Fallback to easy hints
+            return generateEasyHint(targetItem.row, targetItem.col, maxRow, maxCol, avatarName);
+        }
+
+        function generateHardHint(targetItem, maxRow, maxCol, avatarName) {
+            const { row: targetRow, col: targetCol } = targetItem;
+
+            const findItemAt = (r, c) => {
+                if (r < 0 || r >= maxRow || c < 0 || c >= maxCol) return null;
+                // This assumes cabinet structure is [row][col]
+                return gameState.cabinet[r]?.[c] || null;
+            };
+
+            const landmarks = [
+                { r: 0, c: 0, desc: "ở góc trên cùng bên trái" },
+                { r: 0, c: maxCol - 1, desc: "ở góc trên cùng bên phải" },
+                { r: maxRow - 1, c: 0, desc: "ở góc dưới cùng bên trái" },
+                { r: maxRow - 1, c: maxCol - 1, desc: "ở góc dưới cùng bên phải" }
+            ];
+
+            // Shuffle landmarks to get a random one
+            landmarks.sort(() => 0.5 - Math.random());
+
+            for (const landmark of landmarks) {
+                const landmarkItem = findItemAt(landmark.r, landmark.c);
+                // Ensure landmark exists and is not the target item itself
+                if (!landmarkItem || (landmark.r === targetRow && landmark.c === targetCol)) {
+                    continue;
+                }
+
+                // Check for direct adjacency (no diagonals)
+                if (landmark.r === targetRow) {
+                    if (landmark.c === targetCol - 1) {
+                        return `Lấy cho ${avatarName} món đồ nằm ngay bên phải món đồ ${landmark.desc}.`;
+                    }
+                    if (landmark.c === targetCol + 1) {
+                        return `Lấy cho ${avatarName} món đồ nằm ngay bên trái món đồ ${landmark.desc}.`;
+                    }
+                }
+                if (landmark.c === targetCol) {
+                    if (landmark.r === targetRow - 1) {
+                        return `Lấy cho ${avatarName} món đồ nằm ngay bên dưới món đồ ${landmark.desc}.`;
+                    }
+                    if (landmark.r === targetRow + 1) {
+                        return `Lấy cho ${avatarName} món đồ nằm ngay bên trên món đồ ${landmark.desc}.`;
+                    }
+                }
+            }
+            
+            return null; // No simple adjacent landmark found
+        }
+
+
+        function generateEasyHint(row, col, maxRow, maxCol, avatarName) {
+            // row, col are 0-indexed
+            const templates = [
+                `Lấy cho ${avatarName} món đồ nằm ở kệ thứ <b>${row + 1} từ trên xuống</b>, món thứ <b>${col + 1} từ trái qua</b> nhé.`,
+                `${avatarName} đang cần lấy món ở kệ thứ <b>${maxRow - row} từ dưới lên</b>, là món thứ <b>${maxCol - col} từ phải qua</b>.`,
+                `Phiền bạn lấy giúp ${avatarName} món đồ ở kệ thứ <b>${row + 1} từ trên xuống</b>, vị trí thứ <b>${col + 1} từ bên trái</b> nha.`
+            ];
+
+            // Row-specific cases
+            if (row === 0) {
+                templates.push(`Món đồ của ${avatarName} ở trên <b>kệ trên cùng</b>, thứ <b>${col + 1}</b> từ trái qua.`);
+                templates.push(`Nhìn trên <b>kệ cao nhất</b> ấy, lấy giúp ${avatarName} món ở vị trí <b>${maxCol - col}</b> từ phải qua.`);
+            }
+            if (row === maxRow - 1) {
+                templates.push(`Bạn lấy giúp ${avatarName} món đồ ở <b>kệ dưới cùng</b> nhé, nó ở khoảng vị trí thứ <b>${col + 1}</b> từ trái.`);
+                templates.push(`Món đồ ${avatarName} cần tìm nằm ở <b>kệ sát đất</b>, đếm từ phải qua là thứ <b>${maxCol - col}</b>.`);
+            }
+            
+            // Edge cases
+            if (col === 0) {
+                 templates.push(`Tìm giúp ${avatarName} món đồ ở <b>đầu kệ bên trái</b> trên kệ thứ <b>${row + 1} từ trên xuống</b>.`);
+                 templates.push(`Món đồ ${avatarName} cần nằm ở <b>phía ngoài cùng bên trái</b> của kệ thứ <b>${maxRow - row} từ dưới lên</b>.`);
+            }
+             if (col === maxCol - 1) {
+                 templates.push(`Lấy cho ${avatarName} món đồ ở <b>cuối kệ bên phải</b>, trên kệ thứ <b>${row + 1} từ trên xuống</b>.`);
+                 templates.push(`Cái món ${avatarName} muốn mua nằm ở <b>tít ngoài cùng bên phải</b> của kệ thứ <b>${maxRow - row} từ dưới lên</b> đó.`);
+            }
+
+            // Corner cases
+            if (row === 0 && col === 0) templates.push(`${avatarName} đang tìm món đồ ở <b>góc trên cùng bên trái</b> của tủ. Lấy giúp mình nha!`);
+            if (row === 0 && col === maxCol -1) templates.push(`Bạn của ${avatarName} nhờ mua món ở <b>góc trên cùng bên phải</b>.`);
+            if (row === maxRow -1 && col === 0) templates.push(`Lấy giúp ${avatarName} món ở <b>góc dưới cùng bên trái</b> nhé.`);
+            if (row === maxRow -1 && col === maxCol -1) templates.push(`Món đồ ${avatarName} cần ở <b>góc dưới cùng bên phải</b> đó bạn.`);
+
+            return templates[Math.floor(Math.random() * templates.length)];
+        }
+
+
+        function handleItemClick(e) {
+            if (gameState.status !== 'PLAYING' || !e.target.closest('.cabinet-item') || !gameState.currentCustomer) return;
+            
+            const clickedItemId = parseInt(e.target.closest('.cabinet-item').dataset.id);
+            const { targetItem } = gameState.currentCustomer;
+            
+            clearInterval(customerTimer); // Stop the timer once a choice is made
+
+            if (clickedItemId === targetItem.id) {
+                // Correct
+                sfxHappyTune();
+                sfxYeah.play();
+                dialogueText.textContent = 'Cảm ơn bạn nhiều!';
+                const itemElement = document.querySelector(`[data-id='${targetItem.id}']`);
+                itemElement.style.pointerEvents = 'none';
+                itemElement.style.opacity = '0.3';
+
+                const itemIndex = gameState.cabinet.flat().findIndex(i => i && i.id === targetItem.id);
+                const rowIndex = Math.floor(itemIndex / gameState.settings.cols);
+                const colIndex = itemIndex % gameState.settings.cols;
+                gameState.cabinet[rowIndex][colIndex] = null;
+
+                gameState.history.push({ ...gameState.currentCustomer, status: 'SUCCESS' });
+                setTimeout(nextCustomer, 2000);
+
+            } else {
+                // Incorrect
+                sfxSadTune();
+                gameState.currentCustomer.mistakesMade++;
+                if (gameState.currentCustomer.mistakesMade >= gameState.settings.maxMistakes) {
+                    dialogueText.textContent = `Hết lượt đoán rồi. ${gameState.currentCustomer.avatar.split('/')[1].split('.')[0]} đi đây...`;
+                    gameState.history.push({ ...gameState.currentCustomer, status: 'FAIL_MISTAKE' });
+                    setTimeout(() => {
+                        sfxCustomerOut();
+                        nextCustomer();
+                    }, 2000);
+                } else {
+                    dialogueText.innerHTML = `Ôi, bạn chọn sai rồi. <br>` + gameState.currentCustomer.hint;
+                    // Restart timer for the next attempt
+                    gameState.currentCustomer.timeRemaining = gameState.settings.timeLimit;
+                    timerBar.style.width = '100%';
+                    customerTimer = setInterval(updateTimer, 100);
+                }
+            }
+        }
+
+        function endGame() {
+            clearInterval(customerTimer);
+            sfxEndDay();
+            gameState.status = 'ENDED';
+            bottomPanel.classList.add('hidden');
+            showSummary();
+        }
+
+        function showSummary() {
+            const summaryTitle = document.getElementById('ui-popup-title');
+            const summaryDetails = document.getElementById('summary-details');
+
+            summaryPopup.style.display = 'flex'; // Use flex to center the child
+            
+            let detailsHtml = '';
+            let successCount = 0;
+            
+            gameState.history.forEach(h => {
+                const isSuccess = h.status === 'SUCCESS';
+                if (isSuccess) successCount++;
+                
+                const avatarName = h.avatar.split('/')[1].split('.')[0];
+                const statusClass = isSuccess ? 'success' : 'fail';
+                const statusIcon = isSuccess ? '✓' : '✗';
+
+                detailsHtml += `
+                    <div class="summary-row">
+                        <img src="${h.avatar}" class="summary-avatar-img" alt="${avatarName}">
+                        <span class="summary-avatar-name">${avatarName}</span>
+                        <img src="${h.targetItem.img}" class="summary-item-img" alt="Requested Item">
+                        <div class="summary-status ${statusClass}">${statusIcon}</div>
+                    </div>
+                `;
+            });
+            
+            summaryTitle.textContent = `Tổng kết: ${successCount} / ${gameState.history.length} thành công`;
+            summaryDetails.innerHTML = detailsHtml;
+        }
+
+
+        // --- Rendering & Preloading ---
+        function setupCabinet() {
+            gameState.cabinet = [];
+            let itemsToPlace = [...allItems].sort(() => 0.5 - Math.random());
+            const totalSlots = gameState.settings.rows * gameState.settings.cols;
+            
+            // If more slots than unique items, allow reuse
+            if (totalSlots > allItems.length) {
+                const needed = totalSlots - itemsToPlace.length;
+                for (let i = 0; i < needed; i++) {
+                    itemsToPlace.push(allItems[i % allItems.length]);
+                }
+            } else {
+                itemsToPlace = itemsToPlace.slice(0, totalSlots);
+            }
+            itemsToPlace.sort(() => 0.5 - Math.random());
+
+
+            let currentId = 0;
+            for (let r = 0; r < gameState.settings.rows; r++) {
+                const row = [];
+                for (let c = 0; c < gameState.settings.cols; c++) {
+                    if (itemsToPlace.length > 0) {
+                        row.push({
+                            id: currentId++,
+                            img: itemsToPlace.pop(),
+                            row: r,
+                            col: c
+                        });
+                    }
+                }
+                gameState.cabinet.push(row);
+            }
+        }
+        
+        function preloadAllAssets(callback) {
+            const urlsToLoad = new Set([...allAvatars, ...allItems]);
+            
+            if (urlsToLoad.size === 0) {
+                callback();
+                return;
+            }
+            
+            gameState.status = 'LOADING';
+            loader.style.display = 'flex';
+            progressBar.style.width = '0%';
+            loadingText.textContent = 'Loading... 0%';
+
+            const totalToLoad = urlsToLoad.size;
+            let loadedCount = 0;
+
+            urlsToLoad.forEach(url => {
+                const img = new Image();
+                img.src = url;
+                img.onload = img.onerror = () => {
+                    loadedCount++;
+                    const percent = Math.round((loadedCount / totalToLoad) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    loadingText.textContent = `Loading... ${percent}%`;
+                    if (loadedCount === totalToLoad) {
+                        loader.style.display = 'none';
+                        callback();
+                    }
+                };
+            });
+        }
+
+
+        function renderCabinet() {
+            cabinetArea.innerHTML = '';
+            let labelCounter = 1;
+
+            gameState.cabinet.forEach(rowItems => {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'cabinet-row';
+
+                rowItems.forEach(item => {
+                    if (item) {
+                        const itemEl = document.createElement('div');
+                        itemEl.className = 'cabinet-item';
+                        itemEl.dataset.id = item.id;
+                        itemEl.innerHTML = `
+                            <img src="${item.img}" alt="item ${item.id}">
+                            ${gameState.settings.showLabels ? `<div class="item-label">${labelCounter}</div>` : ''}
+                        `;
+                        rowEl.appendChild(itemEl);
+                        labelCounter++;
+                    }
+                });
+                cabinetArea.appendChild(rowEl);
+
+                const shelfEl = document.createElement('div');
+                shelfEl.className = 'cabinet-shelf';
+                cabinetArea.appendChild(shelfEl);
+            });
+        }
+        
+        function updateAutoZoom() {
+            const topPanelHeight = topControl.offsetHeight;
+            // The bottom panel is hidden during summary, so its height should be 0 then.
+            const bottomPanelHeight = (gameState.status === 'ENDED') ? 0 : bottomPanel.offsetHeight;
+
+            const padding = 30; // 30px padding for top and bottom of safe area
+            const safeWidth = window.innerWidth - (padding * 2);
+            const safeHeight = window.innerHeight - topPanelHeight - bottomPanelHeight - (padding * 2);
+            
+            // Reset transform to measure the original, unscaled size of the cabinet area
+            cabinetContainer.style.transition = 'none'; // Disable transitions during measurement
+            cabinetContainer.style.transform = 'translate(0px, 0px) scale(1)';
+            const cabinetRect = cabinetArea.getBoundingClientRect();
+            cabinetContainer.style.transition = ''; // Re-enable transitions
+
+            if(cabinetRect.width === 0 || cabinetRect.height === 0) return;
+
+            // Calculate the best scale to fit the cabinet in the safe area
+            const scaleX = safeWidth / cabinetRect.width;
+            const scaleY = safeHeight / cabinetRect.height;
+            const newScale = Math.min(scaleX, scaleY); // Allow scaling up
+            
+            // The #game-zone is a flex container that centers #cabinet-container.
+            // This means the cabinet's center is initially at the viewport's center.
+            const viewportCenterY = window.innerHeight / 2;
+
+            // We want to move it to the center of our calculated safe area.
+            const safeAreaCenterY = topPanelHeight + padding + (safeHeight / 2);
+            
+            // The required translation is the difference between where we want to be and where we are.
+            const translationY = safeAreaCenterY - viewportCenterY;
+
+            // Apply the new scale and calculated position
+            scale = newScale;
+            pointX = 0; // Horizontal centering is handled by flexbox
+            pointY = translationY;
+            
+            setTransform();
+        }
+
+
+        // --- Event Listeners ---
+        window.addEventListener('resize', () => {
+            if (gameState.settings.autoZoom) {
+                updateAutoZoom();
+            }
+        });
+        startButton.addEventListener('click', startGame);
+        cabinetArea.addEventListener('click', handleItemClick);
+        playAgainButton.addEventListener('click', initializeGame);
+        autoZoomBtn.addEventListener('click', () => {
+            gameState.settings.autoZoom = !gameState.settings.autoZoom;
+            if (gameState.settings.autoZoom) {
+                updateAutoZoom();
+            }
+            saveSettings();
+            updateSettingsUI();
+        });
+
+        // --- Initial Load ---
+        loadSettings();
+        preloadAllAssets(() => {
+            initializeGame();
+        });
+    });
+    </script>
+</body>
+</html>

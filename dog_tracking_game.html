@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-translate-key="docTitle">Tìm Chú Chó Của Molly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #f3f3f3;
+            --bg-container: #ffffff;
+            --bg-panel: #f9f9f9;
+            --bg-card: #ffffff;
+            --bg-card-current: #eef5ff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #5c5c5c;
+            --border-color: #e1e1e1;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --direction-color: #005a9e; /* Strong, distinct blue */
+            --distance-color: #9f1111; /* Strong, distinct red */
+            --title-color: #005a9e;
+            
+            --btn-bg: #e1e1e1;
+            --btn-text: #1a1a1a;
+            --btn-primary-bg: #0078d4;
+            --btn-primary-text: #ffffff;
+        }
+
+        body.dark-mode {
+            --bg-body: #1e1e1e;
+            --bg-container: #2b2b2b;
+            --bg-panel: #1e1e1e;
+            --bg-card: #3c3c3c;
+            --bg-card-current: #2d486e;
+            --text-primary: #f0f0f0;
+            --text-secondary: #b3b3b3;
+            --border-color: #4a4a4a;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --direction-color: #9cdcfe; /* Light blue */
+            --distance-color: #ce9178; /* Light orange/brown */
+            --title-color: #9cdcfe;
+
+            --btn-bg: #4a4a4a;
+            --btn-text: #f0f0f0;
+            --btn-primary-bg: #2d486e;
+            --btn-primary-text: #f0f0f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Cabin', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        .game-container {
+            width: 95vw;
+            height: 95vh;
+            background: var(--bg-container);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            display: flex;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .hint-panel {
+            flex: 1;
+            padding: 20px;
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hint-cards {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 25px; /* Increased gap */
+            overflow-y: auto;
+            padding: 20px;
+            scroll-behavior: smooth;
+            padding-bottom: 50vh; /* Add space at the bottom */
+        }
+        
+        .hint-card {
+            background: var(--bg-card);
+            padding: 40px; /* Increased padding */
+            border-radius: 8px;
+            box-shadow: 0 2px 10px var(--shadow-color);
+            font-size: 2em; /* Increased font size */
+            line-height: 1.7; /* Adjusted line height */
+            transition: all 0.5s ease;
+            animation: slideUp 0.5s ease;
+            border: 1px solid var(--border-color);
+            flex-shrink: 0; /* Prevent cards from shrinking */
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hint-card.faded {
+            opacity: 0.3; /* Reduced opacity */
+            filter: blur(12px); /* Increased blur */
+            transform: scale(0.95);
+        }
+        
+        .hint-card.faded:hover {
+            opacity: 1;
+            filter: blur(0px);
+            transform: scale(1);
+        }
+        
+        .hint-card.current {
+            background: var(--bg-card-current);
+            color: var(--text-primary);
+            box-shadow: 0 4px 15px var(--shadow-color);
+            border: 1px solid var(--direction-color);
+        }
+        
+        .hint-card.clickable {
+            cursor: pointer;
+        }
+        
+        .control-panel {
+            width: 400px;
+            padding: 40px;
+            background: var(--bg-container);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border-left: 1px solid var(--border-color);
+        }
+        
+        .game-title {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--title-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 15px 25px;
+            font-size: 1.1em;
+            font-family: 'Cabin', sans-serif;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px var(--shadow-color);
+            border-color: var(--direction-color);
+            background: var(--bg-card-current);
+        }
+
+        .btn-primary:hover,
+        .btn-secondary:hover,
+        .btn-success:hover,
+        .btn-warning:hover {
+            background: var(--direction-color);
+            border-color: var(--direction-color);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Removed gradient buttons */
+        .btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+        .btn-secondary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+        .btn-success { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+        .btn-warning { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;
+        }
+        
+        .modal.active { display: flex; }
+        
+        .modal-content {
+            background: var(--bg-container); color: var(--text-primary);
+            padding: 50px; border-radius: 8px; max-width: 80%; max-height: 80%;
+            overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        
+        .modal-title { font-size: 2.5em; font-weight: bold; color: var(--title-color); margin-bottom: 30px; }
+        
+        .history-item {
+            font-size: 1.5em; line-height: 1.8; padding: 20px; margin: 15px 0;
+            background: var(--bg-panel); border-radius: 6px; border-left: 4px solid var(--title-color);
+        }
+        
+        .close-modal {
+            background: #c72c41; color: white; border: none; padding: 15px 40px;
+            font-size: 1.3em; border-radius: 6px; cursor: pointer; margin-top: 30px; float: right;
+        }
+        
+        .answer-list { font-size: 1.4em; line-height: 2.2; }
+        
+        .answer-item {
+            padding: 15px; margin: 10px 0; background: var(--bg-card-current);
+            border-radius: 6px; border-left: 4px solid var(--direction-color);
+        }
+        
+        .start-screen { text-align: center; padding: 60px; }
+        .start-screen h1 { font-size: 3em; color: var(--title-color); margin-bottom: 30px; }
+        .start-screen p { font-size: 1.6em; line-height: 1.8; color: var(--text-secondary); margin-bottom: 50px; }
+
+        .divider { height: 1px; background-color: var(--border-color); margin: 15px 0; }
+        a.btn { text-decoration: none; display: block; }
+
+        #autoHintControls {
+            border: 1px solid var(--border-color); border-radius: 6px; padding: 15px;
+        }
+
+        #countdown button {
+            background: var(--btn-bg); color: var(--btn-text);
+            border: 1px solid var(--border-color); border-radius: 50%;
+            width: 30px; height: 30px; font-size: 1.2em; cursor: pointer; margin: 0 10px;
+        }
+        
+        .location-name {
+            font-weight: bold;
+            color: var(--title-color);
+        }
+
+        .direction {
+            font-weight: bold;
+            text-transform: uppercase;
+            color: var(--direction-color);
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        
+        .distance {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: var(--distance-color);
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+    <style>
+        a.return-to-menu {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            background-color: rgba(0,0,0,0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-decoration: none;
+            opacity: 0.5;
+            transition: opacity 0.3s, background-color 0.3s;
+            z-index: 1000;
+        }
+        a.return-to-menu:hover {
+            opacity: 1;
+            background-color: rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+<a class="return-to-menu" href="index.html">🏠</a>
+    <div class="game-container">
+        <div class="hint-panel">
+            <div id="startScreen" class="start-screen">
+                <h1 data-translate-key="startTitle">🐕 Tìm Chú Chó Của Molly</h1>
+                <p data-translate-key="startDesc">Chú chó cưng của Molly đã lạc mất! Hãy theo dõi các gợi ý để tìm ra vị trí của chú chó nhé.</p>
+            </div>
+            <div id="hintCards" class="hint-cards" style="display: none;"></div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="game-title" data-translate-key="gameTitle">🎮 Điều Khiển</div>
+            <button id="btnStart" class="btn btn-primary" data-translate-key="btnStart">▶️ Bắt Đầu Trò Chơi</button>
+            <button id="btnNext" class="btn btn-primary" style="display: none;" disabled data-translate-key="btnNext">➡️ Gợi Ý Tiếp Theo</button>
+            <button id="btnNight" class="btn btn-secondary" style="display: none;" disabled data-translate-key="btnNight">🌙 Trời Tối</button>
+            <button id="btnHistory" class="btn btn-success" style="display: none;" disabled data-translate-key="btnHistory">📜 Lịch Sử Gợi Ý</button>
+            <button id="btnAnswer" class="btn btn-warning" style="display: none;" disabled data-translate-key="btnAnswer">📍 Xác Định Vị Trí</button>
+
+            <div class="divider"></div>
+
+            <!-- New Buttons -->
+            <button id="btnLang" class="btn" data-translate-key="btnLang">🇬🇧 English</button>
+            <button id="btnHelp" class="btn" data-translate-key="btnHelp">❓ Trợ giúp</button>
+            <button id="btnToggleTheme" class="btn" data-translate-key="btnToggleTheme">🌗 Chế Độ Sáng/Tối</button>
+            <button id="btnChangeColor" class="btn" data-translate-key="btnChangeColor">🎨 Đổi Màu Flashcard</button>
+            <button id="btnRestart" class="btn" data-translate-key="btnRestart">🔄 Bắt Đầu Mới</button>
+            <a href="index.html" id="btnMenu" class="btn" data-translate-key="btnMenu">↩️ Về Menu</a>
+
+            <div id="autoHintControls" style="display: none; margin-top: 15px; text-align: center;">
+                <button id="btnAutoHint" class="btn" data-translate-key="btnAutoHint">⏱️ Gợi Ý Tự Động</button>
+                <div id="countdown" style="font-size: 1.5em; margin-top: 10px;">
+                    <button id="btnDecrement">-</button>
+                    <span id="countdown-timer">10</span>s
+                    <button id="btnIncrement">+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="modalTitle"></h2>
+            <div id="modalBody"></div>
+            <button class="close-modal" onclick="closeModal()" data-translate-key="btnClose">❌ Đóng</button>
+        </div>
+    </div>
+
+    <script>
+        const translations = {
+            en: {
+                docTitle: "Find Molly's Dog",
+                gameTitle: "🎮 Controls",
+                startTitle: "🐕 Find Molly's Dog",
+                startDesc: "Molly's pet dog is lost! Follow the clues to find the dog's location.",
+                btnStart: "▶️ Start Game",
+                btnNext: "➡️ Next Hint",
+                btnNight: "🌙 Night Falls",
+                btnHistory: "📜 Hint History",
+                btnAnswer: "📍 Pinpoint Location",
+                btnHelp: "❓ Help",
+                btnToggleTheme: "🌗 Toggle Theme",
+                btnChangeColor: "🎨 Change Card Color",
+                btnRestart: "🔄 Restart",
+                btnMenu: "↩️ Back to Menu",
+                btnAutoHint: "⏱️ Auto Hint",
+                btnStopAutoHint: "Stop Auto Hint",
+                btnClose: "❌ Close",
+                btnLang: "🇻🇳 Tiếng Việt",
+                modalHistoryTitle: "📜 Hint History",
+                modalAnswerTitle: "📍 Dog's Location",
+                modalHelpTitle: "❓ Help",
+                helpTitle: "<h3>🐕 Game Goal</h3>",
+                helpGoal: "<p>Molly's pet dog is lost. Based on the clues about direction and distance, you must track the dog's journey.</p>",
+                helpHowToTitle: "<h3>🎮 How to Play</h3>",
+                helpStep1: "<p><strong>1. Start:</strong> The game begins at the dog's last known location.</p>",
+                helpStep2: "<p><strong>2. Next Hint:</strong> Press 'Next Hint' to get information about the dog's next move.</p>",
+                helpStep3: "<p><strong>3. Night Falls:</strong> When you feel you have enough information, press 'Night Falls' to end the dog's journey for the day.</p>",
+                helpStep4: "<p><strong>4. Pinpoint Location:</strong> After nightfall, press 'Pinpoint Location' to see which location the dog is nearest to.</p>",
+                helpFeaturesTitle: "<h3>✨ Other Features</h3>",
+                helpHistory: "<p><strong>History:</strong> Review all the hints you've received.</p>",
+                helpAutoHint: "<p><strong>Auto Hint:</strong> Automatically receive hints after a set time.</p>",
+                helpTheme: "<p><strong>Toggle Theme:</strong> Change the interface.</p>",
+            },
+            vi: {
+                docTitle: "Tìm Chú Chó Của Molly",
+                gameTitle: "🎮 Điều Khiển",
+                startTitle: "🐕 Tìm Chú Chó Của Molly",
+                startDesc: "Chú chó cưng của Molly đã lạc mất! Hãy theo dõi các gợi ý để tìm ra vị trí của chú chó nhé.",
+                btnStart: "▶️ Bắt Đầu Trò Chơi",
+                btnNext: "➡️ Gợi Ý Tiếp Theo",
+                btnNight: "🌙 Trời Tối",
+                btnHistory: "📜 Lịch Sử Gợi Ý",
+                btnAnswer: "📍 Xác Định Vị Trí",
+                btnHelp: "❓ Trợ giúp",
+                btnToggleTheme: "🌗 Chế Độ Sáng/Tối",
+                btnChangeColor: "🎨 Đổi Màu Flashcard",
+                btnRestart: "🔄 Bắt Đầu Mới",
+                btnMenu: "↩️ Về Menu",
+                btnAutoHint: "⏱️ Gợi Ý Tự Động",
+                btnStopAutoHint: "Dừng Gợi Ý Tự Động",
+                btnClose: "❌ Đóng",
+                btnLang: "🇬🇧 English",
+                modalHistoryTitle: "📜 Lịch Sử Gợi Ý",
+                modalAnswerTitle: "📍 Vị Trí Chú Chó",
+                modalHelpTitle: "❓ Trợ Giúp",
+                helpTitle: "<h3>🐕 Mục Tiêu Trò Chơi</h3>",
+                helpGoal: "<p>Chú chó cưng của Molly đã đi lạc. Dựa vào các gợi ý về hướng đi và quãng đường, bạn hãy theo dõi hành trình của chú chó.</p>",
+                helpHowToTitle: "<h3>🎮 Cách Chơi</h3>",
+                helpStep1: "<p><strong>1. Bắt Đầu:</strong> Trò chơi bắt đầu tại vị trí cuối cùng nhìn thấy chú chó.</p>",
+                helpStep2: "<p><strong>2. Gợi Ý:</strong> Nhấn 'Gợi Ý Tiếp Theo' để nhận thông tin về bước di chuyển mới của chú chó.</p>",
+                helpStep3: "<p><strong>3. Trời Tối:</strong> Khi bạn cảm thấy đã đủ thông tin, nhấn 'Trời Tối' để kết thúc hành trình của chú chó trong ngày.</p>",
+                helpStep4: "<p><strong>4. Xác Định Vị Trí:</strong> Sau khi trời tối, nhấn 'Xác Định Vị Trí' để xem chú chó đang ở gần địa điểm nào nhất.</p>",
+                helpFeaturesTitle: "<h3>✨ Tính Năng Khác</h3>",
+                helpHistory: "<p><strong>Lịch Sử:</strong> Xem lại tất cả các gợi ý đã nhận.</p>",
+                helpAutoHint: "<p><strong>Gợi Ý Tự Động:</strong> Tự động nhận gợi ý sau một khoảng thời gian.</p>",
+                helpTheme: "<p><strong>Chế Độ Sáng/Tối:</strong> Thay đổi giao diện.</p>",
+            }
+        };
+        let currentLanguage = 'vi';
+
+        const locations = {
+            'Nhà Molly': [3, 11],
+            'Sân chơi': [8, 11],
+            'Siêu thị': [10, 11],
+            'Nhà Tom': [2, 9],
+            'Nhà Hans': [5, 8],
+            'Sân bóng': [11, 7],
+            'Thư viện': [6, 6],
+            'Nhà Alex': [3, 4],
+            'Trạm cứu hoả': [9, 4],
+            'Đồn cảnh sát': [1, 3],
+            'Nhà Sally': [7, 3],
+            'Công viên': [4, 1],
+            'Trường học': [10, 1]
+        };
+
+        const directions = ['bắc', 'nam', 'đông', 'tây'];
+        const directionVectors = {
+            'bắc': [0, 1],
+            'nam': [0, -1],
+            'đông': [1, 0],
+            'tây': [-1, 0]
+        };
+
+        const flavorTexts = [
+            { type: 'direction-first', text: 'Chú chó nghe thấy tiếng động thú vị nên chạy về hướng', emoji: '👂🎵' },
+            { type: 'direction-first', text: 'Chú chó thấy khát nước nên tìm đường về', emoji: '💧😓' },
+            { type: 'direction-first', text: 'Chú chó đuổi theo một con bướm bay về phía', emoji: '🦋✨' },
+            { type: 'direction-first', text: 'Chú chó ngửi thấy mùi thức ăn ngon từ phía', emoji: '👃🍖' },
+            { type: 'direction-first', text: 'Chú chó tò mò chạy về hướng', emoji: '🤔💭' },
+            { type: 'direction-first', text: 'Chú chó thấy một người bạn mới ở phía', emoji: '👋😊' },
+            { type: 'direction-first', text: 'Chú chó muốn khám phá nên đi về', emoji: '🔍🗺️' },
+            { type: 'direction-first', text: 'Chú chó chạy vui vẻ về phía', emoji: '🎉😄' },
+            { type: 'distance-first', text: 'Chú chó chạy thật nhanh được', emoji: '💨⚡' },
+            { type: 'distance-first', text: 'Chú chó lao đi một đoạn', emoji: '🏃‍♂️💫' },
+            { type: 'distance-first', text: 'Chú chó chạy mệt nghỉ được khoảng', emoji: '😮‍💨🐾' },
+            { type: 'distance-first', text: 'Chú chó di chuyển được', emoji: '🚶‍♂️🐕' },
+            { type: 'distance-first', text: 'Chú chó rảo bước đi được', emoji: '🎵🐾' },
+            { type: 'distance-first', text: 'Chú chó nhảy nhót đi được quãng', emoji: '🕺✨' },
+            { type: 'direction-first', text: 'Bác Tom thấy chú chó đang chạy về phía', emoji: '👨‍🌾👀' },
+            { type: 'direction-first', text: 'Cô Kim nhìn thấy chú chó lao về hướng', emoji: '👩‍🦰👋' },
+            { type: 'direction-first', text: 'Anh Minh kể rằng chú chó chạy qua về', emoji: '👨‍💼📢' },
+            { type: 'distance-first', text: 'Bà Lan trông thấy chú chó đi được', emoji: '👵👓' },
+            { type: 'distance-first', text: 'Chú Hùng nói chú chó chạy được', emoji: '👨‍🔧🗣️' },
+            { type: 'direction-first', text: 'Em bé Lisa thấy chú chó vui vẻ nhảy về', emoji: '👧🏻🎀' },
+            { type: 'distance-first', text: 'Ông già bán bánh nói chú chó vừa đi', emoji: '👴🥖' },
+            { type: 'direction-first', text: 'Chị Mai kể chú chó chạy rất nhanh về', emoji: '👩‍⚕️💬' },
+            { type: 'distance-first', text: 'Anh shipper thấy chú chó đi được', emoji: '🛵📦' },
+            { type: 'direction-first', text: 'Chú chó nghe tiếng mèo kêu nên chạy về', emoji: '😺🔔' },
+            { type: 'direction-first', text: 'Chú chó thấy bóng bay màu đỏ bay về', emoji: '🎈❤️' },
+            { type: 'distance-first', text: 'Chú chó đuổi theo chiếc lá bay được', emoji: '🍃🌬️' },
+            { type: 'direction-first', text: 'Chú chó nghe thấy tiếng chuông xe kem về phía', emoji: '🍦🔔' },
+            { type: 'distance-first', text: 'Chú chó thấy có chim bay nên chạy theo được', emoji: '🐦🌤️' }
+        ];
+
+        let dogPosition = [0, 0];
+        let hints = [];
+        let currentHintIndex = -1;
+        let isNight = false;
+        let gameStarted = false;
+
+        // New state variables
+        let autoHintInterval = null;
+        let countdown = 10;
+        let initialCountdownTime = 10;
+        let isAutoHinting = false;
+        
+        const cardColors = [
+            { background: 'var(--bg-card-current)', color: 'var(--text-primary)' },
+            { background: '#dcedc8', color: '#1a1a1a' }, // Light Green
+            { background: '#ffecb3', color: '#1a1a1a' }, // Light Amber
+            { background: '#d1c4e9', color: '#1a1a1a' }, // Light Purple
+            { background: '#c5cae9', color: '#1a1a1a' }, // Indigo
+            { background: '#b2dfdb', color: '#1a1a1a' }  // Teal
+        ];
+        let currentColorIndex = 0;
+
+        // Element references
+        const btnStart = document.getElementById('btnStart');
+        const btnNext = document.getElementById('btnNext');
+        const btnNight = document.getElementById('btnNight');
+        const btnHistory = document.getElementById('btnHistory');
+        const btnAnswer = document.getElementById('btnAnswer');
+        const btnHelp = document.getElementById('btnHelp');
+        const btnLang = document.getElementById('btnLang');
+        const btnToggleTheme = document.getElementById('btnToggleTheme');
+        const btnChangeColor = document.getElementById('btnChangeColor');
+        const btnRestart = document.getElementById('btnRestart');
+        const btnAutoHint = document.getElementById('btnAutoHint');
+        const autoHintControls = document.getElementById('autoHintControls');
+        const countdownTimerEl = document.getElementById('countdown-timer');
+        const btnDecrement = document.getElementById('btnDecrement');
+        const btnIncrement = document.getElementById('btnIncrement');
+
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('[data-translate-key]').forEach(el => {
+                const key = el.dataset.translateKey;
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+            document.title = translations[lang].docTitle;
+        }
+
+        function getRandomLocation() {
+            const keys = Object.keys(locations);
+            return keys[Math.floor(Math.random() * keys.length)];
+        }
+
+        function getRandomDirection() {
+            return directions[Math.floor(Math.random() * directions.length)];
+        }
+
+        function getRandomDistance() {
+            return (Math.floor(Math.random() * 10) + 1) * 10;
+        }
+
+        function getRandomFlavorText() {
+            return flavorTexts[Math.floor(Math.random() * flavorTexts.length)];
+        }
+
+        function isValidPosition(x, y) {
+            return x >= 0 && x <= 12 && y >= 0 && y <= 12;
+        }
+
+        function generateNextHint() {
+            let validMove = false;
+            let direction, distance, newX, newY;
+            let attempts = 0;
+            const distanceInUnits = distance / 10;
+
+            while (!validMove && attempts < 100) {
+                direction = getRandomDirection();
+                distance = getRandomDistance();
+                const vector = directionVectors[direction];
+                newX = dogPosition[0] + vector[0] * (distance / 10);
+                newY = dogPosition[1] + vector[1] * (distance / 10);
+
+                if (isValidPosition(newX, newY)) {
+                    validMove = true;
+                }
+                attempts++;
+            }
+
+            if (!validMove) {
+                distance = 10;
+                direction = getRandomDirection();
+                const vector = directionVectors[direction];
+                newX = dogPosition[0] + vector[0];
+                newY = dogPosition[1] + vector[1];
+            }
+
+            dogPosition = [newX, newY];
+            const flavorObj = getRandomFlavorText();
+            const dirSpan = `<span class="direction">${direction}</span>`;
+            const distSpan = `<span class="distance">${distance}m</span>`;
+            
+            let text;
+            if (flavorObj.type === 'direction-first') {
+                text = `${flavorObj.emoji} ${flavorObj.text} ${dirSpan} một đoạn ${distSpan}.`;
+            } else {
+                text = `${flavorObj.emoji} ${flavorObj.text} ${distSpan} về hướng ${dirSpan}.`;
+            }
+            
+            return { text, direction, distance };
+        }
+
+        function restartGame() {
+            stopAutoHint();
+            document.getElementById('hintCards').innerHTML = '';
+            document.getElementById('startScreen').style.display = 'block';
+            autoHintControls.style.display = 'none';
+            btnNext.style.display = 'none';
+            btnNight.style.display = 'none';
+            btnHistory.style.display = 'none';
+            btnAnswer.style.display = 'none';
+            btnStart.style.display = 'block';
+        }
+
+        function startGame() {
+            const startLocation = getRandomLocation();
+            dogPosition = [...locations[startLocation]];
+            hints = [{ text: `📍 Chú chó lần cuối được nhìn thấy ở <span class="location-name">${startLocation}</span>.`, direction: null, distance: null }];
+            currentHintIndex = 0;
+            isNight = false;
+            gameStarted = true;
+
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('hintCards').style.display = 'flex';
+            btnStart.style.display = 'none';
+            btnNext.style.display = 'block';
+            btnNext.disabled = false;
+            btnNight.style.display = 'block';
+            btnNight.disabled = false;
+            btnHistory.style.display = 'block';
+            btnHistory.disabled = false;
+            autoHintControls.style.display = 'block';
+
+            renderHints();
+        }
+
+        function renderHints() {
+            const container = document.getElementById('hintCards');
+            container.innerHTML = '';
+            let currentCardEl = null;
+
+            hints.forEach((hint, index) => {
+                const card = document.createElement('div');
+                card.className = 'hint-card';
+                
+                if (index === currentHintIndex) {
+                    card.classList.add('current');
+                    currentCardEl = card;
+                } else if (index < currentHintIndex) {
+                    card.classList.add('faded');
+                }
+
+                if (index < currentHintIndex) {
+                    card.classList.add('clickable');
+                    card.onclick = () => goBackToHint(index);
+                }
+
+                card.innerHTML = `${index + 1}. ${hint.text}`;
+                container.appendChild(card);
+            });
+            
+            applyCurrentCardColor();
+
+            // New: Scroll the current card to the center of the viewport
+            if (currentCardEl) {
+                setTimeout(() => {
+                    const containerRect = container.getBoundingClientRect();
+                    const cardRect = currentCardEl.getBoundingClientRect();
+                    const scrollPosition = container.scrollTop + cardRect.top - containerRect.top - (containerRect.height / 2) + (cardRect.height / 2);
+                    
+                    container.scrollTo({
+                        top: scrollPosition,
+                        behavior: 'smooth'
+                    });
+                }, 100); // Timeout to allow for rendering
+            }
+        }
+        
+        function goBackToHint(index) {
+            stopAutoHint();
+            hints = hints.slice(0, index + 1);
+            currentHintIndex = index;
+
+            // Recalculate position from start
+            const locationMatch = hints[0].text.match(/ở <span class="location-name">([^<]+)<\/span>\./);
+            if (locationMatch && locations[locationMatch[1]]) {
+                dogPosition = [...locations[locationMatch[1]]];
+            }
+
+            for (let i = 1; i <= index; i++) {
+                const hint = hints[i];
+                if (hint.direction && hint.distance) {
+                    const distInUnits = hint.distance / 10;
+                    const vector = directionVectors[hint.direction];
+                    dogPosition[0] += vector[0] * distInUnits;
+                    dogPosition[1] += vector[1] * distInUnits;
+                }
+            }
+
+            isNight = false;
+            btnNext.disabled = false;
+            btnNight.disabled = false;
+            btnAnswer.style.display = 'none';
+            renderHints();
+        }
+
+        function nextHint() {
+            if (isNight) return;
+
+            const hint = generateNextHint();
+            hints.push(hint);
+            currentHintIndex++;
+            renderHints();
+        }
+
+        function nightFall() {
+            if (isNight) return;
+            stopAutoHint();
+
+            const hintData = generateNextHint();
+            hintData.text += ' 😴💤 Chú chó đã mệt và nằm nghỉ tại đó.';
+            hints.push(hintData);
+            currentHintIndex++;
+            isNight = true;
+
+            btnNext.disabled = true;
+            btnNight.disabled = true;
+            btnAnswer.style.display = 'block';
+            btnAnswer.disabled = false;
+            autoHintControls.style.display = 'none';
+
+            renderHints();
+
+            setTimeout(() => {
+                const card = document.createElement('div');
+                card.className = 'hint-card current';
+                card.style.marginTop = '30px';
+                card.textContent = '❓🤔 Chú chó đang ở đâu?';
+                card.style.color = 'var(--text-primary)'; // Ensure text color is right
+                document.getElementById('hintCards').appendChild(card);
+                applyCurrentCardColor();
+            }, 500);
+        }
+
+        function showHistory() {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '';
+
+            hints.forEach((hint, index) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `${index + 1}. ${hint.text}`;
+                modalBody.appendChild(item);
+            });
+            
+            document.getElementById('modalTitle').setAttribute('data-translate-key', 'modalHistoryTitle');
+            setLanguage(currentLanguage);
+        }
+
+        function showAnswer() {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '<div class="answer-list"></div>';
+            const answerList = modalBody.querySelector('.answer-list');
+
+            const nearbyLocations = [];
+            for (const [name, pos] of Object.entries(locations)) {
+                const dx = (dogPosition[0] - pos[0]) * 10;
+                const dy = (dogPosition[1] - pos[1]) * 10;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance <= 50) {
+                    nearbyLocations.push({ name, pos, distance, dx, dy });
+                }
+            }
+
+            nearbyLocations.sort((a, b) => a.distance - b.distance);
+
+            if (nearbyLocations.length === 0) {
+                answerList.innerHTML = '<div class="answer-item">Không có địa điểm nào trong bán kính 50m.</div>';
+            } else {
+                nearbyLocations.forEach(loc => {
+                    const item = document.createElement('div');
+                    item.className = 'answer-item';
+                    
+                    const dirX = loc.dx > 0 ? 'đông' : 'tây';
+                    const dirY = loc.dy > 0 ? 'bắc' : 'nam';
+                    const absDx = Math.round(Math.abs(loc.dx));
+                    const absDy = Math.round(Math.abs(loc.dy));
+
+                    let instruction = `📍 Từ <span class="location-name">${loc.name}</span>`;
+
+                    if (absDx === 0 && absDy === 0) {
+                        instruction += ', chú chó đang ở ngay đây!';
+                    } else {
+                        const steps = [];
+                        if (absDx > 0) {
+                            steps.push(`đi về phía <span class="direction">${dirX}</span> <span class="distance">${absDx}m</span>`);
+                        }
+                        if (absDy > 0) {
+                            steps.push(`đi về phía <span class="direction">${dirY}</span> <span class="distance">${absDy}m</span>`);
+                        }
+                        instruction += ', ' + steps.join(' rồi ') + '.';
+                    }
+
+                    item.innerHTML = instruction;
+                    answerList.appendChild(item);
+                });
+            }
+
+            document.getElementById('modalTitle').setAttribute('data-translate-key', 'modalAnswerTitle');
+            setLanguage(currentLanguage);
+        }
+
+        function showHelp() {
+            const modalBody = document.getElementById('modalBody');
+            const t = translations[currentLanguage];
+            modalBody.innerHTML = `
+                <div class="answer-list" style="line-height: 2;">
+                    ${t.helpTitle}
+                    ${t.helpGoal}
+                    <br>
+                    ${t.helpHowToTitle}
+                    ${t.helpStep1}
+                    ${t.helpStep2}
+                    ${t.helpStep3}
+                    ${t.helpStep4}
+                    <br>
+                    ${t.helpFeaturesTitle}
+                    ${t.helpHistory}
+                    ${t.helpAutoHint}
+                    ${t.helpTheme}
+                </div>
+            `;
+            document.getElementById('modalTitle').setAttribute('data-translate-key', 'modalHelpTitle');
+            setLanguage(currentLanguage);
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        // --- New Feature Functions ---
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            if(document.body.classList.contains('dark-mode')) {
+                stopAutoHint();
+            }
+        }
+        
+        function applyCurrentCardColor() {
+            const currentCard = document.querySelector('.hint-card.current');
+            if (currentCard) {
+                const colorTheme = cardColors[currentColorIndex];
+                // The first color is special, it uses the CSS variables for the default current card color
+                if (currentColorIndex === 0) {
+                    currentCard.style.background = ''; // Reset to use CSS
+                    currentCard.style.color = '';
+                } else {
+                    currentCard.style.background = colorTheme.background;
+                    currentCard.style.color = colorTheme.color;
+                }
+            }
+        }
+
+        function changeCardColor() {
+            currentColorIndex = (currentColorIndex + 1) % cardColors.length;
+            applyCurrentCardColor();
+        }
+
+        function updateCountdownTime(change) {
+            initialCountdownTime = Math.max(1, initialCountdownTime + change);
+            if (!isAutoHinting) {
+                countdown = initialCountdownTime;
+                countdownTimerEl.textContent = countdown;
+            }
+        }
+
+        function toggleAutoHint() {
+            isAutoHinting = !isAutoHinting;
+            if (isAutoHinting) {
+                btnAutoHint.innerHTML = translations[currentLanguage].btnStopAutoHint;
+                btnNext.disabled = true; // Disable manual next while auto is on
+                countdown = initialCountdownTime;
+                countdownTimerEl.textContent = countdown;
+                autoHintInterval = setInterval(() => {
+                    countdown--;
+                    countdownTimerEl.textContent = countdown;
+                    if (countdown <= 0) {
+                        nextHint();
+                        countdown = initialCountdownTime;
+                        countdownTimerEl.textContent = countdown;
+                    }
+                }, 1000);
+            } else {
+                stopAutoHint();
+            }
+        }
+        
+        function stopAutoHint() {
+            if (autoHintInterval) {
+                clearInterval(autoHintInterval);
+                autoHintInterval = null;
+            }
+            isAutoHinting = false;
+            btnAutoHint.innerHTML = translations[currentLanguage].btnAutoHint;
+            if(gameStarted && !isNight) {
+                btnNext.disabled = false;
+            }
+            countdown = initialCountdownTime;
+            countdownTimerEl.textContent = countdown;
+        }
+
+        // Event Listeners
+        btnStart.onclick = startGame;
+        btnNext.onclick = nextHint;
+        btnNight.onclick = nightFall;
+        btnHistory.onclick = () => { showHistory(); document.getElementById('modal').classList.add('active'); };
+        btnAnswer.onclick = () => { showAnswer(); document.getElementById('modal').classList.add('active'); };
+        btnRestart.onclick = restartGame;
+        btnHelp.onclick = () => { showHelp(); document.getElementById('modal').classList.add('active'); };
+        btnToggleTheme.onclick = toggleTheme;
+        btnChangeColor.onclick = changeCardColor;
+        btnAutoHint.onclick = toggleAutoHint;
+        btnDecrement.onclick = () => updateCountdownTime(-1);
+        btnIncrement.onclick = () => updateCountdownTime(1);
+        btnLang.onclick = () => {
+            const newLang = currentLanguage === 'vi' ? 'en' : 'vi';
+            setLanguage(newLang);
+        };
+
+        // Initial load
+        setLanguage('vi');
+
+    </script>
+</body>
+</html>

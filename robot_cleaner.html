@@ -1,0 +1,2729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Robot Cleaner</title>
+<style>
+/* ──────────────────────────────────────
+   RESET & GLOBAL
+────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.92);
+  --glass-shadow: 0 4px 20px rgba(0,0,0,0.10);
+  --glass-blur: blur(16px) saturate(180%);
+  --radius: 12px;
+  --radius-lg: 18px;
+  --accent: #4F8EF7;
+  --accent2: #7C6FF7;
+  --danger: #F76F6F;
+  --success: #52C87A;
+  --text: #1a1a2e;
+}
+
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'SF Pro Display', system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  background: #e8edf5;
+}
+
+/* ──────────────────────────────────────
+   CANVAS
+────────────────────────────────────── */
+#gameCanvas {
+  position: absolute; top: 0; left: 0;
+  touch-action: none;
+  cursor: grab;
+}
+#gameCanvas:active { cursor: grabbing; }
+
+/* ──────────────────────────────────────
+   GLASS MIXIN (reused)
+────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ──────────────────────────────────────
+   TOP RIGHT CONTROLS
+────────────────────────────────────── */
+#topControls {
+  position: fixed;
+  top: 12px; right: 12px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 6px;
+  z-index: 100;
+  flex-wrap: wrap;
+  max-width: calc(100vw - 24px);
+  justify-content: flex-start;
+}
+
+.ctrl-btn {
+  height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text);
+  font-weight: 500;
+  font-size: 13px;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.ctrl-btn:hover {
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+.ctrl-btn:active { transform: scale(0.94); }
+.ctrl-btn.active {
+  background: linear-gradient(135deg, rgba(79,142,247,0.25), rgba(124,111,247,0.22));
+  border-color: rgba(79,142,247,0.5);
+}
+.ctrl-btn .icon { font-size: 17px; }
+
+.ctrl-group { display: flex; align-items: center; background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); border-radius: var(--radius); overflow: hidden; }
+.ctrl-group > .ctrl-btn { border-radius: 0; border: none; box-shadow: none; background: transparent; backdrop-filter: none; }
+.ctrl-group > .ctrl-btn:hover { background: rgba(0,0,0,0.05); transform: none; }
+.ctrl-group > .ctrl-btn:active { transform: scale(0.9); }
+.ctrl-label { display: inline-flex; align-items: center; height: 40px; font-size: 13px; font-weight: 500; color: var(--text); padding: 0 8px; border-left: 1px solid var(--glass-border); border-right: 1px solid var(--glass-border); }
+
+#mapIdInput {
+  height: 40px;
+  padding: 0 12px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius);
+  font-size: 12px;
+  width: 120px;
+  color: var(--text);
+  outline: none;
+  font-family: 'Consolas', monospace;
+  transition: border-color 0.2s;
+}
+#mapIdInput:focus { border-color: var(--accent); }
+
+/* ──────────────────────────────────────
+   BOTTOM PANEL
+────────────────────────────────────── */
+#bottomPanel {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Command Queue */
+#commandQueue {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  min-height: 54px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.7);
+  scrollbar-width: thin;
+}
+#commandQueue::-webkit-scrollbar { height: 4px; }
+#commandQueue::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+#cmdQueueLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cmd-chip {
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.85);
+  border: 1.5px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.12s;
+  position: relative;
+}
+.cmd-chip:hover {
+  background: rgba(247,111,111,0.18);
+  border-color: rgba(247,111,111,0.4);
+  transform: scale(1.08);
+}
+.cmd-chip.cmd-active {
+  background: linear-gradient(135deg, rgba(82,200,122,0.35), rgba(79,142,247,0.25));
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px rgba(82,200,122,0.2);
+}
+.cmd-chip.cmd-done {
+  opacity: 0.45;
+}
+.cmd-chip img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+/* Nav buttons */
+#navButtons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.nav-btn {
+  width: 62px; height: 62px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 34px;
+  font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
+  transition: all 0.12s;
+  color: var(--text);
+  touch-action: manipulation;
+}
+.nav-btn:hover {
+  background: rgba(255,255,255,0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.16);
+}
+.nav-btn:active { transform: scale(0.9); }
+
+.nav-btn img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+}
+
+#btnLeft { color: #4F8EF7; } /* Accent blue */
+#btnRight { color: #52C87A; } /* Success green */
+#btnForward { color: #2c3e50; } /* Dark slate blue */
+
+#runBtn {
+  width: 62px; height: 62px;
+  background: linear-gradient(135deg, #52C87A, #3fa85e);
+  border: 1.5px solid rgba(82,200,122,0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 26px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(82,200,122,0.4);
+  transition: all 0.12s;
+  color: white;
+  touch-action: manipulation;
+}
+#runBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(82,200,122,0.5);
+}
+#runBtn:active { transform: scale(0.9); }
+#runBtn.running {
+  background: linear-gradient(135deg, #F76F6F, #e05555);
+  border-color: rgba(247,111,111,0.5);
+  box-shadow: 0 4px 20px rgba(247,111,111,0.4);
+}
+
+/* Status Bar */
+#statusBar {
+  height: 38px;
+  background: rgba(15,20,40,0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 16px;
+  color: rgba(255,255,255,0.9);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-item {
+  display: flex; align-items: center; gap: 4px;
+}
+.status-item .label { color: rgba(255,255,255,0.5); font-size: 10px; text-transform: uppercase; }
+
+#mapIdDisplay {
+  cursor: pointer;
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+  color: #90c0ff;
+  margin-left: auto;
+  transition: color 0.15s;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 40vw;
+}
+#mapIdDisplay:hover { color: #b8d8ff; }
+
+/* ──────────────────────────────────────
+   START OVERLAY
+────────────────────────────────────── */
+#startOverlay {
+  position: fixed; inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background: rgba(20, 30, 60, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+#startCard {
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(255,255,255,0.95);
+  border-radius: 24px;
+  padding: 36px 44px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,20,0.22);
+  max-width: 560px;
+  width: 90%;
+}
+
+#startCard h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+#startCard p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+
+.mode-row { display: flex; gap: 10px; margin-bottom: 20px; }
+.mode-card {
+  flex: 1;
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(240,244,255,0.8);
+  color: #4b5563;
+  transition: all 0.18s;
+  line-height: 1.5;
+  touch-action: manipulation;
+}
+.mode-card .mode-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+.mode-card:hover { background: rgba(220,232,255,0.9); }
+.mode-card.selected {
+  background: linear-gradient(135deg, rgba(79,142,247,0.18), rgba(124,111,247,0.14));
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.start-actions {
+  margin-bottom: 12px;
+  margin-top: -10px;
+}
+.link-btn {
+  background: none; border: none;
+  color: var(--accent);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  padding: 4px;
+  touch-action: manipulation;
+}
+.link-btn:hover { text-decoration: underline; }
+
+#loadMapContainer {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  margin-bottom: 0;
+}
+#loadMapContainer.visible {
+  height: 55px;
+  opacity: 1;
+  margin-bottom: 15px;
+}
+#startMapIdInput {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #ced4da;
+  font-size: 12px;
+  font-family: 'Consolas', monospace;
+  outline: none;
+  transition: border-color 0.2s;
+}
+#startMapIdInput:focus { border-color: var(--accent); }
+
+.start-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(79,142,247,0.4);
+  transition: all 0.18s;
+  letter-spacing: 0.02em;
+  touch-action: manipulation;
+}
+.start-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 32px rgba(79,142,247,0.5);
+}
+
+/* ──────────────────────────────────────
+   WIN MODAL
+────────────────────────────────────── */
+#winModal {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  background: rgba(10,20,50,0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#winCard {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid rgba(255,255,255,0.98);
+  border-radius: 24px;
+  padding: 36px 44px;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,20,0.25);
+  animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  width: auto;
+  min-width: 480px;
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow-y: auto;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+#winCard h2 { font-size: 30px; margin-bottom: 4px; }
+#winCard .win-sub { color: #6b7280; font-size: 13px; margin-bottom: 18px; }
+
+.win-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.win-stat {
+  background: rgba(240,244,255,0.9);
+  border-radius: 12px;
+  padding: 12px 8px;
+}
+.win-stat .val { font-size: 22px; font-weight: 700; color: var(--text); }
+.win-stat .lbl { font-size: 10px; color: #9ca3af; text-transform: uppercase; margin-top: 2px; }
+
+.cmd-section { text-align: left; margin-bottom: 14px; }
+.cmd-section-title {
+  font-size: 11px; font-weight: 600; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.cmd-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  background: rgba(240,244,255,0.8);
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+}
+.cmd-badge {
+  width: 60px; height: 60px;
+  background: white;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+.cmd-badge img {
+    width: 70%;
+    height: 70%;
+    object-fit: contain;
+}
+.cmd-badge.optimal { background: rgba(82,200,122,0.2); border: 1px solid rgba(82,200,122,0.4); }
+
+.win-actions { display: flex; gap: 10px; margin-top: 20px; }
+.win-btn {
+  flex: 1; padding: 14px;
+  border-radius: 13px;
+  border: none;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  touch-action: manipulation;
+}
+.win-btn:hover { transform: translateY(-1px); }
+.win-btn-replay {
+  background: rgba(240,244,255,0.95);
+  color: var(--text);
+}
+.win-btn-next {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+  box-shadow: 0 4px 20px rgba(79,142,247,0.35);
+}
+
+/* ──────────────────────────────────────
+   TOAST
+────────────────────────────────────── */
+#toast {
+  position: fixed;
+  top: 68px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15,20,40,0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  padding: 9px 22px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; }
+
+/* ──────────────────────────────────────
+   LOADING
+────────────────────────────────────── */
+#loadingScreen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #e8edf5, #dce4f5);
+  z-index: 1000;
+}
+#loadingScreen h1 { font-size: 28px; color: var(--text); margin-bottom: 8px; }
+#loadingScreen p { color: #6b7280; font-size: 14px; }
+.loader {
+  width: 44px; height: 44px;
+  border: 3px solid rgba(79,142,247,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ──────────────────────────────────────
+   TOOLTIPS
+────────────────────────────────────── */
+[title] { position: relative; }
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+  <div class="loader"></div>
+  <h1>🤖 Robot Cleaner</h1>
+  <p>Loading assets…</p>
+</div>
+
+<!-- Game Canvas -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- Top Controls -->
+<div id="topControls">
+  <input type="text" id="mapIdInput" placeholder="MapID…" title="Paste a MapID to load that map" autocomplete="off" spellcheck="false">
+  <div id="customControls" style="display: none; gap: 6px; align-items: center;">
+      <span class="ctrl-label" style="border: none; font-weight: bold;">Editor:</span>
+      <div class="ctrl-group">
+          <button class="ctrl-btn" id="btnRowsDown" title="Decrease Rows">-</button>
+          <span id="rowsLabel" class="ctrl-label">15</span>
+          <button class="ctrl-btn" id="btnRowsUp" title="Increase Rows">+</button>
+      </div>
+      <span class="ctrl-label" style="border: none;">Rows</span>
+      <div class="ctrl-group">
+          <button class="ctrl-btn" id="btnColsDown" title="Decrease Columns">-</button>
+          <span id="colsLabel" class="ctrl-label">25</span>
+          <button class="ctrl-btn" id="btnColsUp" title="Increase Columns">+</button>
+      </div>
+      <span class="ctrl-label" style="border: none;">Cols</span>
+  </div>
+  <button class="ctrl-btn" id="btnHome" title="Back to Home"><span class="icon">🏠</span></button>
+  <button class="ctrl-btn" id="btnDifficulty" title="Toggle Difficulty"><span class="icon">⚙️</span><span id="difficultyLabel">Hard</span></button>
+  <button class="ctrl-btn" id="btnMode" title="Switch Control Mode"><span class="icon">⚡</span><span id="modeLabel">Live</span></button>
+  <button class="ctrl-btn" id="btnEditor" title="Toggle Map Editor"><span class="icon">✏️</span></button>
+  <div class="ctrl-group">
+    <button class="ctrl-btn" id="btnLevelDown" title="Decrease Level">-</button>
+    <span id="levelLabel" class="ctrl-label">L1</span>
+    <button class="ctrl-btn" id="btnLevelUp" title="Increase Level">+</button>
+  </div>
+  <button class="ctrl-btn" id="btnSkin" title="Change Robot Skin"><span class="icon">🤖</span><span id="skinLabel">1</span></button>
+  <button class="ctrl-btn" id="btnSpeed" title="Toggle Speed"><span class="icon">⚡</span><span id="speedLabel">×1</span></button>
+  <button class="ctrl-btn" id="btnRandMap" title="New Random Map"><span class="icon">🎲</span></button>
+  <button class="ctrl-btn" id="btnAutoSolve" title="Auto-solve the puzzle"><span class="icon">💡</span></button>
+  <button class="ctrl-btn" id="btnRandColor" title="Randomize Building Colors"><span class="icon">🎨</span></button>
+  <button class="ctrl-btn" id="btnRandPos" title="Randomize Start/End Position"><span class="icon">📍</span></button>
+  <button class="ctrl-btn" id="btnRandStartEndTouch" title="Randomize Start/End on Path (Touch)" style="display: none;"><span class="icon">🔄</span></button>
+  <button class="ctrl-btn active" id="btnAutoZoom" title="Toggle Auto-Zoom"><span class="icon">🔍</span></button>
+  <button class="ctrl-btn" id="btnCamera" title="Toggle Camera Mode"><span class="icon">🎥</span><span id="cameraLabel">Map</span></button>
+</div>
+
+<!-- Bottom Panel -->
+<div id="bottomPanel">
+  <div id="commandQueue">
+    <span id="cmdQueueLabel">Commands</span>
+  </div>
+  <div id="navButtons">
+    <button class="nav-btn" id="btnLeft" title="Turn Left"><img src="robots/left.png" alt="Left"></button>
+    <button class="nav-btn" id="btnForward" title="Go Forward"><img src="robots/up.png" alt="Forward"></button>
+    <button class="nav-btn" id="btnRight" title="Turn Right"><img src="robots/right.png" alt="Right"></button>
+    <button class="nav-btn" id="btnResetLive" title="Reset Level" style="font-size: 28px; display:none">↺</button>
+    <button id="runBtn" title="Run / Stop" style="display:none">▶️</button>
+  </div>
+  <div id="statusBar">
+    <div class="status-item"><span class="label">Stage</span> <span id="stageVal">1</span></div>
+    <div class="status-item"><span class="label">Level</span> <span id="levelVal">1</span></div>
+    <div class="status-item"><span class="label">Cmds</span> <span id="cmdsVal">0 / ?</span></div>
+    <div class="status-item"><span class="label">Time</span> <span id="timerVal">0s</span></div>
+    <div id="mapIdDisplay" title="Click to copy MapID">—</div>
+  </div>
+</div>
+
+<!-- Start Overlay -->
+<div id="startOverlay">
+  <div id="startCard">
+    <h2>🤖 Robot Cleaner</h2>
+    <p>Guide the robot to the ⭐ star!</p>
+    <div class="mode-row">
+      <button class="mode-card selected" id="modeLive" onclick="G.selectMode('LIVE')">
+        <span class="mode-icon">⚡</span>Live Control<br>
+        <span style="font-weight:400;font-size:11px;color:#9ca3af">React in real time</span>
+      </button>
+      <button class="mode-card" id="modeProgram" onclick="G.selectMode('PROGRAM')">
+        <span class="mode-icon">📝</span>Programmed<br>
+        <span style="font-weight:400;font-size:11px;color:#9ca3af">Plan then execute</span>
+      </button>
+      <button class="mode-card" id="modeCustom" onclick="G.selectMode('CUSTOM')">
+        <span class="mode-icon">✏️</span>Map Editor<br>
+        <span style="font-weight:400;font-size:11px;color:#9ca3af">Create your own maps</span>
+      </button>
+    </div>
+    <div class="start-actions">
+      <button class="link-btn" id="loadMapBtn">Load from MapID</button>
+    </div>
+    <div id="loadMapContainer">
+      <input type="text" id="startMapIdInput" placeholder="Paste MapID here...">
+    </div>
+    <button class="start-btn" onclick="G.startGame()">▶ Start</button>
+  </div>
+</div>
+
+<!-- Win Modal -->
+<div id="winModal">
+  <div id="winCard">
+    <h2>🎉 You made it!</h2>
+    <p class="win-sub">Robot has reached the destination</p>
+    <div class="win-stats-grid">
+      <div class="win-stat"><div class="val" id="wTime">0s</div><div class="lbl">Time</div></div>
+      <div class="win-stat"><div class="val" id="wCmds">0</div><div class="lbl">Commands</div></div>
+      <div class="win-stat"><div class="val" id="wOptimal">0</div><div class="lbl">Optimal</div></div>
+    </div>
+    <div class="cmd-section">
+      <div class="cmd-section-title">Your commands</div>
+      <div class="cmd-row" id="winCmds"></div>
+    </div>
+    <div class="cmd-section">
+      <div class="cmd-section-title">Optimal solution</div>
+      <div class="cmd-row" id="winOptimal"></div>
+    </div>
+    <div class="win-actions">
+      <button class="win-btn win-btn-replay" onclick="G.replayMap()">🔄 Replay</button>
+      <button class="win-btn win-btn-next" onclick="G.nextMap()">⏭ Next Map</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════
+
+// Web Audio API for sound effects
+let audioCtx;
+function initAudio() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return;
+  }
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) {
+    console.error("Web Audio API is not supported in this browser");
+  }
+}
+
+function playBeep(type = 'click') {
+  if (!audioCtx) return;
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+
+  if (type === 'click') {
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+    gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01);
+    oscillator.start(audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+    oscillator.stop(audioCtx.currentTime + 0.1);
+  } else if (type === 'stop') {
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(349.23, audioCtx.currentTime); // F4
+    gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.02);
+    oscillator.start(audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
+    oscillator.stop(audioCtx.currentTime + 0.15);
+  }
+}
+
+function isTouchDevice() {
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
+let toastTimer = null;
+function showToast(msg, duration = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ═══════════════════════════════════════════════════
+//  DIRECTIONS
+// ═══════════════════════════════════════════════════
+// Angles: 0=Up, 90=Right, 180=Down, 270=Left
+const DIRS = [
+  { angle: 0,   dx: 0,  dy: -1 }, // Up
+  { angle: 90,  dx: 1,  dy: 0  }, // Right
+  { angle: 180, dx: 0,  dy: 1  }, // Down
+  { angle: 270, dx: -1, dy: 0  }, // Left
+];
+
+function getDir(angle) {
+  const a = ((angle % 360) + 360) % 360;
+  return DIRS.find(d => d.angle === a) || DIRS[0];
+}
+
+function vecToAngle(dx, dy) {
+  if (dy < 0) return 0;
+  if (dx > 0) return 90;
+  if (dy > 0) return 180;
+  return 270;
+}
+
+// ═══════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════
+const GameState = {
+  stage: 1,          // 1=Setup, 2=Playing, 3=Won
+  mode: 'LIVE',      // 'LIVE' | 'PROGRAM'
+  difficulty: 'HARD', // 'EASY' | 'HARD'
+  camera: 'LOCK_MAP',// 'LOCK_MAP' | 'LOCK_ROBOT'
+  level: 1,
+  tileSize: 64,
+  grid: [],
+  rows: 0,
+  cols: 0,
+  startTile: { row: 0, col: 0 },
+  initialAngle: 0,
+  endTile:   { row: 0, col: 0 },
+  robot: { x: 0, y: 0, angle: 0 },
+  commandQueue: [],
+  optimalCommands: [],
+  isMoving: false,
+  isRunning: false,
+  currentCmdIndex: -1,
+  autoZoom: true,
+  robotSkin: 1,
+  speed: 1,
+  buildingColors: [],
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  mapId: '',
+  isDragging: false,
+  dragStartX: 0, dragStartY: 0,
+  dragPanX: 0, dragPanY: 0,
+  lastPinchDist: 0,
+  timerStart: 0,
+  timerSeconds: 0,
+  timerInterval: null,
+  runFinished: false,
+  editorIsDrawing: false,
+  editorDrawMode: 1, // 1 for path, 0 for wall
+  hoveredTile: null,
+  editorNextRightClick: 'START', // 'START' or 'END'
+};
+const GS = GameState;
+
+// ═══════════════════════════════════════════════════
+//  CANVAS
+// ═══════════════════════════════════════════════════
+const canvas  = document.getElementById('gameCanvas');
+const ctx     = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if (GS.grid.length > 0) {
+    if (GS.autoZoom) fitMap();
+    render();
+  }
+}
+window.addEventListener('resize', resizeCanvas);
+
+function screenToWorld(screenX, screenY) {
+    const { cols, rows, tileSize, panX, panY, zoom } = GS;
+    const mapW = cols * tileSize;
+    const mapH = rows * tileSize;
+    const ox = (canvas.width - mapW * zoom) / 2 + panX;
+    const oy = (canvas.height - mapH * zoom) / 2 + panY;
+    const worldX = (screenX - ox) / zoom;
+    const worldY = (screenY - oy) / zoom;
+    return { x: worldX, y: worldY };
+}
+
+function worldToTile(worldX, worldY) {
+    const { tileSize, rows, cols } = GS;
+    const col = Math.floor(worldX / tileSize);
+    const row = Math.floor(worldY / tileSize);
+    if (row >= 0 && row < rows && col >= 0 && col < cols) {
+        return { row, col };
+    }
+    return null;
+}
+
+// ═══════════════════════════════════════════════════
+//  ROBOT IMAGES
+// ═══════════════════════════════════════════════════
+const robotImgs = {};
+function preloadRobots() {
+  return new Promise(resolve => {
+    let loaded = 0;
+    const total = 5;
+    for (let i = 1; i <= total; i++) {
+      const img = new Image();
+      img.src = `./robots/robot${i}.png`;
+      img.onload  = img.onerror = () => { if (++loaded >= total) resolve(); };
+      robotImgs[i] = img;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  MAP GENERATION - DISPATCHER
+// ═══════════════════════════════════════════════════
+function generateMap(forceNewColors) {
+  let grid, startTile, endTile, optCmds;
+  let attempts = 0;
+  const maxAttempts = 300;
+
+  const ar = window.innerWidth / window.innerHeight;
+  let rows = (GS.difficulty === 'EASY' ? 6 : 5) + Math.floor(GS.level * 1.1);
+  let cols;
+  if (ar >= 1) {
+    cols = Math.max(Math.floor(rows * ar), rows + 2);
+  } else {
+    cols = rows;
+    rows = Math.max(Math.floor(cols / ar), cols + 2);
+  }
+  if (rows % 2 === 0) rows++;
+  if (cols % 2 === 0) cols++;
+  rows = Math.min(rows, 41);
+  cols = Math.min(cols, 81);
+
+  GS.rows = rows;
+  GS.cols = cols;
+
+  while (attempts++ < maxAttempts) {
+    if (GS.difficulty === 'EASY') {
+      grid = generateEasyMap(rows, cols);
+    } else {
+      grid = generateHardMap(rows, cols);
+    }
+
+    const placement = pickStartEnd(grid, rows, cols);
+    if (!placement) continue;
+    startTile = placement.start;
+    endTile   = placement.end;
+
+    const pathTiles = bfs(grid, startTile, endTile, rows, cols);
+    if (!pathTiles) continue;
+
+    // Determine initial angle from the first step of the path
+    const firstStep = pathTiles.length > 1 ? pathTiles[1] : startTile;
+    const dr = firstStep.row - startTile.row;
+    const dc = firstStep.col - startTile.col;
+    const actualInitialAngle = vecToAngle(dc, dr);
+    GS.initialAngle = actualInitialAngle;
+
+    optCmds = computeOptimalCommands(pathTiles, grid, rows, cols, actualInitialAngle);
+    const minCmds = GS.level + (GS.difficulty === 'EASY' ? 2 : 4);
+    
+    const turnCount = optCmds.filter(c => c === 'LEFT' || c === 'RIGHT').length;
+    const minTurns = GS.level > 2 ? Math.floor(GS.level / 3) : 0;
+    if ((optCmds.length < minCmds || turnCount < minTurns) && attempts < maxAttempts - 2) continue;
+
+    break; // Found a good map
+  }
+
+  GS.grid = grid;
+  GS.startTile = startTile;
+  GS.endTile   = endTile;
+  GS.optimalCommands = optCmds || [];
+
+  if (forceNewColors || !GS.buildingColors.length) generateColors(true);
+
+  resetRobot();
+  computeMapId();
+  if (GS.autoZoom) fitMap();
+}
+
+function generateEasyMap(rows, cols) {
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(0)); // All walls
+
+    // --- 1. Carve a perfect grid of 1-tile wide roads ---
+    const verticalRoads = new Set();
+    // Ensure roads are not at the very edge
+    for (let c = 2 + Math.floor(Math.random() * 2); c < cols - 2; c += Math.floor(Math.random() * 3) + 4) { // Spacing 4-6
+        verticalRoads.add(c);
+    }
+
+    const horizontalRoads = new Set();
+    for (let r = 2 + Math.floor(Math.random() * 2); r < rows - 2; r += Math.floor(Math.random() * 3) + 4) { // Spacing 4-6
+        horizontalRoads.add(r);
+    }
+
+    // Actually carve the roads
+    verticalRoads.forEach(c => {
+        for (let r = 0; r < rows; r++) grid[r][c] = 1;
+    });
+    horizontalRoads.forEach(r => {
+        for (let c = 0; c < cols; c++) grid[r][c] = 1;
+    });
+
+    // --- 2. Degrade the grid to create T and L junctions ---
+    const allV = [0, ...Array.from(verticalRoads).sort((a, b) => a - b), cols - 1];
+    const allH = [0, ...Array.from(horizontalRoads).sort((a, b) => a - b), rows - 1];
+
+    const removalProb = 0.45;
+
+    // Degrade horizontal segments
+    for (const r of horizontalRoads) {
+        for (let i = 0; i < allV.length - 1; i++) {
+            const c1 = allV[i];
+            const c2 = allV[i+1];
+            if (c1 > 0 && c2 < cols - 1 && Math.random() < removalProb) {
+                for (let c = c1 + 1; c < c2; c++) {
+                    grid[r][c] = 0;
+                }
+            }
+        }
+    }
+
+    // Degrade vertical segments
+    for (const c of verticalRoads) {
+        for (let i = 0; i < allH.length - 1; i++) {
+            const r1 = allH[i];
+            const r2 = allH[i+1];
+            if (r1 > 0 && r2 < rows - 1 && Math.random() < removalProb) {
+                for (let r = r1 + 1; r < r2; r++) {
+                    grid[r][c] = 0;
+                }
+            }
+        }
+    }
+    
+    // --- 3. Ensure map is fully connected ---
+    const pathCells = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (grid[r][c] === 1) pathCells.push({r, c});
+    
+    if (pathCells.length > 0) {
+        const components = [];
+        const visited = new Set();
+        for (const cell of pathCells) {
+            const key = `${cell.r},${cell.c}`;
+            if (visited.has(key)) continue;
+            const component = [], queue = [cell];
+            visited.add(key);
+            while (queue.length > 0) {
+                const current = queue.shift();
+                component.push(current);
+                for (const d of DIRS) {
+                    const nr = current.r + d.dy, nc = current.c + d.dx, nKey = `${nr},${nc}`;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1 && !visited.has(nKey)) {
+                        visited.add(nKey);
+                        queue.push({r: nr, c: nc});
+                    }
+                }
+            }
+            components.push(component);
+        }
+        if (components.length > 1) {
+            components.sort((a, b) => b.length - a.length);
+            for (let i = 1; i < components.length; i++) {
+                let bestDist = Infinity, bestA = null, bestB = null;
+                for (const cellA of components[0]) for (const cellB of components[i]) {
+                    const dist = Math.abs(cellA.r - cellB.r) + Math.abs(cellA.c - cellB.c);
+                    if (dist < bestDist) { bestDist = dist; bestA = cellA; bestB = cellB; }
+                }
+                if (bestA && bestB) {
+                    let r = bestA.r, c = bestA.c;
+                    while (r !== bestB.r || c !== bestB.c) {
+                        if (r < bestB.r) r++; else if (r > bestB.r) r--;
+                        else if (c < bestB.c) c++; else if (c > bestB.c) c--;
+                        if (grid[r][c] === 0) grid[r][c] = 1;
+                    }
+                }
+            }
+        }
+    }
+    return grid;
+}
+
+function generateHardMap(rows, cols) {
+    // Maze generation (Recursive Backtracker)
+    const grid = Array.from({ length: rows }, () => new Array(cols).fill(0));
+    const stack = [];
+    
+    // Start at a random odd coordinate
+    const startR = 1;
+    const startC = 1;
+    grid[startR][startC] = 1;
+    stack.push({ r: startR, c: startC });
+
+    const dirs = [
+        { r: -2, c: 0 }, { r: 2, c: 0 }, { r: 0, c: -2 }, { r: 0, c: 2 }
+    ];
+
+    while (stack.length > 0) {
+        const current = stack[stack.length - 1];
+        const neighbors = [];
+
+        for (const d of dirs) {
+            const nr = current.r + d.r;
+            const nc = current.c + d.c;
+            if (nr > 0 && nr < rows - 1 && nc > 0 && nc < cols - 1 && grid[nr][nc] === 0) {
+                neighbors.push({ nr, nc, dr: d.r, dc: d.c });
+            }
+        }
+
+        if (neighbors.length > 0) {
+            const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+            grid[current.r + next.dr / 2][current.c + next.dc / 2] = 1;
+            grid[next.nr][next.nc] = 1;
+            stack.push({ r: next.nr, c: next.nc });
+        } else {
+            stack.pop();
+        }
+    }
+
+    // Add a few loops to prevent it from being a perfect tree
+    const extra = Math.max(1, Math.floor(rows * cols * 0.02));
+    for (let i = 0; i < extra; i++) {
+        const r = 1 + Math.floor(Math.random() * (rows - 2));
+        const c = 1 + Math.floor(Math.random() * (cols - 2));
+        if (grid[r][c] === 0) {
+            let roads = 0;
+            if (grid[r-1][c]) roads++;
+            if (grid[r+1][c]) roads++;
+            if (grid[r][c-1]) roads++;
+            if (grid[r][c+1]) roads++;
+
+            if (roads === 2) {
+                // Check if removing this wall creates a 2x2 road area
+                let forms2x2 = false;
+                // Check if this wall is the SE corner of a potential 2x2 block
+                if (grid[r-1][c-1] === 1 && grid[r-1][c] === 1 && grid[r][c-1] === 1) forms2x2 = true;
+                // Check if this wall is the SW corner
+                else if (grid[r-1][c] === 1 && grid[r-1][c+1] === 1 && grid[r][c+1] === 1) forms2x2 = true;
+                // Check if this wall is the NE corner
+                else if (grid[r][c-1] === 1 && grid[r+1][c-1] === 1 && grid[r+1][c] === 1) forms2x2 = true;
+                // Check if this wall is the NW corner
+                else if (grid[r][c+1] === 1 && grid[r+1][c] === 1 && grid[r+1][c+1] === 1) forms2x2 = true;
+
+                if (!forms2x2) {
+                    grid[r][c] = 1;
+                }
+            }
+        }
+    }
+
+    return grid;
+}
+
+// ═══════════════════════════════════════════════════
+//  START / END PLACEMENT
+// ═══════════════════════════════════════════════════
+function pickStartEnd(grid, rows, cols) {
+  // Collect edge road tiles on each side
+  const sides = { top: [], bottom: [], left: [], right: [] };
+
+  for (let c = 0; c < cols; c++) {
+    if (grid[1][c] === 1)      sides.top.push({ row:1, col:c });
+    if (grid[rows-2][c] === 1) sides.bottom.push({ row:rows-2, col:c });
+  }
+  for (let r = 0; r < rows; r++) {
+    if (grid[r][1] === 1)      sides.left.push({ row:r, col:1 });
+    if (grid[r][cols-2] === 1) sides.right.push({ row:r, col:cols-2 });
+  }
+
+  const allSides = Object.keys(sides);
+  const oppSide  = { top:'bottom', bottom:'top', left:'right', right:'left' };
+
+  // Try opposite sides first, then any two different sides
+  const sideKeys = shuffle(allSides);
+  for (const s of sideKeys) {
+    if (sides[s].length === 0) continue;
+    const opp = oppSide[s];
+    if (sides[opp].length === 0) continue;
+    const start = sides[s][Math.floor(Math.random() * sides[s].length)];
+    const end   = sides[opp][Math.floor(Math.random() * sides[opp].length)];
+    if (start.row !== end.row || start.col !== end.col) return { start, end };
+  }
+
+  // Fallback: any two edge tiles
+  const all = [...sides.top, ...sides.bottom, ...sides.left, ...sides.right];
+  if (all.length < 2) return null;
+  const si = Math.floor(Math.random() * all.length);
+  let ei = Math.floor(Math.random() * (all.length - 1));
+  if (ei >= si) ei++;
+  return { start: all[si], end: all[ei] };
+}
+
+function autoPlaceStartEnd() {
+    const pathTiles = [];
+    for (let r = 0; r < GS.rows; r++) {
+        for (let c = 0; c < GS.cols; c++) {
+            if (GS.grid[r][c] === 1) {
+                pathTiles.push({ row: r, col: c });
+            }
+        }
+    }
+
+    if (pathTiles.length < 2) {
+        showToast('Not enough path tiles to place start and end points.');
+        return;
+    }
+
+    // Find the two most distant points on the path
+    let maxDist = -1;
+    let start = pathTiles[0];
+    let end = pathTiles[1];
+
+    shuffle(pathTiles);
+
+    for (let i = 0; i < pathTiles.length; i++) {
+        for (let j = i + 1; j < pathTiles.length; j++) {
+            const p1 = pathTiles[i];
+            const p2 = pathTiles[j];
+            const dist = Math.abs(p1.row - p2.row) + Math.abs(p1.col - p2.col);
+            if (dist > maxDist) {
+                maxDist = dist;
+                start = p1;
+                end = p2;
+            }
+        }
+    }
+
+    GS.startTile = start;
+    GS.endTile = end;
+}
+
+// ═══════════════════════════════════════════════════
+//  BFS PATHFINDING
+// ═══════════════════════════════════════════════════
+function bfs(grid, start, end, rows, cols) {
+  if (!start || !end || start.row < 0 || start.col < 0 || end.row < 0 || end.col < 0 || 
+      start.row >= rows || start.col >= cols || end.row >= rows || end.col >= cols ||
+      grid[start.row]?.[start.col] !== 1 || grid[end.row]?.[end.col] !== 1) {
+    return null; // Invalid start/end tile
+  }
+  const visited = Array.from({ length: rows }, () => new Array(cols).fill(false));
+  const queue   = [{ row: start.row, col: start.col, path: [{ row: start.row, col: start.col }] }];
+  visited[start.row][start.col] = true;
+
+  while (queue.length) {
+    const { row, col, path } = queue.shift();
+    if (row === end.row && col === end.col) return path;
+    for (const d of DIRS) {
+      const nr = row + d.dy, nc = col + d.dx;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1 && !visited[nr][nc]) {
+        visited[nr][nc] = true;
+        queue.push({ row: nr, col: nc, path: [...path, { row: nr, col: nc }] });
+      }
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════
+//  PATH → COMMANDS CONVERSION
+// ═══════════════════════════════════════════════════
+/*
+  Robot stops at a tile when:
+  a) It can turn left or right (has perpendicular road), or
+  b) Forward is blocked (dead-end / forced turn), or
+  c) Reached the destination
+  Commands: FORWARD, LEFT, RIGHT
+*/
+
+function robotStopsAtTile(row, col, movingAngle, grid, rows, cols) {
+  // Stop if forward path is blocked (handles corners and dead-ends)
+  const fwd = getDir(movingAngle);
+  const nr_fwd = row + fwd.dy;
+  const nc_fwd = col + fwd.dx;
+  if (nr_fwd < 0 || nr_fwd >= rows || nc_fwd < 0 || nc_fwd >= cols || grid[nr_fwd][nc_fwd] !== 1) {
+    return true;
+  }
+
+  // Also stop if the current tile is an intersection (a choice point)
+  // An intersection is a path tile with more than 2 path neighbors.
+  let roadNeighbors = 0;
+  for (const d of DIRS) {
+    const nr = row + d.dy;
+    const nc = col + d.dx;
+    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+      roadNeighbors++;
+    }
+  }
+  // A simple straight path tile has 2 neighbors. Stop if it's more.
+  if (roadNeighbors >= 3) return true;
+
+  return false;
+}
+
+// Simulate robot's auto-forward from a starting tile with given angle.
+// Returns the tile where robot stops (could be same tile if blocked immediately).
+function simForward(startRow, startCol, ang, grid, rows, cols, endTile) {
+  let r = startRow, c = startCol;
+  while (true) {
+    const d  = getDir(ang);
+    const nr = r + d.dy, nc = c + d.dx;
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || grid[nr][nc] !== 1) break;
+    r = nr; c = nc;
+    if ((endTile && r === endTile.row && c === endTile.col)) break;
+    if (robotStopsAtTile(r, c, ang, grid, rows, cols)) break;
+  }
+  return { row: r, col: c };
+}
+
+// Convert a BFS path to a list of button commands.
+// The algorithm simulates exact game movement.
+function computeOptimalCommands(pathTiles, grid, rows, cols, initialAngle) {
+  if (!pathTiles || pathTiles.length < 2) return []; // Need at least a start and end
+
+  const endTile = pathTiles[pathTiles.length - 1];
+  let angle = initialAngle;
+  let curRow = pathTiles[0].row;
+  let curCol = pathTiles[0].col;
+  let pi = 0;
+  const cmds = [];
+
+  function findInPath(row, col, fromIdx) {
+    for (let i = fromIdx; i < pathTiles.length; i++)
+      if (pathTiles[i].row === row && pathTiles[i].col === col) return i;
+    return -1;
+  }
+
+  let safety = 0; // Prevent infinite loops
+  while (pi < pathTiles.length - 1 && safety++ < 300) {
+    const nxtTile = pathTiles[pi + 1];
+    const dr = nxtTile.row - curRow;
+    const dc = nxtTile.col - curCol;
+    const neededA = vecToAngle(dc, dr);
+    
+    if (neededA === angle) {
+        // Facing correct direction, just move forward.
+        cmds.push('FORWARD');
+        const pos = simForward(curRow, curCol, angle, grid, rows, cols, endTile);
+        const newPi = findInPath(pos.row, pos.col, pi);
+        if (newPi <= pi) break;
+        pi = newPi;
+        curRow = pos.row;
+        curCol = pos.col;
+    } else {
+        // Need to turn. A turn command also includes a move.
+      const diff = ((neededA - angle) + 360) % 360;
+      
+      if (diff === 180) {
+          // 180 turn is two 'RIGHT' commands.
+          // First RIGHT
+          cmds.push('RIGHT');
+          angle = (angle + 90) % 360;
+          let pos = simForward(curRow, curCol, angle, grid, rows, cols, endTile);
+          let newPi = findInPath(pos.row, pos.col, pi);
+          if (newPi <= pi) break;
+          pi = newPi; curRow = pos.row; curCol = pos.col;
+          if (pi >= pathTiles.length - 1) continue;
+
+          // Second RIGHT
+          cmds.push('RIGHT');
+          angle = (angle + 90) % 360;
+          pos = simForward(curRow, curCol, angle, grid, rows, cols, endTile);
+          newPi = findInPath(pos.row, pos.col, pi);
+          if (newPi <= pi) break;
+          pi = newPi; curRow = pos.row; curCol = pos.col;
+
+      } else { // 90 or 270 degree turn
+          if (diff === 90) { cmds.push('RIGHT'); angle = (angle + 90) % 360; } 
+          else { cmds.push('LEFT'); angle = (angle - 90 + 360) % 360; }
+          
+          // Simulate the move that comes with the turn.
+          const pos = simForward(curRow, curCol, angle, grid, rows, cols, endTile);
+          const newPi = findInPath(pos.row, pos.col, pi);
+          if (newPi <= pi) break;
+          pi = newPi; curRow = pos.row; curCol = pos.col;
+      }
+    }
+  }
+
+  return cmds;
+}
+
+// ═══════════════════════════════════════════════════
+//  ROBOT SETUP
+// ═══════════════════════════════════════════════════
+function resetRobotPosition() {
+  const { startTile, tileSize, initialAngle } = GS;
+  GS.robot.x = startTile.col * tileSize + tileSize / 2;
+  GS.robot.y = startTile.row * tileSize + tileSize / 2;
+  GS.robot.angle = initialAngle;
+  GS.isMoving     = false;
+  GS.isRunning    = false;
+  GS.currentCmdIndex = -1;
+  updateCmdUI();
+  render();
+}
+function resetRobot() {
+  const { startTile, tileSize, initialAngle } = GS;
+  GS.robot.x = startTile.col * tileSize + tileSize / 2;
+  GS.robot.y = startTile.row * tileSize + tileSize / 2;
+  GS.robot.angle = initialAngle;
+  GS.commandQueue = [];
+  GS.isMoving     = false;
+  GS.isRunning    = false;
+  GS.currentCmdIndex = -1;
+  updateCmdUI();
+}
+
+// ═══════════════════════════════════════════════════
+//  FORWARD MOVEMENT  (find stop tile)
+// ═══════════════════════════════════════════════════
+function findForwardTarget() {
+  const { robot, grid, rows, cols, tileSize, endTile } = GS;
+  const angle  = ((robot.angle % 360) + 360) % 360;
+
+  // Snap current position to nearest tile
+  let r = Math.round((robot.y / tileSize) - 0.5);
+  let c = Math.round((robot.x / tileSize) - 0.5);
+  r = Math.max(0, Math.min(rows-1, r));
+  c = Math.max(0, Math.min(cols-1, c));
+
+  const stop = simForward(r, c, angle, grid, rows, cols, endTile);
+
+  return {
+    row: stop.row, col: stop.col,
+    tx: stop.col * tileSize + tileSize/2,
+    ty: stop.row * tileSize + tileSize/2,
+  };
+}
+
+// ═══════════════════════════════════════════════════
+//  ANIMATION ENGINE
+// ═══════════════════════════════════════════════════
+function animMove(fromX, fromY, toX, toY, cb) {
+  const dist     = Math.sqrt((toX-fromX)**2 + (toY-fromY)**2);
+  const duration = Math.max(120, (dist / GS.tileSize) * (280 / GS.speed));
+  const t0       = performance.now();
+
+  function step(now) {
+    const t   = Math.min((now - t0) / duration, 1);
+    const et  = easeInOut(t);
+    GS.robot.x = lerp(fromX, toX, et);
+    GS.robot.y = lerp(fromY, toY, et);
+    render();
+    if (t < 1) requestAnimationFrame(step);
+    else { GS.robot.x = toX; GS.robot.y = toY; cb(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function animRotate(fromA, toA, cb) {
+  const duration = 160 / GS.speed;
+  const t0       = performance.now();
+
+  function step(now) {
+    const t  = Math.min((now - t0) / duration, 1);
+    const et = easeInOut(t);
+    GS.robot.angle = lerp(fromA, toA, et);
+    render();
+    if (t < 1) requestAnimationFrame(step);
+    else { GS.robot.angle = ((toA % 360) + 360) % 360; cb(); }
+  }
+  requestAnimationFrame(step);
+}
+
+// ═══════════════════════════════════════════════════
+//  COMMAND EXECUTION
+// ═══════════════════════════════════════════════════
+function doForward(onDone) {
+  const target = findForwardTarget();
+  const dist   = Math.abs(target.tx - GS.robot.x) + Math.abs(target.ty - GS.robot.y);
+  if (dist < 2) { onDone(false); return; } // No movement possible
+
+  animMove(GS.robot.x, GS.robot.y, target.tx, target.ty, () => {
+    GS.robot.x = target.tx;
+    GS.robot.y = target.ty;
+    const won = target.row === GS.endTile.row && target.col === GS.endTile.col;
+    onDone(won);
+  });
+}
+
+function doTurn(direction, onDone) {
+  const delta  = direction === 'LEFT' ? -90 : 90;
+  const fromA  = GS.robot.angle;
+  const toA    = fromA + delta;
+  animRotate(fromA, toA, () => {
+    GS.robot.angle = ((toA % 360) + 360) % 360;
+    // After turning, auto-forward
+    doForward(onDone);
+  });
+}
+
+function executeCommand(cmd) {
+  if (GS.stage !== 2) return;
+  if (GS.isMoving) { showToast('⏳ Robot is moving…'); return; }
+
+  if (GS.mode === 'PROGRAM') {
+    if (GS.isRunning) return;
+    playBeep('click');
+    GS.commandQueue.push(cmd);
+    updateCmdUI();
+    return;
+  }
+
+  // LIVE mode: execute immediately
+  playBeep('click');
+  GS.commandQueue.push(cmd);
+  updateCmdUI();
+  GS.isMoving = true;
+
+  function done(won) {
+    GS.isMoving = false;
+    updateCmdUI();
+    render();
+    if (won) {
+      triggerWin();
+    } else {
+      playBeep('stop');
+    }
+  }
+
+  if (cmd === 'FORWARD') doForward(done);
+  else doTurn(cmd, done);
+}
+
+// Program mode run
+function runProgram() {
+  if (GS.runFinished) {
+    GS.runFinished = false;
+    document.getElementById('runBtn').textContent = '▶️';
+    resetRobotPosition();
+    return;
+  }
+
+  if (GS.isRunning) {
+    // Stop / reset
+    GS.isRunning = false;
+    GS.isMoving  = false;
+    document.getElementById('runBtn').textContent = '▶️';
+    document.getElementById('runBtn').classList.remove('running');
+    resetRobotPosition();
+    return;
+  }
+  if (GS.commandQueue.length === 0) { showToast('Add commands first!'); return; }
+
+  GS.isRunning = true;
+  GS.runFinished = false; // Reset finished state on new run
+  GS.currentCmdIndex = 0;
+  document.getElementById('runBtn').textContent = '🔄';
+  document.getElementById('runBtn').classList.add('running');
+  runNextCmd();
+}
+
+function runNextCmd() {
+  if (!GS.isRunning) return;
+
+  if (GS.currentCmdIndex >= GS.commandQueue.length) {
+    // Out of commands
+    GS.isRunning = false;
+    GS.isMoving  = false;
+    GS.runFinished = true;
+    document.getElementById('runBtn').classList.remove('running');
+    showToast('❌ No more commands — robot didn\'t reach the star!');
+    updateCmdUI(-1);
+    return;
+  }
+
+  const cmd = GS.commandQueue[GS.currentCmdIndex];
+  updateCmdUI(GS.currentCmdIndex);
+  GS.currentCmdIndex++;
+  GS.isMoving = true;
+
+  function done(won) {
+    GS.isMoving = false;
+    render();
+    if (won) {
+      GS.isRunning = false;
+      document.getElementById('runBtn').textContent = '▶️';
+      document.getElementById('runBtn').classList.remove('running');
+      updateCmdUI(-1);
+      triggerWin();
+    } else {
+      if (GS.isRunning) {
+        playBeep('stop');
+      }
+      runNextCmd();
+    }
+  }
+
+  if (cmd === 'FORWARD') doForward(done);
+  else doTurn(cmd, done);
+}
+
+// ═══════════════════════════════════════════════════
+//  WIN
+// ═══════════════════════════════════════════════════
+function triggerWin() {
+  GS.stage    = 3;
+  GS.isMoving = false;
+  if (GS.timerInterval) { clearInterval(GS.timerInterval); GS.timerInterval = null; }
+
+  document.getElementById('sfxWin').play();
+  render();
+
+  const cmdMap = {
+      FORWARD: '<img src="robots/up.png" alt="F">',
+      LEFT: '<img src="robots/left.png" alt="L">',
+      RIGHT: '<img src="robots/right.png" alt="R">'
+  };
+
+  document.getElementById('wTime').textContent    = GS.timerSeconds + 's';
+  document.getElementById('wCmds').textContent    = GS.commandQueue.length;
+  document.getElementById('wOptimal').textContent = GS.optimalCommands.length;
+
+  document.getElementById('winCmds').innerHTML =
+    GS.commandQueue.map(c => `<div class="cmd-badge">${cmdMap[c]||c}</div>`).join('');
+
+  document.getElementById('winOptimal').innerHTML =
+    GS.optimalCommands.map(c => `<div class="cmd-badge optimal">${cmdMap[c]||c}</div>`).join('');
+
+  setTimeout(() => {
+    document.getElementById('winModal').style.display = 'flex';
+  }, 300);
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════════════
+function render() {
+  const { grid, rows, cols, tileSize, robot, endTile, camera, panX, panY, zoom } = GS;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#dde4f0';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!grid || !grid.length) return;
+
+  ctx.save();
+
+  if (camera === 'LOCK_MAP') {
+    const mapW = cols * tileSize;
+    const mapH = rows * tileSize;
+    const ox   = (canvas.width  - mapW * zoom) / 2 + panX;
+    const oy   = (canvas.height - mapH * zoom) / 2 + panY;
+    ctx.translate(ox, oy);
+    ctx.scale(zoom, zoom);
+    drawTiles();
+    drawStar();
+    drawRobotSprite(robot.x, robot.y, robot.angle);
+  } else {
+    // LOCK_ROBOT: robot stays at center upright; map rotates around it
+    // Transform order: screen-center → scale → rotate(−angle) → world-offset
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(zoom, zoom);
+    ctx.rotate(-robot.angle * Math.PI / 180);
+    ctx.translate(-robot.x, -robot.y);
+    drawTiles();
+    drawStar();
+    // Draw robot at world-pos but visually upright (cancel the rotation)
+    ctx.save();
+    ctx.translate(robot.x, robot.y);
+    ctx.rotate(robot.angle * Math.PI / 180);
+    drawRobotAt(0, 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+const ROAD_COLOR  = '#f5f7fc';
+const ROAD_LINE   = 'rgba(200,210,230,0.35)';
+
+function drawTiles() {
+  const { grid, rows, cols, tileSize, buildingColors, startTile, endTile } = GS;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * tileSize, y = r * tileSize;
+      if (grid[r][c] === 0) {
+        // Building block
+        const ci = (r * 7 + c * 13) % buildingColors.length;
+        ctx.fillStyle = buildingColors[ci];
+        ctx.fillRect(x, y, tileSize, tileSize);
+
+        // Building depth effect (inner lighter rectangle)
+        const inset = tileSize * 0.08;
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fillRect(x + inset, y + inset, tileSize - inset*2, tileSize - inset*2);
+
+        // Thin border
+        ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+        ctx.lineWidth   = 0.5;
+        ctx.strokeRect(x + 0.5, y + 0.5, tileSize-1, tileSize-1);
+      } else {
+        // Road tile
+        ctx.fillStyle = ROAD_COLOR;
+        ctx.fillRect(x, y, tileSize, tileSize);
+
+        // Subtle road markings
+        ctx.strokeStyle = ROAD_LINE;
+        ctx.lineWidth   = 0.5;
+        ctx.strokeRect(x, y, tileSize, tileSize);
+      }
+    }
+  }
+
+  // Start tile highlight (pulsing blue ring handled below)
+  const sx = startTile.col * tileSize, sy = startTile.row * tileSize;
+  ctx.fillStyle = 'rgba(79,142,247,0.14)';
+  ctx.fillRect(sx, sy, tileSize, tileSize);
+  ctx.strokeStyle = 'rgba(79,142,247,0.4)';
+  ctx.lineWidth   = 2;
+  ctx.strokeRect(sx+1, sy+1, tileSize-2, tileSize-2);
+
+  // End tile highlight
+  const ex = endTile.col * tileSize, ey = endTile.row * tileSize;
+  ctx.fillStyle = 'rgba(255,200,0,0.15)';
+  ctx.fillRect(ex, ey, tileSize, tileSize);
+
+  // Hover highlight for editor
+  if (GS.mode === 'CUSTOM' && GS.hoveredTile) {
+    const { row, col } = GS.hoveredTile;
+    const x = col * tileSize;
+    const y = row * tileSize;
+    ctx.fillStyle = 'rgba(79, 142, 247, 0.25)';
+    ctx.fillRect(x, y, tileSize, tileSize);
+    ctx.strokeStyle = 'rgba(79, 142, 247, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 0.75, y + 0.75, tileSize - 1.5, tileSize - 1.5);
+  }
+}
+
+function drawStar() {
+  const { endTile, tileSize } = GS;
+  const cx = endTile.col * tileSize + tileSize/2;
+  const cy = endTile.row * tileSize + tileSize/2;
+  const s  = tileSize * 0.7;
+
+  // Glow
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,220,0,0.6)';
+  ctx.shadowBlur  = tileSize * 0.4;
+  ctx.font        = `${s}px serif`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline= 'middle';
+  ctx.fillText('⭐', cx, cy);
+  ctx.restore();
+}
+
+function drawRobotSprite(worldX, worldY, angle) {
+  ctx.save();
+  ctx.translate(worldX, worldY);
+  ctx.rotate(angle * Math.PI / 180);
+  drawRobotAt(0, 0, 0);
+  ctx.restore();
+}
+
+function drawRobotAt(x, y, angle) {
+  const { tileSize, robotSkin } = GS;
+  const size = tileSize * 0.88;
+  const img  = robotImgs[robotSkin];
+
+  // Shadow
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur  = tileSize * 0.25;
+  ctx.shadowOffsetY = tileSize * 0.08;
+
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x - size/2, y - size/2, size, size);
+  } else {
+    // Fallback robot drawing
+    ctx.fillStyle = '#4F8EF7';
+    ctx.beginPath();
+    ctx.roundRect(x - size*0.38, y - size*0.4, size*0.76, size*0.8, size*0.15);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x - size*0.15, y - size*0.1, size*0.1, 0, Math.PI*2);
+    ctx.arc(x + size*0.15, y - size*0.1, size*0.1, 0, Math.PI*2);
+    ctx.fill();
+    // Direction arrow
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath();
+    ctx.moveTo(x, y - size*0.38);
+    ctx.lineTo(x + size*0.12, y - size*0.22);
+    ctx.lineTo(x - size*0.12, y - size*0.22);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  FIT MAP
+// ═══════════════════════════════════════════════════
+function fitMap() {
+  const { rows, cols, tileSize } = GS;
+  const mapW = cols * tileSize;
+  const mapH = rows * tileSize;
+  const topControlsHeight = document.getElementById('topControls').offsetHeight;
+  const bottomPanelHeight = document.getElementById('bottomPanel').offsetHeight;
+  
+  const padX = 100;
+  const padY = 40; // 20px top and bottom padding
+  
+  const availW = canvas.width - padX;
+  const availH = canvas.height - topControlsHeight - bottomPanelHeight - padY;
+  
+  GS.zoom = Math.min(availW / mapW, availH / mapH, 2.5);
+  GS.zoom = Math.max(GS.zoom, 0.15);
+  
+  // Center the map in the available space
+  GS.panX = 0;
+  const verticalOffset = (topControlsHeight - bottomPanelHeight) / 2;
+  GS.panY = verticalOffset;
+}
+
+// ═══════════════════════════════════════════════════
+//  BUILDING COLORS
+// ═══════════════════════════════════════════════════
+const PALETTES = [
+  ['#c8ddb0','#b8d09e','#a8c48c','#98b87a','#c0d4a8'],
+  ['#b8d4e8','#a0c4e0','#88b4d8','#70a4d0','#90c0e4'],
+  ['#f0d0c8','#e8c0b0','#e0b098','#d8a080','#f4d8cc'],
+  ['#e8d8b0','#e0c898','#d8b880','#d0a868','#ecdcb8'],
+  ['#d0c8e8','#c0b8e0','#b0a8d8','#a098d0','#d8d0f0'],
+  ['#c8e8d8','#b0dcc4','#98d0b0','#80c49c','#b8e0cc'],
+  ['#e8c8d8','#e0b8cc','#d8a8c0','#d098b4','#f0d0e0'],
+  ['#a4c8e0', '#8cb8d0', '#74a8c0', '#5c98b0', '#94c4d8'], // Steel Blue
+  ['#e0c4a4', '#d0b08c', '#c09c74', '#b0885c', '#d8c094'], // Tan
+  ['#c0e0c4', '#a8d0ac', '#90c094', '#78b07c', '#b0d8b4'], // Sage
+];
+
+function generateColors(forceNew = false) {
+  if (!forceNew && GS.buildingColors.length > 0) return;
+  const pal = PALETTES[Math.floor(Math.random() * PALETTES.length)];
+  GS.buildingColors = Array.from({ length: 30 }, (_, i) => pal[i % pal.length]);
+}
+
+// ═══════════════════════════════════════════════════
+//  MAP ID  (compact encoding)
+// ═══════════════════════════════════════════════════
+function computeMapId() {
+  const { grid, rows, cols, startTile, endTile } = GS;
+
+  // Encode grid as bit string, then base64
+  const bits = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      bits.push(grid[r][c] ? '1' : '0');
+
+  // Pack bits into bytes then base64
+  const bytes = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    let b = 0;
+    for (let j = 0; j < 8; j++) if (bits[i+j] === '1') b |= (1 << (7-j));
+    bytes.push(b);
+  }
+  const b64 = btoa(String.fromCharCode(...bytes));
+
+  // Header: rows,cols,sr,sc,er,ec
+  const hdr = `${rows},${cols},${startTile.row},${startTile.col},${endTile.row},${endTile.col}`;
+  const id  = `${hdr}|${b64}`;
+
+  GS.mapId = id;
+  document.getElementById('mapIdDisplay').textContent = id.slice(0, 48) + (id.length > 48 ? '…' : '');
+  document.getElementById('mapIdInput').value = id;
+  saveSettings();
+}
+
+function loadMapFromId(id) {
+  try {
+    const sep = id.indexOf('|');
+    if (sep < 0) throw new Error();
+    const hdr  = id.slice(0, sep);
+    const b64  = id.slice(sep + 1);
+    const parts = hdr.split(',').map(Number);
+    if (parts.length < 6 || parts.some(isNaN)) throw new Error();
+
+    const [rows, cols, sr, sc, er, ec] = parts;
+    if (rows < 3 || cols < 3) throw new Error();
+
+    const bytes = Array.from(atob(b64), c => c.charCodeAt(0));
+    const bits  = bytes.flatMap(b => Array.from({ length: 8 }, (_, i) => (b >> (7-i)) & 1));
+
+    const grid  = Array.from({ length: rows }, (_, r) =>
+      Array.from({ length: cols }, (_, c) => bits[r * cols + c] ?? 0)
+    );
+
+    GS.rows = rows; GS.cols = cols;
+    GS.grid = grid;
+    GS.startTile = { row: sr, col: sc };
+    GS.endTile   = { row: er, col: ec };
+
+    const path = bfs(grid, GS.startTile, GS.endTile, rows, cols);
+
+    // FIX: Recalculate initial angle when loading a map from ID
+    let newInitialAngle = 0;
+    if (path && path.length > 1) {
+        const firstStep = path[1];
+        const dr = firstStep.row - GS.startTile.row;
+        const dc = firstStep.col - GS.startTile.col;
+        newInitialAngle = vecToAngle(dc, dr);
+    } else {
+        // Fallback: if no path or path is trivial, just face any open road.
+        for (const d of DIRS) {
+            const nr = GS.startTile.row + d.dy;
+            const nc = GS.startTile.col + d.dx;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+                newInitialAngle = d.angle;
+                break;
+            }
+        }
+    }
+    GS.initialAngle = newInitialAngle;
+
+    GS.optimalCommands = path ? computeOptimalCommands(path, grid, rows, cols, GS.initialAngle) : [];
+    generateColors(true);
+    resetRobot();
+    if (GS.autoZoom) fitMap();
+    render();
+    GS.mapId = id;
+    document.getElementById('mapIdDisplay').textContent = id.slice(0, 48) + (id.length > 48 ? '…' : '');
+    showToast('✅ Map loaded!');
+  } catch {
+    showToast('❌ Invalid MapID');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════════════════
+const CMD_ICONS = {
+    FORWARD: '<img src="robots/up.png" alt="F">',
+    LEFT: '<img src="robots/left.png" alt="L">',
+    RIGHT: '<img src="robots/right.png" alt="R">'
+};
+
+function updateCmdUI(activeIdx = -1) {
+  const container = document.getElementById('commandQueue');
+  const label     = document.getElementById('cmdQueueLabel');
+  label.textContent = GS.commandQueue.length ? 'Commands ›' : 'Commands';
+
+  // Remove all chips but keep label
+  const chips = container.querySelectorAll('.cmd-chip');
+  chips.forEach(c => c.remove());
+
+  GS.commandQueue.forEach((cmd, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'cmd-chip';
+    if (i === activeIdx) chip.classList.add('cmd-active');
+    else if (activeIdx >= 0 && i < activeIdx) chip.classList.add('cmd-done');
+    chip.innerHTML = CMD_ICONS[cmd] || cmd;
+    chip.title = 'Click to remove';
+    chip.addEventListener('click', () => {
+      if (GS.isRunning || GS.isMoving) return;
+      GS.commandQueue.splice(i, 1);
+      updateCmdUI();
+    });
+    container.appendChild(chip);
+  });
+
+  document.getElementById('cmdsVal').textContent =
+    `${GS.commandQueue.length} / ${GS.optimalCommands.length || '?'}`;
+}
+
+function updateStatusUI() {
+  document.getElementById('stageVal').textContent = GS.stage;
+  document.getElementById('levelVal').textContent = GS.level;
+  document.getElementById('levelLabel').textContent = `L${GS.level}`;
+}
+
+function startTimer() {
+  GS.timerSeconds = 0;
+  GS.timerStart   = Date.now();
+  clearInterval(GS.timerInterval);
+  GS.timerInterval = setInterval(() => {
+    GS.timerSeconds = Math.floor((Date.now() - GS.timerStart) / 1000);
+    document.getElementById('timerVal').textContent = GS.timerSeconds + 's';
+  }, 500);
+}
+
+// ═══════════════════════════════════════════════════
+//  GAME CONTROLLER  (exported as G)
+// ═══════════════════════════════════════════════════
+const G = {
+  selectMode(mode) {
+    if (GS.mode === 'CUSTOM' && mode !== 'CUSTOM') {
+        // Exiting editor mode
+        document.getElementById('customControls').style.display = 'none';
+        document.getElementById('btnEditor').classList.remove('active');
+        document.getElementById('btnDifficulty').style.display = 'inline-flex';
+        document.getElementById('btnLevelDown').style.display = 'inline-flex';
+        document.getElementById('btnLevelUp').style.display = 'inline-flex';
+        document.getElementById('levelLabel').style.display = 'inline-flex';
+        document.getElementById('btnRandMap').style.display = 'inline-flex';
+        document.getElementById('btnRandPos').style.display = 'inline-flex';
+        document.getElementById('btnMode').style.display = 'inline-flex';
+        document.getElementById('btnCamera').style.display = 'inline-flex';
+        canvas.style.cursor = 'grab';
+    }
+
+    GS.mode = mode;
+    // For start overlay
+    const modeLive = document.getElementById('modeLive');
+    if (modeLive) {
+        modeLive.classList.toggle('selected', mode === 'LIVE');
+        document.getElementById('modeProgram').classList.toggle('selected', mode === 'PROGRAM');
+        document.getElementById('modeCustom').classList.toggle('selected', mode === 'CUSTOM');
+    }
+    
+    // For top control button
+    const modeLabel = document.getElementById('modeLabel');
+    if (modeLabel) {
+        modeLabel.textContent = mode === 'LIVE' ? 'Live' : 'Program';
+        document.getElementById('btnMode').querySelector('.icon').textContent = mode === 'LIVE' ? '⚡' : '📝';
+    }
+
+    document.getElementById('runBtn').style.display = mode === 'PROGRAM' ? 'flex' : 'none';
+    document.getElementById('btnResetLive').style.display = (mode === 'LIVE' || mode === 'CUSTOM') ? 'flex' : 'none';
+    
+    if (mode === 'CUSTOM') {
+        // Entering editor mode
+        document.getElementById('customControls').style.display = 'flex';
+        document.getElementById('btnEditor').classList.add('active');
+        document.getElementById('btnDifficulty').style.display = 'none';
+        document.getElementById('btnLevelDown').style.display = 'none';
+        document.getElementById('btnLevelUp').style.display = 'none';
+        document.getElementById('levelLabel').style.display = 'none';
+        document.getElementById('btnRandMap').style.display = 'none';
+        document.getElementById('btnRandPos').style.display = 'none';
+        document.getElementById('btnMode').style.display = 'none';
+        canvas.style.cursor = 'crosshair';
+
+        GS.camera = 'LOCK_MAP';
+        document.getElementById('cameraLabel').textContent = 'Map';
+        document.getElementById('btnCamera').style.display = 'inline-flex';
+
+        if (GS.grid.length === 0) {
+            G.createNewGrid(15, 25);
+        } else {
+            // Update labels if entering with existing grid
+            document.getElementById('rowsLabel').textContent = GS.rows;
+            document.getElementById('colsLabel').textContent = GS.cols;
+        }
+    }
+    
+    saveSettings();
+
+    if (GS.stage === 2) {
+        resetRobot();
+        render();
+    }
+  },
+
+  startGame() {
+    const mapIdInput = document.getElementById('startMapIdInput');
+    const mapId = mapIdInput.value.trim();
+    const isLoading = document.getElementById('loadMapContainer').classList.contains('visible') && mapId;
+
+    let mapReady = false;
+    if (isLoading) {
+      loadMapFromId(mapId);
+      // check if load was successful
+      if (GS.mapId === mapId) {
+        mapReady = true;
+      } else {
+        showToast('❌ Invalid MapID. Starting new game.');
+      }
+    } 
+    
+    if (!mapReady) {
+      if (GS.mode === 'CUSTOM') {
+          if (GS.grid.length === 0) G.createNewGrid(15, 25);
+      } else { // LIVE or PROGRAM
+          generateMap(true);
+      }
+    }
+    
+    GS.stage = 2;
+    document.getElementById('startOverlay').style.display = 'none';
+    initAudio();
+    resetRobot(); // Resets position on the current grid
+    startTimer();
+    updateStatusUI();
+    render();
+  },
+
+  replayMap() {
+    GS.stage = 2;
+    document.getElementById('winModal').style.display = 'none';
+    resetRobot();
+    startTimer();
+    updateStatusUI();
+    render();
+  },
+
+  nextMap() {
+    GS.stage = 2;
+    document.getElementById('winModal').style.display = 'none';
+    generateMap(true);
+    startTimer();
+    updateStatusUI();
+    render();
+    saveSettings();
+  },
+  
+  createNewGrid(rows, cols) {
+    GS.rows = Math.max(5, Math.min(rows, 81));
+    GS.cols = Math.max(5, Math.min(cols, 81));
+    if (GS.rows % 2 === 0) GS.rows++;
+    if (GS.cols % 2 === 0) GS.cols++;
+
+    GS.grid = Array.from({ length: GS.rows }, () => new Array(GS.cols).fill(0));
+    
+    GS.startTile = { row: 1, col: 1 };
+    GS.endTile = { row: GS.rows - 2, col: GS.cols - 2 };
+    GS.grid[GS.startTile.row][GS.startTile.col] = 1;
+    GS.grid[GS.endTile.row][GS.endTile.col] = 1;
+    GS.initialAngle = 90;
+
+    document.getElementById('rowsLabel').textContent = GS.rows;
+    document.getElementById('colsLabel').textContent = GS.cols;
+
+    G.updateMapAfterEdit();
+    if (GS.autoZoom) fitMap();
+  },
+
+  updateMapAfterEdit() {
+    if (GS.mode !== 'CUSTOM') return;
+    
+    const path = bfs(GS.grid, GS.startTile, GS.endTile, GS.rows, GS.cols);
+    
+    let newInitialAngle = GS.initialAngle;
+    if (path && path.length > 1) {
+        const firstStep = path[1];
+        const dr = firstStep.row - GS.startTile.row;
+        const dc = firstStep.col - GS.startTile.col;
+        newInitialAngle = vecToAngle(dc, dr);
+    } else {
+        for (const d of DIRS) {
+            const nr = GS.startTile.row + d.dy;
+            const nc = GS.startTile.col + d.dx;
+            if (nr >= 0 && nr < GS.rows && nc >= 0 && nc < GS.cols && GS.grid[nr][nc] === 1) {
+                newInitialAngle = d.angle;
+                break;
+            }
+        }
+    }
+    GS.initialAngle = newInitialAngle;
+
+    GS.optimalCommands = path ? computeOptimalCommands(path, GS.grid, GS.rows, GS.cols, GS.initialAngle) : [];
+    
+    computeMapId();
+    resetRobotPosition(); 
+    render();
+    updateCmdUI();
+    updateStatusUI();
+  }
+};
+
+// ═══════════════════════════════════════════════════
+//  TOP CONTROLS
+// ═══════════════════════════════════════════════════
+document.getElementById('btnHome').onclick = () => { window.location.href = 'index.html'; };
+
+document.getElementById('btnDifficulty').onclick = () => {
+    GS.difficulty = GS.difficulty === 'HARD' ? 'EASY' : 'HARD';
+    document.getElementById('difficultyLabel').textContent = GS.difficulty === 'HARD' ? 'Hard' : 'Easy';
+    saveSettings();
+    generateMap(true);
+    render();
+    updateStatusUI();
+};
+
+document.getElementById('btnMode').onclick = () => {
+    const newMode = GS.mode === 'LIVE' ? 'PROGRAM' : 'LIVE';
+    G.selectMode(newMode);
+};
+
+document.getElementById('btnLevelUp').onclick = () => {
+  GS.level = GS.level + 1;
+  generateMap(false);
+  render();
+  updateStatusUI();
+  saveSettings();
+};
+
+document.getElementById('btnLevelDown').onclick = () => {
+  GS.level = Math.max(GS.level - 1, 1);
+  generateMap(false);
+  render();
+  updateStatusUI();
+  saveSettings();
+};
+
+document.getElementById('btnSkin').onclick = () => {
+  GS.robotSkin = (GS.robotSkin + 1) % 6; // Cycle through 0, 1, 2, 3, 4, 5
+  
+  const skinName = GS.robotSkin === 0 ? 'Default' : GS.robotSkin;
+  const skinButtonLabel = GS.robotSkin === 0 ? 'D' : GS.robotSkin;
+
+  document.getElementById('skinLabel').textContent = skinButtonLabel;
+  saveSettings(); 
+  render(); 
+  showToast(`Skin ${skinName} selected`);
+};
+
+document.getElementById('btnSpeed').onclick = () => {
+  const opts = [1, 1.5, 2, 5, 10];
+  let currentSpeedIndex = opts.indexOf(GS.speed);
+  if (currentSpeedIndex === -1) {
+    currentSpeedIndex = 0; // Default to 1x if saved speed is no longer valid
+  }
+  GS.speed = opts[(currentSpeedIndex + 1) % opts.length];
+  document.getElementById('speedLabel').textContent = `×${GS.speed}`;
+  saveSettings();
+};
+
+document.getElementById('btnRandMap').onclick = () => {
+  generateMap(true);
+  render();
+  updateStatusUI();
+};
+
+document.getElementById('btnAutoSolve').onclick = () => {
+  if (GS.isRunning || GS.isMoving) {
+    showToast('Wait for robot to stop!');
+    return;
+  }
+  
+  if (GS.mode !== 'PROGRAM') {
+      G.selectMode('PROGRAM');
+      showToast('Switched to Program mode for auto-solve.');
+  }
+
+  GS.commandQueue = [...GS.optimalCommands];
+  updateCmdUI();
+  
+  // Delay the run slightly to allow UI update
+  setTimeout(() => {
+    runProgram();
+  }, 100);
+};
+
+document.getElementById('btnRandColor').onclick = () => {
+  generateColors(true);
+  render();
+  saveSettings();
+};
+
+document.getElementById('btnRandPos').onclick = () => {
+  const { grid, rows, cols } = GS;
+  const p = pickStartEnd(grid, rows, cols);
+  if (!p) { showToast('Could not find a valid placement'); return; }
+
+  const path = bfs(grid, p.start, p.end, rows, cols);
+  if (!path) {
+    showToast('Could not find a path between new points');
+    return;
+  }
+
+  GS.startTile = p.start;
+  GS.endTile = p.end;
+
+  let newInitialAngle = 0;
+  if (path.length > 1) {
+      const firstStep = path[1];
+      const dr = firstStep.row - p.start.row;
+      const dc = firstStep.col - p.start.col;
+      newInitialAngle = vecToAngle(dc, dr);
+  } else {
+      for (const d of DIRS) {
+          const nr = p.start.row + d.dy;
+          const nc = p.start.col + d.dx;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+              newInitialAngle = d.angle;
+              break;
+          }
+      }
+  }
+  GS.initialAngle = newInitialAngle;
+  GS.optimalCommands = computeOptimalCommands(path, grid, rows, cols, newInitialAngle);
+  computeMapId();
+  resetRobot();
+  render();
+};
+
+document.getElementById('btnAutoZoom').onclick = () => {
+  GS.autoZoom = !GS.autoZoom;
+  document.getElementById('btnAutoZoom').classList.toggle('active', GS.autoZoom);
+  if (GS.autoZoom) { fitMap(); render(); }
+  saveSettings();
+};
+
+document.getElementById('btnCamera').onclick = () => {
+  GS.camera = GS.camera === 'LOCK_MAP' ? 'LOCK_ROBOT' : 'LOCK_MAP';
+  document.getElementById('cameraLabel').textContent = GS.camera === 'LOCK_MAP' ? 'Map' : 'Bot';
+  render();
+};
+
+document.getElementById('mapIdInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadMapFromId(e.target.value.trim());
+});
+document.getElementById('mapIdInput').addEventListener('change', e => {
+  loadMapFromId(e.target.value.trim());
+});
+
+document.getElementById('mapIdDisplay').onclick = () => {
+  navigator.clipboard?.writeText(GS.mapId).then(() => showToast('📋 MapID copied!'));
+};
+
+// Editor controls
+document.getElementById('btnEditor').onclick = () => {
+    const isEditor = GS.mode === 'CUSTOM';
+    G.selectMode(isEditor ? 'LIVE' : 'CUSTOM');
+};
+document.getElementById('btnRowsUp').onclick = () => G.createNewGrid(GS.rows + 2, GS.cols);
+document.getElementById('btnRowsDown').onclick = () => G.createNewGrid(GS.rows - 2, GS.cols);
+document.getElementById('btnColsUp').onclick = () => G.createNewGrid(GS.rows, GS.cols + 2);
+document.getElementById('btnColsDown').onclick = () => G.createNewGrid(GS.rows, GS.cols - 2);
+
+document.getElementById('loadMapBtn').onclick = () => {
+    document.getElementById('loadMapContainer').classList.toggle('visible');
+};
+
+
+// Nav buttons
+document.getElementById('btnLeft').onclick    = () => executeCommand('LEFT');
+document.getElementById('btnForward').onclick = () => executeCommand('FORWARD');
+document.getElementById('btnRight').onclick   = () => executeCommand('RIGHT');
+document.getElementById('runBtn').onclick      = runProgram;
+
+document.getElementById('btnResetLive').onclick = () => {
+  resetRobot();
+  render();
+  showToast('↺ Robot reset');
+};
+
+// ═══════════════════════════════════════════════════
+//  EDITOR & PAN/ZOOM
+// ═══════════════════════════════════════════════════
+
+function getTileFromMouseEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const { tileSize, zoom, panX, panY, rows, cols } = GS;
+    const mapW = cols * tileSize;
+    const mapH = rows * tileSize;
+    const ox   = (canvas.width  - mapW * zoom) / 2 + panX;
+    const oy   = (canvas.height - mapH * zoom) / 2 + panY;
+    const mx   = mouseX - ox;
+    const my   = mouseY - oy;
+    const c    = Math.floor(mx / (tileSize * zoom));
+    const r    = Math.floor(my / (tileSize * zoom));
+    
+    if (r >= 0 && r < rows && c >= 0 && c < cols) return { row: r, col: c };
+    return null;
+}
+
+canvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  if (GS.mode === 'CUSTOM') {
+    const tile = getTileFromMouseEvent(e);
+    if (!tile) return;
+
+    if (e.button === 0) { // Left click: Draw/Erase
+      GS.editorIsDrawing = true;
+      if (!GS.grid[tile.row]) return;
+
+      const isStart = tile.row === GS.startTile.row && tile.col === GS.startTile.col;
+      const isEnd = tile.row === GS.endTile.row && tile.col === GS.endTile.col;
+      if (isStart || isEnd) return; // Don't allow toggling start/end tiles
+
+      // Toggle the state of the clicked tile
+      GS.grid[tile.row][tile.col] = 1 - GS.grid[tile.row][tile.col];
+      // Set the draw mode for the drag operation to the new state
+      GS.editorDrawMode = GS.grid[tile.row][tile.col];
+      
+      G.updateMapAfterEdit();
+
+    } else if (e.button === 2) { // Right click: Cycle Start/End
+      if (!GS.grid[tile.row] || GS.grid[tile.row][tile.col] === 0) return; // Must be on a path
+
+      if (GS.editorNextRightClick === 'START') {
+        // Prevent placing start on the current end tile
+        if (tile.row === GS.endTile.row && tile.col === GS.endTile.col) {
+          showToast('Cannot place Start on the End tile.');
+          return;
+        }
+        GS.startTile = tile;
+        GS.editorNextRightClick = 'END';
+        showToast('Start point set. Next right-click sets End point.');
+      } else { // 'END'
+        // Prevent placing end on the current start tile
+        if (tile.row === GS.startTile.row && tile.col === GS.startTile.col) {
+          showToast('Cannot place End on the Start tile.');
+          return;
+        }
+        GS.endTile = tile;
+        GS.editorNextRightClick = 'START';
+        showToast('End point set. Next right-click sets Start point.');
+      }
+      G.updateMapAfterEdit();
+    }
+  }
+
+  // Pan logic (middle mouse button)
+  if (e.button === 1) {
+    GS.isDragging = true;
+    GS.dragStartX = e.clientX; GS.dragStartY = e.clientY;
+    GS.dragPanX   = GS.panX;   GS.dragPanY   = GS.panY;
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  // Handle panning if dragging with middle mouse
+  if (GS.isDragging) {
+    GS.panX = GS.dragPanX + (e.clientX - GS.dragStartX);
+    GS.panY = GS.dragPanY + (e.clientY - GS.dragStartY);
+    if (GS.autoZoom) {
+        GS.autoZoom = false;
+        document.getElementById('btnAutoZoom').classList.remove('active');
+    }
+    render();
+  }
+
+  // Handle editor mode logic
+  if (GS.mode === 'CUSTOM') {
+    const tile = getTileFromMouseEvent(e);
+
+    // If mouse is off-grid, clear hover and stop.
+    if (!tile) {
+        if (GS.hoveredTile) {
+            GS.hoveredTile = null;
+            render();
+        }
+        return;
+    }
+
+    // If hover changed, update and render.
+    if (!GS.hoveredTile || tile.row !== GS.hoveredTile.row || tile.col !== GS.hoveredTile.col) {
+        GS.hoveredTile = tile;
+        render();
+    }
+    
+    // Handle drawing with left click.
+    if (GS.editorIsDrawing) {
+        const isStart = tile.row === GS.startTile.row && tile.col === GS.startTile.col;
+        const isEnd = tile.row === GS.endTile.row && tile.col === GS.endTile.col;
+        if (!isStart && !isEnd && GS.grid[tile.row]?.[tile.col] !== GS.editorDrawMode) {
+            if (GS.grid[tile.row]) {
+              GS.grid[tile.row][tile.col] = GS.editorDrawMode;
+              G.updateMapAfterEdit();
+            }
+        }
+    }
+  }
+});
+
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 0) {
+    GS.editorIsDrawing = false;
+  }
+  if (e.button === 0 || e.button === 1) {
+    GS.isDragging = false;
+  }
+});
+
+
+
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const zoomAmount = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+
+    // --- Correct Zoom-to-Cursor Logic ---
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const mapW = GS.cols * GS.tileSize;
+    const mapH = GS.rows * GS.tileSize;
+
+    // 1. Get world coordinate under the mouse BEFORE zoom
+    const old_ox = (canvas.width - mapW * GS.zoom) / 2 + GS.panX;
+    const old_oy = (canvas.height - mapH * GS.zoom) / 2 + GS.panY;
+    const worldX_abs = (mouseX - old_ox) / GS.zoom;
+    const worldY_abs = (mouseY - old_oy) / GS.zoom;
+
+    // 2. Apply new zoom
+    const newZoom = Math.max(0.1, Math.min(GS.zoom * zoomAmount, 20));
+    GS.zoom = newZoom;
+
+    // 3. Find the new screen position of the world coordinate
+    const new_screenX = worldX_abs * newZoom;
+    const new_screenY = worldY_abs * newZoom;
+
+    // 4. Adjust pan so that the new screen position of the world coord is at the mouse position
+    const new_ox = mouseX - new_screenX;
+    const new_oy = mouseY - new_screenY;
+    GS.panX = new_ox - (canvas.width - mapW * newZoom) / 2;
+    GS.panY = new_oy - (canvas.height - mapH * newZoom) / 2;
+    
+    if (GS.autoZoom) {
+        GS.autoZoom = false;
+        document.getElementById('btnAutoZoom').classList.remove('active');
+    }
+    render();
+});
+
+// ═══════════════════════════════════════════════════
+//  TOUCH HANDLING
+// ═══════════════════════════════════════════════════
+let longPressTimer = null;
+const longPressDuration = 600; // ms
+let touchStartX, touchStartY, touchMoved;
+
+function getTouchPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0] || e.changedTouches[0];
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+
+
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    GS.lastPinchDist = 0;
+    touchMoved = false;
+
+    if (e.touches.length === 1) {
+        const { x, y } = getTouchPos(e);
+        touchStartX = x;
+        touchStartY = y;
+        GS.isDragging = true;
+        GS.dragStartX = e.touches[0].clientX;
+        GS.dragStartY = e.touches[0].clientY;
+        GS.dragPanX = GS.panX;
+        GS.dragPanY = GS.panY;
+        
+        // Editor mode: start drawing immediately
+        if (GS.mode === 'CUSTOM') {
+            const worldPos = screenToWorld(x, y);
+            const tile = worldToTile(worldPos.x, worldPos.y);
+            if (tile) {
+                GS.editorIsDrawing = true;
+                GS.editorDrawMode = GS.grid[tile.row][tile.col] === 1 ? 0 : 1;
+                GS.grid[tile.row][tile.col] = GS.editorDrawMode;
+                render();
+            }
+        }
+        
+    } else if (e.touches.length === 2) {
+        GS.isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        GS.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+        
+        GS.dragStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        GS.dragStartY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        GS.dragPanX = GS.panX;
+        GS.dragPanY = GS.panY;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+
+    const currentX = e.touches[0]?.clientX ?? 0;
+    const currentY = e.touches[0]?.clientY ?? 0;
+    const dx_move = Math.abs(currentX - GS.dragStartX);
+    const dy_move = Math.abs(currentY - GS.dragStartY);
+
+    if (dx_move > 5 || dy_move > 5) {
+        touchMoved = true;
+    }
+
+    if (e.touches.length === 1 && GS.isDragging) {
+        const { x, y } = getTouchPos(e);
+        if (GS.mode === 'CUSTOM' && GS.editorIsDrawing) {
+            const worldPos = screenToWorld(x, y);
+            const tile = worldToTile(worldPos.x, worldPos.y);
+            if (tile && (tile.row !== GS.hoveredTile?.row || tile.col !== GS.hoveredTile?.col)) {
+                GS.hoveredTile = tile;
+                if (GS.grid[tile.row][tile.col] !== GS.editorDrawMode) {
+                   GS.grid[tile.row][tile.col] = GS.editorDrawMode;
+                   render();
+                }
+            }
+        } else { // Not in editor mode, so pan
+            GS.panX = GS.dragPanX + (currentX - GS.dragStartX);
+            GS.panY = GS.dragPanY + (currentY - GS.dragStartY);
+            GS.autoZoom = false;
+            document.getElementById('btnAutoZoom').classList.remove('active');
+            render();
+        }
+
+    } else if (e.touches.length === 2) {
+        // Pan with two fingers
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        GS.panX = GS.dragPanX + (midX - GS.dragStartX);
+        GS.panY = GS.dragPanY + (midY - GS.dragStartY);
+
+        // Zoom with two fingers
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (GS.lastPinchDist > 0) {
+            const zoomFactor = dist / GS.lastPinchDist;
+            const newZoom = GS.zoom * zoomFactor;
+            
+            // Get screen point under pinch center
+            const rect = canvas.getBoundingClientRect();
+            const pinchScreenX = midX - rect.left;
+            const pinchScreenY = midY - rect.top;
+
+            // Convert to world coords before zoom
+            const worldBefore = screenToWorld(pinchScreenX, pinchScreenY);
+
+            // Apply zoom
+            GS.zoom = Math.max(0.1, Math.min(5, newZoom));
+            
+            // Get world coords after zoom
+            const worldAfter = screenToWorld(pinchScreenX, pinchScreenY);
+            
+            // Pan to keep the pinch point stationary
+            GS.panX -= (worldAfter.x - worldBefore.x) * GS.zoom;
+            GS.panY -= (worldAfter.y - worldBefore.y) * GS.zoom;
+            
+            GS.autoZoom = false;
+            document.getElementById('btnAutoZoom').classList.remove('active');
+        }
+        GS.lastPinchDist = dist;
+        render();
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    initAudio();
+    
+    if (GS.mode === 'CUSTOM' && GS.editorIsDrawing) {
+        if (isTouchDevice()) {
+            autoPlaceStartEnd();
+        }
+        const path = bfs(GS.grid, GS.startTile, GS.endTile, GS.rows, GS.cols);
+        GS.optimalCommands = path ? computeOptimalCommands(path, GS.grid, GS.rows, GS.cols, GS.initialAngle) : [];
+        computeMapId();
+    }
+    
+    GS.isDragging = false;
+    GS.editorIsDrawing = false;
+    GS.lastPinchDist = 0;
+}, { passive: false });
+
+
+
+
+
+// ═══════════════════════════════════════════════════
+//  LOCAL STORAGE
+// ═══════════════════════════════════════════════════
+function saveSettings() {
+  try {
+    localStorage.setItem('RC_settings', JSON.stringify({
+      level:     GS.level,
+      robotSkin: GS.robotSkin,
+      speed:     GS.speed,
+      camera:    GS.camera,
+      autoZoom:  GS.autoZoom,
+      mode:      GS.mode,
+      difficulty:GS.difficulty,
+      colors:    GS.buildingColors,
+    }));
+  } catch {}
+}
+
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('RC_settings') || '{}');
+    if (s.level)       GS.level       = Math.max(1, Math.min(15, s.level));
+    if (s.robotSkin !== undefined)   GS.robotSkin   = s.robotSkin;
+    if (s.speed)       GS.speed       = s.speed;
+    if (s.camera)      GS.camera      = s.camera;
+    if (s.autoZoom !== undefined) GS.autoZoom = s.autoZoom;
+    if (s.mode)        GS.mode        = s.mode;
+    if (s.difficulty)  GS.difficulty  = s.difficulty;
+    if (s.colors && Array.isArray(s.colors) && s.colors.length > 0) GS.buildingColors = s.colors;
+  } catch {}
+
+  document.getElementById('speedLabel').textContent  = `×${GS.speed}`;
+  document.getElementById('levelLabel').textContent  = `L${GS.level}`;
+  document.getElementById('skinLabel').textContent   = GS.robotSkin;
+  document.getElementById('cameraLabel').textContent = GS.camera === 'LOCK_MAP' ? 'Map' : 'Bot';
+  document.getElementById('difficultyLabel').textContent = GS.difficulty === 'HARD' ? 'Hard' : 'Easy';
+  document.getElementById('btnAutoZoom').classList.toggle('active', GS.autoZoom);
+  G.selectMode(GS.mode);
+  updateStatusUI();
+}
+
+
+async function init() {
+  resizeCanvas();
+  await preloadRobots();
+  loadSettings();
+  if (isTouchDevice()) {
+    document.getElementById('btnRandStartEndTouch').style.display = 'inline-flex';
+    document.getElementById('btnRandStartEndTouch').onclick = () => {
+        if (GS.mode === 'CUSTOM') {
+            autoPlaceStartEnd();
+            const path = bfs(GS.grid, GS.startTile, GS.endTile, GS.rows, GS.cols);
+            GS.optimalCommands = path ? computeOptimalCommands(path, GS.grid, GS.rows, GS.cols, GS.initialAngle) : [];
+            computeMapId();
+            render();
+        }
+    };
+  }
+  generateMap(!GS.buildingColors.length);
+  render();
+
+  // Hide loading screen
+  const ls = document.getElementById('loadingScreen');
+  ls.style.transition = 'opacity 0.4s';
+  ls.style.opacity = '0';
+  setTimeout(() => ls.remove(), 450);
+  document.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+init();
+</script>
+<audio id="sfxWin" src="kid_yeah.wav" preload="auto"></audio>
+</body>
+</html>

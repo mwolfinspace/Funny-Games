@@ -1,0 +1,2926 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+        />
+        <title>Pour Water - Fraction Combination Game</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            /*═══════════════════════════════ SHIKAKU / WIN 11 THEME ═══*/
+            :root {
+                --radius: 12px;
+                --radius-lg: 20px;
+                --accent: #4f8ef7;
+                --accent2: #7c6ff7;
+                --text: #1a1a2e;
+                --muted: #6b7280;
+                --board-bg: #1e2a3a;
+                --top-h: 50px;
+                --bg: #dde4f0;
+                --card: rgba(255, 255, 255, 0.92);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family:
+                    "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                background: var(--bg);
+                color: var(--text);
+                user-select: none;
+                -webkit-user-select: none;
+                height: 100vh;
+                overflow: hidden;
+                touch-action: none;
+            }
+
+            body::before {
+                content: "";
+                position: fixed;
+                inset: 0;
+                background:
+                    radial-gradient(
+                        ellipse 80% 60% at 20% 10%,
+                        rgba(79, 142, 247, 0.12) 0%,
+                        transparent 60%
+                    ),
+                    radial-gradient(
+                        ellipse 60% 50% at 80% 80%,
+                        rgba(124, 111, 247, 0.1) 0%,
+                        transparent 55%
+                    );
+                pointer-events: none;
+                z-index: -1;
+            }
+
+            /*═══════════════════════════════ TOP BAR ═══*/
+            #topBar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: var(--top-h);
+                z-index: 200;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 0 16px;
+                background: rgba(255, 255, 255, 0.75);
+                backdrop-filter: blur(24px);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+                box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+
+            .ttag {
+                font-size: 18px;
+                font-weight: 800;
+                color: var(--text);
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            .ttag em {
+                color: var(--accent);
+                font-style: normal;
+            }
+            .tbdiv {
+                width: 1px;
+                height: 24px;
+                background: rgba(0, 0, 0, 0.09);
+                flex-shrink: 0;
+                margin: 0 8px;
+            }
+
+            .cg {
+                display: flex;
+                align-items: center;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                border-radius: var(--radius);
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+                flex-shrink: 0;
+            }
+
+            button {
+                font-family: inherit;
+                cursor: pointer;
+                transition: 0.15s;
+                border: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .cb {
+                height: 32px;
+                padding: 0 10px;
+                background: transparent;
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--text);
+                white-space: nowrap;
+            }
+            .cb:hover {
+                background: rgba(0, 0, 0, 0.06);
+            }
+            .cb + .cb {
+                border-left: 1px solid rgba(0, 0, 0, 0.07);
+            }
+
+            .sb {
+                height: 32px;
+                padding: 0 12px;
+                background: rgba(255, 255, 255, 0.85);
+                flex-shrink: 0;
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                border-radius: var(--radius);
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--text);
+                white-space: nowrap;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+            }
+            .sb:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+            }
+            .sb:active {
+                transform: scale(0.96);
+            }
+            .sb.primary {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                color: #fff;
+                border: none;
+            }
+            .sb.warning {
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+                color: #fff;
+                border: none;
+            }
+
+            /*═══════════════════════════════ LAYOUT ═══*/
+            .game-container {
+                display: flex;
+                flex: 1;
+                margin-top: var(--top-h);
+                overflow: hidden;
+            }
+            .solutions-sidebar {
+                width: 160px;
+                background: var(--card);
+                border: 1px solid rgba(255, 255, 255, 0.96);
+                padding: 8px;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                flex-shrink: 0;
+                border-radius: var(--radius);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            }
+            #storageZone {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 6px;
+                padding: 4px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                width: 100%;
+                min-height: 0;
+            }
+            @media (min-width: 600px) {
+                #storageZone {
+                    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                }
+            }
+            @media (min-width: 900px) {
+                #storageZone {
+                    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                }
+            }
+            @media (min-width: 1400px) {
+                #storageZone {
+                    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                }
+            }
+            #storageZone::-webkit-scrollbar {
+                width: 4px;
+            }
+            #storageZone::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            #storageZone::-webkit-scrollbar-thumb {
+                background: rgba(0, 0, 0, 0.12);
+                border-radius: 2px;
+            }
+            .storage-item {
+                opacity: 0.4;
+                filter: grayscale(1);
+                transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                padding: 8px;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: var(--radius);
+                background: rgba(255, 255, 255, 0.5);
+            }
+            .storage-item.unlocked {
+                opacity: 1;
+                filter: grayscale(0);
+                transform: scale(1.05);
+            }
+            .storage-label {
+                font-weight: 800;
+                color: var(--muted);
+                font-size: 1.2rem;
+            }
+            .storage-fraction {
+                font-family: "Roboto Mono";
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+            }
+            /* Scale down stacked fractions in storage */
+            .storage-fraction .frac .num,
+            .storage-fraction .frac .den {
+                font-size: 1.2rem;
+            }
+            .storage-fraction .frac .bar {
+                height: 2px;
+            }
+            .wrap {
+                display: none;
+            } /* Not used in new layout */
+
+            .storage-item.extra {
+                border: 2px dashed var(--accent2);
+                background: rgba(124, 111, 247, 0.05);
+            }
+            .storage-item.extra.unlocked {
+                border-style: solid;
+                background: rgba(124, 111, 247, 0.15);
+            }
+            .card {
+                background: var(--card);
+                padding: 12px;
+                border-radius: var(--radius);
+                border: 1px solid rgba(255, 255, 255, 0.96);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+                backdrop-filter: blur(12px);
+            }
+
+            /* Target Area (Top) */
+            .target-area {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+                position: relative;
+                padding: 8px;
+            }
+            .floating-reset {
+                position: absolute;
+                top: 50%;
+                left: 8px;
+                transform: translateY(-50%);
+                z-index: 10;
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+            }
+            .target-container {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+                flex-wrap: wrap;
+                width: 100%;
+            }
+
+            /* Cylinders Area (Bottom) */
+            .cylinders {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 12px;
+                margin-top: 8px;
+            }
+
+            /*═══════════════════════════════ VISUAL COMPONENTS ═══*/
+            .cyl {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                align-items: center;
+                width: 90px;
+                position: relative;
+            }
+
+            /* The Pipe */
+            .pipe-container {
+                width: 10px;
+                height: 20px;
+                background: rgba(0, 0, 0, 0.05);
+                border-radius: 5px;
+                position: relative;
+                overflow: hidden;
+                margin-bottom: -8px;
+                z-index: 0;
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .pipe-water {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 6px;
+                background: #ccc;
+                border-radius: 7px;
+            }
+            .pumping .pipe-water,
+            .draining .pipe-water {
+                height: 100%;
+                background: inherit;
+            }
+            .pumping .pipe-container,
+            .draining .pipe-container {
+                background: var(--pipe-color, #ccc);
+            }
+            #cylinders-area .pipe-container[data-color] {
+                --pipe-color: attr(data-color color);
+            }
+
+            @keyframes pulsePipe {
+                from {
+                    opacity: 0.8;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+
+            /* Canvas visuals */
+            .visual-canvas {
+                cursor: pointer;
+                transition:
+                    transform 0.15s,
+                    filter 0.3s;
+            }
+            .visual-canvas:hover {
+                filter: brightness(1.1);
+                box-shadow: 0 4px 12px rgba(79, 142, 247, 0.3);
+            }
+
+            /* Inputs */
+            .inputs {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+                font-family: "Roboto Mono", monospace;
+                margin-top: 4px;
+            }
+            .inputs input {
+                width: 80px;
+                padding: 8px;
+                border-radius: 8px;
+                border: 1px solid rgba(0, 0, 0, 0.15);
+                text-align: center;
+                font-size: 2rem;
+                font-weight: 700;
+                background: rgba(255, 255, 255, 0.9);
+                font-family: inherit;
+                padding: 4px 8px;
+            }
+            .frac-bar {
+                width: 60px;
+                height: 4px;
+                background: #1e293b;
+                border-radius: 2px;
+            }
+
+            .label-header {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                font-weight: 800;
+                font-size: 2rem;
+            }
+            .color-swatch {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                border: 2px solid #fff;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                cursor: pointer;
+            }
+
+            /* Poured state */
+            .poured .visual-canvas {
+                filter: grayscale(80%) opacity(0.5);
+                cursor: not-allowed;
+                transform: none;
+            }
+            .poured input {
+                background-color: #f1f5f9;
+                color: #94a3b8;
+            }
+
+            /* Equation & Target Info */
+            .eq-box {
+                background: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                padding: 12px 16px;
+                border-radius: var(--radius);
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 200px;
+            }
+            .eq {
+                font-family: "Roboto Mono", monospace;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                font-size: 3rem;
+                font-weight: 700;
+                color: #1e293b;
+            }
+
+            .frac {
+                display: inline-flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                vertical-align: middle;
+            }
+            .frac .num {
+                font-size: 2.4rem;
+            }
+            .frac .den {
+                font-size: 2.4rem;
+            }
+            .frac .bar {
+                width: 100%;
+                height: 5px;
+                background: currentColor;
+                border-radius: 2px;
+            }
+
+            /* Animations */
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+            .modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.4);
+                z-index: 500;
+                justify-content: center;
+                align-items: center;
+                backdrop-filter: blur(2px);
+                animation: fadeIn 0.3s ease;
+            }
+            .modal-overlay.show {
+                display: flex;
+            }
+            .modal-content {
+                background: var(--bg-color);
+                color: var(--text);
+                padding: 30px;
+                border-radius: 20px;
+                max-width: 95%;
+                width: 320px;
+                text-align: center;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+                border: 2px solid var(--accent);
+            }
+            .modal-content h2 {
+                margin-top: 0;
+                color: var(--accent);
+                font-size: 1.8rem;
+            }
+
+            @keyframes shake {
+                0%,
+                100% {
+                    transform: translateX(0);
+                }
+                20%,
+                60% {
+                    transform: translateX(-6px);
+                }
+                40%,
+                80% {
+                    transform: translateX(6px);
+                }
+            }
+            .shake-animation {
+                animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+            }
+            .draining {
+                opacity: 0.3;
+                transform: scale(0.95) translateY(10px);
+                transition: all 0.5s ease-in-out;
+            }
+            .overflow {
+                border-color: #fca5a5 !important;
+                filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.6));
+            }
+            .warning {
+                color: #ef4444;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 1.1rem;
+            }
+
+            /* Modals */
+            .modal-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(2, 6, 23, 0.5);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                backdrop-filter: blur(6px);
+            }
+            .modal {
+                background: var(--card);
+                padding: 32px;
+                border-radius: var(--radius-lg);
+                max-width: 650px;
+                width: 90%;
+                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 24px;
+                font-weight: 800;
+                font-size: 1.4rem;
+            }
+
+            .status-clickable {
+                cursor: pointer;
+                text-decoration: underline;
+                text-decoration-style: dotted;
+                color: var(--accent);
+                font-weight: 700;
+                text-align: center;
+                margin-top: 12px;
+                font-size: 1.1rem;
+            }
+            .found-answer {
+                text-decoration: line-through;
+                color: #10b981;
+                font-weight: 700;
+            }
+
+            /* FORCE ADAPTIVE & DISABLE SCROLLING */
+            body {
+                height: 100vh !important;
+                overflow: hidden !important;
+                touch-action: none !important;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .game-container {
+                display: flex;
+                flex: 1;
+                margin-top: var(--top-h);
+                padding: 12px;
+                gap: 12px;
+                height: calc(100vh - var(--top-h));
+                overflow: hidden;
+            }
+
+            /* ZONE 1 */
+            .solutions-sidebar {
+                width: 120px;
+                min-width: 100px;
+                overflow-y: auto;
+                flex-shrink: 0;
+                margin: 0;
+                height: 100%;
+            }
+            @media (min-width: 768px) {
+                .solutions-sidebar {
+                    width: 140px;
+                }
+            }
+            @media (min-width: 1200px) {
+                .solutions-sidebar {
+                    width: 160px;
+                }
+            }
+            .solutions-sidebar::-webkit-scrollbar {
+                width: 4px;
+            }
+            .solutions-sidebar::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .solutions-sidebar::-webkit-scrollbar-thumb {
+                background: rgba(0, 0, 0, 0.12);
+                border-radius: 2px;
+            }
+            .solutions-sidebar::-webkit-scrollbar-thumb:hover {
+                background: rgba(0, 0, 0, 0.2);
+            }
+
+            .main-column {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                overflow: hidden;
+            }
+
+            /* ZONE 2 */
+            .target-area {
+                flex: 0 0 35vh;
+                min-height: 180px;
+                margin: 0;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            @media (max-aspect-ratio: 16/10) {
+                .target-area {
+                    flex: 0 0 30vh;
+                    min-height: 160px;
+                }
+            }
+            @media (max-aspect-ratio: 4/3) {
+                .target-area {
+                    flex: 0 0 25vh;
+                    min-height: 140px;
+                }
+            }
+            .target-container {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-start;
+                height: 100%;
+                width: 100%;
+                gap: 24px;
+                overflow: hidden;
+            }
+            .target-left {
+                height: 100%;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                width: 45%;
+                max-width: 200px;
+            }
+            .target-left canvas {
+                height: 90%;
+                width: auto;
+                max-width: 100%;
+                border: 4px solid #cbd5e1;
+                border-radius: 12px;
+                background: #f8fafc;
+                transition: filter 0.3s ease;
+            }
+            .target-right {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+                height: 100%;
+                overflow-x: auto;
+                overflow-y: hidden;
+                background: transparent;
+                border: none;
+                padding: 0;
+            }
+            .eq {
+                flex-wrap: nowrap;
+                width: max-content;
+            }
+
+            /* ZONE 3 */
+            .cylinders-area {
+                flex: 1;
+                margin: 0;
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+            }
+            @media (max-aspect-ratio: 16/10) {
+                .cylinders-area {
+                    padding: 8px;
+                }
+            }
+            @media (max-aspect-ratio: 4/3) {
+                .cylinders-area {
+                    padding: 6px;
+                }
+            }
+            .cylinders {
+                flex: 1;
+                display: flex;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                justify-content: center;
+                align-items: stretch;
+                gap: 16px;
+                overflow-x: auto;
+                overflow-y: hidden;
+            }
+            .cyl {
+                flex: 1;
+                min-width: 80px;
+                max-width: 120px;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                align-items: center;
+            }
+            .cyl .source-water {
+                flex: 1;
+                width: 100%;
+                height: 100%;
+                min-height: 100px;
+            }
+            .cyl .visual-canvas {
+                flex: 1;
+                height: auto !important;
+                width: 100% !important;
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+    <body>
+        <header id="topBar">
+            <a
+                href="index.html"
+                class="sb"
+                style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 0 12px;
+                    text-decoration: none;
+                    font-size: 1.2rem;
+                "
+                title="Back to Home"
+                >🏠</a
+            >
+            <div class="ttag" id="titleH1">Pour Water <em>Master</em></div>
+            <div class="tbdiv"></div>
+
+            <div class="cg">
+                <button class="cb" id="addBtn">➕ Add</button>
+                <button class="cb" id="removeBtn">➖ Remove</button>
+            </div>
+
+            <div class="cg">
+                <button class="cb" id="randomBtn">🎲 Randomize</button>
+                <button class="cb" id="restoreBtn">♻️ Restore</button>
+                <button
+                    class="cb warning"
+                    id="resetBtn"
+                    style="color: #d97706; font-weight: 800"
+                >
+                    🔄 Reset
+                </button>
+            </div>
+
+            <div class="tbdiv"></div>
+            <button class="sb" id="comboBtn" style="color: var(--accent2)">
+                💡 <span id="comboCount">0/0</span>
+            </button>
+
+            <div class="tbdiv"></div>
+            <button class="sb" id="langBtn">🇬🇧 ENG</button>
+            <button class="sb primary" id="helpBtn">❓ Rules</button>
+        </header>
+
+        <div class="game-container">
+            <div class="card solutions-sidebar" id="solutionsSidebar">
+                <div
+                    style="
+                        font-weight: 800;
+                        font-size: 0.9rem;
+                        color: var(--muted);
+                        text-align: center;
+                        margin-bottom: 8px;
+                    "
+                >
+                    Storage Zone
+                </div>
+                <div id="storageZone"></div>
+            </div>
+
+            <div class="main-column">
+                <div class="card target-area" id="targetCard">
+                    <div class="target-container">
+                        <div
+                            id="targetDrop"
+                            class="target-left"
+                            ondragover="event.preventDefault()"
+                        >
+                            <canvas
+                                id="targetCanvas"
+                                class="visual-canvas"
+                                width="240"
+                                height="380"
+                            ></canvas>
+                        </div>
+
+                        <div class="eq-box target-right">
+                            <div class="eq" id="equation">—</div>
+                            <div
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    margin-top: 8px;
+                                    gap: 16px;
+                                "
+                            >
+                                <div
+                                    style="
+                                        font-size: 1rem;
+                                        color: var(--muted);
+                                        font-weight: 600;
+                                    "
+                                >
+                                    Decimal:
+                                    <span
+                                        id="currentDecimal"
+                                        style="
+                                            color: var(--text);
+                                            font-family: &quot;Roboto Mono&quot;;
+                                            font-weight: 800;
+                                        "
+                                        >0.0000</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                id="overflowText"
+                                class="warning"
+                                style="display: none; margin-top: 8px"
+                            >
+                                <span>⚠️</span> Overflow: total > 1
+                            </div>
+                            <div
+                                id="addedList"
+                                style="
+                                    font-size: 1.1rem;
+                                    color: var(--text);
+                                    margin-top: 12px;
+                                    font-weight: 600;
+                                "
+                            >
+                                📌 Added:
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card cylinders-area">
+                    <div
+                        style="
+                            text-align: center;
+                            font-weight: 700;
+                            color: var(--muted);
+                            margin-bottom: 8px;
+                            font-size: 1rem;
+                        "
+                        class="drag-hint"
+                    >
+                        💧 Click cylinder to pump
+                    </div>
+                    <div class="cylinders" id="cylinders"></div>
+                </div>
+            </div>
+        </div>
+
+        <div
+            id="emojiPopup"
+            style="
+                position: fixed;
+                top: 40%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 8rem;
+                display: none;
+                z-index: 2000;
+                filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.3));
+            "
+        ></div>
+
+        <div id="rulesModal" class="modal-backdrop">
+            <div class="modal">
+                <div class="modal-header">
+                    <span id="rulesTitle">Game Rules</span>
+                    <button class="sb" id="closeRules">✕</button>
+                </div>
+                <div
+                    id="rulesBody"
+                    style="
+                        line-height: 1.7;
+                        color: var(--text);
+                        font-size: 1.1rem;
+                    "
+                >
+                    Each cylinder is sized equally. Enter numerator and
+                    denominator; the fill follows the ratio. <b>Click</b> a
+                    container or <b>Drag</b> it onto the target to pump its full
+                    amount (source becomes empty). The equation shows combined
+                    fractions. If total > 1, the target will overflow. Use Reset
+                    to return poured amounts to their sources.
+                </div>
+            </div>
+        </div>
+
+        <div id="answersModal" class="modal-backdrop">
+            <div class="modal">
+                <div class="modal-header">
+                    <span id="answersTitle">Possible Combinations</span>
+                    <button class="sb" id="closeAnswers">✕</button>
+                </div>
+                <div
+                    id="answersBody"
+                    style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                        max-height: 60vh;
+                        overflow-y: auto;
+                        font-family: &quot;Roboto Mono&quot;;
+                        font-size: 1.2rem;
+                    "
+                ></div>
+            </div>
+        </div>
+
+        <div
+            id="newGameModal"
+            class="modal-backdrop"
+            style="
+                background: transparent;
+                backdrop-filter: none;
+                display: none;
+            "
+        >
+            <div
+                class="modal"
+                style="
+                    max-width: 280px;
+                    width: 90%;
+                    padding: 32px 24px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 16px;
+                "
+            >
+                <h2
+                    style="
+                        color: var(--accent);
+                        text-align: center;
+                        margin: 0;
+                        font-size: 1.8rem;
+                        line-height: 1.2;
+                    "
+                >
+                    🎉 All Found!
+                </h2>
+                <p
+                    style="
+                        color: var(--muted);
+                        text-align: center;
+                        margin: 0;
+                        font-size: 1.1rem;
+                    "
+                >
+                    You found all combinations!
+                </p>
+                <button
+                    onclick="location.href = 'index.html'"
+                    class="cb"
+                    style="
+                        width: 100%;
+                        padding: 20px;
+                        font-size: 1.4rem;
+                        border-radius: 50px;
+                        border: 2px solid #ccc;
+                        cursor: pointer;
+                    "
+                >
+                    🏠 Home
+                </button>
+                <button
+                    id="modalNewGameBtn"
+                    class="cb"
+                    style="
+                        width: 100%;
+                        padding: 20px;
+                        font-size: 1.4rem;
+                        border-radius: 50px;
+                        border: 2px solid var(--accent);
+                    "
+                >
+                    ✨ New Game
+                </button>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                function gcd(a, b) {
+                    a = Math.abs(a);
+                    b = Math.abs(b);
+                    while (b) {
+                        [a, b] = [b, a % b];
+                    }
+                    return a;
+                }
+                function lcm(a, b) {
+                    return Math.abs(a * b) / gcd(a, b) || 0;
+                }
+                function simplify(n, d) {
+                    if (d === 0) return { n: 0, d: 1 };
+                    if (n === 0) return { n: 0, d: 1 };
+                    const g = gcd(n, d);
+                    return { n: n / g, d: d / g };
+                }
+
+                const containers = document.getElementById("cylinders");
+                const addBtn = document.getElementById("addBtn");
+                const removeBtn = document.getElementById("removeBtn");
+                const targetCanvas = document.getElementById("targetCanvas");
+                const targetDrop = document.getElementById("targetDrop");
+                const equationEl = document.getElementById("equation");
+                const currentDecimal =
+                    document.getElementById("currentDecimal");
+                const overflowText = document.getElementById("overflowText");
+                const resetBtn = document.getElementById("resetBtn");
+                const addedListEl = document.getElementById("addedList");
+                const helpBtn = document.getElementById("helpBtn");
+                const randomBtn = document.getElementById("randomBtn");
+                const restoreBtn = document.getElementById("restoreBtn");
+                const langBtn = document.getElementById("langBtn");
+                const rulesModal = document.getElementById("rulesModal");
+                const closeRules = document.getElementById("closeRules");
+                const dragHintEl = document.querySelector(".drag-hint");
+                const titleEl = document.getElementById("titleH1");
+                const rulesTitleEl = document.getElementById("rulesTitle");
+                const rulesBodyEl = document.getElementById("rulesBody");
+                const completionStatusEl =
+                    document.getElementById("completionStatus");
+                const answersModal = document.getElementById("answersModal");
+                const closeAnswers = document.getElementById("closeAnswers");
+                const answersBody = document.getElementById("answersBody");
+                const answersTitle = document.getElementById("answersTitle");
+                const comboBtn = document.getElementById("comboBtn");
+                const comboCountEl = document.getElementById("comboCount");
+                const storageZone = document.getElementById("storageZone");
+
+                let cylinders = [];
+                let targetParts = [];
+                let solvableCombinations = new Map();
+                let foundCombinations = new Set();
+                let extraTargets = new Map();
+                let foundExtraTargets = new Set();
+                let isPumping = false;
+
+                const NAMED_COLORS = [
+                    "#ef4444",
+                    "#f97316",
+                    "#f59e0b",
+                    "#10b981",
+                    "#06b6d4",
+                    "#3b82f6",
+                    "#6366f1",
+                    "#a855f7",
+                    "#ec4899",
+                ];
+
+                function createCylinder(initial) {
+                    cylinders.push({
+                        num: initial?.num || 0,
+                        den: initial?.den || 1,
+                        color: initial?.color || "#4f8ef7",
+                    });
+                    renderAll();
+                }
+
+                // Attach Add logic (adds new cylinder then re-randomizes ALL)
+                addBtn.addEventListener("click", () => {
+                    resetTarget();
+
+                    const newCount = cylinders.length + 1;
+                    let minCombos =
+                        newCount <= 5
+                            ? 2
+                            : newCount <= 8
+                              ? 3
+                              : newCount <= 10
+                                ? 4
+                                : newCount <= 12
+                                  ? 6
+                                  : 8;
+
+                    const allFractions = [];
+                    const usedValues = new Set();
+                    for (let d = 2; d <= 9; d++) {
+                        for (let numerator = 1; numerator < d; numerator++) {
+                            const value = numerator / d;
+                            if (!usedValues.has(value)) {
+                                usedValues.add(value);
+                                allFractions.push({ n: numerator, d: d });
+                            }
+                        }
+                    }
+
+                    let attempts = 0;
+                    const maxAttempts = 200;
+                    let found = false;
+
+                    while (attempts < maxAttempts && !found) {
+                        if (cylinders.length < newCount) {
+                            cylinders.push({
+                                num: 1,
+                                den: 2,
+                                color: NAMED_COLORS[0],
+                            });
+                        }
+
+                        const shuffled = [...allFractions];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffled[i], shuffled[j]] = [
+                                shuffled[j],
+                                shuffled[i],
+                            ];
+                        }
+
+                        for (let i = 0; i < newCount; i++) {
+                            cylinders[i].num = shuffled[i].n;
+                            cylinders[i].den = shuffled[i].d;
+                            cylinders[i].color =
+                                NAMED_COLORS[i % NAMED_COLORS.length];
+                        }
+
+                        foundCombinations.clear();
+                        foundExtraTargets.clear();
+                        findAllSolvableCombinations();
+                        if (solvableCombinations.size >= minCombos)
+                            found = true;
+                        attempts++;
+                    }
+
+                    updateCompletionStatus();
+                    renderAll();
+                });
+
+                // Attach Remove logic (removes cylinder then re-randomizes remaining)
+                removeBtn.addEventListener("click", () => {
+                    if (cylinders.length <= 1) return;
+                    resetTarget();
+                    cylinders.pop();
+
+                    const newCount = cylinders.length;
+                    let minCombos =
+                        newCount <= 5
+                            ? 2
+                            : newCount <= 8
+                              ? 3
+                              : newCount <= 10
+                                ? 4
+                                : newCount <= 12
+                                  ? 6
+                                  : 8;
+
+                    const allFractions = [];
+                    const usedValues = new Set();
+                    for (let d = 2; d <= 9; d++) {
+                        for (let numerator = 1; numerator < d; numerator++) {
+                            const value = numerator / d;
+                            if (!usedValues.has(value)) {
+                                usedValues.add(value);
+                                allFractions.push({ n: numerator, d: d });
+                            }
+                        }
+                    }
+
+                    let attempts = 0;
+                    const maxAttempts = 200;
+                    let found = false;
+
+                    while (attempts < maxAttempts && !found) {
+                        const shuffled = [...allFractions];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffled[i], shuffled[j]] = [
+                                shuffled[j],
+                                shuffled[i],
+                            ];
+                        }
+
+                        for (let i = 0; i < newCount; i++) {
+                            cylinders[i].num = shuffled[i].n;
+                            cylinders[i].den = shuffled[i].d;
+                            cylinders[i].color =
+                                NAMED_COLORS[i % NAMED_COLORS.length];
+                        }
+
+                        foundCombinations.clear();
+                        foundExtraTargets.clear();
+                        findAllSolvableCombinations();
+                        if (solvableCombinations.size >= minCombos)
+                            found = true;
+                        attempts++;
+                    }
+
+                    updateCompletionStatus();
+                    renderAll();
+                });
+
+                function renderAll() {
+                    containers.innerHTML = "";
+                    const pouredIndices = new Set(
+                        targetParts.map((p) => p.from),
+                    );
+
+                    cylinders.forEach((c, i) => {
+                        const isPoured = pouredIndices.has(i);
+                        const el = document.createElement("div");
+                        el.className = "cyl";
+                        if (isPoured) el.classList.add("poured");
+
+                        const head = document.createElement("div");
+                        head.className = "label-header";
+                        const lbl = document.createElement("div");
+                        lbl.textContent = i + 1;
+                        const swatch = document.createElement("div");
+                        swatch.className = "color-swatch";
+                        swatch.style.background = c.color;
+
+                        const colorInput = document.createElement("input");
+                        colorInput.type = "color";
+                        colorInput.value = c.color;
+                        colorInput.style.display = "none";
+                        colorInput.addEventListener("input", () => {
+                            cylinders[i].color = colorInput.value;
+                            swatch.style.background = colorInput.value;
+                            updateCylinder(i);
+                        });
+                        swatch.addEventListener("click", () => {
+                            if (!isPoured) colorInput.click();
+                        });
+
+                        head.appendChild(lbl);
+                        head.appendChild(swatch);
+                        head.appendChild(colorInput);
+
+                        const pipeWrapper = document.createElement("div");
+                        pipeWrapper.className = "pipe-container";
+                        pipeWrapper.dataset.color = c.color;
+                        const pipeWater = document.createElement("div");
+                        pipeWater.className = "pipe-water";
+                        pipeWrapper.appendChild(pipeWater);
+
+                        const canvas = document.createElement("canvas");
+                        canvas.className = "visual-canvas draggable";
+                        canvas.setAttribute("width", 200);
+                        canvas.setAttribute("height", 320);
+                        canvas.style.width = "100px";
+                        canvas.style.height = "160px";
+                        canvas.draggable = !isPoured;
+
+                        const frac = safeFraction(c.num, c.den);
+                        const waterValue = frac.n / frac.d;
+                        const waterHeight = fillHeight(frac.n, frac.d);
+
+                        drawCylinderCanvas(
+                            canvas,
+                            fillHeight(frac.n, frac.d) / 100,
+                            c.color,
+                        );
+
+                        const inputs = document.createElement("div");
+                        inputs.className = "inputs";
+                        const num = document.createElement("input");
+                        num.type = "number";
+                        num.value = c.num;
+                        num.min = 0;
+                        num.disabled = isPoured;
+                        const bar = document.createElement("div");
+                        bar.className = "frac-bar";
+                        const den = document.createElement("input");
+                        den.type = "number";
+                        den.value = c.den;
+                        den.min = 1;
+                        den.disabled = isPoured;
+
+                        num.addEventListener("input", () => {
+                            cylinders[i].num = parseInt(num.value) || 0;
+                            updateCylinder(i);
+                            recomputeTarget();
+                            findAllSolvableCombinations();
+                            updateCompletionStatus();
+                        });
+                        den.addEventListener("input", () => {
+                            cylinders[i].den = Math.max(
+                                1,
+                                parseInt(den.value) || 1,
+                            );
+                            updateCylinder(i);
+                            recomputeTarget();
+                            findAllSolvableCombinations();
+                            updateCompletionStatus();
+                        });
+
+                        canvas.addEventListener("dragstart", (ev) => {
+                            if (isPoured || isPumping) {
+                                ev.preventDefault();
+                                return;
+                            }
+                            ev.dataTransfer.setData("text/plain", String(i));
+                        });
+
+                        // Click on the water element instead of canvas
+                        const clickTarget = document.createElement("div");
+                        clickTarget.style.cssText =
+                            "position:absolute;inset:0;cursor:pointer;z-index:10;";
+                        clickTarget.addEventListener("click", (ev) => {
+                            ev.stopPropagation();
+                            if (isPumping) return;
+                            if (isPoured) {
+                                // Find the topmost layer in target that came from this source
+                                let targetIdx = -1;
+                                for (
+                                    let k = targetParts.length - 1;
+                                    k >= 0;
+                                    k--
+                                ) {
+                                    if (targetParts[k].from === i) {
+                                        targetIdx = k;
+                                        break;
+                                    }
+                                }
+                                if (targetIdx !== -1)
+                                    removeLayersFromTop(targetIdx);
+                            } else {
+                                pourCylinder(i, el);
+                            }
+                        });
+
+                        inputs.appendChild(num);
+                        inputs.appendChild(bar);
+                        inputs.appendChild(den);
+                        el.appendChild(head);
+                        el.appendChild(pipeWrapper);
+
+                        // Create water animation element
+                        const waterEl = document.createElement("div");
+                        waterEl.className = "source-water";
+                        const wh = fillHeight(frac.n, frac.d);
+                        waterEl.style.cssText = `
+                            width: 86px;
+                            height: 130px;
+                            position: relative;
+                            border: 4px solid #cbd5e1;
+                            border-radius: 12px;
+                            background: #f8fafc;
+                            overflow: hidden;
+                        `;
+
+                        const waterFill = document.createElement("div");
+                        waterFill.style.cssText = `
+                            position: absolute;
+                            bottom: 0;
+                            left: 0;
+                            right: 0;
+                            height: ${wh}%;
+                            background: linear-gradient(180deg, ${c.color} 0%, ${shadeColor(c.color, -20)} 100%);
+                            transition: height ${300 + waterValue * 400}ms ease-out;
+                        `;
+                        waterEl.appendChild(waterFill);
+                        waterEl.appendChild(clickTarget);
+
+                        // Hide canvas, use water div instead
+                        canvas.style.display = "none";
+
+                        el.appendChild(waterEl);
+                        el.appendChild(canvas);
+                        el.appendChild(inputs);
+                        containers.appendChild(el);
+                    });
+                }
+
+                function updateCylinder(i) {
+                    const c = cylinders[i];
+                    const el = containers.children[i];
+                    if (!el) return;
+
+                    const canvas = el.querySelector(".visual-canvas");
+                    const frac = safeFraction(c.num, c.den);
+                    if (canvas)
+                        drawCylinderCanvas(
+                            canvas,
+                            fillHeight(frac.n, frac.d) / 100,
+                            c.color,
+                        );
+
+                    const waterFill = el.querySelector(".source-water > div");
+                    if (waterFill) {
+                        const wh = fillHeight(frac.n, frac.d);
+                        const waterValue = frac.n / frac.d;
+                        waterFill.style.height = wh + "%";
+                        waterFill.style.background = `linear-gradient(180deg, ${c.color} 0%, ${shadeColor(c.color, -20)} 100%)`;
+                        waterFill.style.transition = `height ${300 + waterValue * 400}ms ease-out`;
+                    }
+                }
+
+                function safeFraction(n, d) {
+                    if (d <= 0) return { n: 0, d: 1 };
+                    if (n < 0) n = 0;
+                    return { n: n, d: d };
+                }
+                function fillHeight(n, d) {
+                    const v = d === 0 ? 0 : Math.min(1, n / d);
+                    return Math.round(v * 100);
+                }
+
+                function calculateTotalValue() {
+                    if (targetParts.length === 0) return 0;
+                    let common = 1;
+                    for (const p of targetParts) common = lcm(common, p.d);
+                    const totalN = targetParts.reduce(
+                        (acc, p) => acc + p.n * (common / p.d),
+                        0,
+                    );
+                    return totalN / common;
+                }
+
+                function pourCylinder(idx, cylEl) {
+                    const src = cylinders[idx];
+                    const frac = safeFraction(src.num, src.den);
+                    if (frac.n <= 0) {
+                        return;
+                    }
+
+                    isPumping = true;
+                    if (!cylEl) cylEl = containers.children[idx];
+
+                    // Fill pipe with water color from source
+                    const pipeWrapper = cylEl.querySelector(".pipe-container");
+                    if (pipeWrapper) {
+                        pipeWrapper.classList.add("pumping");
+                        const pipeWater =
+                            pipeWrapper.querySelector(".pipe-water");
+                        if (pipeWater) {
+                            pipeWater.style.background = src.color;
+                        }
+                    }
+
+                    const waterValue = frac.n / frac.d;
+                    const duration = 300 + waterValue * 400;
+
+                    playPourSound();
+
+                    // Animate source water down after pipe fill
+                    const srcWater = cylEl.querySelector(".source-water > div");
+                    if (srcWater) {
+                        srcWater.style.transition = `height ${duration}ms ease-out`;
+                        srcWater.style.height = "0%";
+                    }
+
+                    // Animate target water up at same time as source drain
+                    const startPct = calculateTotalValue();
+                    const startTime = performance.now();
+
+                    // Add new part to targetParts from start so it stacks correctly
+                    const newPart = {
+                        n: frac.n,
+                        d: frac.d,
+                        from: idx,
+                        color: src.color,
+                    };
+                    targetParts.push(newPart);
+
+                    function animateTargetWater(currentTime) {
+                        const elapsed = currentTime - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        const currentPct = startPct + waterValue * progress;
+
+                        // Draw all parts (existing + new stacked), fill goes from start to current
+                        drawTargetCanvas(
+                            targetCanvas,
+                            Math.min(1, currentPct),
+                            targetParts,
+                        );
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animateTargetWater);
+                        } else {
+                            cylinders[idx].num = 0;
+                            // Remove pumping class and reset pipe color
+                            if (cylEl) {
+                                const pw =
+                                    cylEl.querySelector(".pipe-container");
+                                if (pw) pw.classList.remove("pumping");
+                                const pipeWater =
+                                    cylEl.querySelector(".pipe-water");
+                                if (pipeWater)
+                                    pipeWater.style.background = "#ccc";
+                            }
+                            renderAll();
+                            recomputeTarget();
+                            isPumping = false;
+                        }
+                    }
+                    requestAnimationFrame(animateTargetWater);
+                }
+
+                function recomputeTarget() {
+                    if (targetParts.length === 0) {
+                        drawTargetCanvas(targetCanvas, 0, []);
+                        equationEl.textContent = "—";
+                        currentDecimal.textContent = "0.0000";
+                        overflowText.style.display = "none";
+                        targetCanvas.classList.remove(
+                            "overflow",
+                            "shake-animation",
+                        );
+                        addedListEl.innerHTML = "📌 Added: —";
+                        return;
+                    }
+
+                    let totalN = 0,
+                        totalD = 1,
+                        common = 1;
+                    for (const p of targetParts) common = lcm(common, p.d);
+                    totalN = targetParts.reduce(
+                        (acc, p) => acc + p.n * (common / p.d),
+                        0,
+                    );
+                    totalD = common;
+
+                    const simp = simplify(totalN, totalD);
+                    const decimal = totalN / totalD;
+                    const pct = Math.min(1, decimal);
+
+                    drawTargetCanvas(targetCanvas, pct, targetParts);
+
+                    equationEl.innerHTML = "";
+                    targetParts.forEach((p, idx) => {
+                        equationEl.appendChild(
+                            createFracElement(p.n, p.d, p.color),
+                        );
+                        if (idx < targetParts.length - 1) {
+                            const plus = document.createElement("span");
+                            plus.textContent = "+";
+                            equationEl.appendChild(plus);
+                        }
+                    });
+                    const eqSign = document.createElement("span");
+                    eqSign.textContent = "=";
+                    equationEl.appendChild(eqSign);
+                    equationEl.appendChild(createFracElement(simp.n, simp.d));
+
+                    currentDecimal.textContent = decimal.toFixed(4);
+
+                    const addedDetails = targetParts.map((p) => {
+                        const idx = p.from;
+                        const color = cylinders[idx]?.color || "#4f8ef7";
+                        const label = idx + 1;
+                        return `<span style="display: inline-flex; align-items: center; gap: 4px; margin-right: 8px;">
+                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: ${color}; border: 1px solid rgba(0,0,0,0.2);"></span>
+                            <span>${label}</span>
+                        </span>`;
+                    });
+                    addedListEl.innerHTML =
+                        "📌 Added: " +
+                        (addedDetails.length > 0 ? addedDetails.join("") : "—");
+
+                    const isOverflow = decimal > 1;
+                    const isFull = Math.abs(decimal - 1) < 1e-9;
+
+                    if (isOverflow) {
+                        overflowText.style.display = "flex";
+                        targetCanvas.classList.add(
+                            "overflow",
+                            "shake-animation",
+                        );
+                        setTimeout(
+                            () =>
+                                targetCanvas.classList.remove(
+                                    "shake-animation",
+                                ),
+                            400,
+                        );
+                        if (!lastOverflowState) playOverflowSound();
+                    } else {
+                        overflowText.style.display = "none";
+                        targetCanvas.classList.remove(
+                            "overflow",
+                            "shake-animation",
+                        );
+                    }
+
+                    const currentIndices = targetParts
+                        .map((p) => p.from)
+                        .sort((a, b) => a - b);
+                    const currentKey = JSON.stringify(currentIndices);
+
+                    let shouldPlaySuccess = false;
+                    let successEmoji = "";
+                    let wasNewCombination = false;
+
+                    if (isFull && !lastFullState && !isOverflow) {
+                        if (!foundCombinations.has(currentKey)) {
+                            foundCombinations.add(currentKey);
+                            shouldPlaySuccess = true;
+                            successEmoji = "🎉";
+                            wasNewCombination = true;
+                        }
+                    }
+
+                    if (
+                        extraTargets.has(currentKey) &&
+                        !foundExtraTargets.has(currentKey)
+                    ) {
+                        foundExtraTargets.add(currentKey);
+                        shouldPlaySuccess = true;
+                        successEmoji = successEmoji || "★";
+                        // Update hint counter and combo count
+                        const t = TRANSLATIONS[currentLang];
+                        const extraHint = ` | ★${foundExtraTargets.size}/${extraTargets.size}`;
+                        dragHintEl.textContent = t.hint + extraHint;
+                        updateCompletionStatus();
+                    }
+
+                    if (shouldPlaySuccess) {
+                        playSuccessSound();
+                        showEmojiPopup(successEmoji);
+
+                        // Update the specific card in storage (show unlocked state)
+                        updateStorageCard(currentKey, extraTargets.has(currentKey));
+
+                        const autoResetDelay = 2000;
+                        setTimeout(() => {
+                            if (targetParts.length > 0 && !isPumping) {
+                                if (
+                                    (isFull &&
+                                        Math.abs(calculateTotalValue() - 1) <
+                                            1e-9) ||
+                                    extraTargets.has(currentKey)
+                                ) {
+                                    resetTarget();
+                                }
+                            }
+                        }, autoResetDelay);
+
+                        if (
+                            wasNewCombination &&
+                            foundCombinations.size ===
+                                solvableCombinations.size &&
+                            solvableCombinations.size > 0
+                        ) {
+                            setTimeout(() => {
+                                document.getElementById(
+                                    "newGameModal",
+                                ).style.display = "flex";
+                                playSuccessSound();
+                            }, autoResetDelay + 2500);
+                        }
+                    }
+
+                    lastOverflowState = isOverflow;
+                    lastFullState = isFull;
+                }
+
+                function createFracElement(n, d, color) {
+                    const wrap = document.createElement("span");
+                    wrap.className = "frac";
+                    if (color) wrap.style.color = color;
+                    const num = document.createElement("span");
+                    num.className = "num";
+                    num.textContent = n;
+                    const bar = document.createElement("span");
+                    bar.className = "bar";
+                    const den = document.createElement("span");
+                    den.className = "den";
+                    den.textContent = d;
+                    wrap.appendChild(num);
+                    wrap.appendChild(bar);
+                    wrap.appendChild(den);
+                    return wrap;
+                }
+
+                function drawCylinderCanvas(canvas, fillPct, waterColor) {
+                    const ctx = canvas.getContext("2d");
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    ctx.clearRect(0, 0, w, h);
+                    const pad = 16,
+                        innerW = w - pad * 2,
+                        innerH = h - pad * 2,
+                        x = pad,
+                        y = pad,
+                        r = 14;
+
+                    ctx.beginPath();
+                    roundedRectPath(ctx, x, y, innerW, innerH, r);
+                    ctx.fillStyle = "#f8fafc";
+                    ctx.fill();
+                    ctx.lineWidth = 8;
+                    ctx.strokeStyle = "#cbd5e1";
+                    ctx.stroke();
+
+                    const waterTop = y + innerH * (1 - Math.min(1, fillPct));
+                    if (fillPct > 0) {
+                        ctx.save();
+                        ctx.beginPath();
+                        roundedRectPath(
+                            ctx,
+                            x + 5,
+                            y + 5,
+                            innerW - 10,
+                            innerH - 10,
+                            Math.max(6, r - 5),
+                        );
+                        ctx.clip();
+
+                        const grad = ctx.createLinearGradient(
+                            x,
+                            waterTop,
+                            x,
+                            y + innerH,
+                        );
+                        grad.addColorStop(0, shadeColor(waterColor, 20));
+                        grad.addColorStop(1, shadeColor(waterColor, -20));
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(x + 5, waterTop, innerW - 10, innerH);
+
+                        if (fillPct < 0.99) {
+                            ctx.fillStyle = "rgba(255,255,255,0.4)";
+                            ctx.beginPath();
+                            ctx.ellipse(
+                                x + innerW / 2,
+                                waterTop + 3,
+                                (innerW - 14) / 2,
+                                7,
+                                0,
+                                0,
+                                2 * Math.PI,
+                            );
+                            ctx.fill();
+                        }
+                        ctx.restore();
+                    }
+                }
+
+                function drawTargetCanvas(canvas, fillPct, parts) {
+                    const ctx = canvas.getContext("2d");
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    ctx.clearRect(0, 0, w, h);
+
+                    const pad = 16,
+                        innerW = w - pad * 2,
+                        innerH = h - pad * 2,
+                        x = pad,
+                        y = pad,
+                        r = 14;
+
+                    // Draw container background
+                    ctx.beginPath();
+                    roundedRectPath(ctx, x, y, innerW, innerH, r);
+                    ctx.fillStyle = "#f8fafc";
+                    ctx.fill();
+                    ctx.lineWidth = 8;
+                    ctx.strokeStyle = "#cbd5e1";
+                    ctx.stroke();
+
+                    if (!parts || fillPct <= 0) return;
+
+                    const layers = parts.map((p) => ({
+                        value: (p.n || 0) / (p.d || 1),
+                        color: p.color,
+                    }));
+                    let drawn = 0;
+                    const maxDraw = Math.min(1, fillPct);
+                    const totalWaterTop = y + innerH * (1 - maxDraw);
+
+                    ctx.save();
+                    ctx.beginPath();
+                    roundedRectPath(
+                        ctx,
+                        x + 5,
+                        y + 5,
+                        innerW - 10,
+                        innerH - 10,
+                        Math.max(6, r - 5),
+                    );
+                    ctx.clip();
+
+                    for (const layer of layers) {
+                        if (drawn >= maxDraw) break;
+                        const layerAmt = Math.max(0, layer.value);
+                        if (layerAmt <= 0) continue;
+
+                        const drawAmt = Math.min(layerAmt, maxDraw - drawn);
+                        const layerHeight = drawAmt * innerH;
+                        const yTop = y + innerH - drawn * innerH - layerHeight;
+
+                        const grad = ctx.createLinearGradient(
+                            x,
+                            yTop,
+                            x,
+                            yTop + layerHeight,
+                        );
+                        grad.addColorStop(0, shadeColor(layer.color, 15));
+                        grad.addColorStop(1, shadeColor(layer.color, -15));
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(x + 5, yTop, innerW - 10, layerHeight);
+
+                        drawn += drawAmt;
+                    }
+
+                    if (fillPct < 0.99) {
+                        ctx.fillStyle = "rgba(255,255,255,0.5)";
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            x + innerW / 2,
+                            totalWaterTop + 3,
+                            (innerW - 14) / 2,
+                            7,
+                            0,
+                            0,
+                            2 * Math.PI,
+                        );
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+
+                function roundedRectPath(ctx, x, y, w, h, r) {
+                    ctx.moveTo(x + r, y);
+                    ctx.arcTo(x + w, y, x + w, y + h, r);
+                    ctx.arcTo(x + w, y + h, x, y + h, r);
+                    ctx.arcTo(x, y + h, x, y, r);
+                    ctx.arcTo(x, y, x + w, y, r);
+                    ctx.closePath();
+                }
+                function shadeColor(hex, percent) {
+                    const f = hex.slice(1),
+                        R = parseInt(f.substring(0, 2), 16),
+                        G = parseInt(f.substring(2, 4), 16),
+                        B = parseInt(f.substring(4, 6), 16);
+                    const t = percent < 0 ? 0 : 255,
+                        p = Math.abs(percent) / 100;
+                    return `rgb(${Math.round((t - R) * p) + R},${Math.round((t - G) * p) + G},${Math.round((t - B) * p) + B})`;
+                }
+
+                function playPourSound() {
+                    try {
+                        const C = (window.__pourAudioCtx =
+                            window.__pourAudioCtx ||
+                            new (
+                                window.AudioContext || window.webkitAudioContext
+                            )());
+                        const o = C.createOscillator();
+                        const g = C.createGain();
+                        o.type = "sine";
+                        o.frequency.setValueAtTime(700, C.currentTime);
+                        o.frequency.exponentialRampToValueAtTime(
+                            250,
+                            C.currentTime + 0.25,
+                        );
+                        g.gain.setValueAtTime(0.0001, C.currentTime);
+                        g.gain.exponentialRampToValueAtTime(
+                            0.12,
+                            C.currentTime + 0.01,
+                        );
+                        g.gain.exponentialRampToValueAtTime(
+                            0.001,
+                            C.currentTime + 0.35,
+                        );
+                        o.connect(g);
+                        g.connect(C.destination);
+                        o.start();
+                        o.stop(C.currentTime + 0.35);
+                    } catch (e) {}
+                }
+                function playSuccessSound() {
+                    try {
+                        new Audio("kid_yeah.wav").play();
+                    } catch (e) {}
+                }
+                function playOverflowSound() {
+                    try {
+                        new Audio("Ohh.wav").play();
+                    } catch (e) {}
+                }
+
+                function showEmojiPopup(emoji) {
+                    const el = document.createElement("div");
+                    el.textContent = emoji;
+                    el.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%) scale(0);
+                        font-size: 80px;
+                        animation: popIn 0.5s forwards;
+                        pointer-events: none;
+                        z-index: 2000;
+                    `;
+                    document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 1500);
+                }
+
+                function showFractionsPopup(
+                    title,
+                    partsInTarget,
+                    totalParts,
+                    forceFull = false,
+                ) {
+                    const popup = document.createElement("div");
+                    popup.id = "fractionPopup";
+                    popup.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;justify-content:center;align-items:center;z-index:2000;`;
+
+                    const content = document.createElement("div");
+                    content.style.cssText = `background:white;padding:40px;border-radius:24px;text-align:center;max-width:95%;width:max-content;box-shadow:0 20px 60px rgba(0,0,0,0.4);display:flex;flex-direction:column;gap:24px;`;
+
+                    const header = document.createElement("h2");
+                    header.style.cssText =
+                        "margin:0;color:var(--accent);font-size:2rem;";
+                    header.textContent = title;
+                    content.appendChild(header);
+
+                    // --- ROW 1: CYLINDERS ---
+                    const row1 = document.createElement("div");
+                    row1.style.cssText =
+                        "display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;";
+
+                    partsInTarget.forEach((p, idx) => {
+                        const cylDiv = document.createElement("div");
+                        cylDiv.style.cssText = `width:50px;height:70px;border:4px solid ${p.color};border-radius:10px;position:relative;overflow:hidden;background:#f8fafc;`;
+                        const fill = document.createElement("div");
+                        fill.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:${(p.n / p.d) * 100}%;background:${p.color};`;
+                        cylDiv.appendChild(fill);
+                        row1.appendChild(cylDiv);
+
+                        if (idx < partsInTarget.length - 1) {
+                            const plus = document.createElement("span");
+                            plus.style.cssText =
+                                "font-size:3rem;font-weight:bold;color:#666;";
+                            plus.textContent = "+";
+                            row1.appendChild(plus);
+                        }
+                    });
+
+                    if (partsInTarget.length > 0) {
+                        const eq1 = document.createElement("span");
+                        eq1.style.cssText =
+                            "font-size:3rem;font-weight:bold;color:#10b981;";
+                        eq1.textContent = "=";
+                        row1.appendChild(eq1);
+                    }
+
+                    // Calculate actual filling sum
+                    let totalN = 0,
+                        totalD = 1,
+                        common = 1;
+                    if (totalParts.length > 0) {
+                        totalParts.forEach((p) => (common = lcm(common, p.d)));
+                        totalParts.forEach(
+                            (p) => (totalN += p.n * (common / p.d)),
+                        );
+                        totalD = common;
+                    }
+                    const simp = simplify(totalN, totalD);
+                    const decimal = totalN / totalD;
+                    const fillPct = forceFull ? 1 : Math.min(1, decimal);
+
+                    const targetCvs = document.createElement("canvas");
+                    targetCvs.width = 120;
+                    targetCvs.height = 170;
+                    targetCvs.style.cssText =
+                        "width:60px;height:85px;border:4px solid #10b981;border-radius:12px;background:#f0fdf4;";
+                    drawTargetCanvas(targetCvs, fillPct, totalParts);
+                    row1.appendChild(targetCvs);
+
+                    // --- ROW 2: MATH ---
+                    const row2 = document.createElement("div");
+                    row2.style.cssText =
+                        "display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;";
+
+                    if (partsInTarget.length === 0) {
+                        const zero = document.createElement("span");
+                        zero.style.cssText =
+                            "font-size:3.5rem;font-weight:900;color:#666;";
+                        zero.textContent = "0";
+                        row2.appendChild(zero);
+                    } else {
+                        partsInTarget.forEach((p, idx) => {
+                            const frac = createFracElement(p.n, p.d, p.color);
+                            frac.style.fontWeight = "900";
+                            row2.appendChild(frac);
+
+                            if (idx < partsInTarget.length - 1) {
+                                const plus = document.createElement("span");
+                                plus.style.cssText =
+                                    "font-size:2.5rem;font-weight:bold;color:#666;";
+                                plus.textContent = "+";
+                                row2.appendChild(plus);
+                            }
+                        });
+                    }
+
+                    const eq2 = document.createElement("span");
+                    eq2.style.cssText =
+                        "font-size:2.5rem;font-weight:bold;color:#10b981;";
+                    eq2.textContent = "=";
+                    row2.appendChild(eq2);
+
+                    if (forceFull || (simp.n === 1 && simp.d === 1)) {
+                        const one = document.createElement("span");
+                        one.style.cssText =
+                            "font-size:3.5rem;font-weight:900;color:#10b981;";
+                        one.textContent = "1";
+                        row2.appendChild(one);
+                    } else {
+                        const resultFrac = createFracElement(
+                            simp.n,
+                            simp.d,
+                            "#10b981",
+                        );
+                        resultFrac.style.fontWeight = "900";
+                        row2.appendChild(resultFrac);
+                    }
+
+                    content.appendChild(row1);
+                    content.appendChild(row2);
+
+                    // Click outside to close
+                    popup.addEventListener("click", (e) => {
+                        if (e.target === popup) popup.remove();
+                    });
+
+                    popup.appendChild(content);
+                    document.body.appendChild(popup);
+                }
+
+                function updateStorageCard(key, isExtra) {
+                    const cardId = (isExtra ? "extra-" : "storage-") + key.replace(/[\[\]\,]/g, "-");
+                    const card = document.getElementById(cardId);
+                    if (!card) return;
+
+                    card.classList.add("unlocked");
+
+                    // Update label to show actual indices
+                    const indices = JSON.parse(key);
+                    const label = card.querySelector(".storage-label");
+                    if (label) {
+                        const prefix = isExtra ? "" : "⭐ ";
+                        label.textContent = prefix + indices.map(i => i + 1).join(" + ");
+                    }
+
+                    // Update fractions to show actual values
+                    const fracStr = card.querySelector(".storage-fraction");
+                    if (fracStr) {
+                        let parts;
+                        if (isExtra) {
+                            const extraData = extraTargets.get(key);
+                            parts = extraData ? extraData.parts : null;
+                        } else {
+                            parts = solvableCombinations.get(key);
+                        }
+                        if (parts) {
+                            fracStr.innerHTML = "";
+                            parts.forEach((p, idx) => {
+                                fracStr.appendChild(createFracElement(p.n, p.d, p.color));
+                                if (idx < parts.length - 1) {
+                                    const plus = document.createElement("span");
+                                    plus.textContent = "+";
+                                    fracStr.appendChild(plus);
+                                }
+                            });
+                        }
+                    }
+
+                    // Reorder cards after a short delay
+                    setTimeout(reorderStorageZone, 500);
+                }
+
+                function reorderStorageZone() {
+                    const cards = Array.from(storageZone.children);
+                    const getPriority = (card) => {
+                        const isExtra = card.classList.contains("extra");
+                        const isUnlocked = card.classList.contains("unlocked");
+                        if (!isExtra && !isUnlocked) return 0; // Unsolved star
+                        if (!isExtra && isUnlocked) return 1; // Solved star
+                        if (isExtra && isUnlocked) return 2; // Solved extra
+                        return 3; // Unsolved extra
+                    };
+                    cards.sort((a, b) => getPriority(a) - getPriority(b));
+                    cards.forEach(card => storageZone.appendChild(card));
+                }
+
+                function findAllSolvableCombinations() {
+                    solvableCombinations.clear();
+                    extraTargets.clear();
+                    const n = cylinders.length;
+                    if (n < 2) {
+                        storageZone.innerHTML = "";
+                        return;
+                    }
+
+                    // Map of stringified sums to list of combinations
+                    const allPossibleSums = new Map();
+
+                    function findSubsets(start, currentSum, combo) {
+                        if (combo.length >= 1) {
+                            const decimal = currentSum;
+                            // Round to handle floating point issues
+                            const rounded = Math.round(decimal * 1e8) / 1e8;
+
+                            if (!allPossibleSums.has(rounded)) {
+                                allPossibleSums.set(rounded, []);
+                            }
+                            const sorted = [...combo].sort((a, b) => a - b);
+                            const key = JSON.stringify(sorted);
+                            const parts = sorted.map((i) => ({
+                                n: cylinders[i].num,
+                                d: cylinders[i].den,
+                                color: cylinders[i].color,
+                                from: i,
+                            }));
+
+                            // Check if this combination is already in the list for this sum
+                            if (
+                                !allPossibleSums
+                                    .get(rounded)
+                                    .some((c) => c.key === key)
+                            ) {
+                                allPossibleSums
+                                    .get(rounded)
+                                    .push({ key, parts, indices: sorted });
+                            }
+                        }
+
+                        if (currentSum > 3 || start >= n) return; // Limit overflow search
+                        for (let i = start; i < n; i++) {
+                            const v =
+                                cylinders[i].den === 0
+                                    ? 0
+                                    : cylinders[i].num / cylinders[i].den;
+                            if (v > 0) {
+                                combo.push(i);
+                                findSubsets(i + 1, currentSum + v, combo);
+                                combo.pop();
+                            }
+                        }
+                    }
+                    findSubsets(0, 0, []);
+
+                    // Extract 1.0 combinations
+                    const ones = allPossibleSums.get(1) || [];
+                    ones.forEach((c) =>
+                        solvableCombinations.set(c.key, c.parts),
+                    );
+
+                    // Choose a few extra targets (mix of overflow and educational fractions < 1)
+                    const COMMON_FRACTIONS = [
+                        0.5, 0.25, 0.75, 0.33333333, 0.66666667, 0.2, 0.4, 0.6,
+                        0.8,
+                    ];
+
+                    const sourceValues = new Set(
+                        cylinders.map(
+                            (c) => Math.round((c.num / c.den) * 1e8) / 1e8,
+                        ),
+                    );
+
+                    const otherSums = Array.from(allPossibleSums.keys())
+                        .filter((s) => {
+                            if (Math.abs(s - 1) < 1e-7) return false;
+                            if (sourceValues.has(s)) return false;
+                            const simp = simplify(
+                                Math.round(s * 120120),
+                                120120,
+                            );
+                            if (simp.d >= 100) return false;
+                            return true;
+                        })
+                        .sort((a, b) => {
+                            // Check if they are in common educational fractions list
+                            const aIsCommon = COMMON_FRACTIONS.some(
+                                (f) => Math.abs(a - f) < 1e-7,
+                            );
+                            const bIsCommon = COMMON_FRACTIONS.some(
+                                (f) => Math.abs(b - f) < 1e-7,
+                            );
+
+                            // Prefer educational fractions first
+                            if (aIsCommon && !bIsCommon) return -1;
+                            if (!aIsCommon && bIsCommon) return 1;
+
+                            // Then prefer overflow (> 1)
+                            const aIsOver = a > 1.0001;
+                            const bIsOver = b > 1.0001;
+                            if (aIsOver && !bIsOver) return -1;
+                            if (!aIsOver && bIsOver) return 1;
+
+                            return Math.abs(a - 1.5) - Math.abs(b - 1.5);
+                        });
+
+                    // Use all unique sums found as extra targets (both < 1 and > 1)
+                    const selectedSums = otherSums;
+                    selectedSums.forEach((sum) => {
+                        const combosForSum = allPossibleSums.get(sum);
+                        if (combosForSum && combosForSum.length > 0) {
+                            const best = combosForSum[0]; // Just take one combination for each extra target
+                            extraTargets.set(best.key, {
+                                parts: best.parts,
+                                sum: sum,
+                                indices: best.indices,
+                            });
+                        }
+                    });
+
+                    // Build Storage Zone UI
+                    storageZone.innerHTML = "";
+
+                    const renderItem = (
+                        parts,
+                        key,
+                        indices,
+                        isExtra,
+                        targetSum,
+                    ) => {
+                        const isUnlocked = isExtra
+                            ? foundExtraTargets.has(key)
+                            : foundCombinations.has(key);
+                        const item = document.createElement("div");
+                        item.className = "storage-item";
+                        if (isExtra) item.classList.add("extra");
+                        if (isUnlocked) item.classList.add("unlocked");
+                        item.id =
+                            (isExtra ? "extra-" : "storage-") +
+                            key.replace(/[\[\]\,]/g, "-");
+
+                        const label = document.createElement("div");
+                        label.className = "storage-label";
+                        const prefix = isExtra ? "" : "⭐ ";
+                        label.textContent =
+                            prefix +
+                            indices
+                                .map((i) => (isUnlocked ? i + 1 : "?"))
+                                .join(" + ");
+
+                        const canvasWrapper = document.createElement("div");
+                        canvasWrapper.style.cssText = `
+                            position: relative;
+                            width: 90px;
+                            height: 130px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        `;
+
+                        if (isExtra) {
+                            // Bonus targets show only the target fraction prominently
+                            const simpSum = simplify(
+                                Math.round(targetSum * 120120),
+                                120120,
+                            );
+                            const badge = document.createElement("div");
+                            badge.style.cssText = `
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                justify-content: center;
+                                background: rgba(124, 111, 247, 0.1);
+                                width: 100%;
+                                height: 100%;
+                                border: 2px dashed var(--accent2);
+                                border-radius: 12px;
+                                font-family: "Roboto Mono";
+                                font-weight: 900;
+                                color: var(--accent2);
+                                box-sizing: border-box;
+                                padding: 8px;
+                            `;
+
+                            const bigFrac = createFracElement(
+                                simpSum.n,
+                                simpSum.d,
+                                "var(--accent2)",
+                            );
+                            // Scale up slightly, but stay safe
+                            bigFrac.style.transform = "scale(1.15)";
+                            badge.appendChild(bigFrac);
+                            canvasWrapper.appendChild(badge);
+                        } else {
+                            // Normal targets show the 1/1 cylinder
+                            const canvas = document.createElement("canvas");
+                            canvas.width = 120;
+                            canvas.height = 180;
+                            canvas.style.width = "90px";
+                            canvas.style.height = "130px";
+                            canvas.style.border = "2px solid #cbd5e1";
+                            canvas.style.borderRadius = "6px";
+                            canvas.style.background = "#f8fafc";
+                            drawTargetCanvas(canvas, 1, parts);
+                            canvasWrapper.appendChild(canvas);
+                        }
+
+                        const fracStr = document.createElement("div");
+                        fracStr.className = "storage-fraction";
+                        indices.forEach((_, idx) => {
+                            if (isUnlocked) {
+                                fracStr.appendChild(
+                                    createFracElement(
+                                        parts[idx].n,
+                                        parts[idx].d,
+                                        parts[idx].color,
+                                    ),
+                                );
+                            } else {
+                                fracStr.appendChild(
+                                    createFracElement("?", "?"),
+                                );
+                            }
+                            if (idx < indices.length - 1) {
+                                const plus = document.createElement("span");
+                                plus.textContent = "+";
+                                fracStr.appendChild(plus);
+                            }
+                        });
+
+                        // Make clickable to show solution popup
+                        item.style.cursor = "pointer";
+                        item.addEventListener("click", (ev) => {
+                            ev.stopPropagation();
+                            if (isUnlocked) {
+                                showFractionsPopup(
+                                    isExtra
+                                        ? "Bonus Combination Review"
+                                        : "Solved Result Review",
+                                    parts,
+                                    parts,
+                                    targetSum >= 1,
+                                );
+                            }
+                        });
+
+                        item.appendChild(label);
+                        item.appendChild(canvasWrapper);
+                        item.appendChild(fracStr);
+                        storageZone.appendChild(item);
+                    };
+
+// 1. Unsolved star cards (not yet found)
+                    solvableCombinations.forEach((parts, key) => {
+                        const indices = JSON.parse(key);
+                        if (!foundCombinations.has(key)) {
+                            renderItem(parts, key, indices, false, 1);
+                        }
+                    });
+
+                    // 2. Solved star cards
+                    solvableCombinations.forEach((parts, key) => {
+                        const indices = JSON.parse(key);
+                        if (foundCombinations.has(key)) {
+                            renderItem(parts, key, indices, false, 1);
+                        }
+                    });
+
+                    // 3. Solved extra cards
+                    extraTargets.forEach((data, key) => {
+                        if (foundExtraTargets.has(key)) {
+                            renderItem(
+                                data.parts,
+                                key,
+                                data.indices,
+                                true,
+                                data.sum,
+                            );
+                        }
+                    });
+
+                    // 4. Unsolved extra cards
+                    extraTargets.forEach((data, key) => {
+                        if (!foundExtraTargets.has(key)) {
+                            renderItem(
+                                data.parts,
+                                key,
+                                data.indices,
+                                true,
+                                data.sum,
+                            );
+                        }
+                    });
+
+                    updateCompletionStatus();
+                }
+
+                function updateCompletionStatus() {
+                    const extraStr =
+                        extraTargets.size > 0
+                            ? ` | ★${foundExtraTargets.size}/${extraTargets.size}`
+                            : "";
+                    comboCountEl.textContent = `${foundCombinations.size}/${solvableCombinations.size}${extraStr}`;
+                    // Modal now shown after auto-reset completes (see below)
+                }
+
+                const TRANSLATIONS = {
+                    en: {
+                        title: "Pour Water <em>Master</em>",
+                        add: "➕ Add",
+                        remove: "➖ Remove",
+                        random: "🎲 Randomize",
+                        restore: "♻️ Restore",
+                        lang: "🇬🇧 ENG",
+                        rules: "❓ Rules",
+                        hint: "💧 Click a cylinder or drag it to the target to pump water.",
+                        target: "Target Container",
+                        reset: "🔄 Reset Target",
+                        overflow: "⚠️ Overflow: total > 1",
+                        answers: "Possible Combinations",
+                    },
+                    vi: {
+                        title: "Đổ Nước <em>Master</em>",
+                        add: "➕ Thêm",
+                        remove: "➖ Xóa",
+                        random: "🎲 Ngẫu nhiên",
+                        restore: "♻️ Khôi phục",
+                        lang: "🇻🇳 VIE",
+                        rules: "❓ Luật",
+                        hint: "💧 Bấm hoặc kéo một bình vào mục tiêu để bơm nước.",
+                        target: "Bình Đích",
+                        reset: "🔄 Làm mới",
+                        overflow: "⚠️ Tràn: tổng > 1",
+                        answers: "Các kết hợp có thể",
+                    },
+                };
+                let currentLang = localStorage.getItem("pour_lang") || "en";
+                let lastOverflowState = false,
+                    lastFullState = false;
+
+                function applyLanguage() {
+                    const t = TRANSLATIONS[currentLang];
+                    if (titleEl) titleEl.innerHTML = t.title;
+                    addBtn.textContent = t.add;
+                    removeBtn.textContent = t.remove;
+                    randomBtn.textContent = t.random;
+                    restoreBtn.textContent = t.restore;
+                    langBtn.textContent = t.lang;
+                    helpBtn.textContent = t.rules;
+                    const extraHint = extraTargets.size > 0 
+                        ? ` | ★${foundExtraTargets.size}/${extraTargets.size}` 
+                        : "";
+                    dragHintEl.textContent = t.hint + extraHint;
+                    resetBtn.textContent = t.reset;
+                    overflowText.innerHTML = t.overflow;
+                    answersTitle.textContent = t.answers;
+                    updateCompletionStatus();
+                    localStorage.setItem("pour_lang", currentLang);
+                }
+                langBtn.addEventListener("click", () => {
+                    currentLang = currentLang === "en" ? "vi" : "en";
+                    applyLanguage();
+                });
+
+                // Combo button - show solutions modal
+                comboBtn.addEventListener("click", () => {
+                    answersBody.innerHTML = "";
+                    if (solvableCombinations.size === 0) {
+                        answersBody.innerHTML =
+                            '<div style="color: var(--muted);">No solutions found yet.</div>';
+                    } else {
+                        solvableCombinations.forEach((parts, key) => {
+                            const div = document.createElement("div");
+                            div.textContent = JSON.parse(key)
+                                .map((i) => i + 1)
+                                .join(" + ");
+                            if (foundCombinations.has(key))
+                                div.className = "found-answer";
+                            answersBody.appendChild(div);
+                        });
+                    }
+                    answersModal.style.display = "flex";
+                });
+
+                let savedSnapshot = null;
+
+                // Attach Randomize Logic (Guarantees minimum solvable combinations)
+                randomBtn.addEventListener("click", () => {
+                    if (!savedSnapshot)
+                        savedSnapshot = JSON.parse(JSON.stringify(cylinders));
+                    resetTarget();
+                    targetParts = [];
+
+                    const n = cylinders.length;
+                    // Requirement: force more combos to get 3-4 cylinder combinations
+                    let minCombos;
+                    if (n <= 7) minCombos = 6;
+                    else if (n <= 10) minCombos = 8;
+                    else minCombos = 10;
+
+                    const allFractions = [];
+                    // Add basic fractions
+                    for (let d = 2; d <= 9; d++) {
+                        for (let numerator = 1; numerator < d; numerator++) {
+                            allFractions.push({ n: numerator, d: d });
+                        }
+                    }
+                    // Add equivalent fractions to teach equality (2/4=1/2, 3/6=1/2, 4/8=1/2, etc.)
+                    const equivalents = [
+                        { n: 2, d: 4 }, { n: 3, d: 6 }, { n: 4, d: 8 },
+                        { n: 2, d: 6 }, { n: 3, d: 9 },
+                        { n: 2, d: 8 }, { n: 4, d: 6 }, { n: 4, d: 10 },
+                        { n: 6, d: 8 }, { n: 6, d: 10 },
+                        { n: 3, d: 12 }, { n: 4, d: 12 }, { n: 5, d: 10 },
+                    ];
+                    allFractions.push(...equivalents);
+
+                    let attempts = 0;
+                    const maxAttempts = 500;
+                    let found = false;
+
+                    while (attempts < maxAttempts && !found) {
+                        const shuffled = [...allFractions];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffled[i], shuffled[j]] = [
+                                shuffled[j],
+                                shuffled[i],
+                            ];
+                        }
+
+                        const picked = shuffled.slice(0, n);
+
+                        for (let i = 0; i < n; i++) {
+                            cylinders[i].num = picked[i].n;
+                            cylinders[i].den = picked[i].d;
+cylinders[i].color =
+                                NAMED_COLORS[i % NAMED_COLORS.length];
+                        }
+
+                        foundCombinations.clear();
+                        foundExtraTargets.clear();
+                        findAllSolvableCombinations();
+                        
+                        let count2 = 0, count3 = 0, count4 = 0;
+                        for (const [key, parts] of solvableCombinations) {
+                            const len = parts.length;
+                            if (len === 2) count2++;
+                            else if (len === 3) count3++;
+                            else if (len >= 4) count4++;
+                        }
+                        
+                        const min3Plus = n <= 7 ? 3 : n <= 10 ? 4 : 5;
+                        if ((count3 + count4) >= min3Plus)
+                            found = true;
+                        attempts++;
+                    }
+
+                    updateCompletionStatus();
+                    renderAll();
+                    recomputeTarget();
+                });
+
+                restoreBtn.addEventListener("click", () => {
+                    if (savedSnapshot) {
+                        cylinders = JSON.parse(JSON.stringify(savedSnapshot));
+                        savedSnapshot = null;
+                        targetParts = [];
+                        foundCombinations.clear();
+                        foundExtraTargets.clear();
+                        findAllSolvableCombinations();
+                        updateCompletionStatus();
+                        renderAll();
+                        recomputeTarget();
+                    }
+                });
+
+                targetDrop.addEventListener("dragover", (ev) =>
+                    ev.preventDefault(),
+                );
+                targetDrop.addEventListener("drop", (ev) => {
+                    ev.preventDefault();
+                    const idx = parseInt(ev.dataTransfer.getData("text/plain"));
+                    if (!isNaN(idx) && !isPumping) pourCylinder(idx);
+                });
+
+                function showTargetPopup() {
+                    const total = targetParts.reduce(
+                        (s, p) => s + p.n / p.d,
+                        0,
+                    );
+                    if (total > 1) {
+                        resetTarget();
+                    } else if (targetParts.length > 0) {
+                        showFractionsPopup(
+                            "Current Target State",
+                            targetParts,
+                            targetParts,
+                        );
+                    }
+                }
+
+                targetDrop.addEventListener("click", showTargetPopup);
+
+                // Helper: Remove layers from top down to a specific index (inclusive)
+                function removeLayersFromTop(upToIndex) {
+                    if (
+                        upToIndex < 0 ||
+                        upToIndex >= targetParts.length ||
+                        isPumping
+                    )
+                        return;
+
+                    isPumping = true;
+                    playPourSound();
+
+                    const animateNext = () => {
+                        // Stop once we've drained down past the requested index
+                        if (targetParts.length <= upToIndex) {
+                            // Remove pumping/draining class and reset pipe colors
+                            for (let i = 0; i < cylinders.length; i++) {
+                                const cyl = containers.children[i];
+                                if (cyl) {
+                                    const pw =
+                                        cyl.querySelector(".pipe-container");
+                                    const pipeWater =
+                                        cyl.querySelector(".pipe-water");
+                                    if (pw) {
+                                        pw.classList.remove("pumping");
+                                        pw.classList.remove("draining");
+                                    }
+                                    if (pipeWater)
+                                        pipeWater.style.background = "#ccc";
+                                }
+                            }
+                            renderAll();
+                            recomputeTarget();
+                            isPumping = false;
+                            return;
+                        }
+
+                        const partIndex = targetParts.length - 1;
+                        const part = targetParts[partIndex];
+                        const partValue = part.n / part.d;
+                        const duration = 300 + partValue * 400;
+
+                        // Set pipe for current layer
+                        const cylEl = containers.children[part.from];
+                        if (cylEl) {
+                            const pw = cylEl.querySelector(".pipe-container");
+                            const pipeWater =
+                                cylEl.querySelector(".pipe-water");
+                            if (pipeWater)
+                                pipeWater.style.background = part.color;
+                            if (pw) {
+                                pw.classList.remove("pumping");
+                                pw.classList.add("draining");
+                            }
+                        }
+                        const startTime = performance.now();
+
+                        // Calculate sum of values for all layers BELOW the current one
+                        let belowSum = 0;
+                        for (let i = 0; i < partIndex; i++) {
+                            belowSum += targetParts[i].n / targetParts[i].d;
+                        }
+
+                        function animateLayer(currentTime) {
+                            const elapsed = currentTime - startTime;
+                            const progress = Math.min(elapsed / duration, 1);
+
+                            // Visual level shrinks the top layer relative to the static layers below
+                            const currentPct =
+                                belowSum + partValue * (1 - progress);
+                            drawTargetCanvas(
+                                targetCanvas,
+                                currentPct,
+                                targetParts,
+                            );
+
+                            // Refill corresponding source cylinder
+                            if (cylEl) {
+                                const srcWater = cylEl.querySelector(
+                                    ".source-water > div",
+                                );
+                                if (srcWater) {
+                                    srcWater.style.transition = "none";
+                                    srcWater.style.height =
+                                        ((progress * part.n) / part.d) * 100 +
+                                        "%";
+                                }
+                            }
+
+                            if (progress < 1) {
+                                requestAnimationFrame(animateLayer);
+                            } else {
+                                if (cylinders[part.from])
+                                    cylinders[part.from].num += part.n;
+
+                                // Cleanup pipe for this layer
+                                if (cylEl) {
+                                    const pw =
+                                        cylEl.querySelector(".pipe-container");
+                                    if (pw) pw.classList.remove("draining");
+                                }
+
+                                targetParts.pop();
+                                animateNext();
+                            }
+                        }
+                        requestAnimationFrame(animateLayer);
+                    };
+                    animateNext();
+                }
+
+                function resetTarget() {
+                    if (targetParts.length === 0 || isPumping) return;
+                    removeLayersFromTop(0);
+                }
+                resetBtn.addEventListener("click", resetTarget);
+
+                helpBtn.addEventListener(
+                    "click",
+                    () => (rulesModal.style.display = "flex"),
+                );
+                closeRules.addEventListener(
+                    "click",
+                    () => (rulesModal.style.display = "none"),
+                );
+                closeAnswers.addEventListener(
+                    "click",
+                    () => (answersModal.style.display = "none"),
+                );
+
+                // Modal New Game button handler
+                document.getElementById("modalNewGameBtn").onclick =
+                    function () {
+                        document.getElementById("newGameModal").style.display =
+                            "none";
+                        // Stop any ongoing animation
+                        isPumping = false;
+                        targetParts = [];
+                        drawTargetCanvas(targetCanvas, 0, []);
+
+                        // Re-randomize directly (skip resetTarget animation to prevent bug)
+                        const n = cylinders.length;
+                        let minCombos =
+                            n <= 5
+                                ? 2
+                                : n <= 8
+                                  ? 3
+                                  : n <= 10
+                                    ? 4
+                                    : n <= 12
+                                      ? 6
+                                      : 8;
+                        const allFractions = [];
+                        const usedValues = new Set();
+                        for (let d = 2; d <= 9; d++) {
+                            for (let numer = 1; numer < d; numer++) {
+                                const val = numer / d;
+                                if (!usedValues.has(val)) {
+                                    usedValues.add(val);
+                                    allFractions.push({ n: numer, d: d });
+                                }
+                            }
+                        }
+                        let attempts = 0;
+                        const maxAttempts = 200;
+                        let found = false;
+                        while (attempts < maxAttempts && !found) {
+                            const shuffled = [...allFractions];
+                            for (let i = shuffled.length - 1; i > 0; i--) {
+                                const j = Math.floor(Math.random() * (i + 1));
+                                [shuffled[i], shuffled[j]] = [
+                                    shuffled[j],
+                                    shuffled[i],
+                                ];
+                            }
+                            const picked = shuffled.slice(0, n);
+                            for (let i = 0; i < n; i++) {
+                                cylinders[i].num = picked[i].n;
+                                cylinders[i].den = picked[i].d;
+                                cylinders[i].color =
+                                    NAMED_COLORS[i % NAMED_COLORS.length];
+                            }
+foundCombinations.clear();
+                        foundExtraTargets.clear();
+                        findAllSolvableCombinations();
+                        
+                        // Count combinations by cylinder count
+                        let count2 = 0, count3 = 0, count4 = 0;
+                        for (const [key, parts] of solvableCombinations) {
+                            const len = parts.length;
+                            if (len === 2) count2++;
+                            else if (len === 3) count3++;
+                            else if (len >= 4) count4++;
+                        }
+                        
+                        // Require: 5-7 cyl: 3+ combos with 3+ cylinders, 8-10: 4+, 11-12: 5+
+                        const min3Plus = n <= 7 ? 3 : n <= 10 ? 4 : 5;
+                        if ((count3 + count4) >= min3Plus)
+                            found = true;
+                        attempts++;
+                        }
+                        renderAll();
+                        recomputeTarget();
+                    };
+                document
+                    .getElementById("newGameModal")
+                    .addEventListener("click", function (e) {
+                        if (e.target.id === "newGameModal") {
+                            document.getElementById(
+                                "newGameModal",
+                            ).style.display = "none";
+                        }
+                    });
+
+                // Init
+                ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"].forEach(
+                    (col, i) => {
+                        createCylinder({ num: 1, den: i + 2, color: col });
+                    },
+                );
+                findAllSolvableCombinations();
+                applyLanguage();
+                updateCompletionStatus();
+
+                // Prevent zooming
+                document.addEventListener("gesturestart", function (e) {
+                    e.preventDefault();
+                });
+                document.addEventListener(
+                    "touchstart",
+                    function (e) {
+                        if (e.touches.length > 1) {
+                            e.preventDefault();
+                        }
+                    },
+                    { passive: false },
+                );
+                let lastTouchEnd = 0;
+                document.addEventListener(
+                    "touchend",
+                    function (e) {
+                        const now = new Date().getTime();
+                        if (now - lastTouchEnd <= 300) {
+                            e.preventDefault();
+                        }
+                        lastTouchEnd = now;
+                    },
+                    false,
+                );
+            })();
+        </script>
+    </body>
+</html>

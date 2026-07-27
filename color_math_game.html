@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Color Math Game</title>
+    <style>
+        :root {
+            /* Theme Variables */
+            --bg-color: #ecf0f1;
+            --hud-bg: rgba(255,255,255,0.95);
+            --accent: #2980b9;
+            --text: #2c3e50;
+            --success: #27ae60;
+            --error: #c0392b;
+            --panel-bg: rgba(255,255,255,0.6);
+            --border-color: #bdc3c7;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Dark Mode */
+        body.dark-mode {
+            --bg-color: #2c3e50;
+            --hud-bg: rgba(30, 30, 30, 0.95);
+            --accent: #3498db;
+            --text: #ecf0f1;
+            --success: #2ecc71;
+            --panel-bg: rgba(0,0,0,0.3);
+            --border-color: #7f8c8d;
+            --shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; 
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- HUD (Top Bar) --- */
+        #hud {
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background: var(--hud-bg);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+        }
+        
+        .hud-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+
+        .hud-title { font-weight: bold; font-size: 1.4rem; color: var(--accent); margin-left: 5px;}
+        
+        .icon-btn {
+            background-color: var(--accent); border: none; color: white;
+            width: 40px; height: 40px; border-radius: 8px; cursor: pointer;
+            font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+            text-decoration: none; transition: transform 0.1s; flex-shrink: 0;
+        }
+        .icon-btn:active { transform: translateY(2px); }
+
+        /* --- Main Container --- */
+        .game-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 60px);
+            padding: 20px;
+        }
+
+        /* --- Buttons --- */
+        .action-btn {
+            padding: 10px 24px; font-size: 1rem; border-radius: 50px;
+            border: none; color: white; font-weight: bold; cursor: pointer;
+            box-shadow: var(--shadow); display: inline-flex; align-items: center; gap: 8px;
+            transition: transform 0.1s; white-space: nowrap;
+        }
+        .action-btn:active { transform: scale(0.95); }
+        .btn-primary { background-color: var(--accent); }
+        .btn-secondary { background-color: var(--success); }
+        .btn-neutral { background-color: #7f8c8d; }
+
+        /* --- STEP 1: SETUP --- */
+        .step1 {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100%; gap: 30px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .config-bar {
+            display: flex; align-items: center; gap: 15px;
+            background: var(--panel-bg); padding: 10px 20px;
+            border-radius: 50px; border: 1px solid var(--border-color);
+            flex-wrap: nowrap;
+            white-space: nowrap;
+            width: fit-content;
+            max-width: 100%;
+        }
+        .count-display { font-size: 1.5rem; font-weight: bold; min-width: 30px; text-align: center; }
+
+        .expression-wrapper {
+            max-width: 90vw;
+            overflow-x: auto;
+            padding: 10px;
+            border-radius: 20px;
+            background: var(--panel-bg);
+            border: 2px solid var(--border-color);
+            box-shadow: var(--shadow);
+            scrollbar-width: none; 
+        }
+        .expression-wrapper::-webkit-scrollbar { display: none; }
+
+        .expression-box {
+            display: inline-flex; align-items: center; gap: 15px;
+            padding: 20px 40px;
+            white-space: nowrap;
+        }
+
+        .circle {
+            width: 80px; height: 80px; border-radius: 50%;
+            cursor: pointer; border: 4px solid var(--text);
+            box-shadow: var(--shadow); transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .circle:hover { transform: scale(1.05); }
+
+        .operator {
+            width: 60px; height: 60px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; font-weight: bold; cursor: pointer;
+            background: var(--bg-color); border: 2px solid var(--border-color);
+            border-radius: 12px; user-select: none; color: var(--text);
+            flex-shrink: 0;
+        }
+        .operator:hover { border-color: var(--accent); color: var(--accent); }
+
+        .equals { font-size: 3rem; font-weight: bold; opacity: 0.5; margin: 0 10px; }
+        .result-box {
+            width: 80px; height: 80px; border: 4px dashed var(--border-color);
+            border-radius: 15px; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: bold; color: var(--text); opacity: 0.7;
+        }
+
+        /* --- STEP 2: GAMEPLAY --- */
+        .step2 {
+            display: none; width: 100%; height: 100%;
+            flex-direction: row; justify-content: space-between; align-items: stretch;
+            gap: 20px; animation: fadeIn 0.4s ease-out;
+        }
+
+        /* Left: Numbers */
+        .col-left {
+            flex: 0 0 250px; display: flex; flex-direction: column; align-items: center;
+            background: var(--panel-bg); border-radius: 15px;
+            border: 1px solid var(--border-color); padding: 20px; overflow-y: auto;
+        }
+        .number-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%;
+        }
+        .number-token {
+            width: 70px; height: 70px; border-radius: 50%;
+            background: var(--bg-color); border: 3px solid var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; font-weight: bold; cursor: grab; user-select: none;
+            box-shadow: var(--shadow); margin: 0 auto; color: var(--text);
+        }
+
+        /* Center: Shape & Controls */
+        .col-center {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-start;
+            position: relative; overflow-y: auto;
+            padding-top: 20px;
+        }
+
+        .shape-container {
+            position: relative;
+            width: 450px; height: 450px;
+            flex-shrink: 0;
+            margin-bottom: 20px;
+        }
+
+        .shape-lines {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .shape-lines line { stroke: var(--border-color); stroke-width: 4; stroke-linecap: round; }
+        
+        .vertex {
+            position: absolute; width: 80px; height: 80px;
+            border-radius: 50%; border: 4px solid var(--text);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; font-weight: bold; color: #000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s; background-color: white;
+            z-index: 5;
+        }
+        .vertex.drop-over { transform: scale(1.15); box-shadow: 0 0 20px var(--accent); }
+
+        .center-display {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px; height: 100px;
+            background: var(--bg-color); border: 5px solid var(--text);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: bold; z-index: 10;
+            box-shadow: var(--shadow);
+        }
+
+        .controls-area {
+            display: flex; gap: 15px; margin-bottom: 20px; z-index: 20;
+            flex-wrap: nowrap;
+        }
+
+        /* Hint Area */
+        .revealed-hint {
+            width: 100%; max-width: 600px;
+            padding: 20px; background: var(--panel-bg);
+            border: 2px solid var(--success); border-radius: 15px;
+            box-shadow: var(--shadow); display: none;
+            overflow-x: auto;
+        }
+        .mini-expr {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; flex-wrap: wrap;
+        }
+        .mini-circle {
+            width: 40px; height: 40px; border-radius: 50%;
+            border: 2px solid var(--text); flex-shrink: 0;
+        }
+        .mini-op {
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; font-weight: bold; background: var(--bg-color);
+            border: 1px solid var(--border-color); border-radius: 6px; color: var(--text);
+        }
+
+        /* Right: History (UPDATED FOR BIGGER ITEMS) */
+        .col-right {
+            /* Increased width from 280px to 360px */
+            flex: 0 0 360px; 
+            background: var(--panel-bg);
+            border-radius: 15px; border: 1px solid var(--border-color);
+            padding: 20px; display: flex; flex-direction: column;
+        }
+        .history-list { flex: 1; overflow-y: auto; }
+        .history-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px; background: rgba(255,255,255,0.5);
+            border-radius: 10px; margin-bottom: 10px;
+        }
+        .dark-mode .history-item { background: rgba(0,0,0,0.2); }
+        
+        .h-circles { 
+            display: flex; gap: 6px; align-items: center; flex-wrap: wrap; 
+            /* Allow more width for circles */
+            max-width: 220px; 
+        }
+        
+        /* BIGGER CIRCLES */
+        .h-dot { 
+            width: 45px; height: 45px; /* Bigger */
+            border-radius: 50%; 
+            font-size: 1.5rem; /* Bigger font */
+            font-weight: bold;
+            display: flex; align-items: center; justify-content: center; 
+            color: white; border: 1px solid rgba(0,0,0,0.1); 
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .h-res { font-weight: 800; font-size: 2.2rem; color: var(--accent); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="hud">
+        <div class="hud-controls">
+            <a href="index.html" class="icon-btn" title="Home">🏠</a>
+            <span class="hud-title">🎨 Color Math</span>
+        </div>
+        <div class="hud-controls">
+            <button class="icon-btn" onclick="toggleTheme()" id="themeBtn">☀</button>
+            <button class="icon-btn" onclick="toggleFullscreen()">⛶</button>
+        </div>
+    </div>
+
+    <div class="game-container">
+        
+        <div id="step1" class="step1">
+            <h2 style="color: var(--accent);">Setup Equation</h2>
+            
+            <div class="config-bar">
+                <span>Colors:</span>
+                <button class="icon-btn" onclick="adjustCount(-1)" style="width:30px; height:30px;">-</button>
+                <span id="nodeCountDisplay" class="count-display">3</span>
+                <button class="icon-btn" onclick="adjustCount(1)" style="width:30px; height:30px;">+</button>
+            </div>
+
+            <div class="expression-wrapper">
+                <div class="expression-box" id="expressionContainer">
+                    </div>
+            </div>
+
+            <label style="display: flex; gap: 10px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="advancedMode" style="width: 20px; height: 20px;">
+                <span>Allow Duplicate Colors</span>
+            </label>
+
+            <div style="display: flex; gap: 15px;">
+                <button class="action-btn btn-neutral" onclick="randomize()">
+                    <span>🎲 Random</span>
+                </button>
+                <button class="action-btn btn-primary" onclick="goToStep2()">
+                    <span>Play ▶</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="step2" class="step2">
+            
+            <div class="col-left">
+                <h3 style="margin-bottom: 15px; color: var(--accent);">Numbers</h3>
+                <div class="number-grid" id="numberGrid"></div>
+            </div>
+
+            <div class="col-center">
+                <div class="shape-container" id="shapeContainer">
+                    <svg class="shape-lines" id="shapeLines"></svg>
+                    <div class="center-display" id="centerResult">?</div>
+                </div>
+
+                <div class="controls-area">
+                    <button class="action-btn btn-secondary" onclick="calculateResult()">⚡ Calculate</button>
+                    <button class="action-btn btn-primary" onclick="showAnswer()">💡 Hint</button>
+                    <button class="action-btn btn-neutral" onclick="resetGame()">🔄 Reset</button>
+                </div>
+
+                <div id="revealArea" class="revealed-hint"></div>
+            </div>
+
+            <div class="col-right">
+                <h3 style="margin-bottom: 15px; color: var(--accent);">History</h3>
+                <div class="history-list" id="historyList"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const allColors = ['red', 'gold', 'blue', 'green', 'purple', 'orange', 'cyan', 'pink'];
+        const colorHex = { 
+            red: '#ef4444', gold: '#eab308', blue: '#3b82f6', 
+            green: '#22c55e', purple: '#a855f7', orange: '#f97316', 
+            cyan: '#06b6d4', pink: '#ec4899' 
+        };
+        const operators = ['+', '×', '-'];
+        
+        let nodeCount = 3;
+        let state = {
+            colors: [0, 1, 2], 
+            ops: [0, 0]        
+        };
+
+        let vertexValues = {}; 
+        let history = [];
+
+        window.onload = () => { renderStep1(); };
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            document.getElementById('themeBtn').textContent = document.body.classList.contains('dark-mode') ? '🌙' : '☀';
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(e=>{});
+            else document.exitFullscreen();
+        }
+
+        // --- STEP 1 ---
+        function adjustCount(delta) {
+            let newCount = nodeCount + delta;
+            if(newCount < 3) newCount = 3;
+            if(newCount > 8) newCount = 8;
+            if(newCount === nodeCount) return;
+
+            nodeCount = newCount;
+            document.getElementById('nodeCountDisplay').textContent = nodeCount;
+
+            while(state.colors.length < nodeCount) {
+                let used = new Set(state.colors);
+                let next = 0;
+                while(used.has(next) && next < 8) next++;
+                state.colors.push(next % 8);
+            }
+            state.colors = state.colors.slice(0, nodeCount);
+
+            while(state.ops.length < nodeCount - 1) state.ops.push(0);
+            state.ops = state.ops.slice(0, nodeCount - 1);
+
+            renderStep1();
+        }
+
+        function renderStep1() {
+            const container = document.getElementById('expressionContainer');
+            container.innerHTML = '';
+
+            for(let i=0; i < nodeCount; i++) {
+                const cDiv = document.createElement('div');
+                cDiv.className = 'circle';
+                const cIdx = state.colors[i];
+                cDiv.style.backgroundColor = colorHex[allColors[cIdx]];
+                cDiv.onclick = () => cycleColor(i);
+                container.appendChild(cDiv);
+
+                if(i < nodeCount - 1) {
+                    const opDiv = document.createElement('div');
+                    opDiv.className = 'operator';
+                    opDiv.textContent = operators[state.ops[i]];
+                    opDiv.onclick = () => cycleOp(i);
+                    container.appendChild(opDiv);
+                }
+            }
+
+            const eq = document.createElement('div');
+            eq.className = 'equals';
+            eq.textContent = '=';
+            container.appendChild(eq);
+
+            const res = document.createElement('div');
+            res.className = 'result-box';
+            res.textContent = '?';
+            container.appendChild(res);
+        }
+
+        function cycleColor(idx) {
+            state.colors[idx] = (state.colors[idx] + 1) % 8;
+            renderStep1();
+        }
+
+        function cycleOp(idx) {
+            state.ops[idx] = (state.ops[idx] + 1) % 3;
+            renderStep1();
+        }
+
+        function randomize() {
+            const advanced = document.getElementById('advancedMode').checked;
+            if(advanced) {
+                for(let i=0; i<nodeCount; i++) state.colors[i] = rand(8);
+            } else {
+                let pool = [0,1,2,3,4,5,6,7];
+                shuffle(pool);
+                for(let i=0; i<nodeCount; i++) state.colors[i] = pool[i];
+            }
+            for(let i=0; i<nodeCount-1; i++) state.ops[i] = rand(3);
+            renderStep1();
+        }
+
+        function goToStep2() {
+            const advanced = document.getElementById('advancedMode').checked;
+            const unique = new Set(state.colors);
+            if(!advanced && unique.size !== nodeCount) {
+                alert(`In Standard Mode, please select ${nodeCount} different colors!`);
+                return;
+            }
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'flex';
+            initStep2();
+        }
+
+        // --- STEP 2 ---
+        function initStep2() {
+            const grid = document.getElementById('numberGrid');
+            grid.innerHTML = '';
+            for(let i=0; i<=9; i++) {
+                const div = document.createElement('div');
+                div.className = 'number-token';
+                div.textContent = i;
+                div.draggable = true;
+                div.ondragstart = (e) => {
+                    e.dataTransfer.setData("text", i);
+                    e.target.style.opacity = '0.5';
+                };
+                div.ondragend = (e) => { e.target.style.opacity = '1'; }
+                grid.appendChild(div);
+            }
+            generateShape();
+            vertexValues = {};
+            history = [];
+            document.getElementById('historyList').innerHTML = '';
+            document.getElementById('centerResult').textContent = '?';
+            document.getElementById('revealArea').style.display = 'none';
+        }
+
+        function generateShape() {
+            const container = document.getElementById('shapeContainer');
+            const svg = document.getElementById('shapeLines');
+            container.querySelectorAll('.vertex').forEach(v => v.remove());
+            svg.innerHTML = ''; 
+
+            const radius = 180; 
+            const centerX = 225; 
+            const centerY = 225;
+            const points = [];
+
+            let skip = 1;
+            if (nodeCount >= 5) skip = 2;
+            if (nodeCount >= 7) skip = 3;
+
+            for(let i=0; i<nodeCount; i++) {
+                const angle = (i * 2 * Math.PI / nodeCount) - (Math.PI / 2);
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                points.push({x, y});
+
+                const vDiv = document.createElement('div');
+                vDiv.className = 'vertex';
+                vDiv.style.left = (x - 40) + 'px';
+                vDiv.style.top = (y - 40) + 'px';
+                
+                const colorKey = allColors[state.colors[i]];
+                vDiv.style.backgroundColor = colorHex[colorKey];
+                vDiv.dataset.index = i; 
+                vDiv.dataset.colorName = colorKey;
+                
+                vDiv.ondrop = drop;
+                vDiv.ondragover = allowDrop;
+                vDiv.ondragleave = dragLeave;
+
+                container.appendChild(vDiv);
+            }
+
+            // Draw lines
+            for(let i=0; i<nodeCount; i++) {
+                if(nodeCount === 3 || nodeCount === 4) {
+                     drawLine(points[i], points[(i+1)%nodeCount], svg);
+                } else {
+                     drawLine(points[i], points[(i+skip)%nodeCount], svg);
+                }
+            }
+        }
+
+        function drawLine(p1, p2, svg) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+            line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+            svg.appendChild(line);
+        }
+
+        function allowDrop(ev) { ev.preventDefault(); ev.target.classList.add('drop-over'); }
+        function dragLeave(ev) { ev.target.classList.remove('drop-over'); }
+        function drop(ev) {
+            ev.preventDefault();
+            ev.target.classList.remove('drop-over');
+            var data = ev.dataTransfer.getData("text");
+            if(!data) return;
+            ev.target.textContent = data;
+        }
+
+        function calculateResult() {
+            let values = [];
+            let displayVals = [];
+            let missing = false;
+
+            const vertices = document.getElementById('shapeContainer').querySelectorAll('.vertex');
+            const vArray = Array.from(vertices).sort((a,b) => a.dataset.index - b.dataset.index);
+
+            vArray.forEach(v => {
+                const txt = v.textContent;
+                if(!txt) missing = true;
+                const val = parseInt(txt) || 0;
+                values.push(val);
+                displayVals.push(val);
+            });
+
+            if(missing) {
+                document.getElementById('centerResult').textContent = "?";
+                return;
+            }
+
+            // Pass 1: Multiplication
+            let processedNums = [values[0]];
+            let processedOps = [];
+            
+            for(let i=0; i < state.ops.length; i++) {
+                const op = operators[state.ops[i]];
+                const nextVal = values[i+1];
+                
+                if(op === '×') {
+                    const last = processedNums.pop();
+                    processedNums.push(last * nextVal);
+                } else {
+                    processedOps.push(op);
+                    processedNums.push(nextVal);
+                }
+            }
+
+            // Pass 2: Addition/Subtraction
+            let result = processedNums[0];
+            for(let i=0; i < processedOps.length; i++) {
+                const op = processedOps[i];
+                const nextVal = processedNums[i+1];
+                if(op === '+') result += nextVal;
+                if(op === '-') result -= nextVal;
+            }
+
+            document.getElementById('centerResult').textContent = result;
+            addToHistory(displayVals, result);
+        }
+
+        function addToHistory(vals, res) {
+            if(history.length > 0) {
+                const last = history[0];
+                if(last.res === res && JSON.stringify(last.vals) === JSON.stringify(vals)) return;
+            }
+            
+            history.unshift({vals, res});
+            const list = document.getElementById('historyList');
+            const item = document.createElement('div');
+            item.className = 'history-item';
+
+            let circlesHtml = '';
+            vals.forEach((v, idx) => {
+                const cKey = allColors[state.colors[idx]];
+                circlesHtml += `<div class="h-dot" style="background:${colorHex[cKey]}">${v}</div>`;
+            });
+
+            item.innerHTML = `<div class="h-circles">${circlesHtml}</div><div class="h-res">${res}</div>`;
+            list.insertBefore(item, list.firstChild);
+        }
+
+        function showAnswer() {
+            const area = document.getElementById('revealArea');
+            area.innerHTML = ''; 
+            const wrapper = document.createElement('div');
+            wrapper.className = 'mini-expr';
+
+            for(let i=0; i<nodeCount; i++) {
+                const c = document.createElement('div');
+                c.className = 'mini-circle';
+                c.style.background = colorHex[allColors[state.colors[i]]];
+                wrapper.appendChild(c);
+
+                if(i < nodeCount - 1) {
+                    const o = document.createElement('div');
+                    o.className = 'mini-op';
+                    o.textContent = operators[state.ops[i]];
+                    wrapper.appendChild(o);
+                }
+            }
+            area.appendChild(wrapper);
+            area.style.display = 'block';
+            document.querySelector('.col-center').scrollTop = 1000;
+        }
+
+        function resetGame() {
+            document.querySelectorAll('.vertex').forEach(v => v.textContent = '');
+            document.getElementById('centerResult').textContent = '?';
+            document.getElementById('revealArea').style.display = 'none';
+            document.getElementById('historyList').innerHTML = '';
+            history = [];
+            vertexValues = {};
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step1').style.display = 'flex';
+        }
+
+        function rand(max) { return Math.floor(Math.random() * max); }
+        function shuffle(arr) { arr.sort(() => Math.random() - 0.5); }
+    </script>
+</body>
+</html>

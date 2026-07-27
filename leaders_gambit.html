@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leader's Gambit</title>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ─── DESIGN TOKENS ─── */
+:root,[data-theme="light"]{
+  --bg:             #f3f3f3;
+  --surface:        rgba(255,255,255,0.85);
+  --surface-solid:  #ffffff;
+  --surface-hover:  rgba(0,0,0,0.04);
+  --surface-press:  rgba(0,0,0,0.07);
+  --border:         rgba(0,0,0,0.10);
+  --border-soft:    rgba(0,0,0,0.06);
+  --text-pri:       #1a1a1a;
+  --text-sec:       #555555;
+  --text-ter:       #999999;
+  --text-dis:       #cccccc;
+  --accent:         #0067C0;
+  --accent-lt:      #0078D4;
+  --accent-bg:      rgba(0,103,192,0.08);
+  --accent-bg2:     rgba(0,103,192,0.14);
+  --red:            #C50F1F;
+  --red-bg:         rgba(197,15,31,0.08);
+  --green:          #107C10;
+  --shadow-sm:      0 1px 3px rgba(0,0,0,.10),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:      0 4px 16px rgba(0,0,0,.10),0 1px 4px rgba(0,0,0,.06);
+  --shadow-lg:      0 8px 32px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.06);
+  --shadow-xl:      0 20px 60px rgba(0,0,0,.16),0 4px 16px rgba(0,0,0,.08);
+  --board-bg:       #dce5ef;
+  --rg-red-a:       #f46070; --rg-red-b: #c01828; --rg-red-c: #7a0010;
+  --rg-yel-a:       #fde06a; --rg-yel-b: #c08a18; --rg-yel-c: #7a5000;
+  --node-fill:      #c8d4e0;
+  --node-stroke:    rgba(0,0,0,0.18);
+  --line-col:       rgba(0,0,0,0.12);
+  --line-diag:      rgba(0,0,0,0.06);
+}
+[data-theme="dark"]{
+  --bg:             #202020;
+  --surface:        rgba(38,38,38,0.88);
+  --surface-solid:  #2d2d2d;
+  --surface-hover:  rgba(255,255,255,0.05);
+  --surface-press:  rgba(255,255,255,0.09);
+  --border:         rgba(255,255,255,0.10);
+  --border-soft:    rgba(255,255,255,0.06);
+  --text-pri:       #f0f0f0;
+  --text-sec:       #a0a0a0;
+  --text-ter:       #646464;
+  --text-dis:       #404040;
+  --accent:         #60AEFF;
+  --accent-lt:      #82C4FF;
+  --accent-bg:      rgba(96,174,255,0.10);
+  --accent-bg2:     rgba(96,174,255,0.18);
+  --red:            #FF8080;
+  --red-bg:         rgba(255,128,128,0.10);
+  --green:          #6CCB6C;
+  --shadow-sm:      0 1px 3px rgba(0,0,0,.35),0 1px 2px rgba(0,0,0,.22);
+  --shadow-md:      0 4px 16px rgba(0,0,0,.40),0 1px 4px rgba(0,0,0,.22);
+  --shadow-lg:      0 8px 32px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.22);
+  --shadow-xl:      0 20px 60px rgba(0,0,0,.60),0 4px 16px rgba(0,0,0,.32);
+  --board-bg:       #1a2030;
+  --rg-red-a:       #ff8890; --rg-red-b: #d42030; --rg-red-c: #8a0018;
+  --rg-yel-a:       #ffe080; --rg-yel-b: #d4a030; --rg-yel-c: #8a6010;
+  --node-fill:      #253044;
+  --node-stroke:    rgba(255,255,255,0.15);
+  --line-col:       rgba(255,255,255,0.10);
+  --line-diag:      rgba(255,255,255,0.05);
+}
+
+/* ─── BASE ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100vw;height:100vh;overflow:hidden;
+  background:var(--bg);
+  font-family:'Plus Jakarta Sans','Segoe UI Variable','Segoe UI',system-ui,sans-serif;
+  color:var(--text-pri);
+  transition:background .28s ease,color .28s ease;
+  user-select:none;-webkit-user-select:none;
+}
+
+/* Subtle gradient accent on background */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 55% 45% at 18% 8%, rgba(0,120,212,.06) 0%,transparent 60%),
+    radial-gradient(ellipse 45% 40% at 85% 92%, rgba(0,120,212,.04) 0%,transparent 60%);
+}
+[data-theme="dark"] body::before{
+  background:
+    radial-gradient(ellipse 55% 45% at 18% 8%, rgba(96,174,255,.04) 0%,transparent 60%),
+    radial-gradient(ellipse 45% 40% at 85% 92%, rgba(96,174,255,.03) 0%,transparent 60%);
+}
+
+/* ─── TITLEBAR ─── */
+#titlebar{
+  position:fixed;top:0;left:0;right:0;height:48px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border-soft);
+  backdrop-filter:blur(28px) saturate(1.6);
+  -webkit-backdrop-filter:blur(28px) saturate(1.6);
+  display:flex;align-items:center;padding:0 14px;
+  z-index:400;gap:10px;
+  box-shadow:var(--shadow-sm);
+  transition:background .28s,border-color .28s,box-shadow .28s;
+}
+.tb-appicon{
+  width:24px;height:24px;
+  background:linear-gradient(140deg,var(--accent-lt),var(--accent));
+  border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:#fff;
+  box-shadow:0 2px 6px rgba(0,103,192,.30);
+  transition:box-shadow .28s;
+}
+[data-theme="dark"] .tb-appicon{box-shadow:0 2px 6px rgba(96,174,255,.22);}
+.tb-appname{
+  font-size:13px;font-weight:600;color:var(--text-pri);
+  letter-spacing:.005em;transition:color .28s;
+}
+.tb-sep{width:1px;height:16px;background:var(--border);flex-shrink:0;}
+#phase-badge{
+  font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:3px 10px;border-radius:20px;
+  background:var(--accent-bg);color:var(--accent);
+  transition:background .28s,color .28s;
+}
+#phase-badge.play{background:rgba(16,124,16,.10);color:var(--green);}
+[data-theme="dark"] #phase-badge.play{background:rgba(108,203,108,.10);}
+#tb-status{
+  font-size:12px;font-weight:500;color:var(--text-sec);
+  margin:0 16px;flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tb-spacer{flex:1;}
+.tb-right{display:flex;align-items:center;gap:2px;}
+.tb-btn{
+  width:36px;height:36px;border-radius:8px;border:none;
+  background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-sec);
+  transition:background .15s,color .15s;
+}
+.tb-btn:hover{background:var(--surface-hover);color:var(--text-pri);}
+.tb-btn:active{background:var(--surface-press);}
+.tb-btn svg{width:18px;height:18px;fill:currentColor;}
+.icon-light,.icon-dark{display:none;}
+[data-theme="light"] .icon-light{display:block;}
+[data-theme="dark"] .icon-dark{display:block;}
+
+/* ─── GAME CONTAINER ─── */
+#game-container{
+  position:absolute;top:48px;left:0;right:0;bottom:0;
+  cursor:grab;z-index:1;
+}
+#game-container.grabbing{cursor:grabbing;}
+#game-svg{position:absolute;inset:0;width:100%;height:100%;}
+
+/* ─── PANELS ─── */
+#ui-layer{position:fixed;top:48px;left:0;right:0;bottom:0;pointer-events:none;z-index:200;}
+
+.panel{
+  position:absolute;pointer-events:auto;
+  background:var(--surface);
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+  backdrop-filter:blur(32px) saturate(1.8);
+  -webkit-backdrop-filter:blur(32px) saturate(1.8);
+  box-shadow:var(--shadow-lg);
+  overflow:hidden;
+  transition:background .28s,border-color .28s,box-shadow .28s;
+}
+
+/* ─── CONTROL PANEL ─── */
+#panel-controls{top:16px;left:16px;width:218px;}
+
+.logo-row{display:flex;align-items:center;gap:10px;padding:14px 14px 12px;}
+.logo-icon{
+  width:36px;height:36px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(145deg,var(--accent-lt) 0%,var(--accent) 100%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(0,103,192,.28);
+  font-size:18px;color:#fff;
+  transition:box-shadow .28s;
+}
+[data-theme="dark"] .logo-icon{box-shadow:0 3px 10px rgba(96,174,255,.18);}
+.logo-name{font-size:14px;font-weight:700;color:var(--text-pri);letter-spacing:.005em;line-height:1.2;transition:color .28s;}
+.logo-sub{font-size:10.5px;color:var(--text-ter);font-weight:500;transition:color .28s;}
+
+.panel-div{height:1px;background:var(--border-soft);}
+
+.btn-list{display:flex;flex-direction:column;gap:1px;padding:6px 8px 8px;}
+
+.btn{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:8px;
+  border:none;background:transparent;
+  color:var(--text-pri);font-size:13px;font-weight:500;
+  font-family:inherit;cursor:pointer;width:100%;text-align:left;
+  transition:background .15s,color .15s;
+}
+.btn:hover{background:var(--surface-hover);}
+.btn:active{background:var(--surface-press);}
+.btn:disabled{color:var(--text-dis);cursor:not-allowed;}
+.btn:disabled:hover{background:transparent;}
+.btn.accent{background:var(--accent-bg);color:var(--accent);font-weight:600;}
+.btn.accent:hover{background:var(--accent-bg2);}
+
+.bi{
+  width:20px;height:20px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;flex-shrink:0;
+  background:var(--surface-hover);transition:background .15s;
+}
+.btn.accent .bi{background:var(--accent-bg2);}
+.btn:disabled .bi{background:transparent;}
+.btn-lbl{flex:1;}
+.btn .kbd{
+  font-size:10px;color:var(--text-ter);
+  background:var(--surface-hover);border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;font-family:inherit;
+  flex-shrink:0;transition:opacity .15s;
+}
+.btn:disabled .kbd{opacity:0;}
+
+/* Yellow count widget */
+.cw-wrap{padding:8px 8px 12px;}
+.cw-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-ter);padding:0 4px;margin-bottom:7px;transition:color .28s;}
+.count-widget{
+  display:flex;align-items:center;
+  border-radius:8px;background:var(--surface-hover);
+  border:1px solid var(--border-soft);overflow:hidden;
+}
+.cw-btn{
+  width:32px;height:30px;border:none;background:transparent;
+  cursor:pointer;font-size:16px;color:var(--text-sec);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;flex-shrink:0;
+}
+.cw-btn:hover:not(:disabled){background:var(--surface-press);color:var(--accent);}
+.cw-btn:disabled{color:var(--text-dis);cursor:not-allowed;}
+.cw-mid{flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--text-pri);transition:color .28s;}
+.cw-mid em{font-style:normal;color:var(--accent);}
+
+/* ─── PIECE BANK ─── */
+#panel-bank { 
+  top: 16px; right: 16px; width: 150px; 
+  height: calc(50% - 24px); 
+  display: flex; flex-direction: column;
+}
+.bank-list { 
+  padding: 8px; 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  grid-auto-rows: min-content;
+  gap: 6px; 
+  overflow-y: auto;
+  flex: 1;
+}
+.bank-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 6px 4px; border-radius: 10px; cursor: pointer;
+  border: 1.5px solid transparent; transition: all .15s;
+}
+.bank-item:hover:not(.placed) { background: var(--surface-hover); }
+.bank-item.selected { background: var(--accent-bg); border-color: var(--accent); }
+.bank-item.placed { opacity: .15; cursor: default; pointer-events: none; }
+.bi-name { display: none; }
+
+.bi-dot{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;
+  position:relative;overflow:hidden;
+}
+.bi-dot.red{
+  background:linear-gradient(145deg,#ff6070 0%,#d42030 100%);
+  box-shadow:0 2px 7px rgba(197,15,31,.30);color:#fff;
+}
+[data-theme="dark"] .bi-dot.red{box-shadow:0 2px 7px rgba(255,128,128,.18);}
+.bi-dot.yellow{
+  background:linear-gradient(145deg,#ffe066 0%,#f5b940 100%);
+  box-shadow:0 2px 7px rgba(180,83,9,.25);color:#2d1600;
+}
+[data-theme="dark"] .bi-dot.yellow{box-shadow:0 2px 7px rgba(245,185,66,.12);}
+.bi-dot::after{
+  content:'';position:absolute;top:4px;left:5px;
+  width:7px;height:4px;
+  background:rgba(255,255,255,.32);border-radius:50%;
+  transform:rotate(-25deg);
+}
+.bi-tag{
+  font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;
+  margin-left:auto;flex-shrink:0;
+  background:var(--red-bg);color:var(--red);
+  transition:background .28s,color .28s;
+}
+
+.panel-head { padding: 14px 14px 0; }
+.panel-title { 
+  font-size: 12px; font-weight: 700; text-transform: uppercase; 
+  letter-spacing: .07em; color: var(--text-sec); margin-bottom: 2px; 
+  transition: color .28s;
+}
+.panel-sub { 
+  font-size: 10.5px; color: var(--text-ter); margin-bottom: 10px; 
+  transition: color .28s;
+}
+
+/* ─── EXIT BOX ─── */
+#panel-exit{
+  top: calc(50% + 8px); right: 16px; width: 150px;
+  height: calc(50% - 24px); 
+  display: flex; flex-direction: column;
+}
+.exit-grid{
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+}
+.exit-chip{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;
+  background:#d42030;
+  color:#fff;
+  border:2px solid #ff6070;
+}
+.exit-chip.yellow{
+  background:#f5b940;
+  color:#2d1600;
+  border-color:#ffe066;
+}
+[data-theme="dark"] .exit-chip {
+  background:#d42030;
+  border-color:#ff8890;
+}
+[data-theme="dark"] .exit-chip.yellow {
+  background:#d4a030;
+  color:#2d1600;
+  border-color:#ffe080;
+}
+.exit-arrow{
+  font-size:12px;color:var(--text-ter);line-height:1;
+}
+.exit-empty{font-size:11.5px;color:var(--text-ter);font-style:italic;padding:2px 2px;transition:color .28s;}
+
+/* ─── WIN OVERLAY ─── */
+#win-overlay{
+  position:fixed;inset:0;top:48px;
+  background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  z-index:500;opacity:0;pointer-events:none;
+  transition:opacity .35s;
+}
+#win-overlay.show{opacity:1;pointer-events:auto;}
+#win-card{
+  background:var(--surface-solid);
+  border:1px solid var(--border-soft);
+  border-radius:20px;padding:44px 60px;text-align:center;
+  box-shadow:var(--shadow-xl);
+  animation:winPop .38s cubic-bezier(.34,1.56,.64,1) forwards;
+  transition:background .28s,border-color .28s;
+  overflow: visible;
+}
+@keyframes winPop{from{transform:scale(.82);opacity:0;}to{transform:scale(1);opacity:1;}}
+.win-trophy{font-size:52px;margin-bottom:12px;line-height:1;}
+.win-title{font-size:30px;font-weight:700;color:var(--text-pri);letter-spacing:-.02em;margin-bottom:6px;transition:color .28s;}
+.win-sub{font-size:14px;color:var(--text-sec);margin-bottom:32px;transition:color .28s;}
+.win-actions{display:flex;gap:10px;justify-content:center;}
+.win-btn{
+  padding:10px 26px;border-radius:8px;border:none;
+  font-family:inherit;font-size:13.5px;font-weight:600;
+  cursor:pointer;transition:all .15s;
+}
+.win-btn.primary{
+  background:var(--accent);color:#fff;
+  box-shadow:0 2px 8px rgba(0,103,192,.28);
+}
+.win-btn.primary:hover{opacity:.88;transform:translateY(-1px);}
+[data-theme="dark"] .win-btn.primary{box-shadow:0 2px 8px rgba(96,174,255,.22);}
+.win-btn.secondary{
+  background:var(--surface-hover);color:var(--text-pri);
+  border:1px solid var(--border);
+}
+.win-btn.secondary:hover{background:var(--surface-press);}
+.win-close {
+  position: absolute; top: 16px; right: 18px; background: transparent;
+  border: none; font-size: 20px; cursor: pointer; color: var(--text-sec);
+}
+.win-history {
+  margin: 20px 0 30px; 
+  display: flex; align-items: center; justify-content: center;
+}
+.win-history .wh-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.win-history .wh-chip {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700;
+  background: #d42030;
+  color: #fff;
+  border: 2px solid #ff6070;
+}
+.win-history .wh-chip.yellow {
+  background: #f5b940;
+  color: #2d1600;
+  border-color: #ffe066;
+}
+.win-history .wh-arrow {
+  font-size: 20px; color: var(--text-ter);
+}
+[data-theme="dark"] .win-history .wh-chip {
+  background: #d42030;
+  border-color: #ff8890;
+}
+[data-theme="dark"] .win-history .wh-chip.yellow {
+  background: #d4a030;
+  color: #2d1600;
+  border-color: #ffe080;
+}
+
+/* ─── AUTO-ZOOM TOGGLE ─── */
+.toggle-btn.active { background: var(--accent); color: #fff; }
+
+/* ─── GHOST ANIMATIONS ─── */
+@keyframes ghostPulse{
+  0%,100%{opacity:.38;transform:scale(1);}
+  50%{opacity:1;transform:scale(1.12);}
+}
+@keyframes ghostRing{0%,100%{opacity:.24;}50%{opacity:.60;}}
+.ghost-anim{animation:ghostPulse 1.4s ease-in-out infinite;}
+.ghost-ring-anim{animation:ghostRing 1.4s ease-in-out infinite;}
+
+/* ─── AUTO-ZOOM BUTTON ─── */
+.btn.active { background: var(--accent-bg2); color: var(--accent); }
+.btn.active .bi { background: var(--accent); color: #fff; }
+.btn .status-tag { 
+  font-size: 9px; font-weight: 800; padding: 2px 5px; 
+  border-radius: 4px; margin-left: 4px; border: 1px solid var(--border);
+}
+
+/* ─── FLAT COIN BANK ─── */
+.bi-dot {
+  background: none !important; box-shadow: none !important;
+  border: 2px solid rgba(0,0,0,0.1);
+}
+.bi-dot.red { background-color: #e63040 !important; color: #fff; border-color: #ff6070 !important; }
+.bi-dot.yellow { background-color: #f5c640 !important; color: #2d1600; border-color: #ffe066 !important; }
+.bi-dot::after { display: none; } /* Remove the old glossy reflection */
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- ── TITLEBAR ── -->
+<div id="titlebar">
+  <a href="index.html" class="tb-btn" title="Home">🏠</a>
+  <div class="tb-appicon">♟</div>
+  <span class="tb-appname">Leader's Gambit</span>
+  <div class="tb-sep"></div>
+  <span id="phase-badge">Setup</span>
+  <span id="tb-status">Place pieces on the board, then click Start Game</span>
+  <div class="tb-spacer"></div>
+  <div class="tb-right">
+    <button class="tb-btn" id="btn-theme" title="Toggle theme (T)" onclick="toggleTheme()">
+      <span class="icon-light">☀️</span>
+      <span class="icon-dark">🌙</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── BOARD ── -->
+<div id="game-container">
+  <svg id="game-svg">
+    <defs>
+      <filter id="f-glow-accent" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="f-glow-red" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="f-shadow-p" x="-30%" y="-20%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,.20)"/>
+      </filter>
+    </defs>
+    <g id="board-root">
+      <g id="board-bg"></g>
+      <g id="board-lines"></g>
+      <g id="board-nodes"></g>
+      <g id="board-pieces"></g>
+      <g id="board-ghosts"></g>
+    </g>
+  </svg>
+</div>
+
+<!-- ── UI LAYER ── -->
+<div id="ui-layer">
+
+  <!-- Control Panel -->
+  <div class="panel" id="panel-controls">
+    <div class="logo-row">
+      <div class="logo-icon">♟</div>
+      <div>
+        <div class="logo-name">Leader's Gambit</div>
+        <div class="logo-sub">Peg Solitaire Variant</div>
+      </div>
+    </div>
+    <div class="panel-div"></div>
+    <div class="btn-list">
+      <button class="btn accent" id="btn-start" onclick="handleStartOrNewGame()">
+        <div class="bi">🎮</div><span class="btn-lbl" id="start-btn-lbl">Start Game</span><span class="kbd">S</span>
+      </button>
+      <button class="btn" onclick="handleRandom()">
+        <div class="bi">🎲</div><span class="btn-lbl">Random Puzzle</span><span class="kbd">N</span>
+      </button>
+      <button class="btn" onclick="handleReset()">
+        <div class="bi">🔄</div><span class="btn-lbl">Reset</span><span class="kbd">R</span>
+      </button>
+      <button class="btn" id="btn-undo" onclick="handleUndo()" disabled>
+        <div class="bi">↩️</div><span class="btn-lbl">Undo</span><span class="kbd">⌘Z</span>
+      </button>
+      <button class="btn" id="btn-redo" onclick="handleRedo()" disabled>
+        <div class="bi">↪️</div><span class="btn-lbl">Redo</span><span class="kbd">⌘Y</span>
+      </button>
+      <button class="btn" id="btn-expand" onclick="handleExpand()">
+        <div class="bi">📐</div><span class="btn-lbl" id="expand-label">Expand (2×2)</span><span class="kbd">E</span>
+      </button>
+      <div class="btn-list" style="padding: 6px 8px 8px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn" id="btn-zoom-out" onclick="handleZoom(-1)">
+            <div class="bi">➖</div>
+          </button>
+          <button class="btn active" id="btn-autozoom" onclick="handleToggleAutoZoom()">
+            <span class="btn-lbl" style="white-space:nowrap;">Auto-Zoom</span>
+          </button>
+          <button class="btn" id="btn-zoom-in" onclick="handleZoom(1)">
+            <div class="bi">➕</div>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-div"></div>
+    <div class="cw-wrap">
+      <div class="cw-lbl">Piece Count</div>
+      <div class="count-widget">
+        <button class="cw-btn" id="cnt-less" onclick="adjustCount(-1)">➖</button>
+        <div class="cw-mid"><em id="cnt-val">4</em> yellows</div>
+        <button class="cw-btn" id="cnt-more" onclick="adjustCount(1)">➕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Piece Bank -->
+  <div class="panel" id="panel-bank">
+    <div class="panel-head">
+      <div class="panel-title">Piece Bank</div>
+      <div class="panel-sub">Click to select &amp; place</div>
+    </div>
+    <div class="bank-list" id="bank-items"></div>
+  </div>
+
+  <!-- Exit Box -->
+  <div class="panel" id="panel-exit">
+    <div class="panel-head">
+      <div class="panel-title">Captured</div>
+    </div>
+    <div class="exit-grid" id="exit-list">
+      <div class="exit-empty">None captured yet</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="hint" style="position:fixed;bottom:16px;left:16px;font-size:11px;color:var(--text-ter);z-index:350;pointer-events:none;background:var(--surface);padding:6px 10px;border-radius:6px;">Scroll: zoom · Drag: pan · Esc: deselect</div>
+
+<!-- Win Overlay -->
+<div id="win-overlay">
+  <div id="win-card">
+    <button class="win-close" onclick="document.getElementById('win-overlay').classList.remove('show')">❌</button>
+    <div class="win-trophy">🏆</div>
+    <div class="win-title">Victory!</div>
+    <div class="win-sub">Puzzle Solved.</div>
+    <div class="win-history" id="win-history"></div>
+    <div class="win-actions">
+      <button class="win-btn primary" onclick="handleReset()">Play Again</button>
+      <button class="win-btn secondary" onclick="handleNewPuzzleAutoStart()">New Puzzle</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  renderAll();
+}
+function isDark(){ return document.documentElement.getAttribute('data-theme')==='dark'; }
+
+// ═══════════════════════════════════════════════
+// BOARD GEOMETRY
+// ═══════════════════════════════════════════════
+let boardCols=2, boardRows=2;
+const CELL=150, PR=24, NR=10;
+
+function buildGraph(cols, rows) {
+  const nodes = new Map();
+  for (let y=0;y<=rows;y++) for (let x=0;x<=cols;x++) nodes.set(`${x},${y}`,{id:`${x},${y}`,x,y,adj:[]});
+  for (let sy=0;sy<rows;sy++) for (let sx=0;sx<cols;sx++) {
+    const cx=sx+.5, cy=sy+.5;
+    nodes.set(`${cx},${cy}`,{id:`${cx},${cy}`,x:cx,y:cy,adj:[]});
+  }
+  function link(a,b){
+    if (!nodes.has(a)||!nodes.has(b)) return;
+    const na=nodes.get(a),nb=nodes.get(b);
+    if (!na.adj.includes(b)) na.adj.push(b);
+    if (!nb.adj.includes(a)) nb.adj.push(a);
+  }
+  for (let y=0;y<=rows;y++) for (let x=0;x<cols;x++) link(`${x},${y}`,`${x+1},${y}`);
+  for (let x=0;x<=cols;x++) for (let y=0;y<rows;y++) link(`${x},${y}`,`${x},${y+1}`);
+  for (let sy=0;sy<rows;sy++) for (let sx=0;sx<cols;sx++) {
+    const c=`${sx+.5},${sy+.5}`;
+    link(c,`${sx},${sy}`); link(c,`${sx+1},${sy}`);
+    link(c,`${sx},${sy+1}`); link(c,`${sx+1},${sy+1}`);
+  }
+  return nodes;
+}
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let G={nodes:new Map(),board:new Map(),pieces:new Map(),bank:[],exitBox:[],history:[],future:[],phase:'setup',selBank:null,selPiece:null,moves:[],yellowCount:4,autoZoom:true};
+
+function initGame(cols,rows){
+  boardCols=cols; boardRows=rows;
+  G.nodes=buildGraph(cols,rows);
+  G.board=new Map(); G.nodes.forEach((_,id)=>G.board.set(id,null));
+  G.pieces=new Map(); G.bank=[]; G.exitBox=[];
+  G.history=[]; G.future=[]; G.phase='setup';
+  G.selBank=null; G.selPiece=null; G.moves=[];
+  G.pieces.set('red',{id:'red',type:'leader',label:'✦',color:'red',nodeId:null});
+  G.bank.push('red');
+  for (let i=1;i<=G.yellowCount;i++){
+    const pid=`y${i}`;
+    G.pieces.set(pid,{id:pid,type:'yellow',label:`${i}`,color:'yellow',nodeId:null});
+    G.bank.push(pid);
+  }
+  document.getElementById('btn-start').style.display='';
+  document.getElementById('phase-badge').textContent='Setup';
+  document.getElementById('phase-badge').classList.remove('play');
+  renderAll(); updateUI(); updateBtns();
+  status('Place pieces on the board, then click Start Game');
+}
+
+// ═══════════════════════════════════════════════
+// COORD
+// ═══════════════════════════════════════════════
+function toSVG(x,y){
+  const tw=boardCols*CELL, th=boardRows*CELL;
+  const svgEl=document.getElementById('game-svg');
+  const w=svgEl.clientWidth||window.innerWidth;
+  const h=(svgEl.clientHeight)||(window.innerHeight-48);
+  return {px:(w-tw)/2+x*CELL, py:(h-th)/2+y*CELL};
+}
+
+// ═══════════════════════════════════════════════
+// SVG HELPERS
+// ═══════════════════════════════════════════════
+function svgE(tag,attrs){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for (const [k,v] of Object.entries(attrs)) el.setAttribute(k,v);
+  return el;
+}
+function cssVar(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function renderAll(){ renderBg(); renderLines(); renderNodes(); renderPieces(); renderGhosts(); }
+
+function renderBg(){
+  const g=document.getElementById('board-bg'); g.innerHTML='';
+  const dark=isDark();
+  const tw=boardCols*CELL, th=boardRows*CELL;
+  const o=toSVG(0,0); const pad=20;
+  g.appendChild(svgE('rect',{
+    x:o.px-pad, y:o.py-pad, width:tw+pad*2, height:th+pad*2, rx:18,
+    fill:dark?'#2d3a4d':'#c8e6c9',
+    stroke:dark?'rgba(255,255,255,.15)':'rgba(34,100,34,.15)',
+    'stroke-width':'1'
+  }));
+  // Corner cross marks
+  [[0,0],[boardCols,0],[0,boardRows],[boardCols,boardRows]].forEach(([cx,cy])=>{
+    const p=toSVG(cx,cy);
+    const col=dark?'rgba(255,255,255,.35)':'rgba(34,90,34,.35)';
+    g.appendChild(svgE('line',{x1:p.px-8,y1:p.py,x2:p.px+8,y2:p.py,stroke:col,'stroke-width':'1.5','stroke-linecap':'round'}));
+    g.appendChild(svgE('line',{x1:p.px,y1:p.py-8,x2:p.px,y2:p.py+8,stroke:col,'stroke-width':'1.5','stroke-linecap':'round'}));
+  });
+}
+
+function renderLines(){
+  const g=document.getElementById('board-lines'); g.innerHTML='';
+  const dark=isDark(); const drawn=new Set();
+  G.nodes.forEach((node,id)=>{
+    node.adj.forEach(adjId=>{
+      const key=[id,adjId].sort().join('|');
+      if (drawn.has(key)) return; drawn.add(key);
+      const adj=G.nodes.get(adjId);
+      const p1=toSVG(node.x,node.y), p2=toSVG(adj.x,adj.y);
+      const isDiag=(node.x%1!==0||node.y%1!==0||adj.x%1!==0||adj.y%1!==0);
+      g.appendChild(svgE('line',{
+        x1:p1.px,y1:p1.py,x2:p2.px,y2:p2.py,
+        stroke:isDiag?(dark?'rgba(255,255,255,.15)':'rgba(34,90,34,.25)'):(dark?'rgba(255,255,255,.30)':'rgba(34,90,34,.45)'),
+        'stroke-width':isDiag?1.5:2.5,
+        'stroke-linecap':'round'
+      }));
+    });
+  });
+}
+
+function renderNodes(){
+  const g=document.getElementById('board-nodes'); g.innerHTML='';
+  const dark=isDark();
+  const showHL=G.phase==='setup'&&G.selBank!==null;
+  G.nodes.forEach((node,id)=>{
+    const {px,py}=toSVG(node.x,node.y);
+    const occ=G.board.get(id);
+    const canPlace=showHL&&!occ;
+    if (!occ){
+      g.appendChild(svgE('circle',{
+        cx:px,cy:py,r:canPlace?NR+3:NR,
+        fill:canPlace?(dark?'rgba(96,174,255,.3)':'rgba(0,103,192,.15)'):(dark?'#3d5066':'#a5d6a7'),
+        stroke:canPlace?(dark?'rgba(96,174,255,.9)':'rgba(0,103,192,.7)'):(dark?'rgba(255,255,255,.40)':'rgba(34,90,34,.35)'),
+        'stroke-width':canPlace?2.5:2
+      }));
+    }
+    const hit=svgE('circle',{cx:px,cy:py,r:28,fill:'transparent',style:'cursor:pointer','data-nid':id});
+    hit.addEventListener('click',e=>{e.stopPropagation();onNodeClick(id);});
+    g.appendChild(hit);
+  });
+}
+
+function renderPieces() {
+  const g = document.getElementById('board-pieces'); g.innerHTML = '';
+  const dark = isDark();
+  
+  G.pieces.forEach((piece, id) => {
+    if (!piece.nodeId) return;
+    const node = G.nodes.get(piece.nodeId);
+    const { px, py } = toSVG(node.x, node.y);
+    const isSel = G.selPiece === id;
+    const isLdr = piece.type === 'leader';
+    const r = isSel ? PR + 4 : PR;
+
+    // Define flat colors based on theme - brighter yellow
+    const baseCol = isLdr ? (dark ? '#d42030' : '#c01828') : (dark ? '#f5b940' : '#f5c640');
+    const ringCol = isLdr ? (dark ? '#ff8890' : '#f46070') : (dark ? '#ffe080' : '#ffdd70');
+
+    const grp = svgE('g', { style: 'cursor:pointer', 'data-pid': id });
+    grp.addEventListener('click', e => { e.stopPropagation(); onPieceClick(id); });
+
+    // Coin Base
+    grp.appendChild(svgE('circle', { 
+      cx: px, cy: py, r, 
+      fill: baseCol, 
+      stroke: isSel ? 'var(--accent)' : ringCol, 
+      'stroke-width': isSel ? 4 : 2 
+    }));
+    
+    // Inner Decorative Ring
+    grp.appendChild(svgE('circle', { 
+      cx: px, cy: py, r: r - 5, 
+      fill: 'none', stroke: 'rgba(255,255,255,0.15)', 'stroke-width': 1 
+    }));
+
+    const txt = svgE('text', {
+      x: px, y: py + 1, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      fill: isLdr ? '#fff' : 'rgba(0,0,0,0.85)',
+      'font-size': isLdr ? '28' : '24', 'font-weight': '800', 'style': 'pointer-events:none'
+    });
+    txt.textContent = piece.label;
+    grp.appendChild(txt);
+    g.appendChild(grp);
+  });
+}
+
+function renderGhosts() {
+  const g = document.getElementById('board-ghosts'); g.innerHTML = '';
+  if (G.phase !== 'play' || !G.moves.length) return;
+  
+  const dark = isDark();
+  const highlight = dark ? 'rgba(96,174,255,0.4)' : 'rgba(0,103,192,0.3)';
+
+  G.moves.forEach(mv => {
+    const node = G.nodes.get(mv.to);
+    const { px, py } = toSVG(node.x, node.y);
+    
+    const grp = svgE('g', { style: 'cursor:pointer', 'data-ghost': mv.to });
+    grp.addEventListener('click', e => { e.stopPropagation(); doMove(mv); });
+
+    // Static indicator (No animation)
+    grp.appendChild(svgE('circle', { 
+      cx: px, cy: py, r: 18, 
+      fill: highlight, 
+      stroke: 'var(--accent)', 'stroke-width': '2', 'stroke-dasharray': '4,2' 
+    }));
+    
+    g.appendChild(grp);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CLICK HANDLERS
+// ═══════════════════════════════════════════════
+function onNodeClick(nid){
+  if (G.phase==='setup'){
+    const occ=G.board.get(nid);
+    if (occ){
+      const p=G.pieces.get(occ); p.nodeId=null; G.board.set(nid,null);
+      if (!G.bank.includes(occ)) G.bank.push(occ);
+      G.selBank=null; renderAll(); updateUI();
+      status(`${occ==='red'?'Red Leader':'Piece '+p.label} returned to bank`);
+    } else if (G.selBank){
+      const p=G.pieces.get(G.selBank);
+      p.nodeId=nid; G.board.set(nid,G.selBank);
+      G.bank=G.bank.filter(id=>id!==G.selBank);
+      G.selBank=null; renderAll(); updateUI();
+      status('Placed! Select another or click Start Game.');
+    } else { status('Select a piece from the bank first'); }
+  } else { G.selPiece=null; G.moves=[]; renderAll(); }
+}
+
+function onPieceClick(pid){
+  if (G.phase==='setup'){
+    const p=G.pieces.get(pid); if (!p.nodeId) return;
+    const nid=p.nodeId; p.nodeId=null; G.board.set(nid,null);
+    if (!G.bank.includes(pid)) G.bank.push(pid);
+    G.selBank=null; renderAll(); updateUI();
+    status(`${pid==='red'?'Red Leader':'Piece '+p.label} returned to bank`);
+    return;
+  }
+  if (G.phase!=='play') return;
+  if (G.selPiece===pid){ G.selPiece=null; G.moves=[]; }
+  else {
+    G.selPiece=pid;
+    G.moves=getValidMoves(G.pieces.get(pid).nodeId);
+    if (!G.moves.length) status('No valid jumps from this piece');
+    else status(`${G.moves.length} jump${G.moves.length>1?'s':''} available — click a glowing target`);
+  }
+  renderAll();
+}
+
+function onBankClick(pid){
+  if (G.phase!=='setup') return;
+  G.selBank=G.selBank===pid?null:pid;
+  if (G.selBank){ const p=G.pieces.get(pid); status(`${pid==='red'?'Red Leader':'Piece '+p.label} selected — click a node`); }
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════════
+function getValidMoves(startId){
+  const moves=[]; const sn=G.nodes.get(startId); if (!sn) return moves;
+  sn.adj.forEach(midId=>{
+    if (!G.board.get(midId)) return;
+    const mn=G.nodes.get(midId);
+    const dx=mn.x-sn.x, dy=mn.y-sn.y;
+    const destX=Math.round((mn.x+dx)*100)/100;
+    const destY=Math.round((mn.y+dy)*100)/100;
+    const destId=`${destX},${destY}`;
+    if (G.nodes.has(destId)&&!G.board.get(destId)) moves.push({from:startId,to:destId,over:midId});
+  });
+  return moves;
+}
+
+function doMove(mv){
+  if (!G.selPiece) return;
+  G.history.push(snapshot()); G.future=[];
+  const piece=G.pieces.get(G.selPiece);
+  const victimId=G.board.get(mv.over);
+  const victim=G.pieces.get(victimId);
+  animateJump(piece,mv.from,mv.to,()=>{
+    G.board.set(mv.from,null); G.board.set(mv.over,null); G.board.set(mv.to,G.selPiece);
+    piece.nodeId=mv.to; victim.nodeId=null;
+    G.exitBox.push(victimId); G.selPiece=null; G.moves=[];
+    renderAll(); updateUI(); updateBtns();
+    setTimeout(checkWin,80);
+  });
+}
+
+function animateJump(piece,fromId,toId,onDone){
+  const fn=G.nodes.get(fromId),tn=G.nodes.get(toId);
+  const fp=toSVG(fn.x,fn.y),tp=toSVG(tn.x,tn.y);
+  const g=document.getElementById('board-pieces');
+  const el=g.querySelector(`[data-pid="${piece.id}"]`);
+  if (el) g.appendChild(el);
+  const dur=265, t0=performance.now();
+  function step(now){
+    const t=Math.min(1,(now-t0)/dur);
+    const e=t<.5?2*t*t:-1+(4-2*t)*t;
+    const x=fp.px+(tp.px-fp.px)*e;
+    const arc=Math.sin(t*Math.PI)*30;
+    const y=fp.py+(tp.py-fp.py)*e-arc;
+    if (el) el.setAttribute('transform',`translate(${x-fp.px},${y-fp.py})`);
+    if (t<1) requestAnimationFrame(step);
+    else { if(el) el.removeAttribute('transform'); onDone(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function checkWin(){
+  const onBoard=[...G.board.values()].filter(Boolean);
+  if (onBoard.length===1&&onBoard[0]==='red'){ triggerWin(); return; }
+  const any=onBoard.some(pid=>{ const p=G.pieces.get(pid); return p&&p.nodeId&&getValidMoves(p.nodeId).length>0; });
+  if (!any&&onBoard.length>1) status('No more moves! Press Undo or Reset.');
+}
+
+function triggerWin(){
+  document.getElementById('win-overlay').classList.add('show');
+  const histEl = document.getElementById('win-history');
+  const winCard = document.getElementById('win-card');
+  
+  // Calculate width based on captured pieces (~60px per piece)
+  const count = G.exitBox.length;
+  const neededWidth = Math.max(400, count * 60 + 120);
+  winCard.style.width = Math.min(neededWidth, window.innerWidth - 40) + 'px';
+  
+  // Render with styled chips - single row left to right
+  let html = '<div class="wh-row">';
+  G.exitBox.forEach((pid, idx) => {
+    const p = G.pieces.get(pid);
+    if (idx > 0) html += '<span class="wh-arrow">➡️</span>'; // right arrow
+    html += `<div class="wh-chip ${p.color}">${p.label}</div>`;
+  });
+  html += '</div>';
+  histEl.innerHTML = html;
+  
+  const fire=(r,o)=>confetti(Object.assign({origin:{y:.7}},o,{particleCount:Math.floor(300*r)}));
+  fire(.25,{spread:26,startVelocity:55,colors:['#0078D4','#60AEFF']});
+  fire(.35,{spread:100,decay:.91,scalar:.8,colors:['#0067C0','#ffffff','#FFD700']});
+}
+
+// ═══════════════════════════════════════════════
+// UNDO / REDO
+// ═══════════════════════════════════════════════
+function snapshot(){
+  const s={board:new Map(G.board),pieces:new Map(),bank:[...G.bank],exitBox:[...G.exitBox]};
+  G.pieces.forEach((p,id)=>s.pieces.set(id,{...p})); return s;
+}
+function restore(s){
+  G.board=new Map(s.board);
+  s.pieces.forEach((p,id)=>G.pieces.set(id,{...p}));
+  G.bank=[...s.bank]; G.exitBox=[...s.exitBox];
+  G.selPiece=null; G.moves=[];
+}
+
+// ═══════════════════════════════════════════════
+// RANDOM PUZZLE (Reverse Search)
+// ═══════════════════════════════════════════════
+function generatePuzzle(){
+  G.board=new Map(); G.nodes.forEach((_,id)=>G.board.set(id,null));
+  G.pieces=new Map();
+  G.pieces.set('red',{id:'red',type:'leader',label:'✦',color:'red',nodeId:null});
+  for (let i=1;i<=G.yellowCount;i++){const pid=`y${i}`;G.pieces.set(pid,{id:pid,type:'yellow',label:`${i}`,color:'yellow',nodeId:null});}
+  G.bank=['red',...Array.from({length:G.yellowCount},(_,i)=>`y${i+1}`)];
+  G.exitBox=[];
+
+  const allIds=[...G.nodes.keys()];
+  const toPlace=G.bank.filter(id=>id!=='red');
+  const redStart=allIds[Math.floor(Math.random()*allIds.length)];
+  G.board.set(redStart,'red'); G.pieces.get('red').nodeId=redStart;
+  G.bank=G.bank.filter(id=>id!=='red');
+
+  let remaining=[...toPlace], attempts=2000;
+  while (remaining.length>0&&attempts-->0){
+    const occupied=allIds.filter(id=>G.board.get(id));
+    if (!occupied.length) break;
+    shuffle(occupied); let placed=false;
+    for (const nA of occupied){
+      const na=G.nodes.get(nA);
+      const emAdj=na.adj.filter(id=>!G.board.get(id)); shuffle(emAdj);
+      for (const nB of emAdj){
+        const nb=G.nodes.get(nB);
+        const dx=nb.x-na.x,dy=nb.y-na.y;
+        const cx=Math.round((nb.x+dx)*100)/100, cy=Math.round((nb.y+dy)*100)/100;
+        const nC=`${cx},${cy}`;
+        if (G.nodes.has(nC)&&!G.board.get(nC)){
+          const pid=G.board.get(nA);
+          G.board.set(nA,null); G.board.set(nC,pid); G.pieces.get(pid).nodeId=nC;
+          const yid=remaining.shift();
+          G.board.set(nB,yid); G.pieces.get(yid).nodeId=nB;
+          G.bank=G.bank.filter(id=>id!==yid);
+          placed=true; break;
+        }
+      }
+      if (placed) break;
+    }
+    if (!placed&&remaining.length>0){
+      const occ2=allIds.filter(id=>G.board.get(id)); shuffle(occ2);
+      for (const nid of occ2){
+        const mv=getValidMoves(nid);
+        if (mv.length>0){const m=mv[Math.floor(Math.random()*mv.length)];const pid=G.board.get(nid);G.board.set(nid,null);G.board.set(m.to,pid);G.pieces.get(pid).nodeId=m.to;break;}
+      }
+    }
+  }
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ═══════════════════════════════════════════════
+// BUTTON HANDLERS
+// ═══════════════════════════════════════════════
+function handleStart(){
+  const red=G.pieces.get('red');
+  if (!red.nodeId){status('Place the Red Leader on the board first!');return;}
+  const placed=[...G.board.values()].filter(Boolean).length;
+  if (placed<2){status('Place at least 2 pieces to start.');return;}
+  G.phase='play'; G.history=[]; G.future=[];
+  // Save initial board state for reset
+  G.initialBoard = new Map(G.board);
+  G.initialPieces = new Map();
+  G.pieces.forEach((p,id)=>G.initialPieces.set(id,{...p}));
+  document.getElementById('phase-badge').textContent='Play';
+  document.getElementById('phase-badge').classList.add('play');
+  document.getElementById('start-btn-lbl').textContent = 'New Game';
+  renderAll(); updateUI(); updateBtns();
+  status('Select a piece to see jump targets, then click a glowing node');
+}
+
+function handleStartOrNewGame() {
+  if (G.phase === 'play') {
+    // Reset to setup state - all pieces back to bank
+    G.phase = 'setup';
+    G.board.forEach((pid, nid) => {
+      if (pid) {
+        const p = G.pieces.get(pid);
+        if (p) { p.nodeId = null; }
+        if (!G.bank.includes(pid)) G.bank.push(pid);
+        G.board.set(nid, null);
+      }
+    });
+    G.exitBox = [];
+    G.history = [];
+    G.future = [];
+    G.selPiece = null;
+    G.moves = [];
+    G.initialBoard = null;
+    G.initialPieces = null;
+    document.getElementById('btn-start').style.display = '';
+    document.getElementById('phase-badge').textContent = 'Setup';
+    document.getElementById('phase-badge').classList.remove('play');
+    document.getElementById('start-btn-lbl').textContent = 'Start Game';
+    renderAll(); updateUI(); updateBtns();
+    status('Place pieces on the board, then click Start Game');
+  } else {
+    handleStart();
+  }
+}
+
+function handleReset(){
+  document.getElementById('win-overlay').classList.remove('show');
+  
+  if (G.phase === 'play' && G.initialBoard) {
+    // Play state: restore to initial board setup
+    G.board = new Map(G.initialBoard);
+    G.pieces = new Map();
+    G.initialPieces.forEach((p,id)=>G.pieces.set(id,{...p}));
+    G.exitBox = [];
+    G.history = [];
+    G.future = [];
+    G.selPiece = null;
+    G.moves = [];
+    renderAll(); updateUI(); updateBtns();
+    status('Try again! Select a piece to jump.');
+  } else {
+    // Setup state: reset to initial
+    _expandCycle = 0; initGame(2,2); updateExpandBtn();
+  }
+}
+
+function handleRandom(){
+  if (G.phase==='play'){
+    G.phase='setup';
+    document.getElementById('btn-start').style.display='';
+    document.getElementById('phase-badge').textContent='Setup';
+    document.getElementById('phase-badge').classList.remove('play');
+    document.getElementById('start-btn-lbl').textContent = 'Start Game';
+  }
+  G.history=[]; G.future=[];
+  G.bank=[];
+  G.board.forEach((pid, nid) => {
+    if (pid) {
+      const p = G.pieces.get(pid);
+      if (p) { p.nodeId = null; }
+      G.bank.push(pid);
+      G.board.set(nid, null);
+    }
+  });
+  G.exitBox = [];
+  generatePuzzle();
+  
+  // Auto start in play mode
+  G.phase='play';
+  G.initialBoard = new Map(G.board);
+  G.initialPieces = new Map();
+  G.pieces.forEach((p,id)=>G.initialPieces.set(id,{...p}));
+  document.getElementById('phase-badge').textContent='Play';
+  document.getElementById('phase-badge').classList.add('play');
+  document.getElementById('start-btn-lbl').textContent = 'New Game';
+  renderAll(); updateUI(); updateBtns();
+  status('Random puzzle ready! Select a piece to jump and win!');
+}
+
+function handleNewPuzzleAutoStart(){
+  document.getElementById('win-overlay').classList.remove('show');
+  G.history=[]; G.future=[]; G.bank=[];
+  G.board.forEach((pid, nid) => {
+    if (pid) {
+      const p = G.pieces.get(pid);
+      if (p) { p.nodeId = null; }
+      G.bank.push(pid);
+      G.board.set(nid, null);
+    }
+  });
+  G.exitBox = [];
+  generatePuzzle();
+  
+  // Auto start in play mode
+  G.phase='play';
+  G.initialBoard = new Map(G.board);
+  G.initialPieces = new Map();
+  G.pieces.forEach((p,id)=>G.initialPieces.set(id,{...p}));
+  document.getElementById('phase-badge').textContent='Play';
+  document.getElementById('phase-badge').classList.add('play');
+  document.getElementById('start-btn-lbl').textContent = 'New Game';
+  renderAll(); updateUI(); updateBtns();
+  status('New puzzle! Select a piece to jump and win!');
+}
+
+function handleUndo(){if(!G.history.length) return;G.future.push(snapshot());restore(G.history.pop());renderAll();updateUI();updateBtns();}
+function handleRedo(){if(!G.future.length) return;G.history.push(snapshot());restore(G.future.pop());renderAll();updateUI();updateBtns();}
+
+let _expandCycle=0;
+const _sizes=[[2,2],[3,2],[2,3],[3,3]];
+function handleExpand(){_expandCycle=(_expandCycle+1)%4;const [c,r]=_sizes[_expandCycle];initGame(c,r);updateExpandBtn();}
+function updateExpandBtn(){document.getElementById('expand-label').textContent=['Expand (2×2)','Expand (3×2)','Expand (2×3)','Shrink (3×3)'][_expandCycle];}
+
+function adjustCount(d){
+  if (G.phase!=='setup') return;
+  const nc=Math.max(1,Math.min(12,G.yellowCount+d));
+  if (nc===G.yellowCount) return;
+  G.yellowCount=nc; initGame(boardCols,boardRows);
+}
+
+// ═══════════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════════
+function updateUI(){
+  document.getElementById('cnt-val').textContent=G.yellowCount;
+  document.getElementById('cnt-less').disabled=G.phase!=='setup'||G.yellowCount<=1;
+  document.getElementById('cnt-more').disabled=G.phase!=='setup'||G.yellowCount>=12;
+
+  const cnt=document.getElementById('bank-items'); cnt.innerHTML='';
+  const order=['red',...Array.from({length:G.yellowCount},(_,i)=>`y${i+1}`)];
+  order.forEach(pid=>{
+    const p=G.pieces.get(pid); if (!p) return;
+    const inBank=G.bank.includes(pid);
+    const isSel=G.selBank===pid;
+    const isLdr=pid==='red';
+    const div=document.createElement('div');
+    div.className=`bank-item${isSel?' selected':''}${!inBank?' placed':''}`;
+    div.innerHTML=`<div class="bi-dot ${p.color}">${p.label}</div>`;
+    if (inBank&&G.phase==='setup') div.addEventListener('click',()=>onBankClick(pid));
+    cnt.appendChild(div);
+  });
+
+  const el=document.getElementById('exit-list');
+  if (!G.exitBox.length){ el.innerHTML='<div class="exit-empty">None captured yet</div>'; }
+  else {
+    el.innerHTML='';
+    // Show oldest first (newest at bottom)
+    G.exitBox.forEach((pid, idx) => {
+      const p=G.pieces.get(pid); if (!p) return;
+      // Add arrow before each piece except the first (oldest)
+      if (idx > 0) {
+        const arrow = document.createElement('div');
+        arrow.className = 'exit-arrow';
+        arrow.innerHTML = '⬇️'; // down arrow
+        el.appendChild(arrow);
+      }
+      const d=document.createElement('div');
+      d.className = `exit-chip ${p.color}`;
+      d.textContent = p.label;
+      el.appendChild(d);
+    });
+  }
+}
+function updateBtns(){
+  document.getElementById('btn-undo').disabled=G.history.length===0;
+  document.getElementById('btn-redo').disabled=G.future.length===0;
+}
+
+let _stTimer;
+function status(msg){
+  const el=document.getElementById('tb-status');
+  el.textContent=msg;
+}
+
+// ═══════════════════════════════════════════════
+// AUTO-ZOOM
+// ═══════════════════════════════════════════════
+function autoFit() {
+  if (!G.autoZoom) return;
+  const svg = document.getElementById('game-svg');
+  const viewW = svg.clientWidth;
+  const viewH = svg.clientHeight - 48;
+  
+  const boardW = boardCols * CELL;
+  const boardH = boardRows * CELL;
+  
+  // Scale to fill height with minimal padding
+  const s = (viewH - 20) / boardH;
+  const scale = Math.min(Math.max(s, 0.3), 2.0);
+  
+  // Scale from center - offset translate by half board size
+  const centerX = viewW / 2;
+  const centerY = viewH / 2;
+  
+  // Add bottom offset to move board up slightly
+  const bottomOffset = 30;
+  
+  pz.scale = scale;
+  pz.tx = centerX * (1 - scale);
+  pz.ty = centerY * (1 - scale) - bottomOffset;
+  
+  applyPZ();
+}
+
+function handleToggleAutoZoom() {
+  G.autoZoom = !G.autoZoom;
+  const btn = document.getElementById('btn-autozoom');
+  
+  btn.classList.toggle('active', G.autoZoom);
+  
+  if (G.autoZoom) {
+    autoFit();
+  } else {
+    // Optional: Reset to 1:1 if turning off
+    pz.scale = 1; pz.tx = 0; pz.ty = 0; applyPZ();
+  }
+}
+
+function handleZoom(d){
+  G.autoZoom = false;
+  const btn = document.getElementById('btn-autozoom');
+  btn.classList.remove('active');
+  
+  const ns = Math.max(0.2, Math.min(4, pz.scale * (d > 0 ? 1.14 : 0.88)));
+  const r = gc.getBoundingClientRect();
+  const mx = r.left + r.width / 2;
+  const my = r.top + r.height / 2;
+  const ratio = ns / pz.scale;
+  pz.tx = mx - ratio * (mx - pz.tx);
+  pz.ty = my - ratio * (my - pz.ty);
+  pz.scale = ns;
+  applyPZ();
+}
+
+const originalRenderAll = renderAll;
+renderAll = function() {
+  originalRenderAll();
+  if (G.autoZoom) autoFit();
+};
+
+// ═══════════════════════════════════════════════
+// PAN & ZOOM
+// ═══════════════════════════════════════════════
+const pz={dragging:false,sx:0,sy:0,tx:0,ty:0,scale:1};
+const gc=document.getElementById('game-container');
+const br=document.getElementById('board-root');
+function applyPZ(){br.setAttribute('transform',`translate(${pz.tx},${pz.ty}) scale(${pz.scale})`);}
+gc.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const d=e.deltaY>0?.88:1.14;
+  const ns=Math.max(.2,Math.min(4,pz.scale*d));
+  const r=gc.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  const ratio=ns/pz.scale;
+  pz.tx=mx-ratio*(mx-pz.tx); pz.ty=my-ratio*(my-pz.ty); pz.scale=ns; applyPZ();
+  saveZoom();
+},{passive:false});
+gc.addEventListener('pointerdown',e=>{
+  if (e.target.closest('[data-pid],[data-nid],[data-ghost]')) return;
+  pz.dragging=true; pz.sx=e.clientX-pz.tx; pz.sy=e.clientY-pz.ty;
+  gc.classList.add('grabbing'); gc.setPointerCapture(e.pointerId);
+});
+gc.addEventListener('pointermove',e=>{ if(!pz.dragging) return; pz.tx=e.clientX-pz.sx; pz.ty=e.clientY-pz.sy; applyPZ(); saveZoom(); });
+gc.addEventListener('pointerup',()=>{ pz.dragging=false; gc.classList.remove('grabbing'); saveZoom(); });
+window.addEventListener('resize',renderAll);
+
+// ═══════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  // Skip if user is typing in an input field
+  if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  
+  const key=e.key.toLowerCase();
+  
+  // Ctrl/Cmd shortcuts
+  if (e.ctrlKey||e.metaKey){
+    if (key==='z'){e.preventDefault();handleUndo();return;}
+    if (key==='y'||(e.shiftKey&&key==='z')){e.preventDefault();handleRedo();return;}
+  }
+  
+  // Single key shortcuts (only when no modifiers)
+  if (!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    if (key==='escape'){G.selPiece=null;G.moves=[];G.selBank=null;renderAll();updateUI();return;}
+    if (key==='s'){handleStartOrNewGame();return;}
+    if (key==='n'){handleRandom();return;}
+    if (key==='r'){handleReset();return;}
+    if (key==='e'){handleExpand();return;}
+    if (key==='a'){handleToggleAutoZoom();return;}
+    if (key==='t'){toggleTheme();return;}
+    if (key==='-'||key==='_'){handleZoom(-1);return;}
+    if (key==='='||key==='+'){handleZoom(1);return;}
+    if (key==='['){adjustCount(-1);return;}
+    if (key===']'){adjustCount(1);return;}
+  }
+});
+
+// ═══════════════════════════════════════════════
+// LOCAL STORAGE
+// ═══════════════════════════════════════════════
+const LS_KEY = 'leaders_gambit_zoom';
+
+function saveZoom() {
+  try {
+    const data = {
+      scale: pz.scale,
+      tx: pz.tx,
+      ty: pz.ty,
+      autoZoom: G.autoZoom
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch (e) {
+    // ignore
+  }
+}
+
+function loadZoom() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (typeof data.scale === 'number' && typeof data.tx === 'number' && typeof data.ty === 'number') {
+      pz.scale = Math.max(0.2, Math.min(4, data.scale));
+      pz.tx = data.tx;
+      pz.ty = data.ty;
+      applyPZ();
+      // Restore auto-zoom state
+      G.autoZoom = !!data.autoZoom;
+      const btn = document.getElementById('btn-autozoom');
+      const status = document.getElementById('az-status');
+      btn.classList.toggle('active', G.autoZoom);
+      status.textContent = G.autoZoom ? 'ON' : 'OFF';
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+initGame(2,2);
+loadZoom();
+</script>
+</body>
+</html>

@@ -1,0 +1,2202 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SET Card Game Trainer</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            :root {
+                --bg-color: #ecf0f1;
+                --hud-bg: rgba(255, 255, 255, 0.95);
+                --panel-bg: rgba(255, 255, 255, 0.9);
+                --card-face: #ffffff;
+                --accent: #d35400;
+                --accent-blue: #3498db;
+                --hint-color: #f1c40f;
+                --finish-color: #e74c3c;
+                --text: #2c3e50;
+                --muted: #7f8c8d;
+                --border-color: rgba(0, 0, 0, 0.12);
+                --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.12);
+                --shadow-strong: 0 20px 50px rgba(0, 0, 0, 0.2);
+                --gap: clamp(12px, 2vw, 18px);
+                --card-w: clamp(170px, 16vw, 240px);
+                --card-h: clamp(240px, 22vw, 330px);
+                --card-w-h: clamp(240px, 22vw, 330px);
+                --card-h-h: clamp(170px, 16vw, 240px);
+                --card-w-lg: clamp(190px, 18vw, 270px);
+                --card-h-lg: clamp(270px, 25vw, 370px);
+                --card-w-h-lg: clamp(270px, 25vw, 370px);
+                --card-h-h-lg: clamp(190px, 18vw, 270px);
+                --shape-size: clamp(36px, 3.8vw, 64px);
+                --shape-size-lg: clamp(44px, 4.6vw, 80px);
+                --demo-card-w: clamp(120px, 14vw, 170px);
+                --demo-card-h: clamp(170px, 18vw, 240px);
+                --demo-shape-size: clamp(24px, 3vw, 34px);
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: var(--bg-color);
+                color: var(--text);
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: stretch;
+                padding: 0;
+                overflow: hidden;
+                user-select: none;
+            }
+
+            .container {
+                background: transparent;
+                padding: 0;
+                max-width: none;
+                width: 100%;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .setup-screen,
+            .game-screen,
+            .end-screen {
+                display: none;
+                flex: 1;
+            }
+
+            .setup-screen.active,
+            .game-screen.active,
+            .end-screen.active {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .setup-screen {
+                align-items: stretch;
+                justify-content: flex-start;
+                overflow: auto;
+            }
+
+            .game-screen {
+                align-items: stretch;
+                overflow: hidden;
+            }
+
+            .end-screen {
+                overflow: auto;
+            }
+
+            .setup-hero {
+                padding: 24px 28px 0;
+                text-align: center;
+            }
+
+            .setup-title {
+                font-size: clamp(28px, 4vw, 42px);
+                margin-bottom: 10px;
+                color: var(--text);
+                letter-spacing: 0.5px;
+            }
+
+            .setup-subtitle {
+                color: var(--muted);
+                font-size: 1rem;
+                margin-bottom: 10px;
+            }
+
+            .setup-group {
+                margin-bottom: 22px;
+            }
+
+            .setup-group label {
+                display: block;
+                font-weight: 700;
+                margin-bottom: 10px;
+                color: var(--text);
+            }
+
+            .color-inputs {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-top: 10px;
+            }
+
+            .color-input {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .color-input input[type="color"] {
+                width: 50px;
+                height: 50px;
+                border: 2px solid var(--border-color);
+                border-radius: 10px;
+                cursor: pointer;
+                background: white;
+            }
+
+            .symbol-select {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 10px;
+            }
+
+            .symbol-option {
+                padding: 10px;
+                border: 2px solid var(--border-color);
+                border-radius: 10px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.25s ease;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 5px;
+                background: rgba(255, 255, 255, 0.7);
+            }
+
+            .symbol-option:hover {
+                border-color: var(--accent);
+                transform: translateY(-2px);
+            }
+
+            .symbol-option.selected {
+                border-color: var(--accent);
+                background: var(--accent);
+                color: white;
+                box-shadow: 0 6px 16px rgba(211, 84, 0, 0.25);
+            }
+
+            .orientation-select {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+
+            .orientation-option {
+                padding: 12px 24px;
+                border: 2px solid var(--border-color);
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.25s ease;
+                background: rgba(255, 255, 255, 0.6);
+            }
+
+            .orientation-option:hover {
+                border-color: var(--accent);
+            }
+
+            .orientation-option.selected {
+                border-color: var(--accent);
+                background: var(--accent);
+                color: white;
+            }
+
+            .setup-select {
+                width: 100%;
+                padding: 10px;
+                border: 2px solid var(--border-color);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.85);
+                font-weight: 600;
+                color: var(--text);
+            }
+
+            button {
+                background-color: var(--accent);
+                border: none;
+                color: white;
+                padding: 8px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 0.95rem;
+                font-weight: 700;
+                transition:
+                    transform 0.15s ease,
+                    background-color 0.3s ease,
+                    box-shadow 0.3s ease;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-width: 32px;
+            }
+
+            button:hover {
+                transform: translateY(-2px);
+                filter: brightness(1.05);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+            }
+
+            button:active {
+                transform: translateY(0);
+            }
+
+            button.secondary {
+                background-color: var(--muted);
+            }
+
+            .start-btn {
+                width: 100%;
+                padding: 14px 16px;
+                font-size: 1.05rem;
+                border-radius: 12px;
+                box-shadow: var(--shadow-soft);
+            }
+
+            .game-screen {
+                flex: 1;
+                min-height: 100vh;
+            }
+
+            .trainer-hud {
+                height: 64px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 18px;
+                background: var(--hud-bg);
+                border-bottom: 2px solid var(--border-color);
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+                gap: 12px;
+                position: sticky;
+                top: 0;
+                z-index: 50;
+            }
+
+            .hud-cluster {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: rgba(127, 140, 141, 0.1);
+                padding: 6px 10px;
+                border-radius: 10px;
+                flex-wrap: wrap;
+            }
+
+            .hud-title {
+                font-weight: 800;
+                letter-spacing: 0.5px;
+                font-size: 1.1rem;
+                color: var(--text);
+            }
+
+            .hud-pill {
+                background: rgba(211, 84, 0, 0.12);
+                color: var(--accent);
+                border: 1px solid rgba(211, 84, 0, 0.35);
+                padding: 6px 10px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+
+            .game-area {
+                display: flex;
+                flex-direction: column;
+                gap: 18px;
+                flex: 1;
+                padding: 18px 22px 26px;
+                min-height: calc(100vh - 64px);
+                width: 100%;
+                margin: 0;
+            }
+
+            .top-zone,
+            .bottom-zone {
+                flex: 1;
+                padding: 18px;
+                border-radius: 18px;
+                position: relative;
+            }
+
+            .top-zone {
+                background: var(--panel-bg);
+                border: 2px dashed var(--accent);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                gap: var(--gap);
+                position: relative;
+                box-shadow: var(--shadow-soft);
+                min-height: clamp(260px, 32vh, 420px);
+                flex: 0.95;
+            }
+
+            .top-zone .card-wrapper {
+                flex-shrink: 0;
+                opacity: 0.4;
+                transition:
+                    transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.3s ease;
+                cursor: pointer;
+                will-change: transform;
+            }
+
+            .top-zone .card-wrapper:hover {
+                opacity: 0.75;
+                transform: translateY(-4px) scale(1.03);
+            }
+
+            .top-zone .card-wrapper:last-child {
+                opacity: 1;
+                cursor: default;
+            }
+
+            .top-zone .card-wrapper:last-child:hover {
+                transform: none;
+            }
+
+            .top-zone .card-wrapper:last-child .card {
+                border: 3px solid var(--accent);
+                box-shadow: 0 0 18px rgba(211, 84, 0, 0.35);
+            }
+
+            @keyframes flyToCenter {
+                0% {
+                    transform: scale(0.5) translateY(200px);
+                    opacity: 0;
+                }
+                100% {
+                    transform: scale(1) translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            .card-wrapper.flying {
+                animation: flyToCenter 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            .bottom-zone-wrapper {
+                background: rgba(255, 248, 225, 0.8);
+                border: 2px solid rgba(241, 196, 15, 0.5);
+                border-radius: 18px;
+                padding: 18px;
+                box-shadow: var(--shadow-soft);
+                flex: 1.1;
+                display: flex;
+                align-items: center;
+            }
+
+            .control-btn {
+                background: var(--accent);
+                min-width: 140px;
+                white-space: nowrap;
+                font-size: 0.9rem;
+            }
+
+            .control-btn:disabled {
+                background: #c4c4c4;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+
+            .control-btn.end-game {
+                background: var(--finish-color);
+            }
+
+            .control-btn.hard-mode.active {
+                background: var(--hint-color);
+                color: #2c3e50;
+            }
+
+            .bottom-zone {
+                display: grid;
+                grid-auto-flow: row;
+                justify-content: center;
+                align-content: center;
+                gap: var(--gap);
+                min-height: clamp(320px, 46vh, 560px);
+                width: 100%;
+            }
+
+            .card-wrapper {
+                position: relative;
+            }
+
+            .card-label {
+                position: absolute;
+                top: 6px;
+                left: 6px;
+                background: var(--accent);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-weight: 800;
+                font-size: 0.8rem;
+                z-index: 10;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            }
+
+            .card {
+                background: var(--card-face);
+                border: 2px solid var(--border-color);
+                border-radius: 12px;
+                padding: 14px;
+                cursor: pointer;
+                transition:
+                    transform 0.2s ease,
+                    box-shadow 0.2s ease,
+                    border-color 0.2s ease;
+                position: relative;
+                width: var(--card-w);
+                height: var(--card-h);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+            }
+
+            .card:hover {
+                transform: translateY(-6px);
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+                border-color: rgba(0, 0, 0, 0.2);
+            }
+
+            .card.horizontal {
+                width: var(--card-w-h);
+                height: var(--card-h-h);
+            }
+
+            .bottom-zone .card {
+                width: var(--card-w-lg);
+                height: var(--card-h-lg);
+            }
+
+            .bottom-zone .card.horizontal {
+                width: var(--card-w-h-lg);
+                height: var(--card-h-h-lg);
+            }
+
+            .card-content {
+                display: flex;
+                flex-direction: column;
+                gap: clamp(8px, 1.4vw, 14px);
+                align-items: center;
+                justify-content: center;
+                flex: 1;
+            }
+
+            .card.horizontal .card-content {
+                flex-direction: row;
+            }
+
+            .card-info {
+                margin-top: 10px;
+                font-size: 11px;
+                text-align: center;
+                color: var(--muted);
+                line-height: 1.4;
+            }
+
+            .card-info .highlight {
+                font-weight: 800;
+                color: var(--accent);
+            }
+
+            .shape {
+                transition: all 0.3s;
+            }
+
+            .hint {
+                text-align: center;
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: var(--accent);
+            }
+
+            .wrong-mark {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 60px;
+                color: red;
+                font-weight: bold;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s;
+            }
+
+            .wrong-mark.show {
+                opacity: 1;
+            }
+
+            @keyframes fly {
+                0% {
+                    transform: scale(1);
+                }
+                40% {
+                    transform: scale(1.18) translateY(-4px);
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            .card.flying {
+                animation: fly 0.5s;
+            }
+
+            .end-screen {
+                text-align: center;
+                padding: 30px 24px;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .end-screen h2 {
+                font-size: clamp(24px, 3vw, 36px);
+                margin-bottom: 8px;
+                color: var(--text);
+            }
+
+            .train-animation {
+                border: 2px solid var(--border-color);
+                border-radius: 20px;
+                padding: 20px;
+                height: min(420px, 60vh);
+                width: min(1200px, 94vw);
+                position: relative;
+                overflow: hidden;
+                background: var(--panel-bg);
+                margin: 20px 0;
+                box-shadow: var(--shadow-soft);
+            }
+
+            .snake-card {
+                position: absolute;
+                background: var(--card-face);
+                border: 2px solid var(--border-color);
+                border-radius: 10px;
+                padding: 8px;
+                width: 60px;
+                height: 80px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                transition:
+                    transform 0.2s,
+                    left 0.1s,
+                    top 0.1s;
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            }
+
+            .snake-card.head {
+                border-color: var(--finish-color);
+                box-shadow: 0 0 12px rgba(231, 76, 60, 0.5);
+                z-index: 100;
+            }
+
+            .restart-btn {
+                padding: 14px 26px;
+                font-size: 1.05rem;
+                border-radius: 12px;
+                margin-top: 20px;
+                box-shadow: var(--shadow-soft);
+            }
+
+            .stats {
+                text-align: center;
+                font-size: 1.1rem;
+                margin: 20px 0;
+                color: var(--text);
+            }
+
+            .symbol-count {
+                font-size: 12px;
+                color: var(--muted);
+                margin-top: 6px;
+            }
+
+            .setup-container {
+                display: flex;
+                gap: 24px;
+                padding: 24px;
+                margin: 18px auto 26px;
+                width: min(1400px, 96vw);
+                background: var(--panel-bg);
+                border-radius: 20px;
+                box-shadow: var(--shadow-soft);
+                border: 1px solid var(--border-color);
+            }
+
+            .setup-left {
+                flex: 1;
+            }
+
+            .setup-right {
+                width: min(460px, 40vw);
+                padding: 16px;
+                border-radius: 16px;
+                border: 1px solid var(--border-color);
+                background: rgba(255, 255, 255, 0.7);
+                max-height: calc(100vh - 220px);
+                overflow: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .setup-right label {
+                display: block;
+                font-weight: 700;
+                margin-bottom: 8px;
+                color: var(--text);
+            }
+
+            .demo-area {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 10px;
+                margin-top: 12px;
+                align-items: center;
+                justify-items: center;
+                align-content: start;
+                flex: 1;
+                min-height: 260px;
+            }
+
+            .demo-card {
+                border: 2px solid var(--border-color);
+                border-radius: 10px;
+                width: var(--demo-card-w);
+                max-width: 100%;
+                aspect-ratio: 2 / 3;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: #fff;
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            }
+
+            @media (max-width: 980px) {
+                .trainer-hud {
+                    height: auto;
+                    padding: 10px 12px;
+                    flex-wrap: wrap;
+                }
+
+                .game-area {
+                    padding: 16px;
+                }
+
+                .setup-container {
+                    flex-direction: column;
+                }
+
+                .setup-right {
+                    width: 100%;
+                }
+            }
+
+            @media (max-width: 640px) {
+                .hud-cluster {
+                    width: 100%;
+                    justify-content: center;
+                }
+
+                .bottom-zone {
+                    min-height: 240px;
+                }
+            }
+        </style>
+        <style>
+            a.return-to-menu {
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                font-size: 24px;
+                background-color: rgba(0, 0, 0, 0.2);
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                text-decoration: none;
+                opacity: 0.5;
+                transition:
+                    opacity 0.3s,
+                    background-color 0.3s;
+                z-index: 1000;
+            }
+            a.return-to-menu:hover {
+                opacity: 1;
+                background-color: rgba(0, 0, 0, 0.5);
+            }
+        </style>
+    </head>
+    <body>
+        <a class="return-to-menu" href="index.html">🏠</a>
+        <div class="container">
+            <div class="setup-screen active">
+                <div class="setup-hero">
+                    <h1 class="setup-title">SET Card Game Trainer</h1>
+                    <p class="setup-subtitle">
+                        Build your custom deck and train your eye for
+                        one-difference matches.
+                    </p>
+                </div>
+                <div class="setup-container">
+                    <div class="setup-left">
+                        <div class="setup-group">
+                            <label>Choose 3 Colors:</label>
+                            <div class="color-inputs">
+                                <div class="color-input">
+                                    <input
+                                        type="color"
+                                        id="color1"
+                                        value="#FF0000"
+                                    />
+                                    <span>Color 1</span>
+                                </div>
+                                <div class="color-input">
+                                    <input
+                                        type="color"
+                                        id="color2"
+                                        value="#00FF00"
+                                    />
+                                    <span>Color 2</span>
+                                </div>
+                                <div class="color-input">
+                                    <input
+                                        type="color"
+                                        id="color3"
+                                        value="#0000FF"
+                                    />
+                                    <span>Color 3</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setup-group">
+                            <label>Card Background Color:</label>
+                            <input type="color" id="cardBg" value="#FFFFFF" />
+                        </div>
+
+                        <div class="setup-group">
+                            <label>Choose 3 Symbols:</label>
+                            <div class="symbol-select">
+                                <div
+                                    class="symbol-option selected"
+                                    data-symbol="diamond"
+                                >
+                                    <div></div>
+                                    <span>Diamond</span>
+                                </div>
+                                <div
+                                    class="symbol-option selected"
+                                    data-symbol="circle"
+                                >
+                                    <div></div>
+                                    <span>Circle</span>
+                                </div>
+                                <div
+                                    class="symbol-option selected"
+                                    data-symbol="pill"
+                                >
+                                    <div></div>
+                                    <span>Pill</span>
+                                </div>
+                                <div class="symbol-option" data-symbol="wave">
+                                    <div></div>
+                                    <span>Wave</span>
+                                </div>
+                                <div
+                                    class="symbol-option"
+                                    data-symbol="triangle"
+                                >
+                                    <div></div>
+                                    <span>Triangle</span>
+                                </div>
+                                <div class="symbol-option" data-symbol="square">
+                                    <div></div>
+                                    <span>Square</span>
+                                </div>
+                                <div class="symbol-option" data-symbol="star">
+                                    <div></div>
+                                    <span>Star</span>
+                                </div>
+                            </div>
+                            <div class="symbol-count">Selected: 3 symbols</div>
+                        </div>
+
+                        <div class="setup-group">
+                            <label>Card Orientation:</label>
+                            <div class="orientation-select">
+                                <div
+                                    class="orientation-option selected"
+                                    data-orientation="vertical"
+                                >
+                                    Vertical
+                                </div>
+                                <div
+                                    class="orientation-option"
+                                    data-orientation="horizontal"
+                                >
+                                    Horizontal
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setup-group">
+                            <label>Answer Label Style:</label>
+                            <select id="labelStyle" class="setup-select">
+                                <option value="numbers" selected>
+                                    Numbers (1, 2, 3...)
+                                </option>
+                                <option value="letters">
+                                    Letters (A, B, C...)
+                                </option>
+                            </select>
+                        </div>
+
+                        <button class="start-btn" onclick="startGame()">
+                            Start Training
+                        </button>
+                    </div>
+                    <div class="setup-right">
+                        <label>Live Preview</label>
+                        <div class="demo-area" id="demoArea"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-screen">
+                <div class="trainer-hud">
+                    <div class="hud-cluster">
+                        <span class="hud-title">SET Trainer</span>
+                        <span class="hud-pill" id="hint"
+                            >Available cards: 4</span
+                        >
+                    </div>
+                    <div class="hud-cluster">
+                        <button
+                            class="control-btn"
+                            id="removeBtn"
+                            onclick="removeCard()"
+                        >
+                            − Remove
+                        </button>
+                        <button
+                            class="control-btn"
+                            id="addBtn"
+                            onclick="addCard()"
+                        >
+                            + Add
+                        </button>
+                        <button
+                            class="control-btn"
+                            id="hardModeBtn"
+                            onclick="toggleHardMode()"
+                        >
+                            Hard Mode: OFF
+                        </button>
+                        <button
+                            class="control-btn end-game"
+                            id="endBtn"
+                            onclick="endGame()"
+                        >
+                            End Game
+                        </button>
+                    </div>
+                </div>
+                <div class="game-area">
+                    <div class="top-zone" id="topZone"></div>
+                    <div class="bottom-zone-wrapper">
+                        <div class="bottom-zone" id="bottomZone"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="end-screen">
+                <h2>Game Over!</h2>
+                <div class="stats" id="stats"></div>
+                <div class="train-animation" id="trainAnimation"></div>
+                <button class="restart-btn" onclick="location.reload()">
+                    Play Again
+                </button>
+            </div>
+        </div>
+
+        <audio id="correctSound" src="kid_yeah.wav"></audio>
+        <audio id="wrongSound" src="Ohh.wav"></audio>
+
+        <script>
+            let settings = {
+                colors: ["#FF0000", "#00FF00", "#0000FF"],
+                cardBg: "#FFFFFF",
+                symbols: ["diamond", "circle", "pill"],
+                orientation: "vertical",
+                labelStyle: "numbers",
+            };
+
+            let deck = [];
+            let train = [];
+            let bottomCards = [];
+            let usedCards = new Set();
+            let bottomCardCount = 4;
+            let gameActive = true;
+            let isHardMode = false;
+            let score = 0;
+            let gameHasEnded = false;
+
+            function toggleHardMode() {
+                isHardMode = !isHardMode;
+                const hardModeBtn = document.getElementById("hardModeBtn");
+                hardModeBtn.textContent = `Hard Mode: ${isHardMode ? "ON" : "OFF"}`;
+                hardModeBtn.classList.toggle("active", isHardMode);
+                hardModeBtn.classList.toggle("hard-mode", isHardMode);
+                updateBottomZone();
+            }
+
+            const symbolNames = {
+                diamond: "Diamond",
+                circle: "Circle",
+                pill: "Pill",
+                wave: "Wave",
+                triangle: "Triangle",
+                square: "Square",
+                star: "Star",
+            };
+
+            // Setup screen handlers
+            document.querySelectorAll(".symbol-option").forEach((opt) => {
+                opt.addEventListener("click", function () {
+                    this.classList.toggle("selected");
+
+                    const count = document.querySelectorAll(
+                        ".symbol-option.selected",
+                    ).length;
+                    document.querySelector(".symbol-count").textContent =
+                        `Selected: ${count} symbols`;
+                });
+            });
+
+            document.querySelectorAll(".orientation-option").forEach((opt) => {
+                opt.addEventListener("click", function () {
+                    document
+                        .querySelectorAll(".orientation-option")
+                        .forEach((o) => o.classList.remove("selected"));
+                    this.classList.add("selected");
+                    settings.orientation = this.dataset.orientation;
+                    updateDemo();
+                });
+            });
+
+            function updateSymbolOptions() {
+                document.querySelectorAll(".symbol-option").forEach((opt) => {
+                    const symbol = opt.dataset.symbol;
+                    const previewSize =
+                        parseFloat(
+                            getComputedStyle(
+                                document.documentElement,
+                            ).getPropertyValue("--demo-shape-size"),
+                        ) || 30;
+                    const svg = drawShape(symbol, "#333", "solid", previewSize);
+                    opt.querySelector("div").innerHTML = "";
+                    opt.querySelector("div").appendChild(svg);
+                });
+            }
+
+            function updateDemo() {
+                const demoArea = document.getElementById("demoArea");
+                demoArea.innerHTML = "";
+                const demoGap = 10;
+                const demoCols = 3;
+                const demoRows = 3;
+                const demoWidth = demoArea.clientWidth || 360;
+                const demoHeight = demoArea.clientHeight || 360;
+                const widthPerCard =
+                    (demoWidth - demoGap * (demoCols - 1)) / demoCols;
+                const heightPerCard =
+                    (demoHeight - demoGap * (demoRows - 1)) / demoRows;
+                const constrainedCardW = Math.min(
+                    widthPerCard,
+                    heightPerCard * (2 / 3),
+                );
+                const demoCardW = Math.max(80, Math.floor(constrainedCardW));
+                const demoShape = Math.max(
+                    16,
+                    Math.min(52, Math.floor(demoCardW * 0.32)),
+                );
+                demoArea.style.setProperty("--demo-card-w", `${demoCardW}px`);
+                demoArea.style.setProperty(
+                    "--demo-shape-size",
+                    `${demoShape}px`,
+                );
+                document.documentElement.style.setProperty(
+                    "--demo-shape-size",
+                    `${demoShape}px`,
+                );
+
+                const colors = [
+                    document.getElementById("color1").value,
+                    document.getElementById("color2").value,
+                    document.getElementById("color3").value,
+                ];
+                const cardBg = document.getElementById("cardBg").value;
+                const selectedSymbols = Array.from(
+                    document.querySelectorAll(".symbol-option.selected"),
+                ).map((opt) => opt.dataset.symbol);
+
+                if (selectedSymbols.length === 0) return;
+
+                const shadings = ["solid", "striped", "outline"];
+
+                for (let i = 0; i < 9; i++) {
+                    const card = document.createElement("div");
+                    card.className = "demo-card";
+                    card.style.background = cardBg;
+
+                    const cardContent = document.createElement("div");
+                    cardContent.className = "card-content";
+
+                    const symbol = selectedSymbols[i % selectedSymbols.length];
+                    const color = colors[Math.floor(i / 3) % colors.length];
+                    const shading = shadings[i % shadings.length];
+                    const count = (i % 3) + 1;
+
+                    const demoSize =
+                        parseFloat(
+                            getComputedStyle(demoArea).getPropertyValue(
+                                "--demo-shape-size",
+                            ),
+                        ) || 26;
+                    for (let j = 0; j < count; j++) {
+                        const shape = drawShape(
+                            symbol,
+                            color,
+                            shading,
+                            demoSize,
+                        );
+                        cardContent.appendChild(shape);
+                    }
+
+                    card.appendChild(cardContent);
+                    demoArea.appendChild(card);
+                }
+            }
+
+            document
+                .querySelectorAll(".color-input input")
+                .forEach((input) =>
+                    input.addEventListener("input", updateDemo),
+                );
+            document
+                .querySelectorAll(".symbol-option")
+                .forEach((opt) => opt.addEventListener("click", updateDemo));
+            document
+                .getElementById("cardBg")
+                .addEventListener("input", updateDemo);
+
+            updateSymbolOptions();
+            updateDemo();
+
+            function createDeck() {
+                deck = [];
+                const counts = [1, 2, 3];
+                const colors = [0, 1, 2];
+                const shadings = ["solid", "striped", "outline"];
+                const shapes = [0, 1, 2];
+
+                for (let count of counts) {
+                    for (let color of colors) {
+                        for (let shading of shadings) {
+                            for (let shape of shapes) {
+                                deck.push({ count, color, shading, shape });
+                            }
+                        }
+                    }
+                }
+
+                // Shuffle deck
+                for (let i = deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [deck[i], deck[j]] = [deck[j], deck[i]];
+                }
+            }
+
+            function drawShape(symbol, color, shading, size = 30) {
+                const svg = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "svg",
+                );
+                svg.setAttribute("width", size);
+                svg.setAttribute("height", size);
+                svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+                svg.classList.add("shape");
+
+                let shape;
+                const fillColor = shading === "solid" ? color : "none";
+                const strokeColor = color;
+                const strokeWidth = 2;
+
+                switch (symbol) {
+                    case "circle":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "circle",
+                        );
+                        shape.setAttribute("cx", size / 2);
+                        shape.setAttribute("cy", size / 2);
+                        shape.setAttribute("r", size / 2 - 2);
+                        break;
+                    case "square":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "rect",
+                        );
+                        shape.setAttribute("x", 2);
+                        shape.setAttribute("y", 2);
+                        shape.setAttribute("width", size - 4);
+                        shape.setAttribute("height", size - 4);
+                        break;
+                    case "diamond":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "polygon",
+                        );
+                        shape.setAttribute(
+                            "points",
+                            `${size / 2},2 ${size - 2},${size / 2} ${size / 2},${size - 2} 2,${size / 2}`,
+                        );
+                        break;
+                    case "triangle":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "polygon",
+                        );
+                        shape.setAttribute(
+                            "points",
+                            `${size / 2},2 ${size - 2},${size - 2} 2,${size - 2}`,
+                        );
+                        break;
+                    case "pill":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "rect",
+                        );
+                        shape.setAttribute("x", 2);
+                        shape.setAttribute("y", size / 4);
+                        shape.setAttribute("width", size - 4);
+                        shape.setAttribute("height", size / 2);
+                        shape.setAttribute("rx", size / 4);
+                        break;
+                    case "star":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "polygon",
+                        );
+                        const points = [];
+                        for (let i = 0; i < 10; i++) {
+                            const angle = (i * Math.PI) / 5 - Math.PI / 2;
+                            const r = i % 2 === 0 ? size / 2 - 2 : size / 4;
+                            points.push(
+                                `${size / 2 + r * Math.cos(angle)},${size / 2 + r * Math.sin(angle)}`,
+                            );
+                        }
+                        shape.setAttribute("points", points.join(" "));
+                        break;
+                    case "wave":
+                        shape = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "path",
+                        );
+                        const waveHeight = size / 4;
+                        shape.setAttribute(
+                            "d",
+                            `
+                        M 2,${size / 2 - waveHeight / 2}
+                        Q ${size / 4},${size / 2 - waveHeight * 1.5} ${size / 2},${size / 2 - waveHeight / 2}
+                        T ${size - 2},${size / 2 - waveHeight / 2}
+                        L ${size - 2},${size / 2 + waveHeight / 2}
+                        Q ${(size * 3) / 4},${size / 2 + waveHeight * 2} ${size / 2},${size / 2 + waveHeight / 2}
+                        T 2,${size / 2 + waveHeight / 2}
+                        Z
+                    `,
+                        );
+                        break;
+                }
+
+                shape.setAttribute("fill", fillColor);
+                shape.setAttribute("stroke", strokeColor);
+                shape.setAttribute("stroke-width", strokeWidth);
+
+                if (shading === "striped") {
+                    const pattern = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "pattern",
+                    );
+                    pattern.setAttribute("id", `stripe-${Math.random()}`);
+                    pattern.setAttribute("width", "4");
+                    pattern.setAttribute("height", "4");
+                    pattern.setAttribute("patternUnits", "userSpaceOnUse");
+
+                    const line = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "line",
+                    );
+                    line.setAttribute("x1", "0");
+                    line.setAttribute("y1", "0");
+                    line.setAttribute("x2", "0");
+                    line.setAttribute("y2", "4");
+                    line.setAttribute("stroke", color);
+                    line.setAttribute("stroke-width", "2");
+
+                    pattern.appendChild(line);
+                    svg.appendChild(pattern);
+                    shape.setAttribute(
+                        "fill",
+                        `url(#${pattern.getAttribute("id")})`,
+                    );
+                }
+
+                svg.appendChild(shape);
+                return svg;
+            }
+
+            function getCardInfoText(cardData, lastCard = null) {
+                const countText = `${cardData.count}`;
+                const colorText = `Color ${cardData.color + 1}`;
+                const shadingText = cardData.shading;
+                const shapeText = symbolNames[settings.symbols[cardData.shape]];
+
+                if (!lastCard) {
+                    return `${countText} ${shapeText}<br>${colorText}, ${shadingText}`;
+                }
+
+                const countMatch = cardData.count === lastCard.count;
+                const colorMatch = cardData.color === lastCard.color;
+                const shadingMatch = cardData.shading === lastCard.shading;
+                const shapeMatch = cardData.shape === lastCard.shape;
+
+                const countHTML = countMatch
+                    ? `<span class="highlight">${countText}</span>`
+                    : countText;
+                const colorHTML = colorMatch
+                    ? `<span class="highlight">${colorText}</span>`
+                    : colorText;
+                const shadingHTML = shadingMatch
+                    ? `<span class="highlight">${shadingText}</span>`
+                    : shadingText;
+                const shapeHTML = shapeMatch
+                    ? `<span class="highlight">${shapeText}</span>`
+                    : shapeText;
+
+                return `${countHTML} ${shapeHTML}<br>${colorHTML}, ${shadingHTML}`;
+            }
+
+            function createCardElement(
+                cardData,
+                clickHandler = null,
+                showLabel = false,
+                label = "",
+                showInfo = true,
+                isHistory = false,
+                historyIndex = -1,
+            ) {
+                const wrapper = document.createElement("div");
+                wrapper.className = "card-wrapper";
+
+                if (showLabel) {
+                    const labelEl = document.createElement("div");
+                    labelEl.className = "card-label";
+                    labelEl.textContent = label;
+                    wrapper.appendChild(labelEl);
+                }
+
+                const card = document.createElement("div");
+                card.className = "card";
+                if (settings.orientation === "horizontal") {
+                    card.classList.add("horizontal");
+                }
+                card.style.background = settings.cardBg;
+
+                const content = document.createElement("div");
+                content.className = "card-content";
+
+                const color = settings.colors[cardData.color];
+                const symbol = settings.symbols[cardData.shape];
+
+                const sizeRoot = showLabel
+                    ? document.getElementById("bottomZone")
+                    : isHistory
+                      ? document.getElementById("topZone")
+                      : document.documentElement;
+                const rootStyles = getComputedStyle(
+                    sizeRoot || document.documentElement,
+                );
+                const heightVar =
+                    settings.orientation === "horizontal"
+                        ? showLabel
+                            ? "--card-h-h-lg"
+                            : "--card-h-h"
+                        : showLabel
+                          ? "--card-h-lg"
+                          : "--card-h";
+                const widthVar =
+                    settings.orientation === "horizontal"
+                        ? showLabel
+                            ? "--card-w-h-lg"
+                            : "--card-w-h"
+                        : showLabel
+                          ? "--card-w-lg"
+                          : "--card-w";
+                const cardHeight =
+                    parseFloat(rootStyles.getPropertyValue(heightVar)) ||
+                    (showLabel ? 260 : 220);
+                const cardWidth =
+                    parseFloat(rootStyles.getPropertyValue(widthVar)) ||
+                    (showLabel ? 200 : 170);
+                const hasInfo = showInfo && !isHardMode;
+                const availableHeight = cardHeight * (hasInfo ? 0.58 : 0.78);
+                const availableWidth =
+                    cardWidth *
+                    (settings.orientation === "horizontal" ? 0.78 : 0.72);
+                const gapSize = Math.max(
+                    6,
+                    Math.round(cardHeight * (hasInfo ? 0.04 : 0.05)),
+                );
+                const sizeByHeight =
+                    settings.orientation === "horizontal"
+                        ? cardHeight * (hasInfo ? 0.55 : 0.68)
+                        : (availableHeight - gapSize * (cardData.count - 1)) /
+                          cardData.count;
+                const sizeByWidth =
+                    settings.orientation === "horizontal"
+                        ? (availableWidth - gapSize * (cardData.count - 1)) /
+                          cardData.count
+                        : availableWidth;
+                const shapeSize = Math.max(
+                    18,
+                    Math.min(140, Math.min(sizeByHeight, sizeByWidth)),
+                );
+                content.style.gap = `${gapSize}px`;
+
+                for (let i = 0; i < cardData.count; i++) {
+                    const shape = drawShape(
+                        symbol,
+                        color,
+                        cardData.shading,
+                        shapeSize,
+                    );
+                    content.appendChild(shape);
+                }
+
+                card.appendChild(content);
+
+                if (showInfo && !isHardMode) {
+                    const info = document.createElement("div");
+                    info.className = "card-info";
+                    const lastCard =
+                        train.length > 0 ? train[train.length - 1] : null;
+                    info.innerHTML = getCardInfoText(cardData, lastCard);
+                    card.appendChild(info);
+                }
+
+                const wrongMark = document.createElement("div");
+                wrongMark.className = "wrong-mark";
+                wrongMark.textContent = "✗";
+                card.appendChild(wrongMark);
+
+                if (clickHandler) {
+                    card.addEventListener("click", () =>
+                        clickHandler(wrapper, card, cardData),
+                    );
+                }
+
+                if (isHistory && historyIndex >= 0) {
+                    wrapper.addEventListener("click", () =>
+                        undoToCard(historyIndex),
+                    );
+                }
+
+                wrapper.appendChild(card);
+                return wrapper;
+            }
+
+            function hasOneDifference(card1, card2) {
+                let similarities = 0;
+                if (card1.count === card2.count) similarities++;
+                if (card1.color === card2.color) similarities++;
+                if (card1.shading === card2.shading) similarities++;
+                if (card1.shape === card2.shape) similarities++;
+                return similarities === 1;
+            }
+
+            function getDifference(card1, card2) {
+                const differences = [];
+                if (card1.count === card2.count) differences.push("count");
+                if (card1.color === card2.color) differences.push("color");
+                if (card1.shading === card2.shading)
+                    differences.push("shading");
+                if (card1.shape === card2.shape) differences.push("shape");
+                return differences;
+            }
+
+            function getAvailableCards() {
+                if (train.length === 0) return deck.length;
+
+                const lastCard = train[train.length - 1];
+                return deck.filter(
+                    (card) =>
+                        !usedCards.has(JSON.stringify(card)) &&
+                        hasOneDifference(card, lastCard),
+                ).length;
+            }
+
+            function checkGameOver() {
+                if (train.length === 0) return false;
+
+                const lastCard = train[train.length - 1];
+                const available = deck.filter(
+                    (card) => !usedCards.has(JSON.stringify(card)),
+                );
+                const validCards = available.filter((card) =>
+                    hasOneDifference(card, lastCard),
+                );
+
+                return validCards.length === 0;
+            }
+
+            function shuffleArray(array) {
+                const newArray = [...array];
+                for (let i = newArray.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+                }
+                return newArray;
+            }
+
+            function getCssNumber(el, varName, fallback = 0) {
+                if (!el) return fallback;
+                const value = parseFloat(
+                    getComputedStyle(el).getPropertyValue(varName),
+                );
+                return Number.isFinite(value) ? value : fallback;
+            }
+
+            function computeBestLayout(
+                containerW,
+                containerH,
+                count,
+                cardW,
+                cardH,
+                gap,
+            ) {
+                if (count <= 0 || cardW <= 0 || cardH <= 0) {
+                    return { scale: 1, cols: 1, rows: 1 };
+                }
+
+                let best = { scale: 0, cols: 1, rows: count, score: -Infinity };
+                for (let cols = 1; cols <= count; cols++) {
+                    const rows = Math.ceil(count / cols);
+                    const neededW = cols * cardW + (cols - 1) * gap;
+                    const neededH = rows * cardH + (rows - 1) * gap;
+                    if (neededW <= 0 || neededH <= 0) continue;
+
+                    const scale = Math.min(
+                        containerW / neededW,
+                        containerH / neededH,
+                        1,
+                    );
+                    const hasLonelyRow = rows > 1 && count % cols === 1;
+                    const penalty = hasLonelyRow ? 0.12 : 0;
+                    const rowBonus = rows === 1 ? 0.02 : 0;
+                    const score = scale - penalty + rowBonus;
+
+                    if (score > best.score) {
+                        best = { scale, cols, rows, score };
+                    }
+                }
+
+                best.scale = Math.max(0.35, best.scale);
+                return best;
+            }
+
+            function applyBottomZoneScale(cardCount) {
+                const bottomZone = document.getElementById("bottomZone");
+                if (!bottomZone) return;
+                const root = document.documentElement;
+                const baseW = getCssNumber(root, "--card-w-lg", 220);
+                const baseH = getCssNumber(root, "--card-h-lg", 310);
+                const baseWH = getCssNumber(root, "--card-w-h-lg", 300);
+                const baseHH = getCssNumber(root, "--card-h-h-lg", 220);
+                const baseGap = getCssNumber(root, "--gap", 12);
+
+                const rect = bottomZone.getBoundingClientRect();
+                const count = Math.max(1, cardCount);
+                const cardW =
+                    settings.orientation === "horizontal" ? baseWH : baseW;
+                const cardH =
+                    settings.orientation === "horizontal" ? baseHH : baseH;
+                const layout = computeBestLayout(
+                    rect.width || 1,
+                    rect.height || 1,
+                    count,
+                    cardW,
+                    cardH,
+                    baseGap,
+                );
+                const scale = layout.scale;
+
+                const scaledW = baseW * scale;
+                const scaledH = baseH * scale;
+                const scaledWH = baseWH * scale;
+                const scaledHH = baseHH * scale;
+
+                bottomZone.style.setProperty("--card-w-lg", `${scaledW}px`);
+                bottomZone.style.setProperty("--card-h-lg", `${scaledH}px`);
+                bottomZone.style.setProperty("--card-w-h-lg", `${scaledWH}px`);
+                bottomZone.style.setProperty("--card-h-h-lg", `${scaledHH}px`);
+                bottomZone.style.setProperty("--gap", `${baseGap * scale}px`);
+                const colWidth =
+                    settings.orientation === "horizontal" ? scaledWH : scaledW;
+                const rowHeight =
+                    settings.orientation === "horizontal" ? scaledHH : scaledH;
+                bottomZone.style.gridTemplateColumns = `repeat(${layout.cols}, ${Math.round(colWidth)}px)`;
+                bottomZone.style.gridAutoRows = `${Math.round(rowHeight)}px`;
+            }
+
+            function renderBottomZone() {
+                const bottomZone = document.getElementById("bottomZone");
+                bottomZone.innerHTML = "";
+
+                applyBottomZoneScale(bottomCards.length);
+
+                bottomCards.forEach((card, index) => {
+                    let label;
+                    if (settings.labelStyle === "numbers") {
+                        label = index + 1;
+                    } else {
+                        label = String.fromCharCode(65 + index);
+                    }
+                    const cardEl = createCardElement(
+                        card,
+                        handleCardClick,
+                        true,
+                        label,
+                    );
+                    bottomZone.appendChild(cardEl);
+                });
+
+                updateHint();
+                updateControls();
+            }
+
+            function updateBottomZone() {
+                const bottomZone = document.getElementById("bottomZone");
+                bottomZone.innerHTML = "";
+                bottomCards = [];
+
+                const available = deck.filter(
+                    (card) => !usedCards.has(JSON.stringify(card)),
+                );
+
+                if (train.length === 0) {
+                    // For the first card, any card is valid
+                    for (
+                        let i = 0;
+                        i < Math.min(bottomCardCount, available.length);
+                        i++
+                    ) {
+                        bottomCards.push(available[i]);
+                    }
+                } else {
+                    const lastCard = train[train.length - 1];
+                    const validCards = available.filter((card) =>
+                        hasOneDifference(card, lastCard),
+                    );
+                    const invalidCards = available.filter(
+                        (card) => !hasOneDifference(card, lastCard),
+                    );
+
+                    // Check for game over condition
+                    if (validCards.length === 0) {
+                        endGame();
+                        return;
+                    }
+
+                    // Always include at least one valid card
+                    if (validCards.length > 0) {
+                        const randomValidCard =
+                            validCards[
+                                Math.floor(Math.random() * validCards.length)
+                            ];
+                        bottomCards.push(randomValidCard);
+                    }
+
+                    // Fill the rest with random cards (could be valid or invalid)
+                    const remainingSlots = bottomCardCount - 1;
+                    const allCards = [...validCards, ...invalidCards].filter(
+                        (card) =>
+                            !bottomCards.some(
+                                (bc) =>
+                                    JSON.stringify(bc) === JSON.stringify(card),
+                            ),
+                    );
+
+                    // Shuffle all available cards
+                    const shuffledCards = shuffleArray(allCards);
+
+                    for (
+                        let i = 0;
+                        i < Math.min(remainingSlots, shuffledCards.length);
+                        i++
+                    ) {
+                        bottomCards.push(shuffledCards[i]);
+                    }
+
+                    // If we still don't have enough cards, add any available
+                    if (bottomCards.length < bottomCardCount) {
+                        const remaining = available.filter(
+                            (card) =>
+                                !bottomCards.some(
+                                    (bc) =>
+                                        JSON.stringify(bc) ===
+                                        JSON.stringify(card),
+                                ),
+                        );
+                        const needed = bottomCardCount - bottomCards.length;
+                        for (
+                            let i = 0;
+                            i < Math.min(needed, remaining.length);
+                            i++
+                        ) {
+                            bottomCards.push(remaining[i]);
+                        }
+                    }
+                }
+
+                // Shuffle the final bottomCards array so the valid card isn't always first
+                bottomCards = shuffleArray(bottomCards);
+
+                renderBottomZone();
+
+                // Check if game should end
+                if (train.length > 0 && checkGameOver()) {
+                    endGame();
+                }
+            }
+
+            function updateControls() {
+                document.getElementById("removeBtn").disabled =
+                    bottomCardCount <= 2;
+                document.getElementById("addBtn").disabled =
+                    bottomCardCount >= 12;
+            }
+
+            function addCard() {
+                if (bottomCardCount < 12) {
+                    bottomCardCount++;
+                    updateBottomZone();
+                }
+            }
+
+            function removeCard() {
+                if (bottomCardCount > 2) {
+                    bottomCardCount--;
+                    updateBottomZone();
+                }
+            }
+
+            function updateHint() {
+                const count = getAvailableCards();
+                document.getElementById("hint").textContent =
+                    `Available cards: ${count}`;
+            }
+
+            function handleCardClick(wrapper, cardEl, cardData) {
+                if (!gameActive) return;
+
+                const correctSound = document.getElementById("correctSound");
+                const wrongSound = document.getElementById("wrongSound");
+
+                if (train.length === 0) {
+                    correctSound.currentTime = 0;
+                    correctSound.play();
+                    train.push(cardData);
+                    usedCards.add(JSON.stringify(cardData));
+                    cardEl.classList.add("flying");
+                    score += 10;
+
+                    setTimeout(() => {
+                        updateTopZone();
+                        updateBottomZone();
+                    }, 500);
+                } else {
+                    const lastCard = train[train.length - 1];
+
+                    if (hasOneDifference(cardData, lastCard)) {
+                        correctSound.currentTime = 0;
+                        correctSound.play();
+                        score += 10;
+                        train.push(cardData);
+                        usedCards.add(JSON.stringify(cardData));
+                        cardEl.classList.add("flying");
+
+                        setTimeout(() => {
+                            updateTopZone();
+                            updateBottomZone();
+
+                            // Check for win condition
+                            if (train.length === 81) {
+                                endGame(true);
+                            }
+                        }, 500);
+                    } else {
+                        wrongSound.currentTime = 0;
+                        wrongSound.play();
+                        if (isHardMode) {
+                            gameActive = false;
+                            const wrongMark =
+                                cardEl.querySelector(".wrong-mark");
+                            const differences = getDifference(
+                                lastCard,
+                                cardData,
+                            );
+                            let message =
+                                "Wrong! Duplicates: " + differences.join(", ");
+
+                            const info = document.createElement("div");
+                            info.className = "card-info";
+                            info.style.color = "red";
+                            info.innerHTML = message;
+                            cardEl.appendChild(info);
+
+                            wrongMark.classList.add("show");
+
+                            document.getElementById("removeBtn").disabled =
+                                true;
+                            document.getElementById("addBtn").disabled = true;
+                            document.getElementById("hardModeBtn").disabled =
+                                true;
+                        } else {
+                            const wrongMark =
+                                cardEl.querySelector(".wrong-mark");
+                            wrongMark.classList.add("show");
+
+                            setTimeout(() => {
+                                wrongMark.classList.remove("show");
+                            }, 1000);
+                        }
+                    }
+                }
+            }
+
+            function undoToCard(index) {
+                // Don't allow undo on the current focused card
+                if (index === train.length - 1) return;
+
+                // Remove cards after the clicked index from usedCards
+                for (let i = train.length - 1; i > index; i--) {
+                    usedCards.delete(JSON.stringify(train[i]));
+                }
+
+                // Truncate train to the clicked card
+                train = train.slice(0, index + 1);
+
+                // Update display
+                updateTopZone();
+                updateBottomZone();
+            }
+
+            function updateTopZone() {
+                const topZone = document.getElementById("topZone");
+                topZone.innerHTML = "";
+                const visibleTrain = train.slice(-5);
+
+                // Create a container for all cards that will be shifted
+                const cardContainer = document.createElement("div");
+                cardContainer.style.display = "flex";
+                cardContainer.style.gap = "var(--gap)";
+                cardContainer.style.transition =
+                    "transform 0.55s cubic-bezier(0.16, 1, 0.3, 1)";
+                cardContainer.style.willChange = "transform";
+
+                visibleTrain.forEach((card, index) => {
+                    const historyIndex =
+                        train.length - visibleTrain.length + index;
+                    const cardEl = createCardElement(
+                        card,
+                        null,
+                        false,
+                        "",
+                        false,
+                        true,
+                        historyIndex,
+                    );
+
+                    // Add flying animation to the newest card
+                    if (index === visibleTrain.length - 1) {
+                        cardEl.classList.add("flying");
+                    }
+
+                    cardContainer.appendChild(cardEl);
+                });
+
+                // Calculate offset to keep the last card centered
+                const totalCards = visibleTrain.length;
+                if (totalCards > 0) {
+                    const sampleCard = cardContainer.querySelector(".card");
+                    const cardWidth = sampleCard
+                        ? sampleCard.getBoundingClientRect().width
+                        : settings.orientation === "vertical"
+                          ? 200
+                          : 280;
+                    const gap =
+                        parseFloat(getComputedStyle(cardContainer).gap) || 10;
+                    const offset = ((totalCards - 1) * (cardWidth + gap)) / 2;
+                    cardContainer.style.transform = `translateX(-${offset}px)`;
+                }
+
+                topZone.appendChild(cardContainer);
+            }
+
+            function endGame(won = false) {
+                if (gameHasEnded) return;
+                gameHasEnded = true;
+
+                gameActive = false;
+                document
+                    .querySelector(".game-screen")
+                    .classList.remove("active");
+                const endScreen = document.querySelector(".end-screen");
+                endScreen.classList.add("active");
+
+                let message;
+                let compliment = "";
+                const length = train.length;
+
+                if (won || length === 81) {
+                    message =
+                        "🎉 Congratulations! You completed the entire deck of 81 cards! 🎉";
+                    compliment = "You are a SET master! 🧠";
+                    endScreen.style.background =
+                        "linear-gradient(135deg, #a8ff78, #78ffd6)";
+                } else if (length > 60) {
+                    compliment = "Incredible run! So close! 😮";
+                    endScreen.style.background =
+                        "linear-gradient(135deg, #a8ff78, #78ffd6)";
+                } else if (length > 40) {
+                    compliment =
+                        "Excellent job! You have a great eye for detail! 👀";
+                    endScreen.style.background =
+                        "linear-gradient(135deg, #ffe259, #ffa751)";
+                } else if (length > 20) {
+                    compliment = "A solid attempt! Keep practicing! 👍";
+                    endScreen.style.background =
+                        "linear-gradient(135deg, #ff9a9e, #fecfef)";
+                } else if (length > 0) {
+                    compliment =
+                        "A good start! Every long train starts with a single card. 🚂";
+                    endScreen.style.background =
+                        "linear-gradient(135deg, #ff9a9e, #fecfef)";
+                } else {
+                    compliment = "A tough game! Try again! 💪";
+                    endScreen.style.background =
+                        "linear-gradient(135deg, #ff9a9e, #fecfef)";
+                }
+
+                if (!won) {
+                    message = `Game Over! Your train had ${length} cards.`;
+                }
+
+                message += `<br><strong>${compliment}</strong>`;
+                message += `<br>Total Score: ${score}`;
+
+                document.getElementById("stats").innerHTML = message;
+                animateSnake();
+            }
+
+            function createSnakeCard(cardData, isHead = false) {
+                const cardEl = document.createElement("div");
+                cardEl.className = "snake-card";
+                if (isHead) {
+                    cardEl.classList.add("head");
+                }
+                cardEl.style.background = settings.cardBg;
+
+                const color = settings.colors[cardData.color];
+                const symbol = settings.symbols[cardData.shape];
+                const snakeSize =
+                    parseFloat(
+                        getComputedStyle(
+                            document.documentElement,
+                        ).getPropertyValue("--demo-shape-size"),
+                    ) || 24;
+                const shape = drawShape(
+                    symbol,
+                    color,
+                    cardData.shading,
+                    snakeSize,
+                );
+                cardEl.appendChild(shape);
+
+                return cardEl;
+            }
+
+            let shapeInterval = null;
+
+            function animateSnake() {
+                const container = document.getElementById("trainAnimation");
+                container.innerHTML = "";
+
+                if (shapeInterval) clearInterval(shapeInterval);
+
+                if (train.length === 0) return;
+
+                const snakeBounds = { scale: 0.08 };
+                const updateBoundaryInset = (r1, r2, r3, r4) => {
+                    const avg = (r1 + r2 + r3 + r4) / 400;
+                    snakeBounds.scale = 0.04 + avg * 0.08;
+                };
+
+                const setBlobBorder = () => {
+                    const r1 = Math.random() * 100;
+                    const r2 = Math.random() * 100;
+                    const r3 = Math.random() * 100;
+                    const r4 = Math.random() * 100;
+                    container.style.borderRadius = `${r1}% ${100 - r1}% ${r2}% ${100 - r2}% / ${r3}% ${r4}% ${100 - r4}% ${100 - r3}%`;
+                    updateBoundaryInset(r1, r2, r3, r4);
+                };
+
+                setBlobBorder();
+                shapeInterval = setInterval(setBlobBorder, 10000);
+
+                // Create snake cards (use all cards in train)
+                const snakeCards = [];
+                const startRect = container.getBoundingClientRect();
+                const startX = startRect.width / 2;
+                const startY = startRect.height / 2;
+
+                // Create one snake card for each train card
+                for (let i = 0; i < train.length; i++) {
+                    const cardData = train[i];
+                    const isHead = i === 0;
+                    const cardEl = createSnakeCard(cardData, isHead);
+
+                    // Position cards in a line initially
+                    const x = startX;
+                    const y = startY;
+
+                    // Random velocity (2-4 pixels per frame)
+                    const speed = 2 + Math.random() * 2;
+                    const angle = Math.random() * Math.PI * 2;
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+
+                    cardEl.style.left = x + "px";
+                    cardEl.style.top = y + "px";
+
+                    container.appendChild(cardEl);
+
+                    snakeCards.push({
+                        el: cardEl,
+                        x: x,
+                        y: y,
+                        vx: vx,
+                        vy: vy,
+                        trail: [],
+                    });
+                }
+
+                // Animation function
+                function animate() {
+                    const rect = container.getBoundingClientRect();
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const inset =
+                        snakeBounds.scale * Math.min(rect.width, rect.height);
+
+                    snakeCards.forEach((card, index) => {
+                        if (index === 0) {
+                            // Head card - move freely
+                            card.x += card.vx;
+                            card.y += card.vy;
+
+                            const cardW = card.el.offsetWidth;
+                            const cardH = card.el.offsetHeight;
+                            const maxX = Math.max(
+                                inset,
+                                rect.width - cardW - inset,
+                            );
+                            const maxY = Math.max(
+                                inset,
+                                rect.height - cardH - inset,
+                            );
+
+                            let collided = false;
+                            if (
+                                card.x <= inset ||
+                                card.x >= maxX ||
+                                card.y <= inset ||
+                                card.y >= maxY
+                            ) {
+                                collided = true;
+                            }
+
+                            if (collided) {
+                                // Clamp position to be inside the box
+                                card.x = Math.max(
+                                    inset,
+                                    Math.min(card.x, maxX),
+                                );
+                                card.y = Math.max(
+                                    inset,
+                                    Math.min(card.y, maxY),
+                                );
+
+                                // Calculate normal vector from center to card's edge position
+                                let normalX = card.x + cardW / 2 - centerX;
+                                let normalY = card.y + cardH / 2 - centerY;
+
+                                // Normalize the vector
+                                const len = Math.sqrt(
+                                    normalX * normalX + normalY * normalY,
+                                );
+                                if (len > 0) {
+                                    normalX /= len;
+                                    normalY /= len;
+                                }
+
+                                // Velocity vector
+                                const vx = card.vx;
+                                const vy = card.vy;
+
+                                // Dot product
+                                const dot = vx * normalX + vy * normalY;
+
+                                // Reflected velocity
+                                card.vx = vx - 2 * dot * normalX;
+                                card.vy = vy - 2 * dot * normalY;
+
+                                // Add a little fuzz to prevent getting stuck
+                                card.vx += (Math.random() - 0.5) * 0.1;
+                                card.vy += (Math.random() - 0.5) * 0.1;
+                            }
+
+                            // Store position in trail
+                            card.trail.unshift({ x: card.x, y: card.y });
+                            if (card.trail.length > 100) {
+                                card.trail.pop();
+                            }
+                        } else {
+                            // Body cards - follow the previous card's trail with delay
+                            const prevCard = snakeCards[index - 1];
+                            const trailIndex = Math.min(
+                                index * 5,
+                                prevCard.trail.length - 1,
+                            );
+
+                            if (prevCard.trail[trailIndex]) {
+                                card.x = prevCard.trail[trailIndex].x;
+                                card.y = prevCard.trail[trailIndex].y;
+                            }
+
+                            // Store position in own trail
+                            card.trail.unshift({ x: card.x, y: card.y });
+                            if (card.trail.length > 50) {
+                                card.trail.pop();
+                            }
+                        }
+
+                        const cardW = card.el.offsetWidth;
+                        const cardH = card.el.offsetHeight;
+                        const maxX = Math.max(
+                            inset,
+                            rect.width - cardW - inset,
+                        );
+                        const maxY = Math.max(
+                            inset,
+                            rect.height - cardH - inset,
+                        );
+                        card.x = Math.max(inset, Math.min(card.x, maxX));
+                        card.y = Math.max(inset, Math.min(card.y, maxY));
+
+                        // Update position
+                        card.el.style.left = card.x + "px";
+                        card.el.style.top = card.y + "px";
+
+                        // Scale body cards based on position
+                        if (index > 0) {
+                            const scale = 1 - index * 0.02;
+                            card.el.style.transform = `scale(${scale})`;
+                            card.el.style.zIndex = (100 - index).toString();
+                        }
+                    });
+
+                    requestAnimationFrame(animate);
+                }
+
+                animate();
+            }
+
+            function startGame() {
+                settings.colors = [
+                    document.getElementById("color1").value,
+                    document.getElementById("color2").value,
+                    document.getElementById("color3").value,
+                ];
+                settings.cardBg = document.getElementById("cardBg").value;
+                settings.labelStyle =
+                    document.getElementById("labelStyle").value;
+
+                const selectedSymbols = Array.from(
+                    document.querySelectorAll(".symbol-option.selected"),
+                ).map((opt) => opt.dataset.symbol);
+
+                if (selectedSymbols.length !== 3) {
+                    alert("Please select exactly 3 symbols");
+                    return;
+                }
+
+                settings.symbols = selectedSymbols;
+                gameActive = true;
+                gameHasEnded = false;
+
+                document.getElementById("removeBtn").disabled = false;
+                document.getElementById("addBtn").disabled = false;
+                document.getElementById("hardModeBtn").disabled = false;
+
+                createDeck();
+
+                document
+                    .querySelector(".setup-screen")
+                    .classList.remove("active");
+                document.querySelector(".game-screen").classList.add("active");
+
+                updateBottomZone();
+            }
+
+            window.addEventListener("resize", () => {
+                if (
+                    document
+                        .querySelector(".setup-screen")
+                        .classList.contains("active")
+                ) {
+                    updateDemo();
+                }
+                if (
+                    document
+                        .querySelector(".game-screen")
+                        .classList.contains("active")
+                ) {
+                    renderBottomZone();
+                    updateTopZone();
+                }
+            });
+        </script>
+    </body>
+</html>

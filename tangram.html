@@ -1,0 +1,1400 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tangram</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        overflow: hidden;
+        background: #eef2f7;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        touch-action: none;
+      }
+
+      /* ── Acrylic panel mixin ── */
+      .acrylic {
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.11),
+          0 1px 0 rgba(255, 255, 255, 0.6) inset;
+      }
+
+      /* ── Top Toolbar ── */
+      #toolbar {
+        position: fixed;
+        top: 14px;
+        left: 14px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 7px 12px;
+        border-radius: 14px;
+        z-index: 200;
+        white-space: nowrap;
+        height: 38px;
+        box-sizing: border-box;
+      }
+      .tb-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a1a2e;
+        letter-spacing: -0.3px;
+        margin-right: 6px;
+        cursor: pointer;
+      }
+      .tb-sep {
+        width: 1px;
+        height: 18px;
+        background: rgba(0, 0, 0, 0.1);
+        margin: 0 4px;
+      }
+      .tb-btn {
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 12px;
+        color: #333;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        transition: background 0.13s;
+        line-height: 1.2;
+        white-space: nowrap;
+        height: 32px;
+      }
+      .tb-btn:hover {
+        background: rgba(0, 0, 0, 0.06);
+      }
+      .tb-btn.active {
+        background: rgba(0, 120, 212, 0.12) !important;
+        color: #0078d4 !important;
+      }
+
+      /* ── Sidebar (Piece Tray) ── */
+      #sidebar {
+        position: fixed;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px 12px;
+        border-radius: 18px;
+        z-index: 200;
+      }
+
+      /* ── Action Bar (selection) ── */
+      #actionBar {
+        position: fixed;
+        bottom: 90px;
+        left: 50%;
+        transform: translateX(-50%) translateY(0px);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 7px 12px;
+        border-radius: 14px;
+        z-index: 200;
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
+      }
+      #actionBar.hidden {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(14px);
+      }
+      .ab-btn {
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        width: 34px;
+        height: 34px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: background 0.13s;
+        color: #222;
+      }
+      .ab-btn:hover {
+        background: rgba(0, 0, 0, 0.07);
+      }
+
+       /* ── Status Bar ── */
+      #statusBar {
+        position: fixed;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 42px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+      }
+      #zoomPanel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 10px;
+        height: 38px;
+        box-sizing: border-box;
+      }
+       .z-btn {
+        width: 26px;
+        height: 26px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.13s;
+      }
+      .z-btn:hover {
+        background: rgba(0, 0, 0, 0.07);
+      }
+      #zoomPct {
+        font-size: 12px;
+        color: #444;
+        min-width: 38px;
+        text-align: center;
+      }
+       #seedPanel {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 10px;
+        height: 38px;
+        box-sizing: border-box;
+        margin-left: 8px;
+        flex: 1;
+        min-width: 0;
+      }
+      #seedInput {
+        flex: 1;
+        min-width: 0;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #333;
+        outline: none;
+        transition: all 0.2s;
+      }
+       #colorSeedInput {
+        flex: 1;
+        min-width: 0;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #333;
+        outline: none;
+        transition: all 0.2s;
+      }
+      
+      /* Puzzle & Help Modals */
+        .modal-bg {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 15, 30, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .modal-bg.show {
+            display: flex;
+            opacity: 1;
+        }
+        .modal-container {
+            width: 90%;
+            max-width: 1200px;
+            height: 85%;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .puzzle-grid {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+        .puzzle-item {
+            background: #fff;
+            border-radius: 16px;
+            padding: 15px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .puzzle-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .puzzle-item canvas {
+            width: 100%;
+            height: 120px;
+            position: static;
+        }
+
+        #hint {
+            position: fixed;
+            bottom: 70px;
+            right: 16px;
+            font-size: 11px;
+            color: #888;
+            line-height: 1.7;
+            pointer-events: none;
+        }
+        #toast {
+            position: fixed;
+            bottom: 115px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 20, 0.82);
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            z-index: 500;
+            opacity: 0;
+            transition: opacity 0.25s, bottom 0.25s;
+            pointer-events: none;
+        }
+        #toast.show {
+            opacity: 1;
+            bottom: 130px;
+        }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+
+    <div id="toolbar" class="acrylic">
+        <span class="tb-title">🧩 Tangram</span>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="newBtn">🆕 New</button>
+        <button class="tb-btn" id="puzzleBtn">🧩 Puzzles</button>
+        <button class="tb-btn" id="shuffleBtn">🔀 Shuffle</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="gridBtn">▣ Grid</button>
+        <button class="tb-btn" id="snapBtn">🔒 Snap</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="themeBtn">🎨 Theme</button>
+        <button class="tb-btn" id="helpBtn">❓ Help</button>
+    </div>
+
+    <div id="sidebar" class="acrylic">
+        <!-- Piece tray will be populated by JS -->
+    </div>
+
+    <div id="actionBar" class="acrylic hidden">
+        <button class="ab-btn" id="rotLeftBtn">↺</button>
+        <button class="ab-btn" id="rotRightBtn">↻</button>
+        <button class="ab-btn" id="flipBtn">↔</button>
+        <button class="ab-btn" id="toTrayBtn">🏠</button>
+        <button class="ab-btn" id="colorBtn">🎨</button>
+    </div>
+
+    <div id="statusBar">
+      <div id="zoomPanel" class="acrylic">
+        <button class="z-btn" id="zoomOutBtn">−</button>
+        <span id="zoomPct">100%</span>
+        <button class="z-btn" id="zoomInBtn">+</button>
+      </div>
+      <div id="seedPanel" class="acrylic">
+        <span class="sp-label">P:</span>
+        <input id="seedInput" type="text" spellcheck="false" autocomplete="off" placeholder="Position Seed..."/>
+        <span class="sp-label">C:</span>
+        <input id="colorSeedInput" type="text" spellcheck="false" autocomplete="off" placeholder="Color Seed..."/>
+        <button id="copySeedBtn" class="tb-btn sp-btn">📋</button>
+        <button id="copyUrlBtn" class="tb-btn sp-btn">🔗</button>
+      </div>
+    </div>
+    
+    <input type="color" id="colorPicker" style="display: none;">
+    
+    <div id="puzzleModal" class="modal-bg">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Puzzles</h2>
+                <button id="closePuzzleModalBtn" class="tb-btn">❌</button>
+            </div>
+            <div id="puzzleGrid" class="puzzle-grid"></div>
+        </div>
+    </div>
+    
+    <div id="helpModal" class="modal-bg">
+        <div class="modal-container" style="max-width: 600px; height: auto;">
+            <div class="modal-header">
+                <h2>Keyboard Shortcuts</h2>
+                <button id="closeHelpModalBtn" class="tb-btn">❌</button>
+            </div>
+            <div style="padding: 10px;">
+                <p><b>[</b> and <b>]</b>: Rotate selected piece</p>
+                <p><b>F</b>: Flip parallelogram</p>
+                <p><b>Ctrl + Scroll</b>: Rotate piece under mouse</p>
+                <p><b>Right-click/Ctrl-drag</b>: Pan the view</p>
+                <p><b>Scroll wheel</b>: Zoom the view</p>
+                 <p><b>?</b>: Show this help dialog</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="hint">
+      <b>[ ]</b> to rotate • <b>F</b> to flip • <b>Ctrl+Scroll</b> to rotate • <b>?</b> for help
+    </div>
+    <div id="toast"></div>
+
+    <script>
+      
+      // ── Constants Reference ──────────────────────────────────────────
+      const T           = 60;
+      const SNAP_RADIUS = T * 0.28;
+      const ROT_STEP    = 15;
+      const FREE_ROT    = 5;
+      const LIFT_SCALE  = 1.025;
+      const LIFT_MS     = 150;
+      const WIN_POS_THR = T * 0.15;
+      const WIN_ROT_THR = 7.5;
+
+      const GRID_LINE_COLOR = 'rgba(0,0,0,0.07)';
+      const GRID_DOT_COLOR  = 'rgba(0,0,0,0.15)';
+
+      const ZOOM_MIN    = 0.25;
+      const ZOOM_MAX    = 6.0;
+      const ZOOM_FACTOR = 1.12;
+      
+      // ── Canonical Piece Definitions ──────────────────────────────────
+      const TANGRAM_DEFS = {
+        large_tri_a: (() => {
+          const cx = (0 + 2*T + 0) / 3;
+          const cy = (0 + 0 + 2*T) / 3;
+          return [
+            [0 - cx,       0 - cy],
+            [2*T - cx,     0 - cy],
+            [0 - cx,       2*T - cy],
+          ];
+        })(),
+
+        large_tri_b: (() => {
+          const cx = (0 + 2*T + 0) / 3;
+          const cy = (0 + 0 + 2*T) / 3;
+          return [
+            [0 - cx,       0 - cy],
+            [2*T - cx,     0 - cy],
+            [0 - cx,       2*T - cy],
+          ];
+        })(),
+
+        med_tri: (() => {
+          const L = T * Math.SQRT2;
+          const cx = (0 + L + 0) / 3;
+          const cy = (0 + 0 + L) / 3;
+          return [
+            [0 - cx,   0 - cy],
+            [L - cx,   0 - cy],
+            [0 - cx,   L - cy],
+          ];
+        })(),
+
+        small_tri_a: (() => {
+          const cx = (0 + T + 0) / 3;
+          const cy = (0 + 0 + T) / 3;
+          return [
+            [0 - cx,   0 - cy],
+            [T - cx,   0 - cy],
+            [0 - cx,   T - cy],
+          ];
+        })(),
+
+        small_tri_b: (() => {
+          const cx = (0 + T + 0) / 3;
+          const cy = (0 + 0 + T) / 3;
+          return [
+            [0 - cx,   0 - cy],
+            [T - cx,   0 - cy],
+            [0 - cx,   T - cy],
+          ];
+        })(),
+
+        square: [
+          [-T/2, -T/2],
+          [ T/2, -T/2],
+          [ T/2,  T/2],
+          [-T/2,  T/2],
+        ],
+
+        parallelogram: (() => {
+          const pts = [[0,T],[T,T],[2*T,0],[T,0]];
+          const cx = pts.reduce((s,p)=>s+p[0],0)/4;
+          const cy = pts.reduce((s,p)=>s+p[1],0)/4;
+          return pts.map(([x,y])=>[x-cx, y-cy]);
+        })(),
+      };
+
+      const PIECE_KEYS = [
+        'large_tri_a','large_tri_b','med_tri',
+        'small_tri_a','small_tri_b',
+        'square','parallelogram'
+      ];
+
+      // ── Color Themes & Helpers ─────────────────────────────────────
+      const COLOR_THEMES = {
+        'Default':    ['#FFA500','#008000','#FF0000','#FFC0CB','#0000FF','#FFFF00','#800080'],
+        'Warm Wood':  ['#8B4513','#A0522D','#CD853F','#DEB887','#D2691E','#BC8A5F','#F4A460'],
+        'Ocean':      ['#006994','#0099CC','#00CED1','#48D1CC','#20B2AA','#5F9EA0','#4682B4'],
+        'Pastel':     ['#FFB3BA','#FFDFBA','#FFFFBA','#BAFFC9','#BAE1FF','#E8BAFF','#FFBAE8'],
+        'Mono Dark':  ['#1a1a1a','#2d2d2d','#3d3d3d','#4d4d4d','#5d5d5d','#6d6d6d','#7d7d7d'],
+        'Neon':       ['#FF0080','#FF4500','#FFD700','#00FF41','#00BFFF','#BF00FF','#FF6EC7'],
+      };
+      
+      function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+            parseInt(result[1], 16),
+            parseInt(result[2], 16),
+            parseInt(result[3], 16)
+        ] : null;
+      }
+      
+      function rgbToHex(r, g, b) {
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+      }
+
+      function darken(hex, amount) {
+          const [r,g,b] = hexToRgb(hex);
+          return rgbToHex(
+              Math.max(0, Math.round(r * (1-amount))),
+              Math.max(0, Math.round(g * (1-amount))),
+              Math.max(0, Math.round(b * (1-amount)))
+          );
+      }
+
+      // ── Piece Rendering ──────────────────────────────────────────────
+      function drawPath(ctx, verts) {
+        ctx.beginPath();
+        ctx.moveTo(verts[0][0], verts[0][1]);
+        for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i][0], verts[i][1]);
+        ctx.closePath();
+      }
+
+      function drawPiece(ctx, piece, isThumbnail = false) {
+        ctx.save();
+
+        ctx.translate(piece.x, piece.y);
+        ctx.rotate(piece.rotation * Math.PI / 180);
+        if (piece.flipped) ctx.scale(-1, 1);
+
+        const verts = TANGRAM_DEFS[PIECE_KEYS[piece.id]];
+        
+        drawPath(ctx, verts);
+
+        ctx.fillStyle = piece.color;
+        ctx.fill();
+
+        ctx.strokeStyle = darken(piece.color, 0.2);
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        if (piece.isSelected && !isThumbnail) {
+            drawPath(ctx, verts);
+            ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#fff';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
+      }
+
+
+      // ── Canvas & Camera ──────────────────────────────────────────────
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+      let W, H;
+
+      const camera = { x: 0, y: 0, zoom: 1, rotation: 0 };
+      let isPanning = false;
+      let lastPan = { x: 0, y: 0 };
+      let lastTouch = { x: 0, y: 0, d: 0};
+
+      function resize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W;
+        canvas.height = H;
+        if (camera.x === 0 && camera.y === 0) {
+            camera.x = W / 2;
+            camera.y = H / 2;
+        }
+        if (!gridOrigin) {
+            gridOrigin = {x: W/2, y: H/2};
+        }
+        render();
+      }
+
+      function applyCamTransform() {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate(camera.rotation * Math.PI / 180);
+        ctx.scale(camera.zoom, camera.zoom);
+        ctx.translate(-camera.x, -camera.y);
+      }
+
+      function render() {
+        requestAnimationFrame(() => {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, W, H);
+            
+            applyCamTransform();
+            drawGrid();
+
+            if (puzzleSolution) {
+                drawSilhouette(ctx, puzzleSolution);
+            }
+
+            const sortedPieces = [...pieces].sort((a,b) => a.zIndex - b.zIndex);
+            sortedPieces.forEach(p => drawPiece(ctx, p));
+            
+            if (selectedPiece && !draggedPiece) {
+                drawRotationHandle(ctx, selectedPiece);
+            }
+        });
+      }
+
+      // ── Game Logic & State ──────────────────────────────────────────
+      let pieces = [];
+      let gridState = { on: true, type: 'triangle' };
+      let gridOrigin = null;
+      let draggedPiece = null;
+      let isRotating = false;
+      let dragOffset = { x: 0, y: 0 };
+      let snapEnabled = true;
+      let selectedPiece = null;
+      let currentThemeIndex = 0;
+      let debounceTimer;
+      let puzzleSolution = null;
+
+      function initPieces() {
+        if (pieces.length === 0) {
+            for (let i = 0; i < 7; i++) {
+                pieces.push({ id: i });
+            }
+        }
+        
+        const themeName = Object.keys(COLOR_THEMES)[currentThemeIndex];
+        const themeColors = COLOR_THEMES[themeName];
+        pieces.forEach((p, i) => {
+            p.rotation = 0;
+            p.flipped = false;
+            p.color = themeColors[i];
+            p.isDragging = false;
+            p.isSelected = false;
+            p.zIndex = i;
+        });
+
+        importPositionSeed(PUZZLE_LIBRARY[0].seed);
+        puzzleSolution = null;
+        saveGameState();
+        render();
+      }
+      
+      function shuffle() {
+          pieces.forEach(p => {
+              let placed = false;
+              let attempts = 0;
+              while(!placed && attempts < 100) {
+                  const x = camera.x + (Math.random() - 0.5) * (W / camera.zoom * 0.8);
+                  const y = camera.y + (Math.random() - 0.5) * (H / camera.zoom * 0.8);
+                  const rot = Math.floor(Math.random() * 24) * 15;
+                  if (!wouldOverlap(p, x, y, rot)) {
+                      p.x = x;
+                      p.y = y;
+                      p.rotation = rot;
+                      p.lastValidX = x;
+                      p.lastValidY = y;
+                      placed = true;
+                  }
+                  attempts++;
+              }
+          });
+          saveGameState();
+          render();
+      }
+
+      function cycleTheme() {
+        currentThemeIndex = (currentThemeIndex + 1) % Object.keys(COLOR_THEMES).length;
+        const themeName = Object.keys(COLOR_THEMES)[currentThemeIndex];
+        const themeColors = COLOR_THEMES[themeName];
+        pieces.forEach((p, i) => {
+            p.color = themeColors[i];
+        });
+        saveGameState();
+        render();
+      }
+      
+      function toast(message, duration = 2000) {
+        const toastEl = document.getElementById('toast');
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        setTimeout(() => toastEl.classList.remove('show'), duration);
+      }
+
+      // ── Grid System & Snapping ──────────────────────────────────
+      function drawGrid() {
+        if (!gridState.on) return;
+
+        ctx.lineWidth = 1 / camera.zoom;
+        ctx.strokeStyle = GRID_LINE_COLOR;
+
+        const { x: camX, y: camY, zoom } = camera;
+        const viewW = W / zoom;
+        const viewH = H / zoom;
+        const left = camX - viewW / 2 - T;
+        const right = camX + viewW / 2 + T;
+        const top = camY - viewH / 2 - T;
+        const bottom = camY + viewH / 2 + T;
+
+        const startI = Math.floor(left / T);
+        const endI = Math.ceil(right / T);
+        const startJ = Math.floor(top / T);
+        const endJ = Math.ceil(bottom / T);
+        
+        ctx.beginPath();
+        for (let i = startI; i <= endI; i++) {
+          ctx.moveTo(i * T, top);
+          ctx.lineTo(i * T, bottom);
+        }
+        for (let j = startJ; j <= endJ; j++) {
+          ctx.moveTo(left, j * T);
+          ctx.lineTo(right, j * T);
+        }
+        
+        for (let k = startI + startJ; k <= endI + endJ; k++) {
+            ctx.moveTo(left, k*T - left);
+            ctx.lineTo(right, k*T - right);
+        }
+        for (let k = startI - endJ; k <= endI - startJ; k++) {
+            ctx.moveTo(left, left - k*T);
+            ctx.lineTo(right, right - k*T);
+        }
+        ctx.stroke();
+      }
+
+      function snapRotation(angle) {
+        if (!snapEnabled) return ((angle % 360) + 360) % 360;
+        return Math.round(angle / ROT_STEP) * ROT_STEP;
+      }
+
+      function findBestVertexSnap(piece) {
+        if (!snapEnabled || !gridOrigin) return { dx: 0, dy: 0 };
+        const verts = worldVertices(piece);
+        
+        let bestDist = T * 0.35;
+        let bestOffset = null;
+
+        for (const v of verts) {
+            const gi = Math.round(v.x / T);
+            const gj = Math.round(v.y / T);
+
+            for (let di = -1; di <= 1; di++) {
+                for (let dj = -1; dj <= 1; dj++) {
+                    const gx = (gi + di) * T;
+                    const gy = (gj + dj) * T;
+                    const dist = Math.hypot(v.x - gx, v.y - gy);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestOffset = { dx: gx - v.x, dy: gy - v.y };
+                    }
+                }
+            }
+        }
+        return bestOffset || { dx: 0, dy: 0 };
+      }
+      
+      // ── Seed, State & Puzzles ─────────────────────────────────────
+      const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      const PUZZLE_LIBRARY = [
+        { name: "Square", seed: "T4_yA5ANyAso4_yA5AOyAsY5AASA4_yAsoNyAYyA4_OA5AsyAIyA5AoyAEyAC" },
+        { name: "Cat", seed: "T5ANC5AOyAIyA4wNyAIyAIyA5ANYAIyAIyA4wNyAsoAIyA4wNyAsoAIyA5AoyAEyAC" },
+        { name: "Swan", seed: "T5AASAsoAIyA5ANyAsoAIyA4_yA5AsyAIyA4wNyAIyAIyA5ANYAIyA4_OA5AoyAsYAC" },
+        { name: "Rabbit", seed: "T4_yA5ANYAІyA5ANYAIyA4_yA5AoyAIyA4wNyAsoAIyA4wNyAsoAIyA5AoyAEyAC" },
+        { name: "Fish", seed: "T5AASAsoAIyA5ANyAsoAIyA4_yA5AsyAIyA4wNyAIyAIyA5ANYAIyA4_OA5AoyAsYAC" },
+        { name: "Fox", seed: "T5AASAsoAIyA5ANyAsoAIyA4_yA5AsyAIyA4wNyAIyAIyA5ANYAIyA4_OA5AoyAsYAC" },
+        { name: "Boat", seed: "T4_yA5ANyAso4_yA5AOyAso5AASA4_yAsoNyAYyA4_OA5AsyAIyA5AoyAEyAC" },
+        { name: "Rocket", seed: "T5ANC5AOyAIyA4wNyAIyAIyA5ANYAIyAIyA4wNyAsoAIyA4wNyAsoAIyA5AoyAEyAC" },
+        { name: "House", seed: "T5AASAsoAIyA5ANyAsoAIyA4_yA5AsyAIyA4wNyAIyAIyA5ANYAIyA4_OA5AoyAsYAC" },
+        { name: "Candle", seed: "T4_yA5ANyAso4_yA5AOyAso5AASA4_yAsoNyAYyA4_OA5AsyAIyA5AoyAEyAC" },
+        { name: "Arrow", seed: "T5ANC5AOyAIyA4wNyAIyAIyA5ANYAIyAIyA4wNyAsoAIyA4wNyAsoAIyA5AoyAEyAC" },
+      ];
+
+      function encodeInt(n, digits) {
+        let s = '';
+        for (let i = 0; i < digits; i++) {
+            s = B64[n & 63] + s;
+            n >>= 6;
+        }
+        return s;
+      }
+
+      function decodeInt(s) {
+          let n = 0;
+          for (const c of s) n = (n << 6) | B64.indexOf(c);
+          return n;
+      }
+
+      function exportPositionSeed() {
+        let s = 'T';
+        for (const p of pieces) {
+            const xi = Math.round(p.x) + 4096;
+            const yi = Math.round(p.y) + 4096;
+            const ri = Math.round(((p.rotation % 360) + 360) % 360 / 15) & 0x1F;
+            const fi = p.flipped ? 1 : 0;
+            const rf = (ri << 1) | fi;
+            s += encodeInt(xi, 3) + encodeInt(yi, 3) + B64[rf];
+        }
+        return s;
+      }
+
+      function importPositionSeed(seed, isPuzzle = false) {
+        if (!seed.startsWith('T') || seed.length !== 50) return false;
+        let pos = 1;
+        const targetPieces = isPuzzle ? [] : pieces;
+        
+        for (let i = 0; i < 7; i++) {
+            const xi = decodeInt(seed.slice(pos, pos+3)) - 4096;
+            const yi = decodeInt(seed.slice(pos+3, pos+6)) - 4096;
+            const rf = B64.indexOf(seed[pos+6]);
+            const ri = (rf >> 1) & 0x1F;
+            const fi = rf & 1;
+            
+            const pieceData = { id: i, x: xi, y: yi, rotation: ri * 15, flipped: fi === 1};
+            
+            if (isPuzzle) {
+                targetPieces.push(pieceData);
+            } else {
+                Object.assign(targetPieces[i], pieceData);
+            }
+            pos += 7;
+        }
+        
+        if (!isPuzzle) {
+            saveGameState();
+            render();
+        }
+        return targetPieces;
+      }
+
+      function exportColorSeed() {
+        let s = 'C';
+        for (const p of pieces) {
+            s += p.color.replace('#','').toUpperCase().padStart(6,'0');
+        }
+        return s;
+      }
+
+      function importColorSeed(seed) {
+        if (!seed.startsWith('C') || seed.length !== 43) return false;
+        for (let i = 0; i < 7; i++) {
+            pieces[i].color = '#' + seed.slice(1 + i*6, 7 + i*6);
+        }
+        saveGameState();
+        render();
+        return true;
+      }
+
+      function saveGameState() {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            const state = {
+                pieces: pieces.map(p => ({
+                    x: p.x, y: p.y, rotation: p.rotation, flipped: p.flipped, color: p.color 
+                })),
+                camera: camera,
+                gridState: gridState,
+                theme: currentThemeIndex,
+                puzzle: puzzleSolution ? PUZZLE_LIBRARY.findIndex(p => p.seed === puzzleSolution.seed) : null,
+            };
+            localStorage.setItem("tangramGameState", JSON.stringify(state));
+          }, 500);
+      }
+
+      function loadGameState() {
+          const saved = localStorage.getItem("tangramGameState");
+          if (saved) {
+              try {
+                  const state = JSON.parse(saved);
+                  if (state.pieces && state.pieces.length === 7) {
+                      state.pieces.forEach((p, i) => {
+                          pieces[i].x = p.x;
+                          pieces[i].y = p.y;
+                          pieces[i].rotation = p.rotation;
+                          pieces[i].flipped = p.flipped;
+                          pieces[i].color = p.color;
+                          pieces[i].lastValidX = p.x;
+                          pieces[i].lastValidY = p.y;
+                      });
+                  }
+                  if (state.camera) Object.assign(camera, state.camera);
+                  if (state.gridState) Object.assign(gridState, state.gridState);
+                  currentThemeIndex = state.theme || 0;
+                  if (state.puzzle !== null && state.puzzle >= 0) {
+                      loadPuzzle(state.puzzle);
+                  }
+                  render();
+                  return true;
+              } catch(e) {
+                  console.error("Failed to load game state", e);
+                  return false;
+              }
+          }
+          return false;
+      }
+
+      function loadStateFromURL() {
+          const params = new URLSearchParams(window.location.search);
+          const posSeed = params.get('p');
+          const colorSeed = params.get('c');
+          const puzzleId = params.get('puzzle');
+
+          if (puzzleId && PUZZLE_LIBRARY[puzzleId]) {
+              loadPuzzle(parseInt(puzzleId));
+              history.replaceState(null, '', window.location.pathname);
+              return;
+          }
+
+          if (posSeed) importPositionSeed(posSeed);
+          if (colorSeed) importColorSeed(colorSeed);
+
+          if (posSeed || colorSeed) {
+              history.replaceState(null, '', window.location.pathname);
+          } else {
+              if(!loadGameState()) {
+                initPieces();
+              }
+          }
+      }
+
+      // ── Puzzle Mode ──────────────────────────────────────────────────
+        function drawSilhouette(ctx, solution) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.13)';
+            for (const s of solution) {
+                ctx.save();
+                ctx.translate(s.x, s.y);
+                ctx.rotate(s.rotation * Math.PI / 180);
+                if (s.flipped) ctx.scale(-1, 1);
+                
+                const verts = TANGRAM_DEFS[PIECE_KEYS[s.id]];
+                drawPath(ctx, verts);
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        function checkWin() {
+            if (!puzzleSolution) return false;
+            let allMatch = true;
+            for (let i = 0; i < 7; i++) {
+                const p = pieces[i];
+                const s = puzzleSolution[i];
+                const dx = Math.abs(p.x - s.x);
+                const dy = Math.abs(p.y - s.y);
+                const dr = Math.abs(((p.rotation - s.rotation) % 360 + 360) % 360);
+                const dra = Math.min(dr, 360 - dr);
+                if (dx > WIN_POS_THR || dy > WIN_POS_THR || dra > WIN_ROT_THR || p.flipped !== s.flipped) {
+                    allMatch = false;
+                    break;
+                }
+            }
+            return allMatch;
+        }
+
+        function loadPuzzle(index) {
+            const puzzle = PUZZLE_LIBRARY[index];
+            if (puzzle) {
+                puzzleSolution = importPositionSeed(puzzle.seed, true);
+                puzzleSolution.seed = puzzle.seed;
+                document.getElementById('puzzleModal').classList.remove('show');
+                shuffle();
+                toast(`Puzzle loaded: ${puzzle.name}`);
+            }
+        }
+
+        function populatePuzzleModal() {
+            const grid = document.getElementById('puzzleGrid');
+            grid.innerHTML = '';
+            PUZZLE_LIBRARY.forEach((p, i) => {
+                const item = document.createElement('div');
+                item.className = 'puzzle-item';
+                item.innerHTML = `<div>${p.name}</div>`;
+                item.onclick = () => loadPuzzle(i);
+                grid.appendChild(item);
+            });
+        }
+
+
+      // ── Piece Transformations & Interactions ────────────────────────
+      function updateActionBar() {
+        const actionBar = document.getElementById('actionBar');
+        if (selectedPiece) {
+            actionBar.classList.remove('hidden');
+            const flipBtn = document.getElementById('flipBtn');
+            flipBtn.style.display = (selectedPiece.id === 6) ? 'block' : 'none';
+        } else {
+            actionBar.classList.add('hidden');
+        }
+      }
+      
+      function getRotationHandle(piece) {
+        const verts = worldVertices(piece);
+        let topY = Infinity;
+        let topX = 0;
+        for(const v of verts) {
+            if(v.y < topY) {
+                topY = v.y;
+                topX = v.x;
+            }
+        }
+        return { x: topX, y: topY - 30 };
+      }
+
+      function drawRotationHandle(ctx, piece) {
+          const handle = getRotationHandle(piece);
+          ctx.beginPath();
+          ctx.arc(handle.x, handle.y, 10, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.strokeStyle = '#333';
+          ctx.lineWidth = 2;
+          ctx.fill();
+          ctx.stroke();
+      }
+
+      function worldVerticesAt(piece, x, y, rotation, scale = 1) {
+          const def = TANGRAM_DEFS[PIECE_KEYS[piece.id]];
+          const rot = rotation * Math.PI / 180;
+          const cos = Math.cos(rot);
+          const sin = Math.sin(rot);
+          const scaleX = (piece.flipped ? -1 : 1) * scale;
+          const scaleY = scale;
+
+          return def.map(([px, py]) => ({
+              x: x + (px * cos - py * sin) * scaleX,
+              y: y + (px * sin + py * cos) * scaleY
+          }));
+      }
+      
+      function worldVertices(piece) {
+        return worldVerticesAt(piece, piece.x, piece.y, piece.rotation);
+      }
+
+      function pointInPolygon(point, vs) {
+          let x = point.x, y = point.y;
+          let inside = false;
+          for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+              let xi = vs[i].x, yi = vs[i].y;
+              let xj = vs[j].x, yj = vs[j].y;
+              let intersect = ((yi > y) != (yj > y))
+                  && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+              if (intersect) inside = !inside;
+          }
+          return inside;
+      }
+
+      function getPieceAtPoint(x, y) {
+        const sortedPieces = [...pieces].sort((a, b) => b.zIndex - a.zIndex);
+        for (const piece of sortedPieces) {
+            const verts = worldVertices(piece);
+            if (pointInPolygon({x, y}, verts)) {
+                return piece;
+            }
+        }
+        return null;
+      }
+      
+      function project(poly, nx, ny) {
+        let min = Infinity, max = -Infinity;
+        for (const v of poly) {
+            const d = v.x * nx + v.y * ny;
+            if (d < min) min = d;
+            if (d > max) max = d;
+        }
+        return [min, max];
+      }
+
+      function satOverlap(polyA, polyB) {
+        const polys = [polyA, polyB];
+        for (const poly of polys) {
+            for (let i = 0; i < poly.length; i++) {
+                const j = (i + 1) % poly.length;
+                const nx = -(poly[j].y - poly[i].y);
+                const ny =   poly[j].x - poly[i].x;
+                const [minA, maxA] = project(polyA, nx, ny);
+                const [minB, maxB] = project(polyB, nx, ny);
+                if (maxA <= minB + 0.5 || maxB <= minA + 0.5) return false;
+            }
+        }
+        return true;
+      }
+
+      function wouldOverlap(piece, nx, ny, rot) {
+        const testVerts = worldVerticesAt(piece, nx, ny, rot);
+        for (const other of pieces) {
+            if (other.id === piece.id) continue;
+            if (satOverlap(testVerts, worldVertices(other))) return true;
+        }
+        return false;
+      }
+
+      // ── Event Listeners ─────────────────────────────────────────────
+      window.addEventListener('resize', resize);
+
+      document.getElementById('themeBtn').addEventListener('click', cycleTheme);
+      document.getElementById('colorBtn').addEventListener('click', () => {
+        if (selectedPiece) {
+            document.getElementById('colorPicker').click();
+        }
+      });
+      document.getElementById('colorPicker').addEventListener('input', (e) => {
+        if (selectedPiece) {
+            selectedPiece.color = e.target.value;
+            saveGameState();
+            render();
+        }
+      });
+      
+      document.getElementById('seedInput').addEventListener('input', (e) => importPositionSeed(e.target.value));
+      document.getElementById('colorSeedInput').addEventListener('input', (e) => importColorSeed(e.target.value));
+      
+      document.getElementById('copySeedBtn').addEventListener('click', () => {
+          const pSeed = exportPositionSeed();
+          navigator.clipboard.writeText(pSeed).then(() => toast("Position seed copied!"));
+          document.getElementById('seedInput').value = pSeed;
+      });
+
+      document.getElementById('copyUrlBtn').addEventListener('click', () => {
+          const pSeed = exportPositionSeed();
+          const cSeed = exportColorSeed();
+          const url = `${window.location.pathname}?p=${pSeed}&c=${cSeed}`;
+          navigator.clipboard.writeText(url).then(() => toast("Shareable URL copied!"));
+      });
+
+      document.getElementById('newBtn').addEventListener('click', initPieces);
+      document.getElementById('shuffleBtn').addEventListener('click', shuffle);
+      
+      document.getElementById('puzzleBtn').addEventListener('click', () => {
+        document.getElementById('puzzleModal').classList.add('show');
+      });
+      document.getElementById('closePuzzleModalBtn').addEventListener('click', () => {
+        document.getElementById('puzzleModal').classList.remove('show');
+      });
+      
+      document.getElementById('helpBtn').addEventListener('click', () => {
+        document.getElementById('helpModal').classList.add('show');
+      });
+      document.getElementById('closeHelpModalBtn').addEventListener('click', () => {
+        document.getElementById('helpModal').classList.remove('show');
+      });
+      
+      document.getElementById('rotLeftBtn').addEventListener('click', () => {
+        if (selectedPiece) {
+            selectedPiece.rotation = snapRotation(selectedPiece.rotation - ROT_STEP);
+            render();
+        }
+      });
+      document.getElementById('rotRightBtn').addEventListener('click', () => {
+        if (selectedPiece) {
+            selectedPiece.rotation = snapRotation(selectedPiece.rotation + ROT_STEP);
+            render();
+        }
+      });
+      document.getElementById('flipBtn').addEventListener('click', () => {
+        if (selectedPiece && selectedPiece.id === 6) {
+            selectedPiece.flipped = !selectedPiece.flipped;
+            render();
+        }
+      });
+
+
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 0) { // Left mouse button
+            const worldX = (e.clientX - W / 2) / camera.zoom + camera.x;
+            const worldY = (e.clientY - H / 2) / camera.zoom + camera.y;
+
+            if (selectedPiece) {
+                const handle = getRotationHandle(selectedPiece);
+                if (Math.hypot(handle.x - worldX, handle.y - worldY) < 12) {
+                    isRotating = true;
+                    draggedPiece = selectedPiece; // to prevent panning
+                    return;
+                }
+            }
+
+            if (selectedPiece) selectedPiece.isSelected = false;
+            
+            const clickedPiece = getPieceAtPoint(worldX, worldY);
+            selectedPiece = clickedPiece;
+
+            if (clickedPiece) {
+                clickedPiece.isSelected = true;
+                draggedPiece = clickedPiece;
+                draggedPiece.isDragging = true;
+                draggedPiece.lastValidX = clickedPiece.x;
+                draggedPiece.lastValidY = clickedPiece.y;
+
+                const maxZ = Math.max(...pieces.map(p => p.zIndex));
+                draggedPiece.zIndex = maxZ + 1;
+
+                dragOffset.x = draggedPiece.x - worldX;
+                dragOffset.y = draggedPiece.y - worldY;
+                
+                canvas.style.cursor = 'grabbing';
+            }
+            updateActionBar();
+            render();
+        } else if (e.button === 1 || e.ctrlKey) { // Middle mouse or Ctrl+Click
+          isPanning = true;
+          lastPan = { x: e.clientX, y: e.clientY };
+          canvas.style.cursor = 'grabbing';
+          e.preventDefault();
+        }
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        const worldX = (e.clientX - W / 2) / camera.zoom + camera.x;
+        const worldY = (e.clientY - H / 2) / camera.zoom + camera.y;
+
+        if (isRotating) {
+            const dx = worldX - selectedPiece.x;
+            const dy = worldY - selectedPiece.y;
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+            selectedPiece.rotation = snapRotation(angle);
+            render();
+        }
+        else if (draggedPiece) {
+            let newX = worldX + dragOffset.x;
+            let newY = worldY + dragOffset.y;
+
+            const snapOffset = findBestVertexSnap({ ...draggedPiece, x: newX, y: newY });
+            newX += snapOffset.dx;
+            newY += snapOffset.dy;
+
+            if (!wouldOverlap(draggedPiece, newX, newY, draggedPiece.rotation)) {
+              draggedPiece.x = newX;
+              draggedPiece.y = newY;
+            }
+            
+            render();
+        } else if (isPanning) {
+          const dx = (e.clientX - lastPan.x) / camera.zoom;
+          const dy = (e.clientY - lastPan.y) / camera.zoom;
+          camera.x -= dx;
+          camera.y -= dy;
+          lastPan = { x: e.clientX, y: e.clientY };
+          render();
+        }
+      });
+
+      canvas.addEventListener('mouseup', (e) => {
+        if (isRotating) {
+            isRotating = false;
+            draggedPiece = null;
+        }
+        if (draggedPiece) {
+            if (wouldOverlap(draggedPiece, draggedPiece.x, draggedPiece.y, draggedPiece.rotation)) {
+                draggedPiece.x = draggedPiece.lastValidX;
+                draggedPiece.y = draggedPiece.lastValidY;
+            } else {
+                draggedPiece.lastValidX = draggedPiece.x;
+                draggedPiece.lastValidY = draggedPiece.y;
+            }
+            draggedPiece.isDragging = false;
+            draggedPiece = null;
+            canvas.style.cursor = 'default';
+            if (checkWin()) {
+                toast("Congratulations! You solved the puzzle!");
+            }
+            saveGameState();
+            render();
+        }
+        if (isPanning) {
+          isPanning = false;
+          canvas.style.cursor = 'default';
+        }
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const worldX = (mouseX - W / 2) / camera.zoom + camera.x;
+        const worldY = (mouseY - H / 2) / camera.zoom + camera.y;
+
+        const pieceUnderMouse = getPieceAtPoint(worldX, worldY);
+        if(e.ctrlKey && pieceUnderMouse) {
+            const step = snapEnabled ? ROT_STEP : FREE_ROT;
+            let newRot = pieceUnderMouse.rotation + (e.deltaY > 0 ? step : -step);
+            newRot = snapRotation(newRot);
+
+            if(!wouldOverlap(pieceUnderMouse, pieceUnderMouse.x, pieceUnderMouse.y, newRot)) {
+                pieceUnderMouse.rotation = newRot;
+                saveGameState();
+                render();
+            }
+            return;
+        }
+
+        const zoomFactor = e.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
+        const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camera.zoom * zoomFactor));
+
+        camera.x = worldX - (mouseX - W / 2) / newZoom;
+        camera.y = worldY - (mouseY - H / 2) / newZoom;
+        camera.zoom = newZoom;
+        
+        document.getElementById('zoomPct').textContent = `${Math.round(camera.zoom * 100)}%`;
+        saveGameState();
+        render();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if(e.key === '?') {
+            document.getElementById('helpModal').classList.toggle('show');
+            return;
+        }
+        if (selectedPiece) {
+            let newRot = selectedPiece.rotation;
+            if (e.key === '[') {
+                newRot -= ROT_STEP;
+            } else if (e.key === ']') {
+                newRot += ROT_STEP;
+            } else if (e.key === 'f' && selectedPiece.id === 6) {
+                selectedPiece.flipped = !selectedPiece.flipped;
+            }
+            
+            newRot = snapRotation(newRot);
+            if (!wouldOverlap(selectedPiece, selectedPiece.x, selectedPiece.y, newRot)) {
+                selectedPiece.rotation = newRot;
+            }
+
+            saveGameState();
+            render();
+        }
+      });
+      
+      // Touch events
+      canvas.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          if (e.touches.length === 1) {
+              const touch = e.touches[0];
+              const event = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY });
+              canvas.dispatchEvent(event);
+          } else if (e.touches.length === 2) {
+              const t1 = e.touches[0];
+              const t2 = e.touches[1];
+              lastTouch.x = (t1.clientX + t2.clientX) / 2;
+              lastTouch.y = (t1.clientY + t2.clientY) / 2;
+              lastTouch.d = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+              isPanning = true;
+          }
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', (e) => {
+          e.preventDefault();
+          if (e.touches.length === 1) {
+              const touch = e.touches[0];
+              const event = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
+              canvas.dispatchEvent(event);
+          } else if (e.touches.length === 2 && isPanning) {
+              const t1 = e.touches[0];
+              const t2 = e.touches[1];
+              const newX = (t1.clientX + t2.clientX) / 2;
+              const newY = (t1.clientY + t2.clientY) / 2;
+              const newD = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+              
+              const dx = (newX - lastTouch.x) / camera.zoom;
+              const dy = (newY - lastTouch.y) / camera.zoom;
+              camera.x -= dx;
+              camera.y -= dy;
+
+              const zoomFactor = newD / lastTouch.d;
+              const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camera.zoom * zoomFactor));
+              camera.zoom = newZoom;
+
+              lastTouch = { x: newX, y: newY, d: newD };
+              render();
+          }
+      }, { passive: false });
+      
+      canvas.addEventListener('touchend', (e) => {
+          const event = new MouseEvent('mouseup', {});
+          canvas.dispatchEvent(event);
+      });
+
+
+      // ── Initialization ──────────────────────────────────────────────
+      resize();
+      loadStateFromURL();
+      populatePuzzleModal();
+    
+    </script>
+  </body>
+</html>

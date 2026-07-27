@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Find the Emoji Game</title>
+    <style>
+      /* --- Themes & Variables --- */
+      :root {
+        --bg-color: #ecf0f1;
+        --hud-bg: rgba(255, 255, 255, 0.95);
+        --card-back: #4a90e2;
+        /* Kid-friendly blue */
+        --card-face: #ffffff;
+        --accent: #d35400;
+        --text: #2c3e50;
+        --border-color: #bdc3c7;
+      }
+
+      body.dark-mode {
+        --bg-color: #2c3e50;
+        --hud-bg: rgba(0, 0, 0, 0.8);
+        --card-back: #9db2bf;
+        /* High-contrast light blue-grey */
+        --accent: #e67e22;
+        --text: #ffffff;
+        --border-color: #526d82;
+        /* Darker border for contrast against new card back */
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        height: 100vh;
+        width: 100vw;
+        /* display: flex and flex-direction removed for absolute positioning */
+        overflow: hidden;
+        user-select: none;
+        transition:
+          background-color 0.3s,
+          color 0.3s;
+        touch-action: none;
+      }
+
+      /* --- Positional Helpers --- */
+      .top-left {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 200;
+      }
+
+      .top-right {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 200;
+      }
+
+      .back-link {
+        background-color: var(--accent);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        transition: transform 0.1s;
+      }
+
+      .back-link:hover {
+        transform: translateY(-2px);
+      }
+
+      /* --- HUD --- */
+      #hud {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        /* Align to right */
+        padding: 10px;
+        background: var(--hud-bg);
+        backdrop-filter: blur(5px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        z-index: 100;
+        gap: 8px;
+        border-radius: 12px;
+        /* Added for aesthetics */
+      }
+
+      .hud-cluster {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(127, 140, 141, 0.15);
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 0.95rem;
+      }
+
+      .hud-cluster span.label {
+        margin-right: 3px;
+        font-size: 1.1rem;
+      }
+
+      .val-display {
+        min-width: 40px;
+        text-align: center;
+        color: var(--accent);
+        font-size: 1.2rem;
+      }
+
+      button {
+        background-color: var(--accent);
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: bold;
+        transition:
+          transform 0.1s,
+          background-color 0.2s,
+          filter 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        filter: brightness(1.1);
+      }
+
+      button:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        filter: grayscale(1);
+      }
+
+      button.ctrl-btn {
+        padding: 4px 8px;
+        font-size: 1.2rem;
+        min-width: 30px;
+        background-color: #7f8c8d;
+      }
+
+      #main-action-btn {
+        background-color: #27ae60;
+        font-size: 1.1rem;
+        padding: 8px 15px;
+        border: 2px solid white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        min-width: 140px;
+      }
+
+      #main-action-btn.shuffling {
+        background-color: #e74c3c;
+        animation: pulse 1s infinite;
+      }
+
+      #reset-btn {
+        background-color: #c0392b;
+        font-size: 1.1rem;
+        padding: 8px 15px;
+        border: 2px solid white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      }
+
+      #theme-btn {
+        background-color: #34495e;
+        margin-left: auto;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+
+        50% {
+          transform: scale(1.05);
+        }
+
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* --- Game Board --- */
+      #game-board {
+        height: 100vh;
+        /* Use full viewport height */
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      /* --- Card Styles (Separated Move vs Flip to fix bugs) --- */
+      .card {
+        position: absolute;
+        top: 0;
+        left: 0;
+        perspective: 1000px;
+        /* 3D effect container */
+        cursor: pointer;
+        /* width, height, and translate(x,y) are applied here via JS */
+      }
+
+      .card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-style: preserve-3d;
+        border-radius: 12px;
+      }
+
+      .card.flipped .card-inner {
+        transform: rotateY(180deg);
+      }
+
+      .face,
+      .back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        border-radius: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+
+      .back {
+        background-image: url("Backside.png");
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-color: white;
+        transform: rotateY(0deg);
+      }
+
+      .face {
+        background-color: var(--card-face);
+        border: 2px solid #bdc3c7;
+        transform: rotateY(180deg);
+      }
+
+      .card-image {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+      }
+
+      /* Guess Mode Styles (Simple Label only) */
+      .label-text {
+        display: none;
+        font-weight: 900;
+        color: #000000;
+        /* Black text as requested */
+        font-family: Arial, sans-serif;
+        text-shadow: none;
+        position: absolute;
+        top: 20px;
+        /* Position inside card */
+        right: 40px;
+        /* Position inside card */
+        transform: none;
+        /* Remove centering */
+        z-index: 1;
+      }
+
+      .card.guess-mode .label-text {
+        display: block;
+      }
+
+      /* --- Toast Notification --- */
+      #toast {
+        visibility: hidden;
+        min-width: 250px;
+        background-color: #333;
+        color: #fff;
+        text-align: center;
+        border-radius: 8px;
+        padding: 16px;
+        position: fixed;
+        z-index: 1001;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 30px;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      #toast.show {
+        visibility: visible;
+        animation:
+          toast-fadein 0.5s,
+          toast-fadeout 0.5s 2.5s;
+      }
+
+      #toast.win {
+        background-color: #27ae60;
+      }
+
+      #toast.lose {
+        background-color: #c0392b;
+      }
+
+      @keyframes toast-fadein {
+        from {
+          bottom: 0;
+          opacity: 0;
+        }
+
+        to {
+          bottom: 30px;
+          opacity: 1;
+        }
+      }
+
+      @keyframes toast-fadeout {
+        from {
+          bottom: 30px;
+          opacity: 1;
+        }
+
+        to {
+          bottom: 0;
+          opacity: 0;
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 768px) {
+        #hud {
+          padding: 5px;
+          gap: 4px;
+        }
+
+        .hud-cluster {
+          padding: 4px 6px;
+          font-size: 0.8rem;
+        }
+
+        button {
+          font-size: 0.9rem;
+          padding: 4px 8px;
+        }
+
+        .val-display {
+          font-size: 1rem;
+          min-width: 20px;
+        }
+
+        .message-overlay {
+          font-size: 2rem;
+        }
+
+        /* --- Victory Panel --- */
+        #victory-panel {
+            position: fixed;
+            bottom: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: var(--hud-bg);
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 2000;
+            transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            border: 4px solid var(--accent);
+        }
+
+        #victory-panel.show {
+            bottom: 40px;
+            pointer-events: auto;
+        }
+
+        .vic-btn {
+            font-size: 1.4rem;
+            padding: 15px 30px;
+            border-radius: 30px;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+
+        .vic-home { background-color: #e74c3c; }
+        .vic-restart { background-color: #27ae60; }
+        
+        body.dark-mode #victory-panel {
+            border-color: #f1c40f;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <a href="index.html" class="top-left back-link">&lt; Back</a>
+
+    <div class="top-right">
+      <div id="hud">
+        <div class="hud-cluster">
+          <span class="label">🎯</span>
+          <button class="ctrl-btn" onclick="adjEmoji(-1)">‹</button>
+          <span class="val-display" id="val-emoji">🦁</span>
+          <button class="ctrl-btn" onclick="adjEmoji(1)">›</button>
+        </div>
+        <div class="hud-cluster">
+          <span class="label">🃏</span>
+          <button class="ctrl-btn" onclick="adjConfig('cards', -1)">-</button>
+          <span class="val-display" id="val-cards">4</span>
+          <button class="ctrl-btn" onclick="adjConfig('cards', 1)">+</button>
+        </div>
+        <div class="hud-cluster">
+          <span class="label">⚡</span>
+          <button class="ctrl-btn" onclick="adjConfig('speed', -1)">-</button>
+          <span class="val-display" id="val-speed">3</span>
+          <button class="ctrl-btn" onclick="adjConfig('speed', 1)">+</button>
+        </div>
+        <div class="hud-cluster">
+          <span class="label">🔄</span>
+          <button class="ctrl-btn" onclick="adjConfig('swaps', -1)">-</button>
+          <span class="val-display" id="val-swaps">10</span>
+          <button class="ctrl-btn" onclick="adjConfig('swaps', 1)">+</button>
+        </div>
+        <div class="hud-cluster">
+          <span class="label">🔍</span>
+          <button class="ctrl-btn" onclick="adjZoom(-0.1)">-</button>
+          <span class="val-display" id="val-zoom">100%</span>
+          <button class="ctrl-btn" onclick="adjZoom(0.1)">+</button>
+        </div>
+
+        <button id="main-action-btn" onclick="handleMainAction()">
+          Start Game
+        </button>
+        <button id="reset-btn" onclick="resetGame()">Reset</button>
+        <button id="theme-btn" onclick="toggleTheme()">🌙</button>
+      </div>
+    </div>
+
+    <div id="game-board"></div>
+
+    <div id="toast"></div>
+
+    <div id="victory-panel">
+        <button class="vic-btn vic-home" onclick="window.location.href='index.html'">🏠 Home</button>
+        <button class="vic-btn vic-restart" onclick="resetGame()">↺ Play Again</button>
+    </div>
+
+    <script>
+      // --- State & Config ---
+
+      const emojis = [
+        "CBAS.png",
+        "👻",
+        "👽",
+        "👑",
+        "💎",
+        "🍎",
+        "🚀",
+        "🐶",
+        "🦄",
+        "🐸",
+      ];
+
+      let emojiIdx = 0;
+
+      let zoomMultiplier = 1.0;
+
+      let config = { cards: 4, speed: 3, swaps: 10, target: emojis[emojiIdx] };
+
+      const limits = { cards: [3, 10], speed: [1, 10], swaps: [5, 30] };
+
+      // Animation time for a single swap
+
+      const speedMap = {
+        1: 650,
+        2: 550,
+        3: 450,
+        4: 350,
+        5: 250,
+        6: 200,
+        7: 150,
+        8: 120,
+        9: 100,
+        10: 80,
+      };
+
+      // Delay *between* swaps
+
+      const delayMap = {
+        1: 200,
+        2: 150,
+        3: 100,
+        4: 50,
+        5: 0,
+        6: 0,
+        7: 0,
+        8: 0,
+        9: 0,
+        10: 0,
+      };
+
+      let gameState = "idle"; // idle -> revealed -> shuffling -> guessing -> ended
+
+      let cardObjects = [];
+      let guessesLeft = 0;
+      let isDarkMode = false;
+
+      // --- DOM Elements ---
+
+      const board = document.getElementById("game-board");
+
+      const mainBtn = document.getElementById("main-action-btn");
+
+      const toastEl = document.getElementById("toast");
+
+      // --- Initialization ---
+
+      function initUI() {
+        document.getElementById("val-cards").innerText = config.cards;
+
+        document.getElementById("val-speed").innerText = config.speed;
+
+        document.getElementById("val-swaps").innerText = config.swaps;
+
+        document.getElementById("val-zoom").innerText =
+          `${Math.round(zoomMultiplier * 100)}%`;
+
+        const emojiDisplay = document.getElementById("val-emoji");
+
+        const currentTarget = config.target;
+
+        if (currentTarget.endsWith(".png")) {
+          emojiDisplay.innerHTML = `<img src="${currentTarget}" style="height: 1.5rem; vertical-align: middle;">`;
+        } else {
+          emojiDisplay.innerText = currentTarget;
+        }
+      }
+
+      function showToast(message, type) {
+        toastEl.innerText = message;
+
+        toastEl.className = `show ${type}`; // type is 'win' or 'lose'
+
+        setTimeout(() => {
+          toastEl.className = toastEl.className.replace("show", "");
+        }, 2900);
+      }
+
+      function toggleTheme() {
+        isDarkMode = !isDarkMode;
+
+        document.body.classList.toggle("dark-mode", isDarkMode);
+
+        document.getElementById("theme-btn").innerText = isDarkMode
+          ? "☀️"
+          : "🌙";
+      }
+
+      function adjZoom(delta) {
+        if (gameState === "shuffling") return; // Don't allow zoom during shuffle
+
+        zoomMultiplier = Math.max(0.5, Math.min(2.0, zoomMultiplier + delta));
+
+        initUI();
+
+        layoutCards();
+      }
+
+      function adjEmoji(delta) {
+        if (
+          gameState === "shuffling" ||
+          gameState === "guessing" ||
+          gameState === "ended"
+        )
+          return;
+
+        emojiIdx = (emojiIdx + delta + emojis.length) % emojis.length;
+
+        config.target = emojis[emojiIdx];
+
+        initUI();
+
+        resetGame(); // Regenerate board with new emoji
+      }
+
+      function adjConfig(key, delta) {
+        // Allow changes before Shuffle (idle or revealed states)
+
+        if (
+          gameState === "shuffling" ||
+          gameState === "guessing" ||
+          gameState === "ended"
+        )
+          return;
+
+        config[key] = Math.max(
+          limits[key][0],
+          Math.min(limits[key][1], config[key] + delta),
+        );
+
+        initUI();
+
+        // If changing amount of cards, we must completely rebuild the board
+
+        if (key === "cards") {
+          resetGame();
+        }
+      }
+
+      // --- Core Game Logic ---
+
+      function setupBoard() {
+        board.innerHTML = "";
+
+        cardObjects = [];
+
+        const targetIndex = Math.floor(Math.random() * config.cards);
+
+        for (let i = 0; i < config.cards; i++) {
+          const isTarget = i === targetIndex;
+
+          const el = document.createElement("div");
+
+          el.className = "card";
+
+          let faceContent;
+
+          if (isTarget) {
+            if (config.target.endsWith(".png")) {
+              faceContent = `<img src="${config.target}" class="card-image">`;
+            } else {
+              faceContent = config.target;
+            }
+          } else {
+            faceContent = "❌";
+          }
+
+          // Separated into .card-inner to fix jumping animation!
+
+          el.innerHTML = `
+
+
+
+                <div class="card-inner">
+
+
+
+                    <div class="back"><span class="label-text"></span></div>
+
+
+
+                    <div class="face">${faceContent}</div>
+
+
+
+                </div>
+
+
+
+            `;
+
+          el.addEventListener("click", () => handleCardClick(i));
+
+          board.appendChild(el);
+
+          cardObjects.push({
+            id: i,
+
+            el: el,
+
+            pos: i,
+
+            isTarget: isTarget,
+          });
+        }
+
+        requestAnimationFrame(() => layoutCards());
+      }
+
+      // Layout positions ONLY. Does not touch rotate logic.
+
+      function layoutCards(animatingIdx1 = -1, animatingIdx2 = -1) {
+        const boardRect = board.getBoundingClientRect();
+
+        if (boardRect.width === 0 || boardRect.height === 0) return;
+
+        const padding = 20;
+
+        const gap = 30;
+
+        const availableW = boardRect.width - padding * 2;
+
+        const availableH = boardRect.height - padding * 2;
+
+        let bestCardW = 60,
+          bestCardH = 84,
+          bestCols = 1,
+          bestRows = config.cards;
+
+        for (let cols = 1; cols <= config.cards; cols++) {
+          let rows = Math.ceil(config.cards / cols);
+
+          let maxW = (availableW - (cols - 1) * gap) / cols;
+
+          let maxH = (availableH - (rows - 1) * gap) / rows;
+
+          let w = maxW;
+
+          let h = w * 1.4;
+
+          if (h > maxH) {
+            h = maxH;
+
+            w = h / 1.4;
+          }
+
+          if (w > bestCardW) {
+            bestCardW = w;
+            bestCardH = h;
+
+            bestCols = cols;
+            bestRows = rows;
+          }
+        }
+
+        bestCardW = Math.min(
+          bestCardW,
+          (window.innerWidth > 800 ? 240 : 180) * zoomMultiplier,
+        );
+
+        bestCardH = bestCardW * 1.4;
+
+        const gridW = bestCols * bestCardW + (bestCols - 1) * gap;
+
+        const gridH = bestRows * bestCardH + (bestRows - 1) * gap;
+
+        const startX = (boardRect.width - gridW) / 2;
+
+        const startY = (boardRect.height - gridH) / 2;
+
+        const animTime = speedMap[config.speed];
+
+        cardObjects.forEach((obj) => {
+          const c = obj.pos % bestCols;
+
+          const r = Math.floor(obj.pos / bestCols);
+
+          const x = startX + c * (bestCardW + gap);
+
+          const y = startY + r * (bestCardH + gap);
+
+          // Set size on .card
+
+          obj.el.style.width = `${bestCardW}px`;
+
+          obj.el.style.height = `${bestCardH}px`;
+
+          const faceEl = obj.el.querySelector(".face");
+
+          // Adjust font sizes OR ensure image container is correct
+
+          if (faceEl.querySelector(".card-image")) {
+            faceEl.style.fontSize = ""; // clear font size for image cards
+          } else {
+            faceEl.style.fontSize = `${bestCardW * 0.5}px`;
+          }
+
+          obj.el.querySelector(".label-text").style.fontSize =
+            `${bestCardW * 0.25}px`;
+
+          // Transition strictly for moving (x/y/scale)
+
+          obj.el.style.transition = `transform ${animTime}ms cubic-bezier(0.4, 0.0, 0.2, 1), z-index 0s`;
+
+          let scale = 1,
+            zIdx = 10,
+            rotation = "0deg";
+
+          if (obj.pos === animatingIdx1) {
+            scale = 1.2;
+            zIdx = 50;
+            rotation = "5deg";
+          } else if (obj.pos === animatingIdx2) {
+            scale = 0.8;
+            zIdx = 5;
+            rotation = "-5deg";
+          }
+
+          // ONLY apply translate and scale to outer container.
+
+          obj.el.style.transform = `translate(${x}px, ${y}px) scale(${scale}) rotate(${rotation})`;
+
+          obj.el.style.zIndex = zIdx;
+
+          // Manage guess labels
+
+          if (gameState === "guessing") {
+            obj.el.classList.add("guess-mode");
+
+            obj.el.querySelector(".label-text").innerText = String.fromCharCode(
+              65 + obj.pos,
+            ); // A, B, C, D...
+          } else {
+            obj.el.classList.remove("guess-mode");
+          }
+        });
+      }
+
+      window.addEventListener("resize", () => {
+        if (cardObjects.length) layoutCards();
+      });
+
+      // --- State Machine Actions ---
+
+      function handleMainAction() {
+        if (gameState === "idle") {
+          // Flip to reveal
+
+          gameState = "revealed";
+
+          mainBtn.innerText = "Shuffle!";
+
+          mainBtn.style.backgroundColor = "#e67e22";
+
+          cardObjects.forEach((c) => c.el.classList.add("flipped"));
+        } else if (gameState === "revealed") {
+          // Start Shuffle sequence
+
+          gameState = "shuffling";
+
+          mainBtn.innerText = "Shuffling...";
+
+          mainBtn.classList.add("shuffling");
+
+          mainBtn.disabled = true;
+
+          showToast("Shuffling...");
+
+          cardObjects.forEach((c) => c.el.classList.remove("flipped"));
+
+          // Wait 600ms for cards to visually finish turning over before moving
+
+          setTimeout(startShuffleSequence, 600);
+        }
+      }
+
+      async function startShuffleSequence() {
+        const animTime = speedMap[config.speed];
+
+        const swapDelay = delayMap[config.speed];
+
+        for (let i = 0; i < config.swaps; i++) {
+          if (gameState !== "shuffling") return; // Cancel if reset button hit mid-shuffle
+
+          let p1 = Math.floor(Math.random() * config.cards);
+
+          let p2 = Math.floor(Math.random() * config.cards);
+
+          while (p1 === p2) p2 = Math.floor(Math.random() * config.cards);
+
+          let c1 = cardObjects.find((c) => c.pos === p1);
+
+          let c2 = cardObjects.find((c) => c.pos === p2);
+
+          c1.pos = p2;
+
+          c2.pos = p1;
+
+          layoutCards(p2, p1);
+
+          // Wait for animation to finish, then wait for the inter-swap delay
+
+          await new Promise((r) => setTimeout(r, animTime));
+
+          if (swapDelay > 0) {
+            await new Promise((r) => setTimeout(r, swapDelay));
+          }
+        }
+
+        if (gameState !== "shuffling") return;
+
+        // End Shuffle
+
+        gameState = "guessing";
+        guessesLeft = config.cards < 6 ? 2 : 3;
+        mainBtn.innerText = "Call a Letter!";
+
+        mainBtn.classList.remove("shuffling");
+
+        mainBtn.style.backgroundColor = "#9b59b6";
+
+        layoutCards(); // Resets scale/rotation and triggers the A,B,C,D labels to appear
+
+        showToast("Find the special card!");
+      }
+
+      function handleCardClick(id) {
+        if (gameState !== "guessing") return;
+
+        const clickedCard = cardObjects.find((c) => c.id === id);
+        if (clickedCard.el.classList.contains("flipped")) return; // Don't allow re-clicking a flipped card
+
+        // Flip the guessed card
+        clickedCard.el.classList.add("flipped");
+
+        if (clickedCard.isTarget) {
+          gameState = "ended";
+          setTimeout(() => {
+            showToast("Congrat!", "win");
+            document.getElementById('victory-panel').classList.add('show');
+          }, 600);
+        } else {
+          guessesLeft--;
+          if (guessesLeft > 0) {
+            // Still have guesses left
+            setTimeout(() => {
+              showToast(`Wrong! ${guessesLeft} guesses left.`, "lose");
+            }, 600);
+          } else {
+            // No guesses left, game over
+            gameState = "ended";
+            setTimeout(() => {
+              showToast("Wrong!", "lose");
+
+              // Flip over the real answer
+              const realTarget = cardObjects.find((c) => c.isTarget);
+              setTimeout(() => {
+                if (realTarget) realTarget.el.classList.add("flipped");
+                document.getElementById('victory-panel').classList.add('show');
+              }, 300);
+            }, 600);
+          }
+        }
+      }
+
+      // Attached to Reset Button and Play Again
+
+      function resetGame() {
+        gameState = "idle";
+
+        toastEl.className = toastEl.className.replace("show", "");
+
+        mainBtn.innerText = "Start Game";
+
+        mainBtn.style.backgroundColor = "#27ae60";
+
+        mainBtn.disabled = false;
+
+        mainBtn.classList.remove("shuffling");
+
+        const vp = document.getElementById('victory-panel');
+        if (vp) vp.classList.remove('show');
+
+        setupBoard();
+      }
+
+      // --- Boot ---
+
+      initUI();
+
+      setupBoard();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Hide and Seek Chicks 🐤</title>
+<style>
+*, *::before, *::after {
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select { touch-action: manipulation; }
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+:root {
+  --grass1: #7ecb3e;
+  --grass2: #5aaa25;
+  --grass3: #4a9020;
+  --soil:   #8B6914;
+  --sky:    #b4e0ff;
+  --panel-bg: rgba(255,255,255,0.92);
+  --status-bg: #f0f0f0;
+  --yellow-val: #ffe033;
+  --radius: 12px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Nunito', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  background: #fff;
+}
+
+/* ========================
+   LOADING OVERLAY
+======================== */
+#loadingOverlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #f0f0f0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  color: #555;
+  transition: opacity 0.5s ease;
+}
+#loadingOverlay img { margin-bottom: 15px; width: 80px; height: 80px; object-fit: contain; }
+#loadingOverlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.loading-text {
+  margin-top: 20px;
+  font-size: 20px;
+  font-weight: 600;
+}
+.loading-spinner {
+  width: 50px; height: 50px;
+  border: 5px solid rgba(0,0,0,0.15);
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+.progress-bar-container {
+  width: 200px;
+  height: 10px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 5px;
+  margin-top: 15px;
+  overflow: hidden;
+}
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #666;
+  border-radius: 5px;
+  transition: width 0.2s ease-out;
+}
+.progress-percent {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========================
+   GAME ZONE
+======================== */
+#gameZone {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: calc(100% - 52px);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+
+
+/* ========================
+   CONTROL PANEL (top-right)
+======================== */
+#controlPanel {
+  position: absolute;
+  top: 10px; right: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  max-width: calc(100vw - 20px);
+  padding: 2px 5px;
+}
+
+.ctrl-btn {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel-bg);
+  border: 2px solid rgba(0,0,0,0.18);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.8);
+  transition: transform .1s, background .12s;
+  white-space: nowrap;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.ctrl-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transition: left 0.6s;
+}
+
+.ctrl-btn:hover {
+  background: #fff9cc;
+  transform: scale(1.04);
+  z-index: 1;
+}
+
+.ctrl-btn:hover::before {
+  left: 100%;
+}
+
+.ctrl-btn:active { transform: scale(.93); }
+.ctrl-btn.active { background: #b6f0b0; border-color: #3a9a3a; }
+.ctrl-btn.btn-start { background: #d4f7c0; border-color: #5aaa25; font-weight: 700; }
+.ctrl-btn.btn-start.playing  { background: #ffd4a0; border-color: #cc7700; }
+.ctrl-btn.btn-start.result   { background: #ffe0e0; border-color: #cc2200; animation: resultPulse .9s ease-in-out infinite alternate; }
+.ctrl-btn.btn-start.next     { background: #d0e8ff; border-color: #2266cc; }
+@keyframes resultPulse {
+  0%   { box-shadow: 0 0 0 rgba(220,50,0,0); }
+  100% { box-shadow: 0 0 10px rgba(220,50,0,0.45); }
+}
+/* +/- number widget */
+.num-widget {
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.num-widget .nw-label {
+  font-size: 10px; color: #666; white-space: nowrap; margin-right: 1px;
+}
+.num-widget .nw-val {
+  min-width: 24px; text-align: center;
+  font-size: 12px; font-weight: 700; color: #222;
+  background: #fff; border: 1.5px solid #ccc; border-radius: 5px;
+  padding: 2px 3px; line-height: 1.35;
+}
+.num-widget .nw-btn {
+  background: var(--panel-bg);
+  border: 2px solid rgba(0,0,0,0.18);
+  border-radius: 6px;
+  width: 22px; height: 24px;
+  font-size: 15px; font-weight: 900; color: #333;
+  cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .1s, transform .1s;
+  flex-shrink: 0; padding: 0;
+}
+.num-widget .nw-btn:hover  { background: #fff9cc; transform: scale(1.1); }
+.num-widget .nw-btn:active { transform: scale(.88); }
+.ctrl-sep { width: 1px; height: 22px; background: rgba(0,0,0,0.12); flex-shrink: 0; margin: 0 2px; }
+
+/* ========================
+   STATUS BAR (bottom)
+======================== */
+#statusBar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 52px;
+  background: var(--status-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 8px;
+  z-index: 500;
+  border-top: 2px solid rgba(0,0,0,0.1);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.status-item {
+  color: #444;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.status-item:hover { background: rgba(0,0,0,0.08); }
+
+.status-val {
+  font-weight: 800;
+  color: #e67e00;
+  font-family: 'Nunito', sans-serif;
+  transition: opacity .25s;
+  min-width: 1em;
+}
+.status-val.hidden-val { opacity: 0; }
+
+.status-divider {
+  width: 1px; height: 28px;
+  background: rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+/* ========================
+   ZONE (Mode 1)
+======================== */
+.zone {
+  position: absolute;
+  border-radius: 20px;
+  border: 3px dashed rgba(0,0,0,0.2);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+  font-size: clamp(14px, 2.5vw, 26px);
+  letter-spacing: 1px;
+  color: rgba(0,0,0,0.7);
+  text-shadow: none;
+  z-index: 2;
+  transition: all .4s ease;
+  pointer-events: none;
+}
+.zone.red    { background: rgba(210,40,40,0.12); border-color: rgba(210,40,40,0.4); }
+.zone.blue   { background: rgba(40,80,210,0.12); border-color: rgba(40,80,210,0.4); }
+.zone.yellow { background: rgba(200,160,0,0.12); border-color: rgba(200,160,0,0.4); }
+.zone .zone-label {
+  background: rgba(0,0,0,0.1);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.9em;
+  transition: opacity 0.3s;
+}
+.zone .zone-count {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3em;
+  font-weight: 900;
+  opacity: 0;
+  transition: opacity .5s .3s;
+  border-radius: 14px;
+  padding: 2px 16px;
+  letter-spacing: -1px;
+}
+.zone .zone-count.visible { opacity: 1; }
+.zone:has(.zone-count.visible) .zone-label { opacity: 0; }
+.zone.red   .zone-count { color: #c0000f; background: rgba(255,255,255,0.82); box-shadow: 0 2px 8px rgba(192,0,15,0.18); }
+.zone.blue  .zone-count { color: #0035b5; background: rgba(255,255,255,0.82); box-shadow: 0 2px 8px rgba(0,53,181,0.18); }
+.zone.yellow .zone-count { color: #7a5c00; background: rgba(255,255,255,0.82); box-shadow: 0 2px 8px rgba(122,92,0,0.18); }
+
+/* ========================
+   BRUSH / FLOWER (Mode 2)
+======================== */
+.brush {
+  position: absolute;
+  z-index: 20;
+  cursor: default;
+  transition: transform .2s;
+}
+.brush img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(2px 6px 8px rgba(0,0,0,0.3));
+  transition: transform .3s, opacity .4s;
+  pointer-events: none;
+  position: relative;
+  z-index: 20;
+}
+/* Brush count is now direct child of GZ */
+.brush-count {
+  position: absolute;
+  /* top/left set via JS */
+  transform: translateX(-50%);
+  font-size: 2.4em;
+  font-weight: 900;
+  color: #1a1a1a;
+  background: rgba(255,255,255,0.94);
+  border: 2.5px solid rgba(0,0,0,0.13);
+  border-radius: 12px;
+  padding: 0 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.13);
+  opacity: 0;
+  transition: opacity .4s;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+.brush.reveal-mode {
+  cursor: pointer;
+  animation: brushPulse .7s ease-in-out infinite alternate;
+}
+@keyframes brushPulse {
+  0%   { filter: drop-shadow(0 0 0 rgba(255,255,100,0)); transform: scale(1); }
+  100% { filter: drop-shadow(0 0 14px rgba(255,220,0,0.8)); transform: scale(1.06); }
+}
+.brush.revealed img {
+  animation: brushFly .55s cubic-bezier(.4,1.5,.6,1) forwards;
+}
+@keyframes brushFly {
+  0%   { transform: scale(1) translateY(0); opacity: 1; }
+  40%  { transform: scale(1.15) translateY(-25px) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(0.3) translateY(-80px) rotate(20deg); opacity: 0; }
+}
+
+/* ========================
+   CHICK SPRITE
+======================== */
+.chick {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+  will-change: transform, left, top;
+  transition: left .016s linear, top .016s linear;
+}
+.chick img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+.chick.behind-brush  { z-index: 15; opacity: 1; }
+.chick.fully-hidden  { opacity: 0; z-index: 15; }
+.chick.celebrating   { animation: celebrate 1s cubic-bezier(.5,0,.5,1) infinite; }
+@keyframes celebrate {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-25px) scale(1.05); }
+}
+.chick.pop-in { animation: popIn .35s cubic-bezier(.34,1.56,.64,1); }
+@keyframes popIn {
+  0%   { transform: scale(0) rotate(-20deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ========================
+   OVERLAY ANNOUNCEMENTS
+======================== */
+#announcement {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  font-size: clamp(28px, 5vw, 56px);
+  font-weight: 900;
+  color: #333;
+  text-shadow: 1px 2px 6px rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.92);
+  border: 3px solid rgba(0,0,0,0.1);
+  backdrop-filter: blur(6px);
+  padding: 16px 36px;
+  border-radius: 24px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 800;
+  transition: opacity .3s, transform .3s;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+#announcement.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* ========================
+   TIMER URGENT
+======================== */
+.timer-urgent {
+  color: #ff5555 !important;
+  animation: timerFlash .5s ease-in-out infinite alternate;
+}
+@keyframes timerFlash {
+  0%   { opacity: 1; }
+  100% { opacity: 0.45; }
+}
+
+/* ========================
+   CHICK LINE INDICATOR
+======================== */
+#lineupLabel {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(14px, 2.2vw, 22px);
+  color: rgba(60,40,10,0.7);
+  background: rgba(255,255,255,0.82);
+  border: 1.5px solid rgba(0,0,0,0.1);
+  border-radius: 20px;
+  padding: 4px 18px;
+  text-shadow: none;
+  pointer-events: none;
+  z-index: 50;
+  transition: opacity .5s;
+  white-space: nowrap;
+}
+
+/* ========================
+   SCROLLBAR HIDE
+======================== */
+#statusBar::-webkit-scrollbar { display: none; }
+#controlPanel::-webkit-scrollbar { display: none; }
+
+/* ========================
+   ZOOM WRAPPER & INDICATOR
+======================== */
+#gzInner {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform-origin: 0 0;
+}
+#zoomIndicator {
+  position: absolute;
+  bottom: 62px; right: 10px;
+  background: rgba(255,255,255,0.92);
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #555;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s;
+  z-index: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+#zoomIndicator.visible { opacity: 1; }
+
+/* ========================
+   HELP MODAL
+======================== */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; }
+.modal-content {
+  background: #fff;
+  width: 90%; max-width: 1000px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 20px;
+  padding: 40px;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #333;
+}
+.modal-close {
+  position: absolute;
+  top: 20px; right: 20px;
+  background: #eee;
+  border: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.2s;
+}
+.modal-close:hover { background: #ddd; color: #000; }
+.help-section { margin-bottom: 30px; }
+.help-section h3 {
+  font-size: 1.5rem;
+  color: #e67e00;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 8px;
+}
+.help-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.help-list li {
+  background: #f9f9f9;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+.help-list strong { color: #444; display: inline-block; width: 140px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <img src="./chick/Y-Front.png" alt="Loading Chick">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading Assets...</div>
+  <div class="progress-bar-container">
+    <div class="progress-bar"></div>
+  </div>
+  <div class="progress-percent">0%</div>
+</div>
+
+<!-- GAME ZONE -->
+<div id="gameZone">
+  <div id="gzInner">
+    <div id="lineupLabel">← Count the chicks! →</div>
+  </div>
+</div>
+<div id="zoomIndicator">🔍 100% · drag to pan</div>
+
+<!-- ANNOUNCEMENT OVERLAY -->
+<div id="announcement"></div>
+
+<!-- CONTROL PANEL (top-right, single row) -->
+<div id="controlPanel">
+  <button class="ctrl-btn btn-start" id="btnStart">▶ Start</button>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" id="btnPause">⏸</button>
+  <button class="ctrl-btn" id="btnReset">🔄</button>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" id="btnMode">🎮 Count</button>
+  <button class="ctrl-btn" id="btnBlack">🌑 OFF</button>
+  <div class="ctrl-sep"></div>
+  <!-- Chicks +/- -->
+  <div class="num-widget">
+    <span class="nw-label">🐤</span>
+    <button class="nw-btn" id="btnChickMinus">−</button>
+    <span class="nw-val" id="lblChickCount">6</span>
+    <button class="nw-btn" id="btnChickPlus">+</button>
+  </div>
+  <div class="ctrl-sep"></div>
+  <!-- Speed +/- -->
+  <div class="num-widget">
+    <span class="nw-label">⚡</span>
+    <button class="nw-btn" id="btnSpeedMinus">−</button>
+    <span class="nw-val" id="lblSpeed">3</span>
+    <button class="nw-btn" id="btnSpeedPlus">+</button>
+  </div>
+  <div class="ctrl-sep"></div>
+  <!-- Timer +/- -->
+  <div class="num-widget">
+    <span class="nw-label">⏱</span>
+    <button class="nw-btn" id="btnTimerMinus">−</button>
+    <span class="nw-val" id="lblTimer">10</span>
+    <button class="nw-btn" id="btnTimerPlus">+</button>
+  </div>
+  <div class="ctrl-sep"></div>
+  <!-- Brushes +/- -->
+  <div class="num-widget" id="brushWidget">
+    <span class="nw-label">🌼</span>
+    <button class="nw-btn" id="btnBrushMinus">−</button>
+    <span class="nw-val" id="lblBrushCount">2</span>
+    <button class="nw-btn" id="btnBrushPlus">+</button>
+  </div>
+  <div class="num-widget" id="zoneWidget">
+    <span class="nw-label">🎨</span>
+    <button class="nw-btn" id="btnZoneMinus">−</button>
+    <span class="nw-val" id="lblZoneCount">2</span>
+    <button class="nw-btn" id="btnZonePlus">+</button>
+  </div>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" id="btnFullscreen">⛶</button>
+  <button class="ctrl-btn" id="btnResetView" title="Toggle Auto Zoom">🔍 Auto</button>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" id="btnHelp">❓</button>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" id="btnHome">🏠 Home</button>
+</div>
+
+<!-- STATUS BAR (bottom) -->
+<div id="statusBar">
+  <div class="status-item" id="si-chicks"  title="Click to show/hide">🐤 <span class="status-val" id="sv-chicks">6</span></div>
+  <div class="status-divider"></div>
+  <div class="status-item" id="si-speed"   title="Click to show/hide">⚡ <span class="status-val" id="sv-speed">3</span></div>
+  <div class="status-divider"></div>
+  <div class="status-item" id="si-black"   title="Click to show/hide">🌑 <span class="status-val" id="sv-black">OFF</span></div>
+  <div class="status-divider"></div>
+  <div class="status-item" id="si-mode"    title="Click to show/hide">🎮 <span class="status-val" id="sv-mode">Count</span></div>
+  <div class="status-divider"></div>
+  <div class="status-item" id="si-timer"   title="Click to show/hide">⏱ <span class="status-val" id="sv-timer">10</span></div>
+  <div class="status-divider"></div>
+  <div class="status-item" id="si-autozoom" title="Click to toggle Auto Zoom">🔍 <span class="status-val" id="sv-autozoom">ON</span></div>
+</div>
+
+<!-- HELP MODAL -->
+<div id="helpModal" class="modal-overlay">
+  <div class="modal-content">
+    <button class="modal-close" id="btnCloseHelp">×</button>
+    <h2 style="text-align:center; margin-bottom:30px; font-size:2rem; color:#444;">🐣 How to Play</h2>
+    
+    <div class="help-section">
+      <h3>🎮 Game Modes</h3>
+      <p><strong>Count Mode:</strong> Chicks wander around freely. When the timer ends, they run to colored zones. Count how many are in each zone!</p>
+      <p style="margin-top:10px;"><strong>Hide Mode:</strong> Chicks gather at flowers and hide. Watch carefully as they switch places! When the timer ends, tap flowers to reveal them.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>🕹️ Controls</h3>
+      <ul class="help-list">
+        <li><strong>▶ Start:</strong> Begin the round.</li>
+        <li><strong>⏸ Pause:</strong> Freeze the game.</li>
+        <li><strong>🔄 Reset:</strong> Restart the round.</li>
+        <li><strong>🎮/🌿 Mode:</strong> Switch game modes.</li>
+        <li><strong>🌑 Black Mode:</strong> Toggle black chicks.</li>
+        <li><strong>🐤/⚡/⏱:</strong> Adjust chicks, speed, timer.</li>
+        <li><strong>🌼/🎨:</strong> Adjust hiding spots or zones.</li>
+        <li><strong>🔍 Auto:</strong> Toggle auto-zoom.</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>📊 Status Bar</h3>
+      <p>Click items at the bottom to hide/show their values (useful for hiding the timer or chick count from students!).</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================
+   ASSETS
+================================================ */
+const A = {
+  yFront:'./chick/Y-Front.png', yFlap:'./chick/Y-Front-Flap.png',
+  yLeft:'./chick/Y-Left.png',   yRight:'./chick/Y-Right.png',
+  bFront:'./chick/B-Front.png', bFlap:'./chick/B-Front-Flap.png',
+  bLeft:'./chick/B-Left.png',   bRight:'./chick/B-Right.png',
+  flRed:'./chick/Red_Flower.png', flBlue:'./chick/Blue_Flower.png',
+  flYellow:'./chick/Yellow_Flower.png',
+  rooster:'./audio/rooster_crow.mp3',
+};
+
+/* ================================================
+   AUDIO
+================================================ */
+let _actx = null;
+function getACtx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  return _actx;
+}
+function playChip() {
+  try {
+    const c = getACtx();
+    const o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.frequency.setValueAtTime(700 + Math.random()*500, c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(350, c.currentTime + .12);
+    g.gain.setValueAtTime(.12, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, c.currentTime + .14);
+    o.start(); o.stop(c.currentTime + .14);
+  } catch(e) {}
+}
+function playCelebration() {
+  try {
+    const c = getACtx();
+    [523,659,784,1047].forEach((f,i) => {
+      const t = c.currentTime + i * .11;
+      const o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.frequency.value = f;
+      g.gain.setValueAtTime(.14, t);
+      g.gain.exponentialRampToValueAtTime(.001, t + .22);
+      o.start(t); o.stop(t + .25);
+    });
+  } catch(e) {}
+}
+let _roosterEl = null;
+function playRooster() {
+  if (!_roosterEl) { _roosterEl = new Audio(A.rooster); }
+  try {
+    _roosterEl.currentTime = 0;
+    _roosterEl.play().catch(()=> {
+      // fallback buzz
+      try {
+        const c = getACtx();
+        [0,.18,.36].forEach(t => {
+          const o = c.createOscillator(), g = c.createGain();
+          o.connect(g); g.connect(c.destination);
+          o.type = 'sawtooth';
+          o.frequency.setValueAtTime(180, c.currentTime+t);
+          o.frequency.exponentialRampToValueAtTime(350, c.currentTime+t+.22);
+          g.gain.setValueAtTime(.25, c.currentTime+t);
+          g.gain.exponentialRampToValueAtTime(.001, c.currentTime+t+.35);
+          o.start(c.currentTime+t); o.stop(c.currentTime+t+.38);
+        });
+      } catch(e2){}
+    });
+  } catch(e){}
+}
+
+/* ================================================
+   GAME STATE
+================================================ */
+const STATE = {
+  mode: 'count',
+  phase: 'idle',          // 'idle' | 'running' | 'waiting_result' | 'result'
+  paused: false,
+  chickTotal: 10,
+  blackMode: false,
+  speedLevel: 5,
+  timerDuration: 10,
+  timerRemaining: 10,
+  brushCount: 2,
+  zoneCount: 2,
+  lastZoneSplit: '',
+  lastBrushSplit: '',
+  zoneSplitQueue: [],
+  brushSplitQueue: [],
+  autoZoom: true,
+  roundId: 0,
+};
+
+/* ================================================
+   LOCAL STORAGE PERSISTENCE
+================================================ */
+const STORAGE_KEY = 'hide_and_seek_settings';
+
+function saveSettings() {
+  try {
+    const settings = {
+      mode: STATE.mode,
+      chickTotal: STATE.chickTotal,
+      blackMode: STATE.blackMode,
+      speedLevel: STATE.speedLevel,
+      timerDuration: STATE.timerDuration,
+      brushCount: STATE.brushCount,
+      zoneCount: STATE.zoneCount
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.warn('Failed to save settings to localStorage:', e);
+  }
+}
+
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const settings = JSON.parse(saved);
+      STATE.mode = settings.mode || STATE.mode;
+      STATE.chickTotal = settings.chickTotal || STATE.chickTotal;
+      STATE.blackMode = settings.blackMode || STATE.blackMode;
+      STATE.speedLevel = settings.speedLevel || STATE.speedLevel;
+      STATE.timerDuration = settings.timerDuration || STATE.timerDuration;
+      STATE.brushCount = settings.brushCount || STATE.brushCount;
+      STATE.zoneCount = settings.zoneCount || STATE.zoneCount;
+    }
+  } catch (e) {
+    console.warn('Failed to load settings from localStorage:', e);
+  }
+}
+
+function updateUIFromState() {
+  // Update mode button and visibility
+  const modeBtn = document.getElementById('btnMode');
+  const modeVal = document.getElementById('sv-mode');
+  const isHideMode = STATE.mode === 'hide';
+  modeBtn.textContent = isHideMode ? '🌿 Hide' : '🎮 Count';
+  modeVal.textContent = isHideMode ? 'Hide' : 'Count';
+  document.getElementById('brushWidget').style.display = isHideMode ? 'flex' : 'none';
+  document.getElementById('zoneWidget').style.display = isHideMode ? 'none' : 'flex';
+  
+  // Update other UI elements
+  document.getElementById('lblChickCount').textContent = STATE.chickTotal;
+  document.getElementById('sv-chicks').textContent = STATE.chickTotal;
+  document.getElementById('lblSpeed').textContent = STATE.speedLevel;
+  document.getElementById('sv-speed').textContent = STATE.speedLevel;
+  document.getElementById('lblTimer').textContent = STATE.timerDuration;
+  document.getElementById('sv-timer').textContent = STATE.timerDuration;
+  document.getElementById('lblZoneCount').textContent = STATE.zoneCount;
+  document.getElementById('lblBrushCount').textContent = STATE.brushCount;
+  document.getElementById('sv-black').textContent = STATE.blackMode ? 'ON' : 'OFF';
+  document.getElementById('btnBlack').classList.toggle('active', STATE.blackMode);
+  document.getElementById('btnBlack').textContent = STATE.blackMode ? '🌑 ON' : '🌑 OFF';
+  
+  document.getElementById('sv-autozoom').textContent = STATE.autoZoom ? 'ON' : 'OFF';
+  document.getElementById('btnResetView').classList.toggle('active', STATE.autoZoom);
+}
+
+/* ================================================
+   DOM REFS
+================================================ */
+const GZ = document.getElementById('gzInner');
+const ANNOUNCE = document.getElementById('announcement');
+
+/* ================================================
+   HELPERS
+================================================ */
+function gz()  { const el=document.getElementById('gameZone'); return { w: el.offsetWidth, h: el.offsetHeight }; }
+function cs()  {
+  const {w,h} = gz();
+  const base = Math.min(w, h);
+  const size = base * 0.55 / Math.sqrt(Math.max(1, STATE.chickTotal));
+  return Math.max(44, Math.min(200, size));
+}
+// Exponential speed: level 1 = 1x, level 10 = ~400x
+function speedMult(level) { return Math.pow(400, (level - 1) / 9); }
+
+// Generate ALL ordered distributions of `total` into `n` bins, each bin >= 1
+function allDistributions(total, n) {
+  const results = [];
+  function helper(rem, slots, cur) {
+    if (slots === 1) { results.push([...cur, rem]); return; }
+    for (let k = 1; k <= rem - (slots - 1); k++) helper(rem - k, slots - 1, [...cur, k]);
+  }
+  helper(total, n, []);
+  return results;
+}
+// Fisher-Yates shuffle in place, returns array
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+// Pop next distribution from queue; rebuilds & reshuffles when empty, skipping last used
+function nextFromQueue(queue, total, n, lastKey) {
+  if (queue.length === 0) {
+    const all = allDistributions(total, n);
+    shuffle(all);
+    queue.push(...all);
+    // If only one unique distribution exists, nothing to avoid
+    if (queue.length > 1) {
+      // Move the last-used key to back so it's not first again
+      const lastIdx = queue.findIndex(d => d.join(',') === lastKey);
+      if (lastIdx === 0) { const [removed] = queue.splice(0, 1); queue.push(removed); }
+    }
+  }
+  return queue.shift();
+}
+function rnd(a,b) { return a + Math.random()*(b-a); }
+function clamp(v,a,b) { return Math.min(b,Math.max(a,v)); }
+
+function spriteUrl(color, dir) {
+  const y = color==='yellow';
+  switch(dir) {
+    case 'front': return y ? A.yFront : A.bFront;
+    case 'flap':  return y ? A.yFlap  : A.bFlap;
+    case 'left':  return y ? A.yLeft  : A.bLeft;
+    case 'right': return y ? A.yRight : A.bRight;
+  }
+  return y ? A.yFront : A.bFront;
+}
+
+function computeDist(total, blackMode) {
+  if (!blackMode) return {yellow:total, black:0};
+  const b = Math.floor(total/2);
+  return {yellow: total-b, black: b};
+}
+
+function showAnnouncement(txt, ms=1800) {
+  ANNOUNCE.textContent = txt;
+  ANNOUNCE.classList.add('visible');
+  setTimeout(()=> ANNOUNCE.classList.remove('visible'), ms);
+}
+
+/* ================================================
+   CHICK OBJECTS
+================================================ */
+let chicks = [];
+
+class Chick {
+  constructor(id, color, x, y) {
+    this.id = id; this.color = color;
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.dir = 'front';
+    this.state = 'idle';
+    this.speed = speedMult(STATE.speedLevel) * rnd(.8, 1.2);
+    this.hidden = false;
+    this.targetX = null; this.targetY = null;
+    this.onArrival = null;
+    this.path = null;
+    this.animTimer = rnd(0, 2500);
+    this.animInterval = rnd(2000, 5000);
+    this.chipTimer = rnd(0, 800);      // chip sound timer (ms)
+    this.chipInterval = rnd(400, 900); // how often to chirp when moving
+    this.brushRef = null;
+
+    const size = cs();
+    this.el = document.createElement('div');
+    this.el.className = 'chick';
+    this.el.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;`;
+    this.img = document.createElement('img');
+    this.img.src = spriteUrl(color,'front');
+    this.img.alt = color+' chick';
+    this.img.draggable = false;
+    this.el.appendChild(this.img);
+    GZ.appendChild(this.el);
+  }
+
+  setSprite(dir) {
+    const url = spriteUrl(this.color, dir);
+    if (!this.img.src.endsWith(url.replace(/^\./,''))) this.img.src = url;
+    this.dir = dir;
+  }
+
+  setPos(x, y) {
+    this.x = x; this.y = y;
+    this.el.style.left = x+'px';
+    this.el.style.top  = y+'px';
+  }
+
+  moveTo(tx, ty, onDone) {
+    this.targetX = tx; this.targetY = ty;
+    this.state = 'moving';
+    this.onArrival = onDone || null;
+
+    const dx = tx - this.x;
+    const dy = ty - this.y;
+    const dist = Math.hypot(dx, dy);
+
+    this.path = {
+        startX: this.x,
+        startY: this.y,
+        endX: tx,
+        endY: ty,
+        // Control point for a quadratic bezier curve, creating an arc. Increased randomness for "freely run" feel.
+        controlX: (this.x + tx) / 2 + dy * rnd(-0.6, 0.6) + rnd(-50, 50),
+        controlY: (this.y + ty) / 2 - dx * rnd(-0.6, 0.6) + rnd(-50, 50),
+        duration: Math.max(0.1, dist / (this.speed * 20)), // Estimate duration based on speed
+        elapsed: 0
+    };
+  }
+
+  update(dt) {
+    const dtMs = dt * 1000;
+
+    if (this.state === 'idle') {
+      this.animTimer += dtMs;
+      if (this.animTimer > this.animInterval) {
+        this.animTimer = 0;
+        this.animInterval = rnd(2000, 5000);
+        this._doIdleAnim();
+      }
+      // Occasional idle chip
+      this.chipTimer += dtMs;
+      if (this.chipTimer > this.chipInterval * 3) {
+        this.chipTimer = 0;
+        this.chipInterval = rnd(600, 1400);
+        if (Math.random() < 0.35) playChip();
+      }
+      return;
+    }
+    if (this.state === 'celebrating') return;
+
+    // Anim timer for wandering too
+    this.animTimer += dtMs;
+    if (this.state === 'wander' && this.animTimer > this.animInterval) {
+      this.animTimer = 0;
+      this.animInterval = rnd(2000, 5000);
+      this._doIdleAnim();
+    }
+
+    // Chip sound while moving/wandering
+    this.chipTimer += dtMs;
+    if (this.chipTimer > this.chipInterval) {
+      this.chipTimer = 0;
+      this.chipInterval = rnd(300, 750);
+      playChip();
+    }
+
+    if (this.state === 'wander') {
+      const {w,h} = gz(); const c = cs();
+      if (this.targetX===null || (Math.abs(this.x-this.targetX)<8 && Math.abs(this.y-this.targetY)<8)) {
+        this.targetX = rnd(c, w-c*2);
+        this.targetY = rnd(c, h*0.78-c);
+      }
+      this._stepToTarget(dt, speedMult(STATE.speedLevel) * 0.55);
+    } else if (this.state === 'moving' || this.state === 'hiding') {
+      if (this.path) {
+        this.path.elapsed = Math.min(this.path.duration, this.path.elapsed + dt);
+        const t = this.path.elapsed / this.path.duration;
+        
+        const omt = 1 - t;
+        const nx = omt*omt*this.path.startX + 2*omt*t*this.path.controlX + t*t*this.path.endX;
+        const ny = omt*omt*this.path.startY + 2*omt*t*this.path.controlY + t*t*this.path.endY;
+
+        // Determine direction for sprite
+        const moveDx = nx - this.x;
+        if (Math.abs(moveDx) > 1) this.setSprite(moveDx > 0 ? 'right' : 'left');
+        else this.setSprite('front');
+
+        this.setPos(nx, ny);
+
+        if (t >= 1) {
+          this.state = 'idle';
+          this.path = null;
+          this.setSprite('front');
+          if (this.onArrival) { const fn=this.onArrival; this.onArrival=null; fn(); }
+        }
+      }
+    }
+  }
+
+  _stepToTarget(dt, spd) {
+    const dx = this.targetX - this.x, dy = this.targetY - this.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist < 4) {
+      this.setPos(this.targetX, this.targetY);
+      this.setSprite('front');
+      return true;
+    }
+    const px = clamp(spd * 30 * dt, 0, dist);
+    const nx = this.x + (dx/dist)*px;
+    const ny = this.y + (dy/dist)*px;
+    this.setPos(nx, ny);
+    if (Math.abs(dx) > Math.abs(dy)*0.5) {
+      this.setSprite(dx>0?'right':'left');
+    } else {
+      this.setSprite('front');
+    }
+    return false;
+  }
+
+  _doIdleAnim() {
+    if (this.state !== 'idle' && this.state !== 'wander') return;
+    const r = Math.random();
+    if (r < .3) {
+      this.setSprite('flap');
+      playChip();
+      setTimeout(()=>this.setSprite('front'), 450);
+    } else if (r < .5) {
+      this.setSprite('left');
+      setTimeout(()=>this.setSprite('front'), 380);
+    } else if (r < .7) {
+      this.setSprite('right');
+      setTimeout(()=>this.setSprite('front'), 380);
+    }
+  }
+
+  destroy() { this.el.remove(); }
+}
+
+/* ================================================
+   ZONE OBJECTS (Mode 1)
+================================================ */
+let zones = [];
+
+class Zone {
+  constructor(color, x, y, w, h) {
+    this.color = color; this.x=x; this.y=y; this.w=w; this.h=h;
+    this.chicks = [];
+
+    this.el = document.createElement('div');
+    this.el.className = `zone ${color}`;
+    this.el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
+
+    const lbl = document.createElement('span');
+    lbl.className = 'zone-label';
+    lbl.textContent = color.toUpperCase();
+    this.el.appendChild(lbl);
+
+    this.countEl = document.createElement('div');
+    this.countEl.className = 'zone-count';
+    this.el.appendChild(this.countEl);
+
+    GZ.appendChild(this.el);
+  }
+
+  showCount() {
+    this.countEl.textContent = this.chicks.length;
+    this.countEl.classList.add('visible');
+  }
+
+  packedPositions(count) {
+    const c = cs();
+    const pad = c * 0.3;
+    const pos = [];
+    for (let i = 0; i < count; i++) {
+      pos.push({
+        x: this.x + rnd(pad, this.w - c - pad),
+        y: this.y + rnd(pad + 30, this.h - c - pad),
+      });
+    }
+    return pos;
+  }
+
+  destroy() { this.el.remove(); }
+}
+
+function buildZones() {
+  zones.forEach(z=>z.destroy()); zones=[];
+  if (STATE.mode!=='count') return;
+  const {w,h} = gz();
+  const n = STATE.zoneCount;
+  const margin = Math.max(10, w*0.02);
+  const zw = (w - margin*(n+1)) / n;
+  const zh = clamp(h * 0.78, 200, h * 0.82);
+  const zy = (h - zh) / 2;
+  const colors = ['red','blue','yellow'];
+  for (let i=0; i<n; i++) {
+    zones.push(new Zone(colors[i], margin + i*(zw+margin), zy, zw, zh));
+  }
+}
+
+/* ================================================
+   BRUSH OBJECTS (Mode 2)
+================================================ */
+let brushes = [];
+
+class Brush {
+  constructor(id, img, x, y, w, h) {
+    this.id = id; this.asset = img;
+    this.x=x; this.y=y; this.w=w; this.h=h;
+    this.chicks = []; this.revealed = false;
+
+    this.el = document.createElement('div');
+    this.el.className = 'brush';
+    this.el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:20;`;
+
+    this.imgEl = document.createElement('img');
+    this.imgEl.src = img; this.imgEl.draggable = false;
+    this.el.appendChild(this.imgEl);
+
+    this.cntEl = document.createElement('div');
+    this.cntEl.className = 'brush-count';
+    // Position count relative to GZ, centered on brush
+    this.cntEl.style.left = (x + w/2) + 'px';
+    this.cntEl.style.top = (y + h*0.05) + 'px';
+
+    GZ.appendChild(this.el);
+    GZ.appendChild(this.cntEl);
+
+    const handler = (e) => {
+      if (e.cancelable) e.preventDefault();
+      if (STATE.phase==='waiting_result') revealBrush(this);
+    };
+    this.el.addEventListener('click', handler);
+    this.el.addEventListener('touchend', handler);
+  }
+
+  // Multi-row staging area below the brush, clear of other brushes
+  stagingPositions(count) {
+    const c = cs();
+    const cols = Math.max(2, Math.ceil(Math.sqrt(count * 1.5)));
+    const spX = Math.min(c * 1.2, this.w / cols);
+    const spY = c * 1.1;
+    const startX = this.x + this.w / 2 - ((cols - 1) * spX + c) / 2;
+    const startY = this.y + this.h - c * 0.1; // Reduced gap, slightly overlapping bottom
+    const pos = [];
+    for (let i = 0; i < count; i++) {
+      pos.push({
+        x: startX + (i % cols) * spX + rnd(-3, 3),
+        y: startY + Math.floor(i / cols) * spY + rnd(-3, 3),
+      });
+    }
+    return pos;
+  }
+
+  frontPositions(count) {
+    const c = cs();
+    const pos = [];
+    for (let i=0; i<count; i++) {
+      pos.push({
+        x: this.x + this.w/2 + (i-(count-1)/2)*c*1.1 - c/2,
+        y: this.y + this.h * 0.88,
+      });
+    }
+    return pos;
+  }
+
+  hidePositions(count) {
+    const c = cs();
+    const pos = [];
+    // Lay chicks in rows INSIDE the brush image, centered within the flower
+    const cols = Math.max(2, Math.ceil(Math.sqrt(count * 1.5))); // wider than tall
+    const spX = Math.min(c * 1.15, this.w / cols);
+    const spY = c * 1.05;
+    const startX = this.x + this.w / 2 - ((cols - 1) * spX + c) / 2;
+    const startY = this.y + this.h / 2 - (Math.ceil(count / cols) * spY - spY) / 2;
+    for (let i = 0; i < count; i++) {
+      pos.push({
+        x: startX + (i % cols) * spX + rnd(-4, 4),
+        y: startY + Math.floor(i / cols) * spY + rnd(-4, 4),
+      });
+    }
+    return pos;
+  }
+
+  destroy() { this.el.remove(); this.cntEl.remove(); }
+}
+
+function buildBrushes() {
+  brushes.forEach(b=>b.destroy()); brushes=[];
+  if (STATE.mode!=='hide') return;
+  const {w,h} = gz();
+  const n = STATE.brushCount;
+  const bsz = clamp(Math.min(w / (n * 0.85), h * 0.52), 180, 480);
+  const totalW = bsz * n;
+  const gap = Math.max(60, (w - totalW) / (n + 1));
+  const by = Math.max(40, h * 0.15);
+  const imgs = [A.flRed, A.flBlue, A.flYellow];
+  for (let i=0; i<n; i++) {
+    brushes.push(new Brush(i, imgs[i%3], gap + i*(bsz+gap), by, bsz, bsz));
+  }
+}
+
+/* ================================================
+   SPAWN CHICKS
+================================================ */
+function spawnChicks() {
+  chicks.forEach(c=>c.destroy()); chicks=[];
+  const {w,h} = gz();
+  const c = cs();
+  const {yellow,black} = computeDist(STATE.chickTotal, STATE.blackMode);
+  const total = yellow+black;
+  const sp = Math.min((w*0.9)/total, c*1.6);
+  const sx = (w - (sp * (total - 1) + c)) / 2;
+  const sy = h - c - Math.max(h*0.08, 35);
+  for (let i=0; i<yellow; i++) {
+    const ch = new Chick(i, 'yellow', sx+i*sp, sy);
+    ch.speed = speedMult(STATE.speedLevel) * rnd(.8,1.2);
+    chicks.push(ch);
+  }
+  for (let i=0; i<black; i++) {
+    const id = yellow+i;
+    const ch = new Chick(id, 'black', sx+id*sp, sy);
+    ch.speed = speedMult(STATE.speedLevel) * rnd(.8,1.2);
+    chicks.push(ch);
+  }
+}
+
+/* ================================================
+   GAME LOOP
+================================================ */
+let rafId = null, lastTs = 0;
+
+function gameLoop(ts) {
+  const dt = Math.min((ts-lastTs)/1000, 0.1);
+  lastTs = ts;
+
+  if (STATE.autoZoom) {
+    const bounds = calculateContentBounds();
+    if (bounds) setTargetViewFromBounds(bounds);
+  } else {
+    // If auto-zoom is off, stop updating target
+    targetZoomLevel = zoomLevel;
+    targetZoomOffX = zoomOffX;
+    targetZoomOffY = zoomOffY;
+  }
+
+  // Smoothly animate view to target
+  if (Math.abs(targetZoomLevel - zoomLevel) > 0.001 ||
+      Math.abs(targetZoomOffX - zoomOffX) > 0.01 ||
+      Math.abs(targetZoomOffY - zoomOffY) > 0.01)
+  {
+    zoomLevel += (targetZoomLevel - zoomLevel) * 0.04;
+    zoomOffX += (targetZoomOffX - zoomOffX) * 0.04;
+    zoomOffY += (targetZoomOffY - zoomOffY) * 0.04;
+    applyZoom();
+  }
+
+  if (!STATE.paused) {
+    chicks.forEach(c => {
+      c.update(dt);
+    });
+    // Ensure strict ordering: chicks with lower feet are always on top
+    chicks.sort((a, b) => {
+      const aFeet = a.y + (parseFloat(a.el.style.height) || cs());
+      const bFeet = b.y + (parseFloat(b.el.style.height) || cs());
+      return aFeet - bFeet; // Lower feet = higher z-index
+    });
+    chicks.forEach((c, index) => {
+      const baseZ = (c.state === 'celebrating') ? 30 : 10;
+      c.el.style.zIndex = baseZ + index;
+    });
+  }
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+/* ================================================
+   TIMER
+================================================ */
+let timerIv = null;
+
+function startTimerCountdown() {
+  clearInterval(timerIv);
+  STATE.timerRemaining = STATE.timerDuration;
+  updateTimerDisplay();
+  timerIv = setInterval(()=>{
+    if (STATE.paused) return;
+    STATE.timerRemaining--;
+    updateTimerDisplay();
+    if (STATE.timerRemaining <= 5) {
+      document.getElementById('sv-timer').classList.add('timer-urgent');
+    }
+    if (STATE.timerRemaining <= 0) {
+      clearInterval(timerIv);
+      onTimerEnd();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  document.getElementById('sv-timer').textContent = STATE.timerRemaining;
+}
+
+let switchIv = null, gatherTmo = null;
+
+function onTimerEnd() {
+  STATE.phase = 'waiting_result';
+  playRooster();
+  document.getElementById('sv-timer').classList.remove('timer-urgent');
+  document.getElementById('sv-timer').textContent = '0';
+
+  // Update button to "Show Result"
+  const btn = document.getElementById('btnStart');
+  btn.classList.remove('playing');
+  btn.classList.add('result');
+  btn.textContent = '📊 Show Result';
+
+  if (STATE.mode === 'count') {
+    // Send chicks to zones but DON'T show counts yet
+    setTimeout(()=> sendChicksToZones(), 600);
+  } else {
+    // Stop switching, freeze all chicks hidden
+    clearInterval(switchIv);
+    clearTimeout(gatherTmo);
+    
+    // Check if any chicks are moving (returning to brush)
+    const moving = chicks.filter(c => c.state === 'moving');
+    
+    if (moving.length === 0) {
+      chicks.forEach(ch=>{
+        ch.hidden = true;
+        ch.el.classList.add('fully-hidden');
+      });
+      setTimeout(()=> enableBrushReveal(), 400);
+    } else {
+      const checkDone = setInterval(() => {
+        if (STATE.phase !== 'waiting_result') { clearInterval(checkDone); return; }
+        if (!chicks.some(c => c.state === 'moving')) {
+          clearInterval(checkDone);
+          chicks.forEach(ch=>{ ch.hidden = true; ch.el.classList.add('fully-hidden'); });
+          enableBrushReveal();
+        }
+      }, 100);
+    }
+  }
+}
+
+function showResult() {
+  STATE.phase = 'result';
+  const btn = document.getElementById('btnStart');
+  btn.classList.remove('result');
+  btn.classList.add('next');
+  btn.textContent = '🔄 Next Round';
+
+  if (STATE.mode === 'count') {
+    zones.forEach(z => z.showCount());
+    setTimeout(startCelebration, 2000);
+  } else {
+    // Hide mode: reveal all brushes automatically
+    let delay = 0;
+    brushes.forEach(b => {
+      if (!b.revealed) {
+        setTimeout(() => {
+          if (STATE.phase === 'result') revealBrush(b);
+        }, delay);
+        delay += 200;
+      }
+    });
+  }
+}
+
+/* ================================================
+   MODE 1 — SEND CHICKS TO ZONES (queue-based, no repeat)
+================================================ */
+function isInsideZone(ch, zone) {
+  const c = cs();
+  return ch.x >= zone.x && ch.x <= zone.x + zone.w - c &&
+         ch.y >= zone.y && ch.y <= zone.y + zone.h - c;
+}
+
+function sendChicksToZones() {
+  if (!zones.length) return;
+  const n = zones.length;
+  const total = chicks.length;
+
+  const counts = nextFromQueue(STATE.zoneSplitQueue, total, n, STATE.lastZoneSplit);
+  STATE.lastZoneSplit = counts.join(',');
+
+  const shuffled = shuffle([...chicks]);
+  zones.forEach(z => z.chicks = []);
+  let idx = 0;
+  zones.forEach((z, zi) => {
+    for (let k = 0; k < counts[zi]; k++) z.chicks.push(shuffled[idx++]);
+  });
+
+  // Find chicks already inside their assigned zone
+  const stayers = [];   // { ch, zone, posIdx }
+  const movers  = [];   // { ch, zone, posIdx }
+  zones.forEach(zone => {
+    zone.chicks.forEach((ch, i) => {
+      if (isInsideZone(ch, zone)) stayers.push({ ch, zone, i });
+      else                        movers.push({ ch, zone, i });
+    });
+  });
+
+  // Guarantee at least 1 chick (up to ~30% of total) jumps zones for visual interest
+  const minJumpers = Math.max(1, Math.floor(total * 0.3));
+  const needed = Math.max(0, minJumpers - movers.length);
+  if (needed > 0 && stayers.length > 0) {
+    // Pick 'needed' stayers and reassign them to a different zone that has room
+    shuffle(stayers).slice(0, needed).forEach(({ ch, zone }) => {
+      // Find another zone to swap this chick into
+      const others = zones.filter(z => z !== zone);
+      if (!others.length) return;
+      const dest = others[Math.floor(Math.random() * others.length)];
+      // Swap: remove from current zone, add to dest
+      zone.chicks = zone.chicks.filter(c => c !== ch);
+      dest.chicks.push(ch);
+      movers.push({ ch, zone: dest, i: dest.chicks.length - 1 });
+      stayers.splice(stayers.findIndex(s => s.ch === ch), 1);
+    });
+  }
+
+  // Now resolve positions and movement
+  zones.forEach(zone => {
+    const pos = zone.packedPositions(zone.chicks.length);
+    zone.chicks.forEach((ch, i) => {
+      const willMove = movers.some(m => m.ch === ch);
+      if (!willMove && isInsideZone(ch, zone)) {
+        // Truly staying — freeze in place
+        ch.state = 'idle';
+        ch.targetX = null; ch.targetY = null;
+      } else {
+        ch.speed = speedMult(STATE.speedLevel) * rnd(3, 5);
+        ch.moveTo(pos[i].x, pos[i].y);
+      }
+    });
+  });
+}
+
+/* ================================================
+   MODE 2 — GATHER TO BRUSHES (queue-based, no repeat)
+================================================ */
+function gatherToBrushes() {
+  if (!brushes.length) return;
+  const n = brushes.length;
+  const total = chicks.length;
+  const rid = STATE.roundId;
+
+  const counts = nextFromQueue(STATE.brushSplitQueue, total, n, STATE.lastBrushSplit);
+  STATE.lastBrushSplit = counts.join(',');
+
+  const shuffled = shuffle([...chicks]);
+  brushes.forEach(b => b.chicks = []);
+  let ci = 0;
+  brushes.forEach((b, bi) => {
+    for (let k = 0; k < counts[bi]; k++) b.chicks.push(shuffled[ci++]);
+  });
+
+  let pending = chicks.length;
+  function onChickArrived() {
+    if (STATE.roundId !== rid) return;
+    pending--;
+    if (pending === 0 && STATE.phase === 'running') {
+      // All chicks gathered - wait 2 seconds then hide
+      gatherTmo = setTimeout(hideBehindBrushes, 2000);
+    }
+  }
+
+  brushes.forEach(b => {
+    const fpos = b.stagingPositions(b.chicks.length);
+    b.chicks.forEach((ch, i) => {
+      setTimeout(() => {
+        if (STATE.roundId !== rid) return;
+        // Use maximum speed for gathering, but with more variety
+        ch.speed = speedMult(10) * rnd(1.0, 2.5);
+        ch.el.style.zIndex = '30'; // Stay on top while gathering
+        ch.el.classList.remove('behind-brush', 'fully-hidden');
+        ch.moveTo(fpos[i].x, fpos[i].y, onChickArrived);
+      }, rnd(0, 800)); // Stagger start by up to 800ms
+    });
+  });
+
+  // Safety fallback if no chicks
+  if (pending === 0) {
+    gatherTmo = setTimeout(hideBehindBrushes, 2000);
+  }
+}
+
+function hideBehindBrushes() {
+  const rid = STATE.roundId;
+  let pending = 0;
+  brushes.forEach(b=>{
+    const hpos = b.hidePositions(b.chicks.length);
+    // Shuffle chicks to make movement less uniform
+    shuffle([...b.chicks]).forEach((ch,i)=>{
+      pending++;
+      // Add random delay before moving
+      setTimeout(() => {
+        if (STATE.roundId !== rid) return;
+        ch.hidden = true;
+        ch.el.classList.add('behind-brush');
+        ch.el.style.zIndex = '15'; // Move behind brush
+        const target = hpos[i] || hpos[0];
+        ch.speed = 5 * rnd(0.8, 1.4); // More speed variance
+        ch.moveTo(target.x, target.y, ()=>{
+          if (STATE.roundId !== rid) return;
+          ch.el.classList.add('fully-hidden');
+          pending--;
+          if (pending === 0) {
+            // All hidden — now start the timer and switch events
+            startTimerCountdown();
+            startSwitchEvents();
+          }
+        });
+      }, rnd(0, 600));
+    });
+  });
+  // Safety: if no chicks, start immediately
+  if (pending === 0) { startTimerCountdown(); startSwitchEvents(); }
+}
+
+function startSwitchEvents() {
+  const rid = STATE.roundId;
+  clearInterval(switchIv);
+
+  // Total switches in the timer window: max(6, chickTotal - 5 + speedLevel)
+  const totalSwitches = Math.max(6, STATE.chickTotal - 5 + STATE.speedLevel);
+  // Spread them over the timer duration; fire each on a staggered schedule
+  const duration = STATE.timerDuration * 1000;
+  let fired = 0;
+
+  function fireSwitch() {
+    if (STATE.phase !== 'running' || STATE.mode !== 'hide' || STATE.roundId !== rid) return;
+    if (brushes.length < 2) return;
+
+    // 40% chance: pair swap (two chicks cross simultaneously)
+    const doPair = Math.random() < 0.4 && brushes.every(b => b.chicks.length > 0);
+
+    if (doPair) {
+      // Pick one chick from each of two different brushes and swap them
+      const [ba, bb] = shuffle([...brushes]).slice(0, 2);
+      if (!ba.chicks.length || !bb.chicks.length) { doSingle(ba, bb); return; }
+      const ca = ba.chicks[Math.floor(Math.random() * ba.chicks.length)];
+      const cb = bb.chicks[Math.floor(Math.random() * bb.chicks.length)];
+      ba.chicks = ba.chicks.filter(c => c !== ca);
+      bb.chicks = bb.chicks.filter(c => c !== cb);
+      bb.chicks.push(ca);
+      ba.chicks.push(cb);
+      moveChickToBrush(ca, bb);
+      moveChickToBrush(cb, ba);
+    } else {
+      // Single move: pick random brush with chicks, send one to a different brush
+      const src = shuffle(brushes.filter(b => b.chicks.length > 0))[0];
+      if (!src) return;
+      const dst = shuffle(brushes.filter(b => b !== src))[0];
+      if (!dst) return;
+      doSingle(src, dst);
+    }
+  }
+
+  function doSingle(src, dst) {
+    if (!src.chicks.length) return;
+    const ch = src.chicks[Math.floor(Math.random() * src.chicks.length)];
+    src.chicks = src.chicks.filter(c => c !== ch);
+    dst.chicks.push(ch);
+    moveChickToBrush(ch, dst);
+  }
+
+function moveChickToBrush(ch, dest) {
+    const rid = STATE.roundId;
+    ch.hidden = false;
+    ch.el.classList.remove('behind-brush', 'fully-hidden');
+    ch.el.style.zIndex = '30'; // On top while running
+    ch.speed = speedMult(STATE.speedLevel) * rnd(0.8, 1.2);
+    const fpos = dest.frontPositions(1)[0];
+    playChip();
+    ch.moveTo(fpos.x, fpos.y, () => {
+      if (STATE.roundId !== rid) return;
+      if (STATE.phase !== 'running' && STATE.phase !== 'waiting_result') return;
+      ch.hidden = true;
+      ch.el.classList.add('behind-brush');
+      ch.el.style.zIndex = '15';
+      const hpos = dest.hidePositions(dest.chicks.length);
+      const idx  = dest.chicks.indexOf(ch);
+      const hp   = hpos[Math.max(0, idx)] || hpos[0];
+      ch.speed = speedMult(STATE.speedLevel) * 0.6;
+      ch.moveTo(hp.x, hp.y, () => {
+        if (STATE.roundId !== rid) return;
+        ch.el.classList.add('fully-hidden');
+      });
+    });
+  }
+
+  // Schedule all switches spread across the timer duration
+  for (let i = 0; i < totalSwitches; i++) {
+    // Stagger: avoid first 2s (chicks still hiding) and last 1s
+    const earliest = 2200;
+    const latest   = Math.max(earliest + 500, duration - 1000);
+    const t = earliest + (i / totalSwitches) * (latest - earliest) + rnd(-300, 300);
+    setTimeout(fireSwitch, Math.max(earliest, t));
+  }
+}
+
+/* ================================================
+   REVEAL (Mode 2)
+================================================ */
+function enableBrushReveal() {
+  brushes.forEach(b=> b.el.classList.add('reveal-mode'));
+  showAnnouncement('👆 Tap each flower to reveal!', 2400);
+}
+
+function revealBrush(b) {
+  if (b.revealed) return;
+  b.revealed = true;
+  b.el.classList.remove('reveal-mode');
+  b.el.classList.add('revealed');
+
+  b.cntEl.textContent = b.chicks.length;
+  b.cntEl.style.opacity = '1';
+
+  const fpos = b.hidePositions(b.chicks.length);
+  b.chicks.forEach((ch,i)=>{
+    ch.hidden = false;
+    ch.el.classList.remove('behind-brush','fully-hidden');
+    ch.el.classList.add('pop-in');
+    ch.el.style.zIndex = '30'; // On top when revealed
+    ch.speed = STATE.speedLevel * rnd(1,1.5);
+    const p = fpos[i] || fpos[0];
+    ch.setPos(p.x, p.y);
+    setTimeout(()=>{ playChip(); ch.el.classList.remove('pop-in'); }, i * 80);
+  });
+  playChip();
+
+  if (brushes.every(b2=>b2.revealed)) {
+    STATE.phase = 'result';
+    const btn = document.getElementById('btnStart');
+    btn.classList.remove('result');
+    btn.classList.add('next');
+    btn.textContent = '🔄 Next Round';
+    setTimeout(startCelebration, 600);
+  }
+}
+
+/* ================================================
+   CELEBRATION
+================================================ */
+function stopCelebration() {
+  chicks.forEach(ch => {
+    ch.el.classList.remove('celebrating');
+    ch.el.style.animationDelay = '';
+    ch.setSprite('front');
+    if (ch.state === 'celebrating') {
+      ch.state = 'idle';
+    }
+  });
+}
+
+function startCelebration() {
+  chicks.forEach(ch=>{
+    ch.state = 'celebrating';
+    ch.setSprite('flap');
+    ch.el.style.animationDelay = `${rnd(0, 0.8)}s`; // Stagger the animation
+    ch.el.classList.add('celebrating');
+    ch.hidden = false;
+    ch.el.classList.remove('behind-brush','fully-hidden');
+    ch.el.style.zIndex = '30';
+  });
+  playCelebration();
+  showAnnouncement('🎉 Great job! 🐤', 3000);
+}
+
+/* ================================================
+   RESET / INIT
+================================================ */
+function resetAll(isNextRound = false) {
+  stopCelebration();
+  clearInterval(timerIv);
+  clearInterval(switchIv);
+  clearTimeout(gatherTmo);
+  STATE.phase = 'idle';
+  STATE.paused = false;
+  STATE.timerRemaining = STATE.timerDuration;
+  STATE.zoneSplitQueue = [];
+  STATE.brushSplitQueue = [];
+  document.getElementById('sv-timer').classList.remove('timer-urgent');
+  STATE.roundId++;
+
+  STATE.autoZoom = true;
+  updateUIFromState();
+
+  const btn = document.getElementById('btnStart');
+  btn.classList.remove('playing', 'result', 'next');
+  btn.textContent = '▶ Start';
+  document.getElementById('btnPause').textContent = '⏸';
+
+  buildZones();
+  buildBrushes();
+
+  // Always full reset of chicks to avoid state carry-over bugs
+  spawnChicks();
+  document.getElementById('lineupLabel').style.opacity = STATE.mode === 'count' ? '1' : '0';
+
+  updateTimerDisplay();
+}
+
+/* ================================================
+   START GAME
+================================================ */
+function startGame() {
+  if (STATE.phase !== 'idle') return;
+  try { getACtx(); } catch(e) {}
+  STATE.phase = 'running';
+  const btn = document.getElementById('btnStart');
+  btn.classList.add('playing');
+  btn.textContent = '▶ Playing…';
+  document.getElementById('lineupLabel').style.opacity = '0';
+
+  if (STATE.mode === 'count') {
+    chicks.forEach(ch=>{
+      ch.state = 'wander';
+      ch.targetX = null; ch.targetY = null;
+      ch.speed = speedMult(STATE.speedLevel) * rnd(.8,1.2);
+    });
+    startTimerCountdown();
+  } else {
+    gatherToBrushes(); // timer starts inside startSwitchEvents after chicks are hidden
+  }
+}
+
+/* ================================================
+   UI CONTROLS
+================================================ */
+document.getElementById('btnStart').addEventListener('click', ()=>{
+  if (STATE.phase === 'idle')                { startGame(); }
+  else if (STATE.phase === 'waiting_result') { showResult(); }
+  else if (STATE.phase === 'result')         { resetAll(true); }
+});
+
+document.getElementById('btnPause').addEventListener('click', ()=>{
+  STATE.paused = !STATE.paused;
+  document.getElementById('btnPause').textContent = STATE.paused ? '▶' : '⏸';
+});
+
+document.getElementById('btnReset').addEventListener('click', resetAll);
+
+document.getElementById('btnMode').addEventListener('click', ()=>{
+  STATE.mode = STATE.mode==='count' ? 'hide' : 'count';
+  const mc = STATE.mode==='count';
+  document.getElementById('btnMode').textContent = mc ? '🎮 Count' : '🌿 Hide';
+  document.getElementById('sv-mode').textContent = mc ? 'Count' : 'Hide';
+  document.getElementById('brushWidget').style.display = mc ? 'none' : 'flex';
+  document.getElementById('zoneWidget').style.display = mc ? 'flex' : 'none';
+  showAnnouncement(mc ? '🎮 Count Mode' : '🌿 Hide & Seek Mode', 1800);
+  resetAll();
+});
+
+document.getElementById('btnBlack').addEventListener('click', ()=>{
+  STATE.blackMode = !STATE.blackMode;
+  const on = STATE.blackMode;
+  document.getElementById('btnBlack').classList.toggle('active', on);
+  document.getElementById('btnBlack').textContent = on ? '🌑 ON' : '🌑 OFF';
+  document.getElementById('sv-black').textContent = on ? 'ON' : 'OFF';
+  resetAll();
+});
+
+// Chick count +/-
+function setChickCount(v) {
+  v = clamp(v, 1, 20);
+  STATE.chickTotal = v;
+  document.getElementById('lblChickCount').textContent = v;
+  document.getElementById('sv-chicks').textContent = v;
+  resetAll();
+}
+document.getElementById('btnChickPlus').addEventListener('click',  ()=> setChickCount(STATE.chickTotal + 1));
+document.getElementById('btnChickMinus').addEventListener('click', ()=> setChickCount(STATE.chickTotal - 1));
+
+// Speed +/-
+function setSpeed(v) {
+  v = clamp(v, 1, 10);
+  STATE.speedLevel = v;
+  document.getElementById('lblSpeed').textContent = v;
+  document.getElementById('sv-speed').textContent = v;
+  chicks.forEach(ch=> ch.speed = speedMult(v) * rnd(.8,1.2));
+}
+document.getElementById('btnSpeedPlus').addEventListener('click',  ()=> setSpeed(STATE.speedLevel + 1));
+document.getElementById('btnSpeedMinus').addEventListener('click', ()=> setSpeed(STATE.speedLevel - 1));
+
+// Timer +/-  (step: 5s)
+function setTimer(v) {
+  v = clamp(v, 5, 300);
+  STATE.timerDuration = v;
+  document.getElementById('lblTimer').textContent = v;
+  if (STATE.phase==='idle') { STATE.timerRemaining=v; updateTimerDisplay(); }
+}
+document.getElementById('btnTimerPlus').addEventListener('click',  ()=> setTimer(STATE.timerDuration + 5));
+document.getElementById('btnTimerMinus').addEventListener('click', ()=> setTimer(STATE.timerDuration - 5));
+
+// Brush count +/-
+function setBrushCount(v) {
+  v = clamp(v, 2, 3);
+  STATE.brushCount = v;
+  document.getElementById('lblBrushCount').textContent = v;
+  if (STATE.mode==='hide') resetAll();
+}
+document.getElementById('btnBrushPlus').addEventListener('click',  ()=> setBrushCount(STATE.brushCount + 1));
+document.getElementById('btnBrushMinus').addEventListener('click', ()=> setBrushCount(STATE.brushCount - 1));
+
+// Zone count +/-
+function setZoneCount(v) {
+  v = clamp(v, 2, 3);
+  STATE.zoneCount = v;
+  document.getElementById('lblZoneCount').textContent = v;
+  if (STATE.mode==='count') resetAll();
+}
+document.getElementById('btnZonePlus').addEventListener('click',  ()=> setZoneCount(STATE.zoneCount + 1));
+document.getElementById('btnZoneMinus').addEventListener('click', ()=> setZoneCount(STATE.zoneCount - 1));
+
+document.getElementById('btnFullscreen').addEventListener('click', ()=>{
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>{});
+});
+
+document.getElementById('btnResetView').addEventListener('click', ()=> {
+  STATE.autoZoom = !STATE.autoZoom;
+  updateUIFromState();
+});
+
+document.getElementById('btnHelp').addEventListener('click', ()=> {
+  document.getElementById('helpModal').classList.add('active');
+});
+document.getElementById('btnCloseHelp').addEventListener('click', ()=> {
+  document.getElementById('helpModal').classList.remove('active');
+});
+document.getElementById('helpModal').addEventListener('click', (e)=> {
+  if(e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('active');
+});
+
+document.getElementById('btnHome').addEventListener('click', ()=> {
+  window.location.href = 'index.html';
+});
+
+// Hide brush widget when in count mode initially
+document.getElementById('brushWidget').style.display = 'none';
+document.getElementById('zoneWidget').style.display = 'flex';
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e=>{
+  if (e.key===' ' || e.key==='Enter') {
+    e.preventDefault();
+    if (STATE.phase==='idle') startGame();
+    else if (STATE.phase==='waiting_result') showResult();
+    else if (STATE.phase==='result') { resetAll(true); startGame(); }
+  }
+  if (e.key==='r' || e.key==='R') resetAll();
+  if (e.key==='p' || e.key==='P') document.getElementById('btnPause').click();
+});
+
+/* ================================================
+   STATUS BAR TOGGLE (click to hide/show values)
+================================================ */
+[['si-chicks','sv-chicks'],['si-speed','sv-speed'],['si-black','sv-black'],
+ ['si-mode','sv-mode'],['si-timer','sv-timer']].forEach(([si,sv])=>{
+  document.getElementById(si).addEventListener('click', ()=>{
+    document.getElementById(sv).classList.toggle('hidden-val');
+  });
+});
+document.getElementById('si-autozoom').addEventListener('click', ()=> {
+  STATE.autoZoom = !STATE.autoZoom;
+  updateUIFromState();
+});
+
+/* ================================================
+   RESIZE
+================================================ */
+let resizeTmo;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTmo);
+  resizeTmo = setTimeout(()=>{
+    if (STATE.phase==='idle') resetAll();
+  }, 250);
+});
+
+/* ================================================
+   AUTO-ZOOM / FIT-TO-VIEW SYSTEM
+================================================ */
+let targetZoomLevel = 1, targetZoomOffX = 0, targetZoomOffY = 0;
+const MIN_ZOOM = 0.5, MAX_ZOOM = 4;
+
+function calculateContentBounds() {
+  if (chicks.length === 0) return null;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const chickSize = cs();
+
+  chicks.forEach(ch => {
+    minX = Math.min(minX, ch.x);
+    minY = Math.min(minY, ch.y);
+    maxX = Math.max(maxX, ch.x + chickSize);
+    maxY = Math.max(maxY, ch.y + chickSize);
+  });
+
+  if (STATE.mode === 'hide' && brushes.length > 0) {
+    brushes.forEach(b => {
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w);
+      maxY = Math.max(maxY, b.y + b.h);
+    });
+  }
+
+  if (STATE.mode === 'count') {
+    if (zones.length > 0) {
+      zones.forEach(z => {
+        minX = Math.min(minX, z.x);
+        minY = Math.min(minY, z.y);
+        maxX = Math.max(maxX, z.x + z.w);
+        maxY = Math.max(maxY, z.y + z.h);
+      });
+    }
+    // Include lineup label in bounds if visible (idle phase) to ensure it isn't cut off
+    if (STATE.phase === 'idle') {
+      const { w } = gz();
+      const lblW = 320; // Approx width of label
+      minX = Math.min(minX, w/2 - lblW/2);
+      maxX = Math.max(maxX, w/2 + lblW/2);
+      minY = Math.min(minY, 0); // Include top edge
+    }
+  }
+
+  // Handle case where content has no size
+  if (minX === Infinity || maxX === -Infinity) return null;
+  if (maxX - minX < 1) { maxX += 1; minX -= 1; }
+  if (maxY - minY < 1) { maxY += 1; minY -= 1; }
+
+  return { minX, minY, maxX, maxY };
+}
+
+function setTargetViewFromBounds(bounds) {
+  if (!bounds) return;
+
+  const panel = document.getElementById('controlPanel');
+  const gameArea = document.getElementById('gameZone');
+
+  const viewPadding = 30; // px padding around the content
+  const viewTop = panel.offsetTop + panel.offsetHeight;
+  const viewBottom = gameArea.offsetHeight;
+  const viewLeft = 0;
+  const viewRight = gameArea.offsetWidth;
+  
+  const viewWidth = viewRight - viewLeft - (viewPadding * 2);
+  const viewHeight = viewBottom - viewTop - (viewPadding * 2);
+  
+  if (viewWidth <= 0 || viewHeight <= 0) return;
+
+  const boundsWidth = bounds.maxX - bounds.minX;
+  const boundsHeight = bounds.maxY - bounds.minY;
+
+  if (boundsWidth <= 0 || boundsHeight <= 0) return;
+
+  const scaleX = viewWidth / boundsWidth;
+  const scaleY = viewHeight / boundsHeight;
+  
+  // Set target scale
+  targetZoomLevel = clamp(Math.min(scaleX, scaleY), MIN_ZOOM, MAX_ZOOM);
+
+  const boundsCenterX = bounds.minX + boundsWidth / 2;
+  const boundsCenterY = bounds.minY + boundsHeight / 2;
+  
+  const viewCenterX = viewLeft + viewPadding + viewWidth / 2;
+  const viewCenterY = viewTop + viewPadding + viewHeight / 2;
+  
+  // Set target offsets
+  targetZoomOffX = viewCenterX - boundsCenterX * targetZoomLevel;
+  targetZoomOffY = viewCenterY - boundsCenterY * targetZoomLevel;
+}
+
+/* ================================================
+   PAN + ZOOM SYSTEM
+================================================ */
+let zoomLevel = 1;
+let zoomOffX = 0, zoomOffY = 0;
+let zoomTmo = null;
+const gz_el = document.getElementById('gameZone');
+
+function applyZoom() {
+  document.getElementById('gzInner').style.transform =
+    `translate(${zoomOffX}px,${zoomOffY}px) scale(${zoomLevel})`;
+}
+
+function showZoomHint() {
+  const ind = document.getElementById('zoomIndicator');
+  ind.textContent = zoomLevel !== 1
+    ? `🔍 ${Math.round(zoomLevel*100)}%  ·  drag to pan  ·  dbl-click to reset`
+    : `🔍 100%`;
+  ind.classList.add('visible');
+  clearTimeout(zoomTmo);
+  zoomTmo = setTimeout(()=> ind.classList.remove('visible'), 2000);
+}
+
+/* ---- Mouse wheel zoom ---- */
+gz_el.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = gz_el.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.12 : 0.9;
+  const newZ = clamp(zoomLevel * factor, MIN_ZOOM, MAX_ZOOM);
+  
+  // Disable auto-zoom if user interacts
+  if (STATE.autoZoom) { STATE.autoZoom = false; updateUIFromState(); }
+
+  zoomOffX = mx - (mx - zoomOffX) * (newZ / zoomLevel);
+  zoomOffY = my - (my - zoomOffY) * (newZ / zoomLevel);
+  zoomLevel = newZ;
+  applyZoom(); showZoomHint();
+  gz_el.style.cursor = zoomLevel > 1 ? 'grab' : 'default';
+}, { passive: false });
+
+/* ---- Mouse drag pan ---- */
+let mouseDragging = false, mouseDragX = 0, mouseDragY = 0, mouseMoved = false;
+gz_el.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  // Disable auto-zoom if user interacts
+  if (STATE.autoZoom) { STATE.autoZoom = false; updateUIFromState(); }
+  mouseDragging = true; mouseMoved = false;
+  mouseDragX = e.clientX; mouseDragY = e.clientY;
+  gz_el.style.cursor = 'grabbing';
+  e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+  if (!mouseDragging) return;
+  const dx = e.clientX - mouseDragX;
+  const dy = e.clientY - mouseDragY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) mouseMoved = true;
+  if (mouseMoved) {
+    zoomOffX += dx; zoomOffY += dy;
+    mouseDragX = e.clientX; mouseDragY = e.clientY;
+    applyZoom(); showZoomHint();
+  }
+});
+window.addEventListener('mouseup', () => {
+  if (mouseDragging) {
+    mouseDragging = false;
+    gz_el.style.cursor = zoomLevel > 1 ? 'grab' : 'default';
+  }
+});
+
+/* ---- Touch: pinch-zoom + single-finger pan ---- */
+let touch1 = null, touch2 = null;
+let touchPan0 = null;                          // single-finger pan start
+let pinchDist0 = null, pinchMid0 = null, pinchOff0 = null, pinchZoom0 = null;
+let touchMoved = false;
+let lastTap = 0;
+
+gz_el.addEventListener('touchstart', e => {
+  touchMoved = false;
+  // Disable auto-zoom if user interacts
+  if (STATE.autoZoom) { STATE.autoZoom = false; updateUIFromState(); }
+  if (e.touches.length === 1) {
+    touch1 = e.touches[0];
+    touchPan0 = { x: touch1.clientX, y: touch1.clientY, ox: zoomOffX, oy: zoomOffY };
+    pinchDist0 = null;
+  } else if (e.touches.length === 2) {
+    touch1 = e.touches[0]; touch2 = e.touches[1];
+    pinchDist0 = Math.hypot(touch2.clientX-touch1.clientX, touch2.clientY-touch1.clientY);
+    const rect = gz_el.getBoundingClientRect();
+    pinchMid0 = { x:(touch1.clientX+touch2.clientX)/2-rect.left, y:(touch1.clientY+touch2.clientY)/2-rect.top };
+    pinchOff0 = { x: zoomOffX, y: zoomOffY };
+    pinchZoom0 = zoomLevel;
+    touchPan0 = null;
+  }
+}, { passive: true });
+
+gz_el.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && touchPan0) {
+    const t = e.touches[0];
+    const dx = t.clientX - touchPan0.x;
+    const dy = t.clientY - touchPan0.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      touchMoved = true;
+      e.preventDefault();
+      zoomOffX = touchPan0.ox + dx;
+      zoomOffY = touchPan0.oy + dy;
+      applyZoom(); showZoomHint();
+    }
+  } else if (e.touches.length === 2 && pinchDist0 !== null) {
+    touchMoved = true;
+    e.preventDefault();
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dist  = Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
+    const newZ  = clamp(pinchZoom0 * dist / pinchDist0, MIN_ZOOM, MAX_ZOOM);
+    const scale = newZ / pinchZoom0;
+    // Also pan with midpoint movement
+    const rect  = gz_el.getBoundingClientRect();
+    const midX  = (t0.clientX+t1.clientX)/2 - rect.left;
+    const midY  = (t0.clientY+t1.clientY)/2 - rect.top;
+    zoomOffX = midX - scale * (pinchMid0.x - pinchOff0.x) - (pinchMid0.x - midX) * scale + (midX - pinchMid0.x);
+    zoomOffY = midY - scale * (pinchMid0.y - pinchOff0.y) - (pinchMid0.y - midY) * scale + (midY - pinchMid0.y);
+    // Simpler correct formula:
+    zoomOffX = pinchOff0.x + (midX - pinchMid0.x) + pinchMid0.x*(1-scale);
+    zoomOffY = pinchOff0.y + (midY - pinchMid0.y) + pinchMid0.y*(1-scale);
+    zoomLevel = newZ;
+    applyZoom(); showZoomHint();
+  }
+}, { passive: false });
+
+gz_el.addEventListener('touchend', e => {
+  if (e.touches.length < 2) { pinchDist0 = null; }
+  if (e.touches.length === 0) {
+    // Double-tap to reset
+    const now = Date.now();
+    // if (!touchMoved && now - lastTap < 320) {
+    //   resetView();
+    // }
+    lastTap = now;
+    touchPan0 = null;
+    gz_el.style.cursor = zoomLevel > 1 ? 'grab' : 'default';
+  }
+}, { passive: true });
+
+/* ---- Double-click reset (mouse) ---- */
+// gz_el.addEventListener('dblclick', () => resetView());
+
+/* ---- Keyboard arrow pan ---- */
+document.addEventListener('keydown', e => {
+  const step = 40;
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+      if (STATE.autoZoom) { STATE.autoZoom = false; updateUIFromState(); }
+      if (e.key === 'ArrowLeft')  { zoomOffX += step; }
+      if (e.key === 'ArrowRight') { zoomOffX -= step; }
+      if (e.key === 'ArrowUp')    { zoomOffY += step; }
+      if (e.key === 'ArrowDown')  { zoomOffY -= step; }
+      applyZoom(); showZoomHint();
+  }
+});
+
+function preloadAssets(onProgress) {
+  const assets = Object.values(A).filter(p => p.endsWith('.png'));
+  const promises = [];
+  let loadedCount = 0;
+  const totalAssets = assets.length;
+
+  if (onProgress && totalAssets > 0) {
+    onProgress(0);
+  } else if (onProgress) {
+    onProgress(100);
+    return Promise.resolve();
+  }
+
+  for (const path of assets) {
+    const promise = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(path);
+      img.onerror = () => reject(path);
+      img.src = path;
+    }).then(path => {
+      loadedCount++;
+      if (onProgress) {
+        const percent = Math.round((loadedCount / totalAssets) * 100);
+        onProgress(percent);
+      }
+      return path;
+    });
+    promises.push(promise);
+  }
+
+  return Promise.all(promises);
+}
+
+/* ================================================
+   BOOT
+================================================ */
+function initializeGame() {
+  // Load saved settings and update UI
+  loadSettings();
+  updateUIFromState();
+
+  // Start the animation loop immediately
+  lastTs = performance.now();
+  rafId = requestAnimationFrame(gameLoop);
+  resetAll();
+
+  // Hide loader
+  const loader = document.getElementById('loadingOverlay');
+  loader.classList.add('hidden');
+}
+
+// Preload assets then start the game
+const progressBar = document.querySelector('#loadingOverlay .progress-bar');
+const progressPercent = document.querySelector('#loadingOverlay .progress-percent');
+
+function updateProgress(percent) {
+  if (progressBar) progressBar.style.width = `${percent}%`;
+  if (progressPercent) progressPercent.textContent = `${percent}%`;
+}
+
+preloadAssets(updateProgress)
+  .then(initializeGame)
+  .catch(err => {
+    console.error("Failed to preload assets", err);
+    // Still try to start the game
+    initializeGame();
+  });
+
+// Save settings when any control changes
+document.getElementById('btnMode').addEventListener('click', saveSettings);
+document.getElementById('btnBlack').addEventListener('click', saveSettings);
+document.getElementById('btnChickPlus').addEventListener('click', saveSettings);
+document.getElementById('btnChickMinus').addEventListener('click', saveSettings);
+document.getElementById('btnSpeedPlus').addEventListener('click', saveSettings);
+document.getElementById('btnSpeedMinus').addEventListener('click', saveSettings);
+document.getElementById('btnTimerPlus').addEventListener('click', saveSettings);
+document.getElementById('btnTimerMinus').addEventListener('click', saveSettings);
+document.getElementById('btnBrushPlus').addEventListener('click', saveSettings);
+document.getElementById('btnBrushMinus').addEventListener('click', saveSettings);
+document.getElementById('btnZonePlus').addEventListener('click', saveSettings);
+document.getElementById('btnZoneMinus').addEventListener('click', saveSettings);
+</script>
+</body>
+</html>

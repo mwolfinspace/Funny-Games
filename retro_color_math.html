@@ -1,0 +1,3608 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GUESS THE SECRET EQUATION</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            height: 100vh;
+            color: #0f0;
+            overflow: hidden;
+            transition: filter 0.3s;
+            user-select: none; /* Prevent text selection during rapid clicking */
+        }
+
+        /* Power Off State */
+        body.powered-off .screen-input,
+        body.powered-off .monitor-screen {
+            background: #000 !important;
+            box-shadow: none !important;
+            border-color: #111 !important;
+        }
+
+        body.powered-off .screen-input::after,
+        body.powered-off .monitor-screen::before,
+        body.powered-off .monitor-screen::after {
+            display: none;
+        }
+
+        body.powered-off .monitor-screen * {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            transition: opacity 0.2s ease-out, visibility 0.2s ease-out !important;
+        }
+
+        body.powered-off .screen-content,
+        body.powered-off #screenInput {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        body.powered-off .num-btn,
+        body.powered-off .op-btn,
+        body.powered-off .ctrl-btn {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Light Mode Styles - Updated for Green Theme */
+        body.light-mode {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e9f0f7 100%);
+        }
+
+        body.light-mode .top-bar {
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 3px solid #2c3e50;
+        }
+
+        body.light-mode .top-bar-left,
+        body.light-mode #level-display {
+            color: #2c3e50;
+            text-shadow: none;
+        }
+
+        body.light-mode .top-btn {
+            background: #27ae60;
+            border-color: #1e8449;
+            color: #fff;
+        }
+
+        body.can-hover.light-mode .top-btn:hover {
+            background: #2ecc71;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+        }
+
+        body.light-mode .numpad-panel {
+            background: linear-gradient(145deg, #ffffff, #ecf0f1);
+            border-color: #95a5a6;
+        }
+
+        body.light-mode .screen-input {
+            background: #2c3e50;
+            border-color: #34495e;
+            color: #f0f0f0;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 0 5px rgba(240, 240, 240, 0.5);
+        }
+
+        body.light-mode .screen-input::after {
+            background: linear-gradient(90deg, transparent, rgba(240, 240, 240, 0.2), transparent);
+        }
+
+        body.light-mode .num-btn {
+            background: linear-gradient(145deg, #ecf0f1, #bdc3c7);
+            border-color: #7f8c8d;
+            color: #2c3e50;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        body.can-hover.light-mode .num-btn:hover {
+            background: linear-gradient(145deg, #ffffff, #ecf0f1);
+            border-color: #2ecc71;
+            color: #27ae60;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.3);
+        }
+        
+        body.light-mode .num-btn:active {
+             background: #bdc3c7;
+        }
+
+        /* Specific styling for the Green Square button in Numpad */
+        body.light-mode .num-btn.var-btn {
+            background: linear-gradient(145deg, #a8e6cf, #1abc9c);
+            border-color: #16a085;
+            color: #fff;
+        }
+        body.can-hover.light-mode .num-btn.var-btn:hover {
+             background: linear-gradient(145deg, #1abc9c, #16a085);
+             box-shadow: 0 0 20px rgba(26, 188, 156, 0.6);
+        }
+
+        body.light-mode .op-btn {
+            background: linear-gradient(145deg, #f39c12, #e67e22);
+            border-color: #d68910;
+            color: #ffffff;
+        }
+
+        body.can-hover.light-mode .op-btn:hover {
+            background: linear-gradient(145deg, #f5b041, #f39c12);
+            border-color: #2c3e50;
+            box-shadow: 0 0 20px rgba(243, 156, 18, 0.5);
+        }
+
+        body.light-mode .op-btn.equals-btn {
+            background: linear-gradient(145deg, #27ae60, #219150);
+            border-color: #196f3d;
+            color: #ffffff;
+        }
+
+        body.can-hover.light-mode .op-btn.equals-btn:hover {
+            background: linear-gradient(145deg, #2ecc71, #27ae60);
+            border-color: #145a32;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.6);
+        }
+
+        body.light-mode .ctrl-btn {
+            background: linear-gradient(145deg, #9b59b6, #8e44ad);
+            border-color: #7d3c98;
+            color: #ffffff;
+        }
+
+        body.can-hover.light-mode .ctrl-btn:hover {
+            background: linear-gradient(145deg, #af7ac5, #9b59b6);
+            border-color: #2c3e50;
+            box-shadow: 0 0 20px rgba(155, 89, 182, 0.5);
+        }
+
+        body.light-mode .monitor-frame {
+            background: linear-gradient(145deg, #34495e, #2c3e50);
+            border-color: #1c2833;
+        }
+
+        body.light-mode .monitor-screen {
+            background: #1a252f;
+            border-color: #34495e;
+            box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+
+        body.light-mode .screen-content {
+            color: #2ecc71;
+            text-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+        }
+
+        body.light-mode .history-item {
+            border-color: #2ecc71;
+            background: rgba(46, 204, 113, 0.1);
+            color: #2ecc71;
+        }
+
+        /* Layout & Component Styles */
+        .top-bar {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0f0;
+            height: 62px;
+            flex-shrink: 0;
+        }
+
+        .top-bar-left,
+        #level-display {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .top-btn {
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #0f0;
+            padding: 8px 16px;
+            color: #0f0;
+            cursor: pointer;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        body.can-hover .top-btn:hover {
+            background: rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .game-container {
+            display: flex;
+            gap: clamp(20px, 4vw, 60px);
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            padding: clamp(20px, 4vh, 40px);
+            align-items: stretch;
+            height: calc(100vh - 62px);
+            min-height: 600px;
+        }
+
+        /* Left Panel - Numpad */
+        .numpad-panel {
+            flex: 0 0 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: linear-gradient(145deg, #2a2a3e, #1f1f2e);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 3px solid #444;
+            height: 100%;
+            transition: all 0.3s;
+        }
+
+        .screen-input {
+            background: #000;
+            border: 4px solid #333;
+            padding: 0 15px;
+            height: 70px;
+            font-size: 32px;
+            color: #0f0;
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+            text-align: right;
+            direction: ltr;
+        }
+
+        .screen-input::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.1), transparent);
+            animation: scan 3s infinite;
+        }
+
+        @keyframes scan {
+            0%, 100% { left: -100%; }
+            50% { left: 100%; }
+        }
+
+        .numpad-area {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            flex: 1;
+        }
+
+        .num-btn {
+            background: linear-gradient(145deg, #3a3a4e, #2a2a3e);
+            border: 3px solid #555;
+            padding: 0;
+            font-size: 56px;
+            font-weight: bold;
+            color: #0f0;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.1s;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            user-select: none;
+        }
+
+        .num-btn.num-0 {
+            /* Standard styling */
+        }
+        
+        .num-btn.var-btn {
+            font-size: 32px;
+            border-color: #0f0;
+            background: linear-gradient(145deg, #1e3a2e, #142a20);
+        }
+        
+        .num-btn.backspace-btn {
+            font-size: 40px;
+            color: #f55;
+        }
+        
+        .num-btn.backspace-btn:active {
+            border-color: #f00;
+            background: #3a1e1e;
+        }
+        
+        /* Animation for holding backspace */
+        .num-btn.backspace-btn.clearing {
+            animation: shake 0.2s infinite;
+            background: #500;
+            border-color: #f00;
+            color: #fff;
+        }
+        
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .num-btn.num-5 {
+            position: relative;
+        }
+
+        .num-btn.num-5::after {
+            content: '·';
+            position: absolute;
+            bottom: 5px;
+            right: 8px;
+            font-size: 40px;
+            color: #0f0;
+            opacity: 0.5;
+        }
+
+        body.can-hover .num-btn:hover {
+            background: linear-gradient(145deg, #4a4a5e, #3a3a4e);
+            border-color: #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        .num-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .operation-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 80px;
+        }
+
+        .op-btn {
+            background: linear-gradient(145deg, #4a4a2e, #3a3a1e);
+            border: 3px solid #666;
+            padding: 0;
+            font-size: 40px;
+            font-weight: bold;
+            color: #ff0;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.1s;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1; /* Standard flex for all operators */
+        }
+
+        body.can-hover .op-btn:hover {
+            background: linear-gradient(145deg, #5a5a3e, #4a4a2e);
+            border-color: #ff0;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+        }
+
+        .op-btn.equals-btn {
+            background: linear-gradient(145deg, #2e4a2e, #1e3a1e);
+            color: #fff;
+            font-size: 46px;
+            border-color: #0f0;
+            flex: 2; /* Takes up double space */
+        }
+
+        body.can-hover .op-btn.equals-btn:hover {
+            background: linear-gradient(145deg, #3a5a3a, #2e4a2e);
+            border-color: #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.7);
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .ctrl-btn {
+            background: linear-gradient(145deg, #4a2e4a, #3a1e3a);
+            border: 3px solid #666;
+            padding: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #f0f;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.1s;
+            font-family: 'Courier New', monospace;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.can-hover .ctrl-btn:hover {
+            background: linear-gradient(145deg, #5a3e5a, #4a2e4a);
+            border-color: #f0f;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+
+        /* --- New Control Button Colors (Dark Mode) --- */
+        .ctrl-btn.give-up-btn { background: linear-gradient(145deg, #6d2828, #501e1e); color: #f8baba; }
+        .ctrl-btn.check-btn   { background: linear-gradient(145deg, #6d6d28, #50501e); color: #f8f8ba; }
+        .ctrl-btn.enter-btn   { background: linear-gradient(145deg, #286d28, #1e501e); color: #baf8ba; }
+        .ctrl-btn.reset-btn   { background: linear-gradient(145deg, #28506d, #1e3c50); color: #badef8; }
+        .ctrl-btn.hint-btn    { background: linear-gradient(145deg, #6d4a28, #50361e); color: #f8d6ba; }
+        .ctrl-btn.quick-btn   { background: linear-gradient(145deg, #50286d, #3c1e50); color: #e1baf8; }
+
+        body.can-hover .ctrl-btn.give-up-btn:hover { border-color: #f8baba; box-shadow: 0 0 15px #d53030; }
+        body.can-hover .ctrl-btn.check-btn:hover   { border-color: #f8f8ba; box-shadow: 0 0 15px #d5d530; }
+        body.can-hover .ctrl-btn.enter-btn:hover   { border-color: #baf8ba; box-shadow: 0 0 15px #30d530; }
+        body.can-hover .ctrl-btn.reset-btn:hover   { border-color: #badef8; box-shadow: 0 0 15px #30a0d5; }
+        body.can-hover .ctrl-btn.hint-btn:hover    { border-color: #f8d6ba; box-shadow: 0 0 15px #d58030; }
+        .ctrl-btn.hint-btn.holding {
+            transform: scale(0.95);
+            box-shadow: 0 0 25px #d58030, inset 0 0 10px #d58030 !important;
+        }
+        body.can-hover .ctrl-btn.quick-btn:hover   { border-color: #e1baf8; box-shadow: 0 0 15px #a030d5; }
+
+        .ctrl-btn.quick-btn.holding {
+            transform: scale(0.95);
+            box-shadow: 0 0 25px #a030d5, inset 0 0 10px #a030d5 !important;
+        }
+
+        /* --- Light Mode Overrides --- */
+        body.light-mode .monitor-frame {
+            background: linear-gradient(145deg, #f5e8c2, #e0d4ae); /* Old PVC yellow */
+            border-color: #c9b78e;
+        }
+
+        body.light-mode .monitor-screen {
+            background: #f0f0e0; /* Light screen */
+            border-color: #d0d0c0;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-mode .screen-content {
+            color: #334433; /* High contrast dark green text */
+            text-shadow: 0 0 1px rgba(51, 68, 51, 0.2);
+        }
+
+        body.light-mode .calculator-result-view {
+            color: #2c3e50; /* Dark blue, high contrast */
+            text-shadow: none;
+        }
+
+        .result-value {
+             color: #fff;
+        }
+        body.light-mode .result-value {
+            color: #2c3e50;
+        }
+        
+        body.light-mode .result-arrow {
+            fill: #334433;
+            filter: none;
+        }
+
+        body.light-mode .history-item {
+            border-color: #a0b0a0;
+            background: rgba(51, 68, 51, 0.05);
+            color: #334433;
+        }
+
+        body.light-mode .history-item-calc {
+            color: #0066cc; /* Brighter blue for light mode */
+            border-color: #0066cc;
+        }
+
+        body.light-mode #displayArea .val-output {
+            color: #005500; /* Darker cyan/green for output */
+            text-shadow: none;
+        }
+
+        body.light-mode .ctrl-btn.give-up-btn { background: linear-gradient(145deg, #f5caca, #e0b6b6); color: #8b0000; }
+        body.light-mode .ctrl-btn.check-btn   { background: linear-gradient(145deg, #f5f5ca, #e0e0b6); color: #585800; }
+        body.light-mode .ctrl-btn.enter-btn   { background: linear-gradient(145deg, #caf5ca, #b6e0b6); color: #004d00; }
+        body.light-mode .ctrl-btn.reset-btn   { background: linear-gradient(145deg, #cae8f5, #b6d4e0); color: #003e58; }
+        body.light-mode .ctrl-btn.hint-btn    { background: linear-gradient(145deg, #f5e0ca, #e0cab6); color: #583000; }
+        body.light-mode .ctrl-btn.quick-btn   { background: linear-gradient(145deg, #e8caf5, #d4b6e0); color: #4d0058; }
+
+        body.can-hover.light-mode .ctrl-btn:hover {
+             box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        body.can-hover.light-mode .ctrl-btn.give-up-btn:hover { border-color: #8b0000; }
+        body.can-hover.light-mode .ctrl-btn.check-btn:hover   { border-color: #585800; }
+        body.can-hover.light-mode .ctrl-btn.enter-btn:hover   { border-color: #004d00; }
+        body.can-hover.light-mode .ctrl-btn.reset-btn:hover   { border-color: #003e58; }
+        body.can-hover.light-mode .ctrl-btn.hint-btn:hover    { border-color: #583000; }
+        body.light-mode .ctrl-btn.hint-btn.holding {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(88, 48, 0, 0.4) !important;
+        }
+        body.can-hover.light-mode .ctrl-btn.quick-btn:hover   { border-color: #4d0058; }
+        body.light-mode .ctrl-btn.quick-btn.holding {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(77, 0, 88, 0.4) !important;
+        }
+
+        /* --- Memory Game Easter Egg Styles --- */
+        .memory-dots-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 2px solid #0f0;
+            background: rgba(0, 255, 0, 0.05);
+            border-radius: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: #0f0 #000;
+        }
+
+        .memory-dots-container::-webkit-scrollbar { width: 10px; }
+        .memory-dots-container::-webkit-scrollbar-track { background: #000; }
+        .memory-dots-container::-webkit-scrollbar-thumb { background: #0f0; border-radius: 4px; }
+
+        .memory-dot {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #444;
+            border: 2px solid #666;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .memory-dot.playing {
+            background-color: #ffc107; /* Yellow */
+            border-color: #fff;
+            transform: scale(1.2);
+            box-shadow: 0 0 15px #ffc107;
+        }
+
+        .memory-dot.correct {
+            background-color: #28a745; /* Green */
+            border-color: #fff;
+        }
+
+        .memory-dot.wrong {
+            background-color: #dc3545; /* Red */
+            border-color: #fff;
+            animation: shake 0.5s;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(1); box-shadow: 0 0 10px #28a745; }
+            50% { transform: scale(1.1); box-shadow: 0 0 25px #28a745; }
+            100% { transform: scale(1); box-shadow: 0 0 10px #28a745; }
+        }
+        .memory-dot.flashing-green {
+            animation: pulse-green 0.5s infinite;
+        }
+
+        /* Light mode overrides for memory game */
+        body.light-mode .memory-dots-container {
+            border-color: #004d00;
+            background: rgba(0, 77, 0, 0.05);
+            scrollbar-color: #555 #ddd;
+        }
+        body.light-mode .memory-dots-container::-webkit-scrollbar-track { background: #ddd; }
+        body.light-mode .memory-dots-container::-webkit-scrollbar-thumb { background: #555; }
+
+        body.light-mode .memory-dot {
+            background-color: #bdc3c7;
+            border: 2px solid #7f8c8d;
+        }
+        body.light-mode .memory-dot.playing {
+            background-color: #f39c12; /* Orange */
+            box-shadow: 0 0 15px #f39c12;
+        }
+
+        body.light-mode .memory-dot.correct {
+            background-color: #27ae60; /* Green */
+            border-color: #1e8449;
+        }
+
+        body.light-mode .memory-dot.wrong {
+            background-color: #e74c3c; /* Red */
+            border-color: #c0392b;
+        }
+
+
+        /* Right Panel - Monitor (FIXED LAYOUT) */
+        .monitor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            height: 100%;
+        }
+
+        .monitor-frame {
+            background: linear-gradient(145deg, #6a6a7e, #4a4a5e);
+            padding: 30px 25px 50px 25px;
+            border-radius: 20px 20px 30px 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            border: 5px solid #333;
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .monitor-screen {
+            background: #001100;
+            border: 6px solid #222;
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0, 255, 0, 0.2);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            transition: all 0.3s;
+        }
+
+        .monitor-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(0deg,
+                    rgba(0, 255, 0, 0.03) 0px,
+                    rgba(0, 255, 0, 0.03) 2px,
+                    transparent 2px,
+                    transparent 4px);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .monitor-screen::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .screen-content {
+            position: relative;
+            z-index: 3;
+            color: #0f0;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .monitor-base {
+            background: linear-gradient(145deg, #5a5a6e, #3a3a4e);
+            height: 35px;
+            margin: -10px auto 0;
+            width: 60%;
+            border-radius: 0 0 20px 20px;
+            border: 3px solid #333;
+            border-top: none;
+            flex-shrink: 0;
+        }
+
+        .power-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 25px;
+            width: 25px;
+            height: 25px;
+            background: #333;
+            border-radius: 50%;
+            border: 2px solid #111;
+            box-shadow: inset 0 0 5px #000;
+            cursor: pointer;
+            z-index: 50;
+        }
+
+        .power-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background: #f00;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #f00;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        body:not(.powered-off) .power-btn::after {
+            background: #0f0;
+            box-shadow: 0 0 5px #0f0;
+        }
+
+        .status-display {
+            text-align: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: rgba(0, 255, 0, 0.05);
+            border: 2px solid #0f0;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        /* DISPLAY AREA & HISTORY FIXES */
+        #displayArea {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .calculator-result-view {
+            text-align: center;
+            font-size: 32px;
+            color: #0ff;
+            margin: 10px 0;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            word-wrap: break-word;
+            flex-shrink: 0;
+        }
+
+        .result-display {
+            text-align: center;
+            margin: 5px 0;
+            flex-shrink: 0;
+        }
+
+        .result-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 32px;
+            font-weight: bold;
+            flex-wrap: wrap;
+        }
+
+        .result-arrow {
+            width: 32px;
+            height: 32px;
+            fill: #0f0;
+            filter: drop-shadow(0 0 5px rgba(0, 255, 0, 0.5));
+            flex-shrink: 0;
+        }
+
+        .history-pane {
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid #0a0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #0f0 #000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-pane::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .history-pane::-webkit-scrollbar-track {
+            background: #000;
+        }
+
+        .history-pane::-webkit-scrollbar-thumb {
+            background: #0f0;
+            border-radius: 4px;
+        }
+
+        body.light-mode .history-pane {
+            background: rgba(255, 255, 255, 0.5); /* Lighter background */
+            border-color: #c0c0c0; /* Softer border */
+            scrollbar-color: #555 #ddd;
+        }
+        body.light-mode .history-pane::-webkit-scrollbar-track {
+            background: #ddd;
+        }
+        body.light-mode .history-pane::-webkit-scrollbar-thumb {
+            background: #555;
+        }
+
+        .history-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .history-item {
+            padding: 5px;
+            border: 1px solid #0f0;
+            border-radius: 4px;
+            text-align: center;
+            background: rgba(0, 255, 0, 0.1);
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-shrink: 0;
+            font-size: 40px;
+            line-height: 1.2;
+            word-break: break-all;
+        }
+
+        .history-item-calc {
+            color: #3498db;
+            border-color: #3498db;
+        }
+
+        /* OVERLAY for Error/Success Messages */
+        .overlay-message {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .overlay-message.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .overlay-content {
+            border: 3px solid #f00;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 0, 0, 0.1);
+            color: #f00;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.3);
+            max-width: 90%;
+        }
+
+        .success-overlay .overlay-content {
+            border-color: #0f0;
+            color: #0f0;
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: linear-gradient(145deg, #2a2a3e, #1f1f2e);
+            border: 3px solid #0ff;
+            border-radius: 10px;
+            padding: 15px 25px;
+            color: #0ff;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 5px 20px rgba(0, 255, 255, 0.5);
+            animation: slideIn 0.3s ease-out, slideOut 0.3s ease-in 2.7s;
+            pointer-events: auto;
+        }
+
+        .toast.error {
+            border-color: #f00;
+            color: #f00;
+            box-shadow: 0 5px 20px rgba(255, 0, 0, 0.5);
+        }
+
+        .toast.warning {
+            border-color: #ff0;
+            color: #ff0;
+            box-shadow: 0 5px 20px rgba(255, 255, 0, 0.5);
+        }
+
+        .toast.success {
+            border-color: #0f0;
+            color: #0f0;
+            box-shadow: 0 5px 20px rgba(0, 255, 0, 0.5);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #f00;
+            position: absolute;
+            animation: confetti-fall 3s linear forwards;
+            z-index: 9998;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .game-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .numpad-panel {
+                flex: 0 0 auto;
+            }
+
+            .monitor-panel {
+                height: 600px;
+            }
+        }
+
+        /* Help Popup Styles */
+        .help-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .help-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .help-popup {
+            background: linear-gradient(145deg, #1f1f2e, #2a2a3e);
+            border: 4px solid #0f0;
+            border-radius: 15px;
+            padding: 25px;
+            color: #0f0;
+            width: 100%;
+            max-width: 800px;
+            max-height: 100%;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 0 40px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 255, 0, 0.2);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            scrollbar-width: thin;
+            scrollbar-color: #0f0 #000;
+        }
+        
+        .help-popup::-webkit-scrollbar { width: 10px; }
+        .help-popup::-webkit-scrollbar-track { background: #000; }
+        .help-popup::-webkit-scrollbar-thumb { background: #0f0; border-radius: 4px; }
+        
+        .help-overlay.active .help-popup {
+            transform: scale(1);
+        }
+
+        .help-popup h2 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .help-popup h3 {
+            font-size: 22px;
+            color: #ff0;
+            border-bottom: 2px solid #ff0;
+            padding-bottom: 5px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .help-popup h4 {
+            font-size: 18px;
+            color: #0ff;
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }
+
+        .help-popup p {
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .help-popup ul {
+            list-style: none;
+            padding-left: 10px;
+        }
+
+        .help-popup li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+            display: flex;
+        }
+
+        .help-popup li span {
+            font-weight: 900;
+            color: #f0f;
+            width: 160px;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        /* Light Mode for Help */
+        body.light-mode .help-popup {
+            background: linear-gradient(145deg, #fafafa, #e9eef3);
+            border-color: #2c3e50;
+            color: #2c3e50;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.2);
+            scrollbar-color: #555 #ddd;
+        }
+        body.light-mode .help-popup::-webkit-scrollbar-track { background: #ddd; }
+        body.light-mode .help-popup::-webkit-scrollbar-thumb { background: #555; }
+
+        body.light-mode .help-popup h2 {
+            color: #004d00;
+            text-shadow: none;
+        }
+        body.light-mode .help-popup h3 {
+            color: #d68910;
+            border-bottom-color: #d68910;
+        }
+        body.light-mode .help-popup h4 {
+            color: #005f5f;
+        }
+        body.light-mode .help-popup li span {
+            color: #8e44ad;
+        }
+
+        /* Easter Egg Flashing */
+        .num-btn.flashing {
+            animation: flashing-colors 1s infinite;
+        }
+
+        @keyframes flashing-colors {
+            0%   { background-color: #ff0; border-color: #ff0; } /* Yellow */
+            25%  { background-color: #f0f; border-color: #f0f; } /* Magenta */
+            50%  { background-color: #0ff; border-color: #0ff; } /* Cyan */
+            75%  { background-color: #0f0; border-color: #0f0; } /* Green */
+            100% { background-color: #ff0; border-color: #ff0; } /* Yellow */
+        }
+
+        .num-btn.playing {
+            background: #fff !important;
+            color: #000 !important;
+            box-shadow: 0 0 25px #fff, inset 0 0 10px #fff !important;
+            transform: scale(1.05);
+            transition: all 0.05s;
+        }
+    </style>
+    <base target="_blank">
+</head>
+
+<body class="light-mode">
+    <div id="help-overlay" class="help-overlay">
+        <div id="help-popup" class="help-popup">
+            <h2>? GUESS THE SECRET EQUATION HELP</h2>
+            <div class="help-content">
+                <h3>🎮 Gameplay</h3>
+                <p>This is a 2-stage game where you first create a secret math equation, and then try to guess it based on input/output results.</p>
+                
+                <h4>STAGE 1: Set Secret Equation</h4>
+                <p>1. Create a math equation using numbers, operators (+, -, x, :).<br>2. You MUST include the special variable `🟩` in your equation.<br>3. Press the <b>✅ ENTER</b> button to lock it in.</p>
+                
+                <h4>STAGE 2: Guess the Equation</h4>
+                <p>1. The screen will now accept number inputs.<br>2. Enter any number and press <b>✅ ENTER</b> to see what the result is based on your secret equation.<br>3. Analyze the input/output pairs in the history pane.<br>4. When you think you know the secret equation, type it into the input field (using `🟩`) and press <b>🔍 CHECK</b>.<br>5. If you are correct, you win! 🎉</p>
+
+                <h3>⚙️ Control Buttons</h3>
+                <ul>
+                    <li><span>🏳️ GIVE UP:</span> Reveals the secret equation and ends the game.</li>
+                    <li><span>🔍 CHECK:</span> Checks if your equation guess is correct.</li>
+                    <li><span>✅ ENTER:</span> Locks the secret equation (Stage 1) or submits a number for testing (Stage 2).</li>
+                    <li><span>🔄 RESET:</span> Resets the entire game to Stage 1.</li>
+                    <li><span>💡 HINT:</span> Gives a small hint about the secret equation in Stage 2.</li>
+                    <li><span>🎲 QUICK:</span> In Stage 1, instantly generates a random equation for you.</li>
+                </ul>
+
+                <h3>⌨️ Keyboard Shortcuts</h3>
+                <ul>
+                    <li><span>Numbers (0-9):</span> Input numbers.</li>
+                    <li><span>Operators (+, -, *, /):</span> Input operators.</li>
+                    <li><span>Shift + / (?):</span> Input the `🟩` variable.</li>
+                    <li><span>. (period):</span> Input a decimal point.</li>
+                    <li><span>Enter:</span> Functions as the ✅ ENTER button.</li>
+                    <li><span>Spacebar:</span> Functions as the = (calculate) button or the 🔍 CHECK button if `🟩` is in the input.</li>
+                    <li><span>Backspace:</span> Deletes the last character. Hold to clear input.</li>
+                    <li><span>Escape:</span> Functions as the 🔄 RESET button or closes this help popup.</li>
+                    <li><span>` (backtick):</span> Instantly generates and enters a random equation to start Stage 2.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="top-bar">
+        <div class="top-bar-left">💻 GUESS THE SECRET EQUATION</div>
+        <div class="top-bar-right">
+            <div id="level-display" class="top-bar-left" style="margin-right: 15px;">LVL: 1</div>
+            <button class="top-btn" onclick="changeLevel(-1)">-</button>
+            <button class="top-btn" onclick="changeLevel(1)">+</button>
+            <button class="top-btn" onclick="toggleDarkMode()">🌓 DARK/LIGHT</button>
+            <button class="top-btn" onclick="toggleFullscreen()">⛶ FULLSCREEN</button>
+            <button class="top-btn" onclick="showHelpPopup()">? HELP</button>
+            <button class="top-btn" onclick="backToIndex()">← INDEX</button>
+        </div>
+    </div>
+    <div class="game-container">
+        <div class="numpad-panel">
+            <div class="screen-input" id="screenInput"></div>
+
+            <div class="numpad-area">
+                <div class="numpad-grid">
+                    <button class="num-btn" onclick="addToInput('7')">7</button>
+                    <button class="num-btn" onclick="addToInput('8')">8</button>
+                    <button class="num-btn" onclick="addToInput('9')">9</button>
+                    <button class="num-btn" onclick="addToInput('4')">4</button>
+                    <button class="num-btn num-5" onclick="addToInput('5')">5</button>
+                    <button class="num-btn" onclick="addToInput('6')">6</button>
+                    <button class="num-btn" onclick="addToInput('1')">1</button>
+                    <button class="num-btn" onclick="addToInput('2')">2</button>
+                    <button class="num-btn" onclick="addToInput('3')">3</button>
+                    
+                    <button class="num-btn var-btn" onclick="addToInput('🟩')">🟩</button>
+                    <button class="num-btn num-0" onclick="addToInput('0')">0</button>
+                    <button class="num-btn backspace-btn" id="btn-backspace">⌫</button>
+                </div>
+
+                <div class="operation-panel">
+                    <button class="op-btn" onclick="addToInput('+')">+</button>
+                    <button class="op-btn" onclick="addToInput('-')">-</button>
+                    <button class="op-btn" onclick="addToInput('x')">x</button>
+                    <button class="op-btn" onclick="addToInput(':')">:</button>
+                    <button class="op-btn equals-btn" onclick="calculateImmediate()">=</button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <button class="ctrl-btn give-up-btn" onclick="giveUp()">🏳️ GIVE UP</button>
+                <button class="ctrl-btn check-btn" onclick="checkPressed()">🔍 CHECK</button>
+                <button class="ctrl-btn enter-btn" id="btn-enter">✅ ENTER</button>
+                <button class="ctrl-btn reset-btn" id="btn-reset" onclick="resetGame()">🔄 RESET</button>
+                <button class="ctrl-btn hint-btn" id="btn-hint">💡 HINT</button>
+                <button class="ctrl-btn quick-btn" id="btn-quick">🎲 QUICK</button>
+            </div>
+        </div>
+
+        <div class="monitor-panel">
+            <div class="monitor-frame">
+                <div class="monitor-power-btn power-btn" onclick="togglePower()"></div>
+                <div class="monitor-screen">
+                    <div class="screen-content" id="screenContent">
+
+                        <div id="overlayMessage" class="overlay-message">
+                            <div class="overlay-content" id="overlayContent"></div>
+                        </div>
+
+                        <div class="status-display">
+                            <div class="status-text" id="statusText">STAGE 1: SET SECRET EQUATION</div>
+                            <div id="statusInfo">Enter equation with . as input, then press ENTER</div>
+                        </div>
+
+                        <div id="displayArea">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="monitor-base"></div>
+        </div>
+    </div>
+
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function beep(frequency = 800, duration = 50, volume = 0.3, type = 'square') {
+            if (document.body.classList.contains('powered-off')) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+
+            gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration / 1000);
+        }
+
+        function getShiftedFreq(baseFreq) {
+            if (level < 1 || level > levelShift.length) return baseFreq; // Safety check
+            const shiftFactor = Math.pow(2, levelShift[level - 1] / 12);
+            return baseFreq * shiftFactor;
+        }
+
+        function safeEvaluate(expr) {
+            // This function replaces eval() to prevent octal interpretation of numbers with leading zeros.
+            // It tokenizes the expression, parses numbers using parseFloat (which forces base-10), and then rejoins for evaluation.
+            try {
+                const safeExpr = expr.split(/([+\-*/\(\):])/).map(part => {
+                    const trimmed = part.trim();
+                    if (trimmed && !isNaN(trimmed)) {
+                        return parseFloat(trimmed);
+                    }
+                    return trimmed;
+                }).join('');
+                
+                return new Function('return ' + safeExpr)();
+            } catch (e) {
+                console.error(`Safe evaluation failed for expression: "${expr}"`, e);
+                throw e; // Re-throw the error to be caught by the calling function
+            }
+        }
+        
+        
+        let easterEggHoldTimer = null;
+        let easterEggModeActive = false;
+        let tunePlaying = false;
+        let checkButtonLongPressTriggered = false;
+
+        const tunes = [
+            { name: "Mary Had a Little Lamb", notes: [
+                { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, 
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 6 }, 
+                { n: 'D4', d: 3 }, { n: 'D4', d: 3 }, { n: 'D4', d: 6 }, 
+                { n: 'E4', d: 3 }, { n: 'G4', d: 3 }, { n: 'G4', d: 6 },
+                { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, 
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, 
+                { n: 'D4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 6 }
+            ] },
+            { name: "Twinkle Twinkle Little Star", notes: [
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'G4', d: 3 }, { n: 'G4', d: 3 }, 
+                { n: 'A4', d: 3 }, { n: 'A4', d: 3 }, { n: 'G4', d: 6 }, 
+                { n: 'F4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, 
+                { n: 'D4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 6 },
+                { n: 'G4', d: 3 }, { n: 'G4', d: 3 }, { n: 'F4', d: 3 }, { n: 'F4', d: 3 },
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 6 },
+                { n: 'G4', d: 3 }, { n: 'G4', d: 3 }, { n: 'F4', d: 3 }, { n: 'F4', d: 3 },
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 6 },
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'G4', d: 3 }, { n: 'G4', d: 3 }, 
+                { n: 'A4', d: 3 }, { n: 'A4', d: 3 }, { n: 'G4', d: 6 }, 
+                { n: 'F4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, 
+                { n: 'D4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 6 }
+            ] },
+            { name: "Ode to Joy", notes: [
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 3 }, 
+                { n: 'G4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 3 },
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 },
+                { n: 'E4', d: 4 }, { n: 'D4', d: 2 }, { n: 'D4', d: 6 },
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 3 }, 
+                { n: 'G4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 3 },
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 },
+                { n: 'D4', d: 4 }, { n: 'C4', d: 2 }, { n: 'C4', d: 6 }
+            ] },
+            { name: "Row Row Row Your Boat", notes: [
+                { n: 'C4', d: 4 }, { n: 'C4', d: 4 }, { n: 'C4', d: 3 }, { n: 'D4', d: 1 }, { n: 'E4', d: 4 },
+                { n: 'E4', d: 3 }, { n: 'D4', d: 1 }, { n: 'E4', d: 3 }, { n: 'F4', d: 1 }, { n: 'G4', d: 8 },
+                { n: 'C5', d: 2 }, { n: 'C5', d: 2 }, { n: 'C5', d: 2 }, { n: 'G4', d: 2 }, { n: 'G4', d: 2 }, { n: 'G4', d: 2 },
+                { n: 'E4', d: 2 }, { n: 'E4', d: 2 }, { n: 'E4', d: 2 }, { n: 'C4', d: 2 }, { n: 'C4', d: 2 }, { n: 'C4', d: 2 },
+                { n: 'G4', d: 3 }, { n: 'F4', d: 1 }, { n: 'E4', d: 3 }, { n: 'D4', d: 1 }, { n: 'C4', d: 8 }
+            ] },
+            { name: "Frere Jacques", notes: [
+                { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 }, { n: 'C4', d: 3 },
+                { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 }, { n: 'C4', d: 3 },
+                { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 6 },
+                { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 6 },
+                { n: 'G4', d: 2 }, { n: 'A4', d: 2 }, { n: 'G4', d: 2 }, { n: 'F4', d: 2 }, { n: 'E4', d: 3 }, { n: 'C4', d: 3 },
+                { n: 'G4', d: 2 }, { n: 'A4', d: 2 }, { n: 'G4', d: 2 }, { n: 'F4', d: 2 }, { n: 'E4', d: 3 }, { n: 'C4', d: 3 },
+                { n: 'C4', d: 3 }, { n: 'G4', d: 3 }, { n: 'C4', d: 6 },
+                { n: 'C4', d: 3 }, { n: 'G4', d: 3 }, { n: 'C4', d: 6 }
+            ] },
+            { name: "Happy Birthday", notes: [
+                { n: 'C4', d: 2 }, { n: 'C4', d: 1 }, { n: 'D4', d: 3 }, { n: 'C4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 6 },
+                { n: 'C4', d: 2 }, { n: 'C4', d: 1 }, { n: 'D4', d: 3 }, { n: 'C4', d: 3 }, { n: 'G4', d: 3 }, { n: 'F4', d: 6 },
+                { n: 'C4', d: 2 }, { n: 'C4', d: 1 }, { n: 'C5', d: 3 }, { n: 'A4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 6 },
+                { n: 'A#4', d: 2 }, { n: 'A#4', d: 1 }, { n: 'A4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 3 }, { n: 'F4', d: 6 }
+            ] },
+            { name: "Jingle Bells", notes: [
+                { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 6 }, { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 6 },
+                { n: 'E4', d: 3 }, { n: 'G4', d: 3 }, { n: 'C4', d: 4 }, { n: 'D4', d: 2 }, { n: 'E4', d: 8 },
+                { n: 'F4', d: 3 }, { n: 'F4', d: 3 }, { n: 'F4', d: 3 }, { n: 'F4', d: 3 },
+                { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 3 }, { n: 'E4', d: 2 }, { n: 'E4', d: 2 },
+                { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 6 }, { n: 'G4', d: 6 }
+            ] },
+            { name: "London Bridge", notes: [
+                { n: 'G4', d: 4 }, { n: 'A4', d: 2 }, { n: 'G4', d: 4 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 6 },
+                { n: 'D4', d: 3 }, { n: 'E4', d: 3 }, { n: 'F4', d: 6 }, { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 6 },
+                { n: 'G4', d: 4 }, { n: 'A4', d: 2 }, { n: 'G4', d: 4 }, { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'F4', d: 3 }, { n: 'G4', d: 6 },
+                { n: 'D4', d: 6 }, { n: 'G4', d: 6 }, { n: 'E4', d: 3 }, { n: 'C4', d: 6 }
+            ] },
+             { name: "Three Blind Mice", notes: [
+                { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 6 }, 
+                { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 6 },
+                { n: 'G4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 6 },
+                { n: 'G4', d: 3 }, { n: 'F4', d: 3 }, { n: 'E4', d: 6 },
+                { n: 'C5', d: 2 }, { n: 'C5', d: 2 }, { n: 'B4', d: 3 }, { n: 'A4', d: 3 },
+                { n: 'B4', d: 2 }, { n: 'B4', d: 2 }, { n: 'A4', d: 3 }, { n: 'G4', d: 3 },
+                { n: 'A4', d: 2 }, { n: 'A4', d: 2 }, { n: 'G4', d: 3 }, { n: 'F4', d: 3 },
+                { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 6 }
+            ] },
+            { name: "Yankee Doodle", notes: [
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 },
+                { n: 'C4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 6 },
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 },
+                { n: 'C4', d: 6 }, { n: 'B3', d: 6 },
+                { n: 'C4', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'E4', d: 3 },
+                { n: 'F4', d: 3 }, { n: 'E4', d: 3 }, { n: 'D4', d: 3 }, { n: 'C4', d: 3 },
+                { n: 'B3', d: 3 }, { n: 'C4', d: 3 }, { n: 'D4', d: 3 }, { n: 'B3', d: 3 },
+                { n: 'A4', d: 3 }, { n: 'G4', d: 3 }, { n: 'F4', d: 6 }
+            ] },
+            { name: "Amazing Grace", notes: [
+                { n: 'C4', d: 6 }, { n: 'F4', d: 4 }, { n: 'A4', d: 2 }, { n: 'F4', d: 6 }, 
+                { n: 'A4', d: 4 }, { n: 'G4', d: 2 }, { n: 'F4', d: 6 }, { n: 'D4', d: 6 }, 
+                { n: 'C4', d: 6 }, { n: 'F4', d: 4 }, { n: 'A4', d: 2 }, { n: 'F4', d: 6 }, 
+                { n: 'A4', d: 4 }, { n: 'G4', d: 2 }, { n: 'C5', d: 6 }
+            ] }
+        ];
+
+        const noteNameToFreq = {
+            'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
+            'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+            'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.26, 'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'B5': 987.77
+        };
+        
+        const noteToButton = {
+            'C4': '0', 'D4': '1', 'E4': '2', 'F4': '3', 'G4': '4', 'A4': '5', 'B4': '6', 
+            'C5': '7', 'D5': '8', 'E5': '9', 'B3': '6', 'A#4': '🟩'
+        };
+
+        function activateEasterEggMode() {
+            if (easterEggModeActive) return;
+            easterEggModeActive = true;
+            tunePlaying = false;
+            showToast('Secret Tune Mode Activated!', 'success');
+            beep(getShiftedFreq(800), 50);
+            setTimeout(() => beep(getShiftedFreq(1000), 50), 100);
+            setTimeout(() => beep(getShiftedFreq(1200), 100), 200);
+
+            document.querySelectorAll('.num-btn').forEach(btn => {
+                if (!btn.classList.contains('backspace-btn')) {
+                    btn.classList.add('flashing');
+                }
+            });
+        }
+        
+        function deactivateEasterEggMode() {
+            if (!easterEggModeActive) return;
+            easterEggModeActive = false;
+            tunePlaying = false;
+            document.querySelectorAll('.num-btn.flashing').forEach(btn => {
+                btn.classList.remove('flashing');
+            });
+        }
+        
+        function playTune(tuneIndex) {
+            if (tunePlaying || !easterEggModeActive) return;
+            
+            const tune = tunes[tuneIndex];
+            if (!tune) return;
+
+            tunePlaying = true;
+            showToast(`Playing: ${tune.name}`, 'info');
+            deactivateEasterEggMode(); // Stop flashing while playing
+
+            let cumulativeDelay = 0;
+            const noteDuration = 80; // ms per unit
+
+            const allNumButtons = document.querySelectorAll('.num-btn');
+
+            tune.notes.forEach(note => {
+                const freq = noteNameToFreq[note.n];
+                const duration = note.d * noteDuration;
+                if (freq) {
+                    setTimeout(() => {
+                        beep(getShiftedFreq(freq), duration * 0.9, 0.4, 'triangle');
+                        const buttonChar = noteToButton[note.n];
+                        if (buttonChar) {
+                            let targetBtn;
+                            if (buttonChar === '🟩') {
+                                targetBtn = document.querySelector('.var-btn');
+                            } else {
+                                allNumButtons.forEach(btn => {
+                                    if(btn.textContent === buttonChar) targetBtn = btn;
+                                });
+                            }
+                            
+                            if (targetBtn) {
+                                targetBtn.classList.add('playing');
+                                setTimeout(() => {
+                                    targetBtn.classList.remove('playing');
+                                }, duration * 0.9);
+                            }
+                        }
+                    }, cumulativeDelay);
+                }
+                cumulativeDelay += duration;
+            });
+
+            // Reset after tune finishes
+            setTimeout(() => {
+                tunePlaying = false;
+                deactivateEasterEggMode();
+                showToast('Secret Tune Mode Deactivated.', 'warning');
+            }, cumulativeDelay);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkBtn = document.querySelector('.check-btn');
+            checkBtn.addEventListener('mousedown', startEasterEggTimer);
+            checkBtn.addEventListener('mouseup', cancelEasterEggTimer);
+            checkBtn.addEventListener('mouseleave', cancelEasterEggTimer);
+            checkBtn.addEventListener('touchstart', startEasterEggTimer, { passive: false });
+            checkBtn.addEventListener('touchend', endCheckTouch, { passive: false });
+            checkBtn.addEventListener('touchcancel', cancelEasterEggTimer);
+        });
+
+        function startEasterEggTimer(e) {
+            if (e && e.cancelable) e.preventDefault();
+            checkButtonLongPressTriggered = false;
+            if (tunePlaying || easterEggModeActive) return;
+
+            clearTimeout(easterEggHoldTimer);
+            easterEggHoldTimer = setTimeout(() => {
+                checkButtonLongPressTriggered = true;
+                activateEasterEggMode();
+            }, 2000); // 2 seconds
+        }
+
+        function endCheckTouch(e) {
+            if (e && e.cancelable) e.preventDefault();
+            clearTimeout(easterEggHoldTimer);
+            if (!checkButtonLongPressTriggered) {
+                checkPressed();
+            }
+            checkButtonLongPressTriggered = false;
+        }
+
+        function cancelEasterEggTimer() {
+            clearTimeout(easterEggHoldTimer);
+        }
+
+        // --- Keyboard Support ---
+        document.addEventListener('keydown', (e) => {
+            if (document.body.classList.contains('powered-off')) return;
+            
+            const key = e.key;
+
+            if (key === 'Escape') {
+                if (easterEggModeActive) {
+                    deactivateEasterEggMode();
+                    showToast('Secret Tune Mode Deactivated!', 'warning');
+                    return;
+                }
+                if (document.getElementById('help-overlay').classList.contains('active')) {
+                    hideHelpPopup();
+                } else {
+                    resetGame();
+                }
+                return;
+            }
+
+            // Numbers
+            if (/\d/.test(key)) {
+                addToInput(key);
+                return;
+            }
+
+            // Operators
+            const opMap = {
+                '+': '+',
+                '-': '-',
+                '*': 'x',
+                'x': 'x',
+                '/': ':',
+                ':': ':'
+            };
+            if (opMap[key]) {
+                addToInput(opMap[key]);
+                return;
+            }
+
+            // Variable 🟩 (mapped to Shift + / which is ?)
+            if (key === '?') {
+                e.preventDefault(); // Prevent browser search
+                addToInput('🟩');
+                return;
+            }
+
+            // Dot for decimals
+            if (key === '.') {
+                addToInput('.');
+                return;
+            }
+
+            // Actions
+            if (key === ' ') {
+                e.preventDefault();
+                if (currentInput.includes('🟩')) {
+                    checkPressed();
+                } else {
+                    calculateImmediate();
+                }
+                return;
+            }
+
+            if (key === 'Enter') {
+                e.preventDefault();
+                if (memoryGameActive) {
+                    startEnterHoldTimer(e);
+                } else {
+                    handleEnterAction();
+                }
+                return;
+            }
+            
+            if (key === '=') {
+                calculateImmediate();
+                return;
+            }
+
+            if (key === 'Backspace') {
+                backspace();
+                return;
+            }
+
+            if (key === '`') {
+                if (gameStage !== 1) {
+                    showToast('Game already in progress!', 'warning');
+                    return;
+                }
+                randomEquation();
+                enterPressed();
+                return;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (document.body.classList.contains('powered-off')) return;
+            if (e.key === 'Enter' && memoryGameActive) {
+                endEnterHoldTimer(e);
+            }
+        });
+
+        // --- Backspace Hold Logic ---
+        let backspaceTimer;
+        let isLongPress = false;
+        const bsBtn = document.getElementById('btn-backspace');
+
+        function startBackspaceTimer(e) {
+            e.preventDefault(); 
+            isLongPress = false;
+            bsBtn.classList.add('clearing'); 
+            
+            backspaceTimer = setTimeout(() => {
+                isLongPress = true;
+                clearInput();
+                beep(getShiftedFreq(600), 100, 0.4, 'sawtooth');
+                setTimeout(() => beep(getShiftedFreq(400), 150, 0.4, 'sawtooth'), 100);
+                bsBtn.classList.remove('clearing');
+            }, 600);
+        }
+
+        function endBackspaceTimer(e) {
+            e.preventDefault();
+            clearTimeout(backspaceTimer);
+            bsBtn.classList.remove('clearing');
+            
+            if (!isLongPress) {
+                backspace();
+            }
+        }
+
+        bsBtn.addEventListener('mousedown', startBackspaceTimer);
+        bsBtn.addEventListener('mouseup', endBackspaceTimer);
+        bsBtn.addEventListener('mouseleave', (e) => {
+            clearTimeout(backspaceTimer);
+            bsBtn.classList.remove('clearing');
+        });
+        
+        bsBtn.addEventListener('touchstart', startBackspaceTimer, { passive: false });
+        bsBtn.addEventListener('touchend', endBackspaceTimer);
+        bsBtn.addEventListener('touchcancel', endBackspaceTimer);
+
+        // --- Quick Button Hold Logic ---
+        let quickHoldTimer;
+        let isQuickLongPress = false;
+        const quickBtn = document.getElementById('btn-quick');
+
+        function startQuickHoldTimer(e) {
+            e.preventDefault();
+            isQuickLongPress = false;
+            if (quickBtn) quickBtn.classList.add('holding');
+
+            quickHoldTimer = setTimeout(() => {
+                isQuickLongPress = true;
+                if (quickBtn) quickBtn.classList.remove('holding');
+                if (gameStage !== 1) {
+                    showToast('Game already in progress!', 'warning');
+                } else {
+                    beep(getShiftedFreq(900), 50, 0.4, 'sawtooth');
+                    setTimeout(() => beep(getShiftedFreq(1200), 100, 0.4, 'sawtooth'), 100);
+                    randomEquation();
+                    enterPressed();
+                }
+            }, 600);
+        }
+
+        function endQuickHoldTimer(e) {
+            e.preventDefault();
+            clearTimeout(quickHoldTimer);
+            if (!isQuickLongPress) {
+                quickGameStart();
+            }
+            if (quickBtn) quickBtn.classList.remove('holding');
+        }
+        
+        if (quickBtn) {
+            quickBtn.addEventListener('mousedown', startQuickHoldTimer);
+            quickBtn.addEventListener('mouseup', endQuickHoldTimer);
+            quickBtn.addEventListener('mouseleave', () => {
+                clearTimeout(quickHoldTimer);
+                if (quickBtn) quickBtn.classList.remove('holding');
+            });
+            quickBtn.addEventListener('touchstart', startQuickHoldTimer, { passive: false });
+            quickBtn.addEventListener('touchend', endQuickHoldTimer);
+            quickBtn.addEventListener('touchcancel', endQuickHoldTimer);
+        }
+        
+        // --- Memory Game Easter Egg ---
+
+        function clearMemoryGameTimers() {
+            if (!memoryGameTimers || memoryGameTimers.length === 0) return;
+            memoryGameTimers.forEach((timerId) => {
+                clearTimeout(timerId);
+                clearInterval(timerId);
+            });
+            memoryGameTimers = [];
+        }
+
+        function ensurePersistentSequenceLength(targetLength) {
+            while (persistentSequence.length < targetLength) {
+                persistentSequence.push(Math.floor(Math.random() * 10).toString());
+            }
+            if (persistentSequence.length > targetLength) {
+                persistentSequence = persistentSequence.slice(0, targetLength);
+            }
+        }
+
+        function levelUpMemoryGame(steps = 1) {
+            if (!memoryGameActive) return;
+            memoryGameLevel = Math.max(2, memoryGameLevel + steps);
+            playMemorySequence();
+        }
+        
+        function handleMemoryGameInput(char) {
+            if (!memoryGamePlayerTurn || !/\d/.test(char)) {
+                if (memoryGameActive) beep(getShiftedFreq(200), 100, 0.3, 'sawtooth');
+                return;
+            }
+
+            const expectedChar = memoryGameSequence[playerSequenceIndex];
+            const dot = document.getElementById(`mem-dot-${playerSequenceIndex}`);
+
+            if (char === expectedChar) {
+                if(dot) dot.classList.add('correct');
+                const freq = noteFrequencies[char] || 440;
+                beep(getShiftedFreq(freq), 150, 0.4, 'sine');
+                playerSequenceIndex++;
+
+                if (playerSequenceIndex === memoryGameSequence.length) {
+                    memoryGamePlayerTurn = false;
+                    document.querySelectorAll('.memory-dot.correct').forEach(d => {
+                        if(d) d.classList.add('flashing-green');
+                    });
+
+                    playWinningTune();
+                    memoryGameLevel++;
+                    showToast(`Level ${memoryGameLevel - 2} passed!`, 'success');
+                    const countdownText = document.getElementById('countdown-text');
+                    if(countdownText) countdownText.textContent = 'Correct! 🎉';
+                    
+                    const nextLevelTimer = setTimeout(() => {
+                         playMemorySequence();
+                    }, 2500);
+                    memoryGameTimers.push(nextLevelTimer);
+                }
+            } else {
+                // Wrong press
+                if(dot) dot.classList.add('wrong');
+                memoryGameTries--;
+
+                const triesDisplay = document.getElementById('memory-tries-display');
+                if(triesDisplay) triesDisplay.textContent = `Tries: ${memoryGameTries}`;
+                
+                if (memoryGameTries > 0) {
+                    memoryGamePlayerTurn = false;
+                    showToast(`Wrong! ${memoryGameTries} tries left.`, 'error');
+                    beep(getShiftedFreq(300), 300);
+
+                    const retryTimer = setTimeout(() => {
+                        playerSequenceIndex = 0;
+                        for(let i = 0; i < memoryGameSequence.length; i++) {
+                            const d = document.getElementById(`mem-dot-${i}`);
+                            if(d) d.className = 'memory-dot';
+                        }
+                        const countdownText = document.getElementById('countdown-text');
+                        if(countdownText) countdownText.textContent = 'Listen again...';
+                        playSequenceVisuals(); // Replay the sequence
+                    }, 1500);
+                    memoryGameTimers.push(retryTimer);
+
+                } else {
+                    memoryGameOver();
+                }
+            }
+        }
+
+        function memoryGameOver() {
+            memoryGamePlayerTurn = false;
+            memoryGameActive = false; 
+            memoryGameOverActive = true;
+            clearMemoryGameTimers();
+
+            const countdownText = document.getElementById('countdown-text');
+            if(countdownText) countdownText.textContent = 'Wrong! 👾';
+
+            beep(getShiftedFreq(400), 200, 0.5, 'sawtooth');
+            setTimeout(() => beep(getShiftedFreq(300), 200, 0.5, 'sawtooth'), 250);
+            setTimeout(() => beep(getShiftedFreq(200), 300, 0.5, 'sawtooth'), 500);
+
+            const reachedLevel = memoryGameLevel - 1;
+            showOverlayMessage(`
+                <div style="font-size: 40px; margin-bottom: 20px;">🧠 GAME OVER! 🧠</div>
+                <div style="font-size: 24px; margin-bottom: 15px;">You reached Level:</div>
+                <div style="font-size: 48px; font-weight: bold; color: #ff0;">${reachedLevel}</div>
+                <div style="margin-top: 20px; font-size: 18px;">Press ENTER to retry the memory challenge.</div>
+                <div style="margin-top: 8px; font-size: 16px;">Press 🔄 RESET to play the main game.</div>
+            `, 'error', 0);
+            
+            document.getElementById('statusText').textContent = 'MEMORY CHALLENGE OVER';
+        }
+
+        function playMemorySequence() {
+            if (!memoryGameActive) return;
+            clearMemoryGameTimers();
+            memoryGamePlayerTurn = false;
+            playerSequenceIndex = 0;
+
+            // Define game rules based on the main level
+            switch (level) {
+                case 1: // Cumulative sequence, 3 tries
+                    memoryGameTries = 3;
+                    ensurePersistentSequenceLength(Math.max(1, memoryGameLevel - 1));
+                    memoryGameSequence = [...persistentSequence];
+                    break;
+                case 2: // Cumulative sequence, 1 try
+                    memoryGameTries = 1;
+                    ensurePersistentSequenceLength(Math.max(1, memoryGameLevel - 1));
+                    memoryGameSequence = [...persistentSequence];
+                    break;
+                case 3: // Random sequence, 3 tries
+                    memoryGameTries = 3;
+                    memoryGameSequence = [];
+                    for (let i = 0; i < memoryGameLevel; i++) {
+                        memoryGameSequence.push(Math.floor(Math.random() * 10).toString());
+                    }
+                    break;
+                case 4: // Random sequence, 1 try
+                    memoryGameTries = 1;
+                    memoryGameSequence = [];
+                    for (let i = 0; i < memoryGameLevel; i++) {
+                        memoryGameSequence.push(Math.floor(Math.random() * 10).toString());
+                    }
+                    break;
+                case 5: // Random, grows by 2, 1 try
+                    memoryGameTries = 1;
+                    memoryGameSequence = [];
+                    // The length will be 2, 4, 6, 8...
+                    const sequenceLength = (memoryGameLevel -1) * 2;
+                    for (let i = 0; i < sequenceLength; i++) {
+                        memoryGameSequence.push(Math.floor(Math.random() * 10).toString());
+                    }
+                    break;
+                default:
+                     memoryGameTries = 1;
+                     memoryGameSequence = [];
+                     for (let i = 0; i < memoryGameLevel; i++) {
+                        memoryGameSequence.push(Math.floor(Math.random() * 10).toString());
+                    }
+            }
+            
+            let dotsHTML = '';
+            for (let i = 0; i < memoryGameSequence.length; i++) {
+                dotsHTML += `<div class="memory-dot" id="mem-dot-${i}"></div>`;
+            }
+            const displayArea = document.getElementById('displayArea');
+            displayArea.innerHTML = `
+                <div style="display: flex; justify-content: space-around; font-size: 24px;">
+                    <span>Level: ${memoryGameLevel - 1}</span>
+                    <span id="memory-tries-display">Tries: ${memoryGameTries}</span>
+                </div>
+                <div id="countdown-text" style="text-align:center; font-size: 48px; padding-top: 20px; min-height: 55px;">Get Ready...</div>
+                <div class="memory-dots-container">${dotsHTML}</div>
+            `;
+
+            document.getElementById('statusInfo').textContent = `Level ${memoryGameLevel - 1}`;
+
+            let countdown = 3;
+            const countdownText = document.getElementById('countdown-text');
+            const countdownInterval = setInterval(() => {
+                if (countdown > 0) {
+                    countdownText.textContent = countdown;
+                    beep(getShiftedFreq(800), 50);
+                    countdown--;
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownText.textContent = 'Listen...';
+                    beep(getShiftedFreq(1200), 100);
+                    
+                    playSequenceVisuals();
+                }
+            }, 1000);
+            memoryGameTimers.push(countdownInterval);
+        }
+
+        function playSequenceVisuals() {
+            if (!memoryGameActive) return;
+            let delay = 500;
+            const allNumButtons = document.querySelectorAll('.num-btn');
+            memoryGameSequence.forEach((numChar, index) => {
+                const timerId = setTimeout(() => {
+                    const dot = document.getElementById(`mem-dot-${index}`);
+                    if(dot) dot.classList.add('playing');
+
+                    let targetBtn;
+                    allNumButtons.forEach(btn => {
+                        if(btn.textContent === numChar) targetBtn = btn;
+                    });
+
+                    if (targetBtn) {
+                        const freq = noteFrequencies[numChar] || 440;
+                        beep(getShiftedFreq(freq), 300, 0.5, 'triangle');
+                        targetBtn.classList.add('playing');
+                        setTimeout(() => {
+                            targetBtn.classList.remove('playing');
+                            if(dot) dot.classList.remove('playing');
+                        }, 400);
+                    }
+                }, delay);
+                memoryGameTimers.push(timerId);
+                delay += 600;
+            });
+            
+            const turnTimerId = setTimeout(() => {
+                memoryGamePlayerTurn = true;
+                const countdownText = document.getElementById('countdown-text');
+                if (countdownText) countdownText.textContent = 'Your turn...';
+            }, delay);
+            memoryGameTimers.push(turnTimerId);
+        }
+        
+        function startMemoryGame() {
+            if (memoryGameActive || (gameStage !== 1 || currentInput !== '')) {
+                 showToast("Reset game to start memory challenge!", "warning");
+                 return;
+            }
+            
+            memoryGameActive = true;
+            memoryGameOverActive = false;
+            clearMemoryGameTimers();
+            memoryGameLevel = 2;
+            persistentSequence = [];
+            
+            beep(getShiftedFreq(1000), 50);
+            setTimeout(() => beep(getShiftedFreq(1200), 50), 100);
+            setTimeout(() => beep(getShiftedFreq(1400), 100), 200);
+
+            document.getElementById('statusText').textContent = 'MEMORY CHALLENGE';
+            document.getElementById('statusInfo').textContent = `Level ${memoryGameLevel - 1}`;
+            clearInput();
+            updateScreenInput();
+
+            const overlay = document.getElementById('overlayMessage');
+            if (overlay && overlay.classList.contains('active')) {
+                overlay.classList.remove('active');
+            }
+            
+            setTimeout(playMemorySequence, 500);
+        }
+
+        function handleEnterAction() {
+            if (memoryGameActive) return;
+            if (memoryGameOverActive) {
+                startMemoryGame();
+                return;
+            }
+            enterPressed();
+        }
+
+        // --- Enter Hold Logic (Memory Game Level Skip) ---
+        let enterHoldTimer;
+        let enterHoldInterval;
+        let enterHoldActive = false;
+        const enterBtn = document.getElementById('btn-enter');
+
+        function startEnterHoldTimer(e) {
+            if (e) e.preventDefault();
+            if (!memoryGameActive) return;
+            if (e && e.repeat) return;
+            if (enterHoldActive) return;
+
+            enterHoldActive = true;
+            enterHoldTimer = setTimeout(() => {
+                levelUpMemoryGame(1);
+                enterHoldInterval = setInterval(() => levelUpMemoryGame(1), 1000);
+            }, 1000);
+        }
+
+        function endEnterHoldTimer(e) {
+            if (e) e.preventDefault();
+            if (!enterHoldActive) return;
+            clearTimeout(enterHoldTimer);
+            clearInterval(enterHoldInterval);
+            enterHoldActive = false;
+        }
+
+        if (enterBtn) {
+            enterBtn.addEventListener('mousedown', startEnterHoldTimer);
+            enterBtn.addEventListener('mouseup', (e) => {
+                if (memoryGameActive) {
+                    endEnterHoldTimer(e);
+                    return;
+                }
+                handleEnterAction();
+            });
+            enterBtn.addEventListener('mouseleave', (e) => {
+                if (memoryGameActive) endEnterHoldTimer(e);
+            });
+            enterBtn.addEventListener('touchstart', startEnterHoldTimer, { passive: false });
+            enterBtn.addEventListener('touchend', (e) => {
+                if (memoryGameActive) {
+                    endEnterHoldTimer(e);
+                    return;
+                }
+                handleEnterAction();
+            });
+            enterBtn.addEventListener('touchcancel', (e) => {
+                if (memoryGameActive) {
+                    endEnterHoldTimer(e);
+                }
+            });
+        }
+
+        // --- Hint Button Hold Logic ---
+        let hintHoldTimer;
+        let isHintLongPress = false;
+        const hintBtn = document.getElementById('btn-hint');
+
+        function startHintHoldTimer(e) {
+            e.preventDefault();
+            isHintLongPress = false;
+            if (hintBtn) hintBtn.classList.add('holding');
+
+            hintHoldTimer = setTimeout(() => {
+                isHintLongPress = true;
+                if (hintBtn) hintBtn.classList.remove('holding');
+                startMemoryGame();
+            }, 3000); // 3 seconds
+        }
+
+        function endHintHoldTimer(e) {
+            e.preventDefault();
+            clearTimeout(hintHoldTimer);
+            if (!isHintLongPress) {
+                showHint();
+            }
+            if (hintBtn) hintBtn.classList.remove('holding');
+        }
+        
+        if (hintBtn) {
+            hintBtn.addEventListener('mousedown', startHintHoldTimer);
+            hintBtn.addEventListener('mouseup', endHintHoldTimer);
+            hintBtn.addEventListener('mouseleave', () => {
+                clearTimeout(hintHoldTimer);
+                if (hintBtn) hintBtn.classList.remove('holding');
+            });
+            hintBtn.addEventListener('touchstart', startHintHoldTimer, { passive: false });
+            hintBtn.addEventListener('touchend', endHintHoldTimer);
+            hintBtn.addEventListener('touchcancel', endHintHoldTimer);
+        }
+        
+
+        // --- Existing Game Logic ---
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('light-mode');
+            updateMonitorForLevel(level);
+            beep(getShiftedFreq(800), 50);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+            beep(getShiftedFreq(1000), 50);
+        }
+
+        function backToIndex() {
+            beep(getShiftedFreq(700), 50);
+            showToast('Returning to index...', 'warning');
+            setTimeout(() => { window.location.href = 'index.html'; }, 500);
+        }
+
+        function showHelpPopup() {
+            beep(getShiftedFreq(1100), 50);
+            document.getElementById('help-overlay').classList.add('active');
+        }
+
+        function hideHelpPopup() {
+            document.getElementById('help-overlay').classList.remove('active');
+        }
+
+        function togglePower() {
+            document.body.classList.toggle('powered-off');
+            if (document.body.classList.contains('powered-off')) {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.setValueAtTime(getShiftedFreq(400), audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(10, audioContext.currentTime + 0.5);
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } else {
+                beep(getShiftedFreq(600), 100);
+                setTimeout(() => beep(getShiftedFreq(1200), 200), 100);
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8800', '#ff0088'];
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * window.innerWidth + 'px';
+                    confetti.style.top = '-10px';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    document.body.appendChild(confetti);
+                    setTimeout(() => confetti.remove(), 3000);
+                }, i * 30);
+            }
+        }
+
+        function playWinningTune() {
+            const shiftFactor = Math.pow(2, levelShift[level - 1] / 12);
+            const notes = [
+                { freq: 523.25, duration: 150 }, // C5
+                { freq: 659.25, duration: 150 }, // E5
+                { freq: 783.99, duration: 150 }, // G5
+                { freq: 1046.50, duration: 300 },// C6
+                { freq: 783.99, duration: 150 }, // G5
+                { freq: 1046.50, duration: 400 },// C6
+            ];
+            let delay = 0;
+            notes.forEach(note => {
+                setTimeout(() => beep(note.freq * shiftFactor, note.duration, 0.3), delay);
+                delay += note.duration;
+            });
+        }
+
+        function showOverlayMessage(htmlContent, type = 'error', duration = 3000) {
+            const overlay = document.getElementById('overlayMessage');
+            const content = document.getElementById('overlayContent');
+
+            overlay.className = `overlay-message active ${type === 'success' ? 'success-overlay' : ''}`;
+            content.innerHTML = htmlContent;
+
+            if (duration > 0) {
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                }, duration);
+            }
+
+            overlay.onclick = function() {
+                overlay.classList.remove('active');
+            };
+        }
+
+        function calculateImmediate() {
+            beep(getShiftedFreq(700), 50);
+            if (currentInput.trim() === '') return;
+            if (currentInput.includes('🟩')) {
+                showToast('Cannot calculate with variable 🟩', 'error');
+                return;
+            }
+            try {
+                let eq = currentInput.replace(/x/g, '*').replace(/:/g, '/');
+                let res = safeEvaluate(eq);
+                if (!Number.isInteger(res)) res = res.toFixed(2);
+
+                history.push(`${currentInput} = ${res}`);
+
+                const displayArea = document.getElementById('displayArea');
+                const historyContent = getHistoryHTML();
+
+                displayArea.innerHTML = `
+                    <div class="calculator-result-view">
+                        <div>${currentInput} =</div>
+                        <div class="result-value" style="font-size: 48px; margin-top: 10px;">${res}</div>
+                    </div>
+                    ${historyContent}
+                `;
+
+                clearInput();
+            } catch (e) {
+                showToast('Invalid Calculation', 'error');
+            }
+        }
+
+        function quickGameStart() {
+            if (gameStage !== 1) {
+                showToast('Game already in progress!', 'warning');
+                return;
+            }
+            randomEquation();
+            showToast('🎲 Random Equation Generated!', 'success');
+        }
+
+        function randomEquation() {
+            beep(getShiftedFreq(900), 50);
+            if (gameStage !== 1) {
+                showToast('Can only use RANDOM in Stage 1!', 'warning');
+                return;
+            }
+
+            let equation = '';
+            const r = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+            let attempts = 0;
+
+            while (attempts < 50) {
+                attempts++;
+                let tempEq = '';
+                switch (level) {
+                    case 1:
+                        const val1 = r(1, 20);
+                        const type1 = r(1, 4);
+                        if (type1 === 1) tempEq = `🟩 + ${val1}`;
+                        else if (type1 === 2) tempEq = `${val1} + 🟩`;
+                        else if (type1 === 3) tempEq = `🟩 - ${val1}`;
+                        else tempEq = `${val1} - 🟩`;
+                        break;
+                    case 2:
+                        const val2 = r(2, 9);
+                        const type2 = r(1, 2);
+                        if (type2 === 1) tempEq = `🟩 x ${val2}`;
+                        else tempEq = `${val2} x 🟩`;
+                        break;
+                    case 3:
+                        const A3 = r(2, 8); const B3 = r(1, 20); const op3 = r(0, 1) ? '+' : '-';
+                        if (r(0, 1)) tempEq = `🟩 x ${A3} ${op3} ${B3}`;
+                        else tempEq = `${B3} ${op3} 🟩 x ${A3}`;
+                        break;
+                    case 4:
+                        const A4 = r(1, 10); const B4 = r(2, 5); const op4 = r(0, 1) ? '+' : '-';
+                        tempEq = `( 🟩 ${op4} ${A4} ) x ${B4}`;
+                        break;
+                    case 5:
+                        const A5 = r(2, 10); const B5 = r(2, 5);
+                        tempEq = `🟩 x ${A5} : ${B5}`;
+                        break;
+                }
+                try {
+                    let checkVal = safeEvaluate(tempEq.replace(/🟩/g, '10').replace(/x/g, '*').replace(/:/g, '/'));
+                    if (Math.abs(checkVal) < 200 && isFinite(checkVal)) {
+                        equation = tempEq;
+                        break;
+                    }
+                } catch (e) { }
+            }
+            currentInput = equation;
+            updateScreenInput();
+        }
+
+        function giveUp() {
+            beep(getShiftedFreq(400), 200);
+            if (gameStage !== 2) {
+                showToast('Nothing to give up yet!', 'warning');
+                return;
+            }
+            showOverlayMessage(`
+                <div style="font-size: 40px; margin-bottom: 20px;">🏳️ GAVE UP!</div>
+                <div style="font-size: 24px; margin-bottom: 15px;">The secret equation was:</div>
+                <div style="font-size: 32px; font-weight: bold; color: #ff0;">${secretEquation}</div>
+                <div style="margin-top: 20px; font-size: 18px;">Press RESET to try again</div>
+            `, 'error', 0);
+            document.getElementById('statusText').textContent = 'GAVE UP';
+        }
+
+        let currentInput = '';
+        let gameStage = 1;
+        let secretEquation = '';
+        let history = [];
+        let level = 1;
+        let memoryGameActive = false;
+        let memoryGamePlayerTurn = false;
+        let memoryGameLevel = 2;
+        let memoryGameSequence = [];
+        let playerSequenceIndex = 0;
+        let memoryGameTries = 0;
+        let persistentSequence = [];
+        let memoryGameOverActive = false;
+        let memoryGameTimers = [];
+        
+        const levelTones = [523.25, 587.33, 659.25, 783.99, 880.00];
+        const levelShift = [0, 2, 4, 5, 7];
+
+        function equationsAreEquivalent(eq1, eq2) {
+            const prep = (eq) => eq.replace(/x/g, '*').replace(/:/g, '/').replace(/\s/g, '');
+            const norm1 = prep(eq1);
+            const norm2 = prep(eq2);
+
+            if (norm1 === norm2) return true;
+
+            const testValues = [0, 1, 2, 5, 10, -1, 0.5, -5, 1.5, Math.PI, -Math.E];
+            for (const val of testValues) {
+                try {
+                    const res1 = safeEvaluate(norm1.replace(/🟩/g, `(${val})`));
+                    const res2 = safeEvaluate(norm2.replace(/🟩/g, `(${val})`));
+                    if (Math.abs(res1 - res2) > 1e-9) return false;
+                } catch (e) {
+                    try {
+                        safeEvaluate(norm1.replace(/🟩/g, `(${val})`));
+                        return false; 
+                    } catch (e1) {
+                        try {
+                           safeEvaluate(norm2.replace(/🟩/g, `(${val})`));
+                           return false;
+                        } catch (e2) {}
+                    }
+                }
+            }
+            return true;
+        }
+
+        function updateScreenInput() {
+            const screen = document.getElementById('screenInput');
+            const maxDisplayLength = 18;
+            let displayString = currentInput || "0";
+            if (displayString.length > maxDisplayLength) {
+                displayString = ".." + displayString.slice(-maxDisplayLength);
+            }
+            screen.textContent = displayString;
+            if (!currentInput) screen.style.opacity = "0.5";
+            else screen.style.opacity = "1";
+        }
+
+        const noteFrequencies = {
+            '0': 261.63, '1': 293.66, '2': 329.63, '3': 349.23, '4': 392.00, '5': 440.00, '6': 493.88, '7': 523.25, '8': 587.33, '9': 659.26
+        };
+
+        function addToInput(char) {
+            if (memoryGameActive) {
+                handleMemoryGameInput(char);
+                return;
+            }
+            if (easterEggModeActive) {
+                if (/\d/.test(char)) {
+                    playTune(parseInt(char, 10));
+                } else if (char === '🟩') {
+                    playTune(10); // Index 10 for the new tune
+                }
+                return;
+            }
+
+            if (/\d/.test(char) && noteFrequencies[char]) {
+                beep(getShiftedFreq(noteFrequencies[char]), 150, 0.4, 'sine');
+            } else {
+                beep(getShiftedFreq(600), 30);
+            }
+
+            if (char === '.') {
+                const segments = currentInput.split(/[+\-x:]/);
+                if (segments.length > 0 && segments[segments.length - 1].includes('.')) {
+                    beep(getShiftedFreq(200), 100, 0.2, 'sawtooth');
+                    return;
+                }
+            }
+
+            if (['+', '-', 'x', ':'].includes(char)) currentInput += ` ${char} `;
+            else currentInput += char;
+            updateScreenInput();
+        }
+
+        function clearInput() {
+            beep(getShiftedFreq(400), 50);
+            currentInput = '';
+            updateScreenInput();
+        }
+
+        function backspace() {
+            beep(getShiftedFreq(500), 30);
+            const lastThree = currentInput.slice(-3);
+            let wasOperator = false;
+
+            if (lastThree.length === 3 && lastThree.startsWith(' ') && lastThree.endsWith(' ')) {
+                const op = lastThree.trim();
+                if (['+', '-', 'x', ':'].includes(op)) {
+                    currentInput = currentInput.slice(0, -3);
+                    wasOperator = true;
+                }
+            }
+
+            if (!wasOperator) {
+                currentInput = Array.from(currentInput).slice(0, -1).join('');
+            }
+            updateScreenInput();
+        }
+
+        function enterPressed() {
+            beep(getShiftedFreq(1000), 100);
+
+            if (gameStage === 1) {
+                if (!currentInput.includes('🟩')) {
+                    showToast('Equation must contain 🟩 (green input)!', 'error');
+                    beep(getShiftedFreq(300), 200);
+                    return;
+                }
+                if (/\d\s*🟩/.test(currentInput) || /🟩\s*\d/.test(currentInput)) {
+                    showToast('Operator missing between Number and 🟩', 'error');
+                    return;
+                }
+                try {
+                    safeEvaluate(currentInput.replace(/🟩/g, '1').replace(/x/g, '*').replace(/:/g, '/'));
+                } catch (e) {
+                    showToast('Invalid math syntax!', 'error');
+                    return;
+                }
+
+                secretEquation = currentInput;
+                gameStage = 2;
+                history = [];
+
+                document.getElementById('statusText').textContent = 'STAGE 2: GUESS THE EQUATION';
+                document.getElementById('statusInfo').textContent = 'Enter numbers and press ENTER to see results';
+
+                updateDisplayArea();
+                showToast('Secret equation locked! 🔒', 'success');
+                clearInput();
+
+            } else if (gameStage === 2) {
+                if (currentInput === '') return;
+                const inputValue = parseFloat(currentInput);
+                if (isNaN(inputValue)) {
+                    beep(getShiftedFreq(300), 200);
+                    showToast('Please enter a valid number!', 'error');
+                    return;
+                }
+
+                let result;
+                try {
+                    let eq = secretEquation.replace(/🟩/g, inputValue).replace(/x/g, '*').replace(/:/g, '/');
+                    result = safeEvaluate(eq);
+                    if (!Number.isInteger(result)) result = result.toFixed(2);
+                } catch (e) { result = 'ERR'; }
+
+                history.push({ input: inputValue, output: result, type: 'game' });
+
+                updateDisplayArea(inputValue, result);
+                clearInput();
+            }
+        }
+
+        function getHistoryHTML() {
+            if (history.length === 0) return '<div class="history-pane" id="historyPane"><div style="text-align:center; padding:20px; color:#555;">No History</div></div>';
+
+            const reversedHistory = [...history].reverse();
+            let itemsHtml = '';
+
+            reversedHistory.forEach(item => {
+                if (typeof item === 'string') {
+                    itemsHtml += `<div class="history-item history-item-calc">${item}</div>`;
+                } else {
+                    itemsHtml += `<div class="history-item">${item.input} ➡ ${item.output}</div>`;
+                }
+            });
+
+            return `
+                <div class="history-pane" id="historyPane">
+                    <div style="margin-bottom: 5px; font-weight: bold; font-size: 16px; flex-shrink: 0; position: sticky; top: 0; background: rgba(0,0,0,0.5); width: 100%; color:#fff">📊 HISTORY:</div>
+                    <div class="history-grid">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateDisplayArea(lastInput = null, lastResult = null) {
+            const displayArea = document.getElementById('displayArea');
+            const arrowSvg = `<svg class="result-arrow" viewBox="0 0 24 24" fill="currentColor"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+            let resultHtml = '';
+            if (lastInput !== null) {
+                resultHtml = `
+                    <div class="result-display">
+                        <div class="result-flow">
+                            <span class="val-input">${lastInput}</span>
+                            ${arrowSvg}
+                            <span class="lock-symbol">🔒</span>
+                            ${arrowSvg}
+                            <span class="val-output">${lastResult}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultHtml = `
+                    <div style="text-align: center; margin: 10px 0;">
+                        <div class="lock-symbol" style="font-size: 40px;">🔒</div>
+                    </div>
+                `;
+            }
+
+            displayArea.innerHTML = resultHtml + getHistoryHTML();
+
+            const pane = document.getElementById('historyPane');
+            if (pane) pane.scrollTop = 0;
+        }
+
+        function checkPressed() {
+            beep(getShiftedFreq(1200), 150);
+            if (gameStage !== 2) {
+                showToast('Please set a secret equation first!', 'warning');
+                return;
+            }
+            if (currentInput === '') {
+                showToast('Enter your guess equation!', 'warning');
+                return;
+            }
+
+            if (equationsAreEquivalent(currentInput, secretEquation)) {
+                playWinningTune();
+                createConfetti();
+
+                showOverlayMessage(`
+                    <div style="font-size: 48px; margin-bottom: 20px;">🎉 CONGRATULATIONS! 🎉</div>
+                    <div style="font-size: 24px; margin-bottom: 15px;">You cracked the code!</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #0ff;">${secretEquation}</div>
+                    <div style="margin-top: 20px; font-size: 18px;">Press RESET to play again</div>
+                `, 'success', 0);
+
+                document.getElementById('statusText').textContent = 'MISSION COMPLETE!';
+                showToast('🎉 Correct! You solved it!', 'success');
+            } else {
+                beep(getShiftedFreq(300), 300);
+                showToast('❌ Wrong guess! Try again!', 'error');
+
+                showOverlayMessage(`
+                    <div style="font-size: 32px; margin-bottom: 10px;">❌ WRONG!</div>
+                    <div style="font-size: 24px;">Your guess: ${currentInput}</div>
+                    <div style="margin-top: 10px;">Try again!</div>
+                `, 'error', 2000);
+            }
+            clearInput();
+        }
+
+        function showHint() {
+            beep(getShiftedFreq(900), 100);
+            if (gameStage !== 2) {
+                showToast('Set a secret equation first!', 'warning');
+                return;
+            }
+
+            const gameTurns = history.filter(h => typeof h === 'object').length;
+            let hintText = '';
+            if (gameTurns === 0) hintText = 'Try entering some numbers to see the pattern!';
+            else if (gameTurns < 3) hintText = 'Enter more numbers to find the pattern...';
+            else {
+                const ops = secretEquation.match(/[+\-x:]/g) || [];
+                const nums = secretEquation.match(/\d+/g) || [];
+                hintText = `Hint: The equation has ${ops.length} operation(s) and ${nums.length} number(s)`;
+            }
+            showToast(hintText, 'warning');
+        }
+
+        function resetGame() {
+            // Deactivate memory game if active
+            if (memoryGameActive) {
+                memoryGameActive = false;
+                memoryGamePlayerTurn = false;
+                persistentSequence = [];
+            }
+            memoryGameOverActive = false;
+            clearMemoryGameTimers();
+
+            beep(getShiftedFreq(800), 100);
+            setTimeout(() => beep(getShiftedFreq(600), 150), 100);
+
+            currentInput = '';
+            gameStage = 1;
+            secretEquation = '';
+            history = [];
+
+            document.getElementById('statusText').textContent = 'STAGE 1: SET SECRET EQUATION';
+            document.getElementById('statusInfo').textContent = 'Enter equation with . as input, then press ENTER';
+            
+            deactivateEasterEggMode();
+            
+            updateDisplayArea();
+            updateScreenInput();
+            
+            const overlay = document.getElementById('overlayMessage');
+            if (overlay.classList.contains('active')) {
+                overlay.classList.remove('active');
+            }
+        }
+
+        function changeLevel(delta) {
+            const newLevel = level + delta;
+            if (newLevel < 1 || newLevel > 5) {
+                showToast(`Level must be between 1 and 5!`, 'error');
+                return;
+            }
+            level = newLevel;
+            document.getElementById('level-display').textContent = `LVL: ${level}`;
+            showToast(`Level set to ${level}`, 'info');
+            beep(levelTones[level - 1], 150);
+            resetGame();
+        }
+
+        function updateMonitorForLevel(level) {
+            const monitorFrame = document.querySelector('.monitor-frame');
+            const monitorScreen = document.querySelector('.monitor-screen');
+            const isLight = document.body.classList.contains('light-mode');
+
+            monitorFrame.style.borderColor = isLight ? '#1c2833' : '#333';
+            monitorScreen.style.borderColor = isLight ? '#34495e' : '#222';
+            monitorScreen.style.boxShadow = isLight ? 'inset 0 0 50px rgba(0, 0, 0, 0.5)' : 'inset 0 0 50px rgba(0, 255, 0, 0.2)';
+
+            const colors = { 2: '#ffc107', 3: '#f44336', 4: '#9c27b0', 5: '#00bcd4' };
+
+            if (colors[level]) {
+                monitorFrame.style.borderColor = colors[level];
+                if (level > 3) {
+                    monitorScreen.style.borderColor = colors[level];
+                }
+            }
+        }
+
+        function setupHoverCapability() {
+            if (!window.matchMedia) return;
+            const hoverQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+            const updateHoverCapability = () => {
+                document.body.classList.toggle('can-hover', hoverQuery.matches);
+            };
+
+            updateHoverCapability();
+            if (typeof hoverQuery.addEventListener === 'function') {
+                hoverQuery.addEventListener('change', updateHoverCapability);
+            } else if (typeof hoverQuery.addListener === 'function') {
+                hoverQuery.addListener(updateHoverCapability);
+            }
+        }
+
+        updateScreenInput();
+        updateMonitorForLevel(level);
+        document.body.classList.add('light-mode');
+        setupHoverCapability();
+
+        document.getElementById('help-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'help-overlay') {
+                hideHelpPopup();
+            }
+        });
+
+        // --- BASEBALL DESKTOP ICON PATCH ---
+
+        window.isBaseballMode = window.isBaseballMode || false;
+        window.secretBaseballNumber = window.secretBaseballNumber || "";
+        window.isShowingInvalid = window.isShowingInvalid || false;
+        window.baseballStage = window.baseballStage || 1;
+
+        const oldToggleBtn = document.getElementById('baseball-toggle-btn');
+        if (oldToggleBtn) {
+            oldToggleBtn.remove();
+        }
+
+        const monitorScreen = document.querySelector('.monitor-screen') || document.body;
+
+        if (window.getComputedStyle(monitorScreen).position === 'static') {
+            monitorScreen.style.position = 'relative';
+        }
+
+        const desktopIcon = document.createElement('div');
+        desktopIcon.id = 'baseball-desktop-icon';
+
+        Object.assign(desktopIcon.style, {
+            position: 'absolute',
+            top: '15px',
+            right: '15px',
+            width: '64px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            cursor: 'pointer',
+            zIndex: '50',
+            padding: '4px',
+            borderRadius: '4px',
+            border: '1px dashed transparent',
+            transition: 'all 0.1s'
+        });
+
+        const iconEmoji = document.createElement('div');
+        iconEmoji.textContent = window.isBaseballMode ? '🧮' : '⚾';
+        iconEmoji.style.fontSize = '32px';
+        iconEmoji.style.marginBottom = '2px';
+        iconEmoji.style.filter = 'drop-shadow(2px 2px 0px rgba(0,0,0,0.8))';
+
+        const iconLabel = document.createElement('div');
+        iconLabel.textContent = window.isBaseballMode ? 'MATH.EXE' : 'BSBLL.EXE';
+        iconLabel.style.color = '#0ff';
+        iconLabel.style.fontSize = '10px';
+        iconLabel.style.textAlign = 'center';
+        iconLabel.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        iconLabel.style.padding = '2px 4px';
+        iconLabel.style.fontFamily = "'Courier New', monospace";
+        iconLabel.style.fontWeight = 'bold';
+
+        desktopIcon.appendChild(iconEmoji);
+        desktopIcon.appendChild(iconLabel);
+        monitorScreen.appendChild(desktopIcon);
+
+        desktopIcon.addEventListener('mouseenter', () => {
+            if (document.body && !document.body.classList.contains('powered-off')) {
+                desktopIcon.style.border = '1px dashed #0ff';
+                desktopIcon.style.backgroundColor = 'rgba(0, 255, 255, 0.1)';
+            }
+        });
+        desktopIcon.addEventListener('mouseleave', () => {
+            desktopIcon.style.border = '1px dashed transparent';
+            desktopIcon.style.backgroundColor = 'transparent';
+        });
+
+        desktopIcon.addEventListener('click', () => {
+            if (document.body && document.body.classList.contains('powered-off')) return;
+            
+            // Deep cleanup
+            if (typeof history !== 'undefined' && Array.isArray(history)) history.length = 0;
+            try { currentInput = ""; } catch(err) {}
+            window.currentInput = "";
+            window.isShowingInvalid = false;
+            
+            // Stop memory game if active
+            if (typeof memoryGameActive !== 'undefined' && memoryGameActive) {
+                memoryGameActive = false;
+                memoryGamePlayerTurn = false;
+                memoryGameOverActive = false;
+                clearMemoryGameTimers();
+            }
+            
+            window.isBaseballMode = !window.isBaseballMode;
+            
+            const sText = document.getElementById('statusText');
+            const sInfo = document.getElementById('statusInfo');
+
+            if (window.isBaseballMode) {
+                window.baseballStage = 1;
+                window.secretBaseballNumber = "";
+                
+                iconLabel.textContent = 'MATH.EXE';
+                iconEmoji.textContent = '🧮';
+                iconLabel.style.color = '#0f0';
+                
+                if (sText) sText.textContent = 'BASEBALL: SET SECRET NUMBER';
+                if (sInfo) sInfo.textContent = 'Enter secret number and press ENTER';
+                if (typeof showToast === 'function') showToast('Started BSBLL.EXE', 'success');
+                
+                // Force baseball display update
+                setTimeout(() => {
+                    if (typeof window.originalUpdateDisplayArea === 'function') {
+                        window.originalUpdateDisplayArea();
+                    }
+                    if (typeof window.updateDisplayArea === 'function') {
+                        window.updateDisplayArea();
+                    }
+                    if (typeof updateScreenInput === 'function') updateScreenInput();
+                }, 30);
+                
+            } else {
+                window.baseballStage = 1;
+                window.secretBaseballNumber = "";
+                window.isShowingInvalid = false;
+                
+                // Reset game stage for math mode
+                try { gameStage = 1; } catch(err) {}
+                window.gameStage = 1;
+                
+                // Clear display area to reset screen
+                if (typeof history !== 'undefined' && Array.isArray(history)) {
+                    history.length = 0;
+                }
+                
+                if (typeof updateDisplayArea === 'function') updateDisplayArea();
+                
+                if (typeof resetGame === 'function') resetGame();
+                
+                iconLabel.textContent = 'BSBLL.EXE';
+                iconEmoji.textContent = '⚾';
+                iconLabel.style.color = '#0ff';
+                
+                if (sText) sText.textContent = 'STAGE 1: SET SECRET EQUATION';
+                if (sInfo) sInfo.textContent = 'Use 🟩 to represent the secret value';
+                if (typeof showToast === 'function') showToast('Started MATH.EXE', 'success');
+                
+                // Force math display update - clear history and update screen
+                setTimeout(() => {
+                    try {
+                        if (history && Array.isArray(history)) history.length = 0;
+                    } catch(e) {}
+                    // Call the saved original function, not the patched window.updateDisplayArea
+                    if (typeof window.safeOriginalUpdateDisplayArea === 'function') {
+                        window.safeOriginalUpdateDisplayArea();
+                    }
+                    if (typeof updateScreenInput === 'function') updateScreenInput();
+                }, 30);
+            }
+            
+            if (typeof safeBaseballBeep === 'function') safeBaseballBeep(1200, 100, 'square');
+            else if (typeof beep === 'function') beep(1200, 100, 'square');
+            
+            // Force screen update with slight delay to ensure state is ready
+            setTimeout(() => {
+                // Clear current input
+                try { currentInput = ""; } catch(e) {}
+                window.currentInput = "";
+                
+                // Clear history
+                try {
+                    if (history && Array.isArray(history)) history.length = 0;
+                } catch(e) {}
+                
+                // Force update screen input
+                if (typeof window.updateScreenInput === 'function') {
+                    window.updateScreenInput();
+                } else if (typeof updateScreenInput === 'function') {
+                    updateScreenInput();
+                }
+                
+                // Force update display area
+                if (typeof window.originalUpdateDisplayArea === 'function') {
+                    window.originalUpdateDisplayArea();
+                }
+                if (typeof updateDisplayArea === 'function') {
+                    updateDisplayArea();
+                }
+                
+                // Force DOM refresh for screen
+                const screenInputEl = document.querySelector('.screen-input');
+                if (screenInputEl) {
+                    screenInputEl.style.display = 'none';
+                    setTimeout(() => {
+                        screenInputEl.style.display = '';
+                        if (typeof window.updateScreenInput === 'function') {
+                            window.updateScreenInput();
+                        }
+                    }, 5);
+                }
+            }, 20);
+        });
+
+        const resetBtn = document.getElementById('btn-reset');
+        if (resetBtn && !window.baseballResetPatched) {
+            window.baseballResetPatched = true;
+            
+            // Remove inline onclick to prevent conflict - clone and replace
+            const newResetBtn = resetBtn.cloneNode(true);
+            resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+            window.baseballResetBtn = newResetBtn;
+            
+            newResetBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Capture mode at start to prevent any issues
+                const inBaseballMode = window.isBaseballMode;
+                
+                // Stop any running memory game first
+                if (typeof memoryGameActive !== 'undefined' && memoryGameActive) {
+                    memoryGameActive = false;
+                    memoryGamePlayerTurn = false;
+                    memoryGameOverActive = false;
+                    clearMemoryGameTimers();
+                }
+                
+                // Set status immediately - don't wait for timeout
+                const sText = document.getElementById('statusText');
+                const sInfo = document.getElementById('statusInfo');
+                
+                if (inBaseballMode) {
+                    // In baseball mode - reset baseball game only
+                    if(sText) sText.textContent = 'BASEBALL: SET SECRET NUMBER';
+                    if(sInfo) sInfo.textContent = 'Level 1: 2 nums, Level 2: 3 nums...';
+                    window.secretBaseballNumber = "";
+                    window.isShowingInvalid = false;
+                    window.baseballStage = 1;
+                    
+                    // Clear input
+                    try { currentInput = ""; } catch(err) {}
+                    window.currentInput = "";
+                    
+                    // Force display update to show baseball SET SECRET screen
+                    setTimeout(() => {
+                        if (typeof window.updateDisplayArea === 'function') {
+                            window.updateDisplayArea();
+                        }
+                        if (typeof updateScreenInput === 'function') updateScreenInput();
+                    }, 20);
+                    
+                    // RETURN EARLY - do NOT call original resetGame
+                    return;
+                } else {
+                    // Normal math mode - call original reset
+                    if (typeof window.originalResetGame === 'function') {
+                        window.originalResetGame();
+                    } else if (typeof resetGame === 'function') {
+                        resetGame();
+                    }
+                }
+            });
+        }
+
+        if (!window.originalUpdateScreenInputPatchApplied) {
+            window.originalUpdateScreenInputPatchApplied = true;
+            const originalUpdateScreenInput = typeof updateScreenInput === 'function' ? updateScreenInput : window.updateScreenInput;
+            window.originalUpdateScreenInputDots = originalUpdateScreenInput;
+            
+            window.updateScreenInput = function() {
+                if (typeof window.originalUpdateScreenInputDots === 'function') {
+                    window.originalUpdateScreenInputDots();
+                }
+                
+                if (window.isBaseballMode && document.body && !document.body.classList.contains('powered-off')) {
+                    const screenInputEl = document.querySelector('.screen-input') || document.getElementById('screenInput');
+                    
+                    if (screenInputEl) {
+                        const requiredDigits = (typeof level !== 'undefined' ? level : 1) + 1;
+                        
+                        let tempStr = "";
+                        try { tempStr = currentInput; } catch(e) {}
+                        if (!tempStr && window.currentInput) tempStr = window.currentInput;
+                        
+                        if (typeof tempStr === 'string' && tempStr.length > requiredDigits) {
+                            if (typeof showToast === 'function') showToast('Max digits reached!', 'warning');
+                            if (typeof safeBaseballBeep === 'function') safeBaseballBeep(150, 100, 'sawtooth');
+                            
+                            tempStr = tempStr.slice(-requiredDigits);
+                            try { currentInput = tempStr; } catch(e) {}
+                            window.currentInput = tempStr;
+                        }
+                        
+                        let str = tempStr || "";
+                        
+                        if (window.isShowingInvalid) {
+                            if (str !== "") {
+                                window.isShowingInvalid = false;
+                                clearTimeout(window.invalidTimeout);
+                            } else {
+                                screenInputEl.innerHTML = `<span style="color:#ff4444; width:100%; text-align:center; display:block;">[INVALID]</span>`;
+                                return;
+                            }
+                        }
+                        
+                        screenInputEl.style.color = ""; 
+                        
+                        let html = `<div style="display:flex; align-items:center; justify-content:flex-end; gap:6px; font-family: 'Courier New', monospace; width: 100%;">`;
+                        html += `<span>[${str}</span>`;
+                        for (let i = str.length; i < requiredDigits; i++) {
+                            html += `<div class="memory-dot" style="width: 22px; height: 22px; border-width: 2px; border-style: solid; border-radius: 50%; background-color: #444; border-color: #666; margin-bottom: 4px; flex-shrink: 0;"></div>`;
+                        }
+                        html += `<span>]</span></div>`;
+                        screenInputEl.innerHTML = html;
+                    }
+                }
+            };
+        }
+
+        if (typeof updateScreenInput === 'function') {
+            updateScreenInput();
+        }
+
+        window.safeBaseballBeep = function(freq, duration, type) {
+            try {
+                if (!window.baseballAudioCtx) {
+                    window.baseballAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (window.baseballAudioCtx.state === 'suspended') {
+                    window.baseballAudioCtx.resume();
+                }
+                
+                let safeFreq = Number(freq);
+                if (!isFinite(safeFreq) || safeFreq <= 0) safeFreq = 440;
+                
+                let safeDur = Number(duration);
+                if (!isFinite(safeDur) || safeDur <= 0) safeDur = 100;
+                
+                let safeType = type || 'sine';
+
+                const oscillator = window.baseballAudioCtx.createOscillator();
+                const gainNode = window.baseballAudioCtx.createGain();
+                
+                oscillator.type = safeType;
+                
+                const now = window.baseballAudioCtx.currentTime;
+                oscillator.frequency.setValueAtTime(safeFreq, now);
+                
+                gainNode.gain.setValueAtTime(0.1, now); 
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + (safeDur / 1000));
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(window.baseballAudioCtx.destination);
+                
+                oscillator.start(now);
+                oscillator.stop(now + (safeDur / 1000));
+                
+            } catch (e) {
+                console.warn("Safe beep caught and suppressed an audio error:", e);
+            }
+        };
+
+        if (!window.displayAreaRoutingPatched) {
+            window.displayAreaRoutingPatched = true;
+            
+            // Save original function first
+            const origUpdateDisplayArea = typeof updateDisplayArea === 'function' ? updateDisplayArea : window.updateDisplayArea;
+            window.safeOriginalUpdateDisplayArea = origUpdateDisplayArea;
+            window.originalUpdateDisplayArea = origUpdateDisplayArea;
+            
+            window.updateDisplayArea = function() {
+                const displayArea = document.getElementById('displayArea'); 
+                if (!displayArea) return;
+
+                if (!window.isBaseballMode) {
+                    // Not baseball mode - call original math display
+                    if (typeof window.safeOriginalUpdateDisplayArea === 'function') {
+                        return window.safeOriginalUpdateDisplayArea();
+                    }
+                    return;
+                }
+
+                const requiredDigits = (typeof level !== 'undefined' ? level : 1) + 1;
+
+                if (window.baseballStage === 1) {
+                    displayArea.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; padding: 20px;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 15px;">SET SECRET</div>
+                            <div style="font-size: 20px; opacity: 0.8; margin-bottom: 8px;">Enter ${requiredDigits} unique digits.</div>
+                            <div style="font-size: 20px; opacity: 0.8; margin-bottom: 20px;">No leading zeros.</div>
+                            <div style="font-size: 16px; color: #888;">Press ENTER to Lock</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                if (typeof history !== 'undefined' && Array.isArray(history) && history.length > 0) {
+                    let itemsHtml = '';
+                    let guessCount = 0;
+                    
+                    history.forEach((item) => {
+                        if (item.type === 'game' || (item.output && (item.output.includes('✔️') || item.output.includes('⚠️') || item.output.includes('❌')))) {
+                            guessCount++; 
+                            itemsHtml += `
+                                <div style="position: relative; display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; padding: 15px 0; border-bottom: 1px dashed rgba(136, 136, 136, 0.3); width: 100%; min-height: 80px;">
+                                    <div style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #888; font-size: 24px; font-weight: bold; opacity: 0.7;">
+                                        #${guessCount}
+                                    </div>
+                                    <div style="text-align: right; padding-right: 15px; font-family: 'Courier New', monospace; letter-spacing: 8px; font-weight: 900; font-size: 48px; white-space: nowrap;">
+                                        ${item.input}
+                                    </div>
+                                    <div style="text-align: center; color: #888; font-size: 32px; padding-bottom: 4px;">
+                                        ➔
+                                    </div>
+                                    <div style="text-align: left; padding-left: 15px; letter-spacing: 6px; font-size: 48px; white-space: nowrap;">
+                                        ${item.output}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            itemsHtml += `<div style="padding: 10px 0; color: #888; text-align: center; font-size: 20px;">${item.input || item}</div>`;
+                        }
+                    });
+                    
+                    displayArea.innerHTML = `
+                        <div class="history-pane" id="historyPane" style="height: 100%; overflow-y: auto; padding-bottom: 20px;">
+                            <div style="margin-bottom: 10px; font-weight: bold; font-size: 20px; flex-shrink: 0; position: sticky; top: 0; background: inherit; z-index: 2; border-bottom: 2px solid rgba(136,136,136,0.3); padding-bottom: 5px; text-align: center;">
+                                GUESS HISTORY
+                            </div>
+                            ${itemsHtml}
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        const pane = document.getElementById('historyPane');
+                        if (pane) pane.scrollTop = pane.scrollHeight;
+                    }, 50);
+                    
+                } else {
+                    displayArea.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:20px; text-align:center;">
+                            <div style="font-size: 80px; line-height: 1; color: inherit; opacity: 0.8;">🔒</div>
+                            <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px;">SECRET LOCKED</div>
+                            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top: 15px;">
+                                ${Array(requiredDigits).fill('<div class="memory-dot" style="width: 28px; height: 28px; border: 3px solid currentColor; border-radius: 50%; opacity: 0.6;"></div>').join('')}
+                            </div>
+                            <div style="font-size: 18px; color: #888; margin-top: 20px;">Enter guess and press CHECK</div>
+                        </div>
+                    `;
+                }
+            };
+        }
+
+        const originalUpdateDisplayArea = typeof updateDisplayArea === 'function' ? updateDisplayArea : window.updateDisplayArea;
+        window.originalUpdateDisplayArea = originalUpdateDisplayArea;
+        window.baseballDisplayPatched = true;
+
+        if (typeof updateScreenInput === 'function') updateScreenInput();
+        if (typeof updateDisplayArea === 'function') updateDisplayArea();
+
+        // --- BASEBALL GAME FLOW PATCH (ENTER vs CHECK) ---
+
+        if (!window._mathEnterPressed) window._mathEnterPressed = window.enterPressed;
+        if (!window._mathCheckPressed) window._mathCheckPressed = typeof checkPressed === 'function' ? checkPressed : function(){};
+
+        window.checkPressed = function() {
+            if (document.body && document.body.classList.contains('powered-off')) return;
+            
+            if (!window.isBaseballMode) {
+                if (typeof window._mathCheckPressed === 'function') return window._mathCheckPressed();
+                return;
+            }
+            
+            if (window.baseballStage === 1) { 
+                if (typeof showToast === 'function') showToast('Use ENTER to set the secret number first!', 'warning');
+                if (typeof safeBaseballBeep === 'function') safeBaseballBeep(150, 200, 'sawtooth');
+                return;
+            }
+            
+            let currentVal = "";
+            try { currentVal = currentInput; } catch(e) {}
+            if (!currentVal && window.currentInput) currentVal = window.currentInput;
+            
+            if (!currentVal || currentVal === '') return;
+            
+            const requiredDigits = (typeof level !== 'undefined' ? level : 1) + 1;
+            
+            const isInputValid = (input) => {
+                if (!/^\d+$/.test(input)) return false;
+                if (input.length !== requiredDigits) return false;
+                if (input.startsWith('0')) return false;
+                const uniqueDigits = new Set(input.split(''));
+                if (uniqueDigits.size !== input.length) return false;
+                return true;
+            };
+
+            if (!isInputValid(currentVal)) {
+                window.isShowingInvalid = true;
+                if (typeof safeBaseballBeep === 'function') safeBaseballBeep(150, 200, 'sawtooth');
+                
+                try { currentInput = ""; } catch(e) {}
+                window.currentInput = ""; 
+                if (typeof clearPressed === 'function') clearPressed();
+                if (typeof clearInput === 'function') clearInput();
+                
+                if (typeof updateScreenInput === 'function') updateScreenInput();
+                
+                clearTimeout(window.invalidTimeout);
+                window.invalidTimeout = setTimeout(() => {
+                    window.isShowingInvalid = false;
+                    if (typeof updateScreenInput === 'function') updateScreenInput();
+                }, 800); 
+                return;
+            }
+
+            window.safeBaseballBeep(800, 100);
+
+            let ticks = 0;
+            let warnings = 0;
+            
+            for (let i = 0; i < currentVal.length; i++) {
+                if (currentVal[i] === window.secretBaseballNumber[i]) {
+                    ticks++;
+                } else if (window.secretBaseballNumber.includes(currentVal[i])) {
+                    warnings++;
+                }
+            }
+
+            let resultStr = (ticks === 0 && warnings === 0) ? "❌" : "✔️".repeat(ticks) + "⚠️".repeat(warnings);
+
+            if (typeof history !== 'undefined' && Array.isArray(history)) {
+                history.push({ input: currentVal, output: resultStr, type: 'game' });
+            }
+            
+            if (typeof updateDisplayArea === 'function') updateDisplayArea();
+
+            if (ticks === requiredDigits) {
+                
+                // 🎵 TRIUMPHANT WINNING ARPEGGIO 🎵
+                let winDelay = 0;
+                const winTune = [
+                    { freq: 523.25, dur: 150 }, // C5
+                    { freq: 659.25, dur: 150 }, // E5
+                    { freq: 783.99, dur: 150 }, // G5
+                    { freq: 1046.50, dur: 400 } // C6
+                ];
+                
+                winTune.forEach(note => {
+                    setTimeout(() => {
+                        if (typeof safeBaseballBeep === 'function') safeBaseballBeep(note.freq, note.dur, 'square');
+                    }, winDelay);
+                    winDelay += (note.dur + 50);
+                });
+
+                if (typeof showOverlayMessage === 'function') {
+                    showOverlayMessage(`
+                        <div style="font-size: 32px; margin-bottom: 10px;">YOU WON!</div>
+                        <div style="font-size: 24px;">Secret was: <span style="color:#0f0">${window.secretBaseballNumber}</span></div>
+                        <div style="margin-top: 10px; font-size: 16px;">Press RESET to play again</div>
+                    `, 'success', 0);
+                }
+                const sText = document.getElementById('statusText');
+                if (sText) sText.textContent = 'MISSION COMPLETE!';
+                if (typeof showToast === 'function') showToast('🎉 Correct! You guessed it!', 'success');
+                if (typeof createConfetti === 'function') createConfetti();
+            } else {
+                if (ticks === 0 && warnings === 0) {
+                    if (typeof safeBaseballBeep === 'function') safeBaseballBeep(150, 300, 'sawtooth');
+                } else {
+                    let sequence = [];
+                    
+                    for (let i = 0; i < ticks; i++) {
+                        sequence.push({ freq: 800, dur: 100, type: 'sine' });
+                    }
+                    for (let i = 0; i < warnings; i++) {
+                        sequence.push({ freq: 400, dur: 150, type: 'triangle' });
+                    }
+                    
+                    let delay = 0;
+                    sequence.forEach(note => {
+                        setTimeout(() => {
+                            if (typeof safeBaseballBeep === 'function') safeBaseballBeep(note.freq, note.dur, note.type);
+                        }, delay);
+                        delay += (note.dur + 100); 
+                    });
+                }
+            }
+
+            try { currentInput = ""; } catch(e) {}
+            window.currentInput = ""; 
+            if (typeof clearPressed === 'function') clearPressed();
+            if (typeof clearInput === 'function') clearInput();
+            
+            if(typeof updateScreenInput === 'function') updateScreenInput();
+        };
+
+        if (!window.originalEnterPressedPatchApplied) {
+            window.originalEnterPressedPatchApplied = true;
+            const originalEnterPressed = typeof enterPressed === 'function' ? enterPressed : window.enterPressed;
+            
+            window.enterPressed = function() {
+                if (document.body && document.body.classList.contains('powered-off')) return;
+                
+                if (!window.isBaseballMode) {
+                    if (typeof originalEnterPressed === 'function') return originalEnterPressed();
+                    return;
+                }
+                
+                if (window.baseballStage === 2) {
+                    // In Stage 2, Enter acts as CHECK button!
+                    if (typeof window.checkPressed === 'function') {
+                        return window.checkPressed();
+                    }
+                    return; 
+                }
+                
+                if (typeof currentInput === 'undefined' || currentInput === '') return;
+                
+                const requiredDigits = (typeof level !== 'undefined' ? level : 1) + 1;
+                
+                const isInputValid = (input) => {
+                    if (!/^\d+$/.test(input)) return false;
+                    if (input.length !== requiredDigits) return false;
+                    if (input.startsWith('0')) return false;
+                    const uniqueDigits = new Set(input.split(''));
+                    if (uniqueDigits.size !== input.length) return false;
+                    return true;
+                };
+
+                if (!isInputValid(currentInput)) {
+                    window.isShowingInvalid = true;
+                    window.safeBaseballBeep(150, 200, 'sawtooth');
+                    
+                    try { currentInput = ""; } catch(e) {}
+                    if (typeof clearInput === 'function') clearInput();
+                    window.currentInput = ""; 
+                    
+                    if (typeof updateScreenInput === 'function') updateScreenInput();
+                    
+                    clearTimeout(window.invalidTimeout);
+                    window.invalidTimeout = setTimeout(() => {
+                        window.isShowingInvalid = false;
+                        if (typeof updateScreenInput === 'function') updateScreenInput();
+                    }, 800); 
+                    return;
+                }
+
+                window.safeBaseballBeep(800, 100);
+
+                window.secretBaseballNumber = currentInput;
+                window.baseballStage = 2; 
+                
+                if (typeof history !== 'undefined' && Array.isArray(history)) history.length = 0; 
+                
+                const sText = document.getElementById('statusText');
+                if(sText) sText.textContent = 'BASEBALL STAGE 2: GUESS';
+                const sInfo = document.getElementById('statusInfo');
+                if(sInfo) sInfo.textContent = 'Enter guess and press CHECK button';
+                
+                if (typeof updateDisplayArea === 'function') updateDisplayArea();
+                if (typeof showToast === 'function') showToast('Secret number locked! 🔒', 'success');
+                
+                try { currentInput = ""; } catch(e) {}
+                if (typeof clearInput === 'function') clearInput();
+                window.currentInput = "";
+                if(typeof updateScreenInput === 'function') updateScreenInput();
+            };
+        }
+
+        if (!window.originalRandomEquationPatchApplied) {
+            window.originalRandomEquationPatchApplied = true;
+            const originalRandomEquation = typeof randomEquation === 'function' ? randomEquation : window.randomEquation;
+            
+            window.randomEquation = function() {
+                if (window.isBaseballMode) {
+                    const requiredDigits = (typeof level !== 'undefined' ? level : 1) + 1;
+                    
+                    let firstDigit = Math.floor(Math.random() * 9) + 1;
+                    let digits = [firstDigit];
+                    
+                    let pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(d => d !== firstDigit);
+                    
+                    for (let i = 1; i < requiredDigits; i++) {
+                        let randomIndex = Math.floor(Math.random() * pool.length);
+                        digits.push(pool[randomIndex]);
+                        pool.splice(randomIndex, 1);
+                    }
+                    
+                    const secretStr = digits.join('');
+                    
+                    window.secretBaseballNumber = secretStr;
+                    window.baseballStage = 2;
+                    
+                    window.currentInput = "";
+                    try { currentInput = ""; } catch(e) {}
+                    if (typeof clearInput === 'function') clearInput();
+                    
+                    if (typeof history !== 'undefined' && Array.isArray(history)) history.length = 0; 
+                    
+                    const sText = document.getElementById('statusText');
+                    if (sText) sText.textContent = 'BASEBALL STAGE 2: GUESS';
+                    const sInfo = document.getElementById('statusInfo');
+                    if (sInfo) sInfo.textContent = 'Enter guess and press CHECK button';
+                    
+                    if (typeof updateDisplayArea === 'function') updateDisplayArea();
+                    if (typeof showToast === 'function') showToast('Secret number locked! 🔒', 'success');
+                    if (typeof updateScreenInput === 'function') updateScreenInput();
+                    
+                    const cachedEnter = window.enterPressed;
+                    window.enterPressed = function() {};
+                    
+                    setTimeout(() => {
+                        window.enterPressed = cachedEnter;
+                    }, 100);
+
+                    return secretStr;
+                }
+                
+                if (typeof originalRandomEquation === 'function') {
+                    return originalRandomEquation();
+                }
+            };
+        }
+
+        const quickBtnBaseball = document.querySelector('.quick-btn');
+        if (quickBtnBaseball && !window.baseballQuickHoldPatched) {
+            window.baseballQuickHoldPatched = true;
+            let quickHoldTimer;
+            
+            const startQuickHold = (e) => {
+                if (!window.isBaseballMode || window.baseballStage !== 1) return;
+                
+                quickBtnBaseball.classList.add('holding');
+                quickHoldTimer = setTimeout(() => {
+                    quickBtnBaseball.classList.remove('holding');
+                    window.safeBaseballBeep(1000, 100);
+                    if (typeof showToast === 'function') showToast('Auto-generated secret number!', 'info');
+                    
+                    window.randomEquation();
+                    if (typeof enterPressed === 'function') window.enterPressed(); 
+                    
+                }, 800);
+            };
+            
+            const endQuickHold = () => {
+                clearTimeout(quickHoldTimer);
+                if (quickBtnBaseball.classList.contains('holding')) {
+                    quickBtnBaseball.classList.remove('holding');
+                }
+            };
+            
+            quickBtnBaseball.addEventListener('mousedown', startQuickHold);
+            quickBtnBaseball.addEventListener('touchstart', startQuickHold, { passive: true });
+            quickBtnBaseball.addEventListener('mouseup', endQuickHold);
+            quickBtnBaseball.addEventListener('mouseleave', endQuickHold);
+            quickBtnBaseball.addEventListener('touchend', endQuickHold);
+            quickBtnBaseball.addEventListener('touchcancel', endQuickHold);
+        }
+
+        (function patchGiveUp() {
+            const giveUpBtns = document.querySelectorAll('.give-up-btn');
+            if (giveUpBtns.length === 0) {
+                console.warn("⚠️ Could not find the Give Up button to patch.");
+                return;
+            }
+
+            giveUpBtns.forEach(btn => {
+                const oldOnclick = btn.onclick;
+                btn.onclick = null;
+                
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                
+                newBtn.addEventListener('click', function(e) {
+                    if (document.body && document.body.classList.contains('powered-off')) return;
+                    
+                    if (!window.isBaseballMode) {
+                        if (typeof window.giveUpPressed === 'function') {
+                            window.giveUpPressed();
+                        } else if (typeof oldOnclick === 'function') {
+                            oldOnclick.call(this, e);
+                        }
+                        return;
+                    }
+                    
+                    if (window.baseballStage === 1) {
+                        if (typeof showToast === 'function') showToast('No secret number set to give up on!', 'warning');
+                        if (typeof safeBaseballBeep === 'function') safeBaseballBeep(150, 200, 'sawtooth');
+                        return;
+                    }
+                    
+                    if (window.baseballStage === 2) {
+                        if (typeof safeBaseballBeep === 'function') safeBaseballBeep(150, 600, 'sawtooth');
+                        
+                        const displayArea = document.getElementById('displayArea');
+                        if (displayArea) {
+                            let historyHtml = '';
+                            
+                    if (typeof history !== 'undefined' && Array.isArray(history) && history.length > 0) {
+                        let itemsHtml = '';
+                        let guessCount = 0;
+                        
+                        history.forEach(item => {
+                            if (item.type === 'game' || (item.output && (item.output.includes('✔️') || item.output.includes('⚠️') || item.output.includes('❌')))) {
+                                guessCount++;
+                                itemsHtml += `
+                                    <div style="position: relative; display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; padding: 15px 0; border-bottom: 1px dashed rgba(136, 136, 136, 0.3); width: 100%; min-height: 80px;">
+                                        <div style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #888; font-size: 24px; font-weight: bold; opacity: 0.7;">#${guessCount}</div>
+                                        <div style="text-align: right; padding-right: 15px; font-family: 'Courier New', monospace; letter-spacing: 8px; font-weight: 900; font-size: 48px; white-space: nowrap;">${item.input}</div>
+                                        <div style="text-align: center; color: #888; font-size: 32px; padding-bottom: 4px;">➔</div>
+                                        <div style="text-align: left; padding-left: 15px; letter-spacing: 6px; font-size: 48px; white-space: nowrap;">${item.output}</div>
+                                    </div>
+                                `;
+                            } else {
+                                itemsHtml += `<div style="padding: 10px 0; color: #888; text-align: center; font-size: 20px;">${item.input || item}</div>`;
+                            }
+                        });
+                        
+                        itemsHtml += `
+                            <div style="margin: 20px auto; padding: 15px; border: 3px dashed #ff4444; color: #ff4444; background: rgba(255,0,0,0.1); border-radius: 8px; text-align: center; max-width: 90%; box-shadow: 0 0 15px rgba(255,0,0,0.2);">
+                                <div style="font-size: 20px; font-weight: bold; letter-spacing: 1px;">YOU GAVE UP!</div>
+                                <div style="font-size: 40px; margin-top: 10px; font-weight: 900;">Secret: <span style="color:inherit; text-decoration: underline;">${window.secretBaseballNumber}</span></div>
+                            </div>
+                        `;
+                        
+                        historyHtml = `
+                            <div class="history-pane" id="historyPane" style="height: 100%; overflow-y: auto; padding-bottom: 20px;">
+                                <div style="margin-bottom: 10px; font-weight: bold; font-size: 20px; flex-shrink: 0; position: sticky; top: 0; background: inherit; z-index: 2; border-bottom: 2px solid rgba(136,136,136,0.3); padding-bottom: 5px; text-align: center;">GUESS HISTORY</div>
+                                ${itemsHtml}
+                            </div>
+                        `;
+                            } else {
+                                historyHtml = `
+                                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:15px; text-align:center;">
+                                        <div style="font-size: 80px;">💀</div>
+                                        <div style="font-size: 32px; color: #ff4444; font-weight: 900; letter-spacing: 2px;">YOU GAVE UP!</div>
+                                        <div style="font-size: 28px; color: #ff4444; font-weight: bold;">Secret: <span style="color:inherit;">${window.secretBaseballNumber}</span></div>
+                                    </div>
+                                `;
+                            }
+                            
+                            displayArea.innerHTML = historyHtml;
+                            
+                            setTimeout(() => {
+                                const pane = document.getElementById('historyPane');
+                                if (pane) pane.scrollTop = pane.scrollHeight;
+                            }, 50);
+                        }
+                        
+                        const sText = document.getElementById('statusText');
+                        if (sText) sText.textContent = 'GAME OVER - GAVE UP';
+                        
+                        if (typeof showToast === 'function') showToast('You gave up! Press Reset to play again.', 'error');
+                        
+                        try { currentInput = ""; } catch(e) {}
+                        if (typeof clearInput === 'function') clearInput();
+                        window.currentInput = ""; 
+                        if (typeof updateScreenInput === 'function') updateScreenInput();
+                    }
+                });
+            });
+            
+
+        })();
+
+        // --- BASEBALL ENTER KEY & KEYBOARD SUPPORT PATCH ---
+        window.addEventListener('keydown', function(event) {
+            if (document.body && document.body.classList.contains('powered-off')) return;
+            
+            if (event.key === 'Enter') {
+                if (window.isBaseballMode) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    
+                    if (typeof window.enterPressed === 'function') {
+                        window.enterPressed();
+                    }
+                }
+            }
+        }, { capture: true });
+    </script>
+</body>
+
+</html>

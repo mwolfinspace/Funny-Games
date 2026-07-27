@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Is This A SET?</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg-color: #ecf0f1;
+        --hud-bg: rgba(255, 255, 255, 0.95);
+        --panel-bg: rgba(255, 255, 255, 0.9);
+        --card-face: #ffffff;
+        --accent: #d35400;
+        --accent-blue: #3498db;
+        --hint-color: #f1c40f;
+        --finish-color: #e74c3c;
+        --text: #2c3e50;
+        --muted: #7f8c8d;
+        --border-color: rgba(0, 0, 0, 0.12);
+        --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.12);
+        --shadow-strong: 0 20px 50px rgba(0, 0, 0, 0.2);
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg-color);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+        padding: 0;
+        overflow: hidden;
+        user-select: none;
+      }
+      
+      .game-screen,
+      .end-screen {
+        display: none;
+        flex: 1;
+      }
+
+      .game-screen.active,
+      .end-screen.active {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .end-screen {
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
+      }
+
+      button {
+        background-color: var(--accent);
+        border: none;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 700;
+        transition:
+          background-color 0.3s ease,
+          box-shadow 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 32px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      button:hover {
+        filter: brightness(1.05);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+      }
+
+      button:hover::before {
+        left: 100%;
+      }
+
+      button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        transition: left 0.6s ease;
+      }
+
+      button:active {
+        transform: none;
+      }
+      
+      #game-viewport {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        cursor: grab;
+      }
+      #game-world {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: 0 0;
+      }
+      .floating-panel {
+          position: fixed;
+          backdrop-filter: blur(6px);
+          background: var(--panel-bg);
+          border: 1px solid var(--border-color);
+          box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+          border-radius: 12px;
+          z-index: 10;
+      }
+      #remaining-panel {
+          top: 12px;
+          left: 12px;
+          width: 240px;
+          max-height: calc(100vh - 24px);
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+      }
+      #found-sets-panel {
+          top: 12px;
+          right: 12px;
+          width: 240px;
+          max-height: calc(100vh - 24px);
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+      }
+      #controls-panel {
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 10px;
+          display: flex;
+          gap: 12px;
+      }
+      #utility-controls {
+          top: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 10px;
+          display: flex;
+          gap: 8px;
+      }
+        .utility-btn {
+            width: 48px;
+            height: 48px;
+            font-size: 24px;
+            border-radius: 8px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+        .utility-btn:hover {
+            background-color: #5a6268;
+        }
+        #settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #settings-popup {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            box-shadow: var(--shadow-strong);
+            width: min(700px, 94vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        #settings-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+        #settingsCloseBtn {
+            font-size: 2rem;
+            font-weight: 300;
+            line-height: 1;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        #settings-content {
+            padding: 20px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+         .setup-group {
+            margin-bottom: 1rem;
+        }
+        .setup-group label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .color-inputs {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        .color-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .color-input input[type="color"] {
+            width: 44px;
+            height: 44px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+            background: white;
+        }
+        .symbol-select {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 10px;
+        }
+        .symbol-option {
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .symbol-option.selected {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: white;
+        }
+        .orientation-select {
+            display: flex;
+            gap: 12px;
+        }
+        .orientation-option {
+            padding: 10px 18px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .orientation-option.selected {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: white;
+        }
+        
+      .left-panel h3, .right-panel h3 {
+        font-size: 14px;
+        margin-bottom: 8px;
+        flex-shrink: 0;
+      }
+      .left-panel h3 { color: #667eea; }
+      .right-panel h3 { color: #22c55e; }
+
+      .deck-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1;
+        padding: 4px;
+      }
+
+      .panel-card {
+        aspect-ratio: 5 / 7;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: white;
+        padding: 5px;
+      }
+
+      .panel-card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .panel-card.horizontal .panel-card-content {
+          flex-direction: row;
+      }
+
+      .question {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -280px);
+        font-size: 38px;
+        font-weight: bold;
+        color: #333;
+        text-align: center;
+        transition: all 0.5s;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+
+      .question.correct { color: #22c55e; }
+      .question.incorrect { color: #ef4444; }
+
+      .cards-display {
+        display: flex;
+        gap: 30px;
+        justify-content: center;
+        align-items: center;
+        transition: all 0.5s;
+      }
+
+      .game-card {
+        background: white;
+        border: 5px solid #333;
+        border-radius: 15px;
+        padding: 15px;
+        width: 220px;
+        height: 310px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        transition: all 0.5s;
+      }
+
+      .game-card.horizontal { width: 310px; height: 220px; }
+      .game-card.correct { border-color: #22c55e; box-shadow: 0 0 30px rgba(34, 197, 94, 0.5); }
+      .game-card.incorrect { border-color: #ef4444; box-shadow: 0 0 30px rgba(239, 68, 68, 0.5); }
+      .game-card.highlighted { border-color: var(--accent-blue); box-shadow: 0 0 40px rgba(52, 152, 219, 0.7); }
+
+      .card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+      }
+
+      .game-card.horizontal .card-content {
+        flex-direction: row;
+      }
+
+      .cross-mark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 120px;
+        color: rgba(239, 68, 68, 0.6);
+        font-weight: bold;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .cross-mark.show { opacity: 1; }
+
+      .history-sets {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1;
+        padding: 4px;
+      }
+
+      .deck-cards::-webkit-scrollbar,
+      .history-sets::-webkit-scrollbar { width: 12px; }
+      .deck-cards::-webkit-scrollbar-track,
+      .history-sets::-webkit-scrollbar-track { background: transparent; }
+      .deck-cards::-webkit-scrollbar-thumb { background-color: #667eea; border-radius: 10px; border: 3px solid var(--panel-bg); }
+      .deck-cards::-webkit-scrollbar-thumb:hover { background: #5568d3; }
+      .history-sets::-webkit-scrollbar-thumb { background-color: #22c55e; border-radius: 10px; border: 3px solid var(--panel-bg); }
+      .history-sets::-webkit-scrollbar-thumb:hover { background: #16a34a; }
+
+      .history-set {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+        padding: 5px;
+        background: white;
+        border-radius: 5px;
+      }
+
+      .answer-btn {
+        padding: 25px 60px;
+        font-size: 32px;
+        font-weight: bold;
+        border: none;
+        border-radius: 15px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        width: 200px;
+        height: 100px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .answer-btn:hover { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); }
+      .answer-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+      .answer-btn.hide { display: none; }
+      .answer-btn.wide-btn {
+        width: 412px;
+      }
+      .yes-btn { background: #22c55e; color: white; }
+      .yes-btn:hover:not(:disabled) { background: #16a34a; }
+      .no-btn { background: #ef4444; color: white; }
+      .no-btn:hover:not(:disabled) { background: #dc2626; }
+      .transform-btn { background: #667eea; color: white; font-size: 28px; }
+      .transform-btn:hover:not(:disabled) { background: #5568d3; }
+      .home-btn { background: #6c757d; color: white; }
+      .home-btn:hover:not(:disabled) { background: #5a6268; }
+
+      .button-container { display: flex; gap: 20px; }
+      .btn-transform-enter { animation: btn-scale-in 0.3s ease-out; }
+      .btn-transform-leave { animation: btn-scale-out 0.3s ease-in; }
+
+      @keyframes btn-scale-in { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes btn-scale-out { from { transform: scale(1); opacity: 1; } to { transform: scale(0.8); opacity: 0; } }
+
+      .confetti { position: fixed; width: 10px; height: 10px; background: #f0f; position: absolute; animation: confetti-fall 3s linear; }
+      @keyframes confetti-fall { to { transform: translateY(100vh) rotate(360deg); opacity: 0; } }
+
+      .end-screen h2 { font-size: 48px; color: #22c55e; margin-bottom: 30px; }
+      .stats { font-size: 24px; color: #333; margin: 20px 0; }
+      .stats div { margin: 10px 0; }
+      .restart-btn { padding: 20px 50px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 24px; font-weight: bold; cursor: pointer; margin-top: 30px; }
+      .restart-btn:hover { background: #5568d3; }
+
+      .shape { transition: all 0.3s; }
+      @keyframes scale-in { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      .cards-display.animate .game-card { animation: scale-in 0.5s ease; }
+    </style>
+  </head>
+  <body>
+    <div class="game-screen active">
+        <div id="game-viewport">
+          <div id="game-world">
+            <div class="question" id="question">Is This A SET?</div>
+            <div class="cards-display" id="cardsDisplay"></div>
+          </div>
+        </div>
+        
+        <div class="left-panel floating-panel" id="remaining-panel">
+          <h3>Remaining</h3>
+          <div id="deckCount" style="text-align: center; font-size: 20px; font-weight: bold; color: #667eea; margin-bottom: 8px; flex-shrink: 0;">81</div>
+          <div class="deck-cards" id="deckCards"></div>
+        </div>
+
+        <div class="right-panel floating-panel" id="found-sets-panel">
+          <h3>Found SETs</h3>
+          <div id="setCount" style="text-align: center; font-size: 20px; font-weight: bold; color: #22c55e; margin-bottom: 8px; flex-shrink: 0;">0</div>
+          <div class="history-sets" id="historySets"></div>
+        </div>
+
+        <div class="floating-panel" id="utility-controls">
+            <a href="index.html" class="utility-btn" title="Go to Home">🏠</a>
+            <button class="utility-btn" id="settingsBtn" title="Settings">⚙️</button>
+        </div>
+        <div class="button-container floating-panel" id="controls-panel">
+            <button class="answer-btn yes-btn btn-transform-enter" id="yesBtn" onclick="answer(true)">YES</button>
+            <button class="answer-btn no-btn btn-transform-enter" id="noBtn" onclick="answer(false)">NO</button>
+        </div>
+    </div>
+    <div id="settings-overlay" style="display: none;">
+      <div id="settings-popup">
+          <div id="settings-header">
+              <h2>Game Settings</h2>
+              <button id="settingsCloseBtn">&times;</button>
+          </div>
+          <div id="settings-content">
+                <div class="setup-group">
+                  <label>Choose 3 Colors:</label>
+                  <div class="color-inputs">
+                      <div class="color-input">
+                      <input type="color" id="color1" />
+                      <span>Color 1</span>
+                      </div>
+                      <div class="color-input">
+                      <input type="color" id="color2" />
+                      <span>Color 2</span>
+                      </div>
+                      <div class="color-input">
+                      <input type="color" id="color3" />
+                      <span>Color 3</span>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="setup-group">
+                  <label>Card Background Color:</label>
+                  <input type="color" id="cardBg" />
+              </div>
+
+              <div class="setup-group">
+                  <label>Choose 3 Symbols:</label>
+                  <div class="symbol-select">
+                      <div class="symbol-option" data-symbol="diamond"><div></div><span>Diamond</span></div>
+                      <div class="symbol-option" data-symbol="circle"><div></div><span>Circle</span></div>
+                      <div class="symbol-option" data-symbol="pill"><div></div><span>Pill</span></div>
+                      <div class="symbol-option" data-symbol="wave"><div></div><span>Wave</span></div>
+                      <div class="symbol-option" data-symbol="triangle"><div></div><span>Triangle</span></div>
+                      <div class="symbol-option" data-symbol="square"><div></div><span>Square</span></div>
+                      <div class="symbol-option" data-symbol="star"><div></div><span>Star</span></div>
+                  </div>
+                  <div class="symbol-count">Selected: 3 symbols</div>
+              </div>
+
+              <div class="setup-group">
+                  <label>Card Orientation:</label>
+                  <div class="orientation-select">
+                      <div class="orientation-option" data-orientation="vertical">Vertical</div>
+                      <div class="orientation-option" data-orientation="horizontal">Horizontal</div>
+                  </div>
+              </div>
+          </div>
+      </div>
+    </div>
+
+    <div class="end-screen">
+      <h2>🎉 Congratulations! 🎉</h2>
+      <div class="stats" id="endStats"></div>
+      <button class="restart-btn" onclick="location.reload()">
+        Play Again
+      </button>
+    </div>
+
+    <script>
+      let settings = {
+        colors: ["#FF0000", "#00FF00", "#0000FF"],
+        cardBg: "#FFFFFF",
+        symbols: ["diamond", "circle", "pill"],
+        orientation: "vertical",
+      };
+
+      let deck = [];
+      let currentCards = [];
+      let currentCardIndices = [];
+      let foundSets = [];
+      let correctAnswers = 0;
+      let wrongAnswers = 0;
+      let answered = false;
+      let consecutiveNonSets = 0;
+
+      const camera = { x: 0, y: 0, zoom: 1 };
+      const interaction = { panning: false, start: { x: 0, y: 0 } };
+      let gameViewport = null;
+      let gameWorld = null;
+      let isInitialDraw = true;
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function updateWorldTransform() {
+        if (!gameWorld) return;
+        gameWorld.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
+      }
+
+      function handleMouseDown(e) {
+        if (e.button === 1 || e.button === 2 || (e.button === 0 && e.ctrlKey)) {
+          e.preventDefault();
+        }
+        if (e.button === 0) {
+            const clickedCard = e.target.closest('.game-card');
+            if (clickedCard && e.target.closest('#cardsDisplay')) {
+                document.querySelectorAll('.game-card').forEach(card => {
+                    if (card !== clickedCard) card.classList.remove('highlighted');
+                });
+                clickedCard.classList.toggle('highlighted');
+                return;
+            }
+            if (e.target.closest('.floating-panel')) return;
+        }
+        if (e.button === 1 || e.button === 2 || (e.button === 0 && e.ctrlKey)) {
+          interaction.panning = true;
+          interaction.start.x = e.clientX - camera.x;
+          interaction.start.y = e.clientY - camera.y;
+          gameViewport.style.cursor = 'grabbing';
+        }
+      }
+
+      function handleMouseUp(e) {
+        if (interaction.panning && (e.button === 1 || e.button === 2 || (e.button === 0 && e.ctrlKey))) {
+          interaction.panning = false;
+          gameViewport.style.cursor = 'grab';
+        }
+      }
+
+      function handleMouseMove(e) {
+        if (interaction.panning) {
+          e.preventDefault();
+          camera.x = e.clientX - interaction.start.x;
+          camera.y = e.clientY - interaction.start.y;
+          updateWorldTransform();
+        }
+      }
+
+      function handleWheel(e) {
+        e.preventDefault();
+        const zoomSpeed = 0.1;
+        const minZoom = 0.2;
+        const maxZoom = 4;
+        const rect = gameViewport.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const zoomFactor = 1 - e.deltaY * 0.01 * zoomSpeed;
+        const newZoom = clamp(camera.zoom * zoomFactor, minZoom, maxZoom);
+        camera.x = mouseX - (mouseX - camera.x) * (newZoom / camera.zoom);
+        camera.y = mouseY - (mouseY - camera.y) * (newZoom / camera.zoom);
+        camera.zoom = newZoom;
+        updateWorldTransform();
+      }
+      
+      const SETTINGS_KEY = 'set-verifier-settings-v1';
+
+      function saveSettings() {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      }
+
+      function loadSettings() {
+        const saved = localStorage.getItem(SETTINGS_KEY);
+        if (saved) {
+            const loadedSettings = JSON.parse(saved);
+            if (loadedSettings.colors && loadedSettings.symbols) {
+                Object.assign(settings, loadedSettings);
+            }
+        }
+      }
+
+      function redrawAllCards() {
+          displayCards();
+          updateDeckDisplay();
+          updateHistoryDisplay();
+          updateSymbolOptions();
+      }
+
+      function initSettingsHandlers() {
+        document.getElementById('color1').addEventListener('input', (e) => {
+            settings.colors[0] = e.target.value;
+            saveSettings();
+            redrawAllCards();
+        });
+        document.getElementById('color2').addEventListener('input', (e) => {
+            settings.colors[1] = e.target.value;
+            saveSettings();
+            redrawAllCards();
+        });
+         document.getElementById('color3').addEventListener('input', (e) => {
+            settings.colors[2] = e.target.value;
+            saveSettings();
+            redrawAllCards();
+        });
+        document.getElementById('cardBg').addEventListener('input', (e) => {
+            settings.cardBg = e.target.value;
+            saveSettings();
+            redrawAllCards();
+        });
+
+        document.querySelectorAll('#settings-popup .symbol-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                const selectedSymbol = this.dataset.symbol;
+                const isSelected = settings.symbols.includes(selectedSymbol);
+                if (isSelected) {
+                    if (settings.symbols.length > 1) {
+                        settings.symbols = settings.symbols.filter(s => s !== selectedSymbol);
+                    }
+                } else {
+                    if (settings.symbols.length < 3) {
+                       settings.symbols.push(selectedSymbol);
+                    }
+                }
+                if (settings.symbols.length === 3) {
+                    saveSettings();
+                    redrawAllCards();
+                }
+                updateSettingsUI();
+            });
+        });
+
+        document.querySelectorAll('#settings-popup .orientation-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                settings.orientation = this.dataset.orientation;
+                saveSettings();
+                redrawAllCards();
+                updateSettingsUI();
+            });
+        });
+      }
+
+      function updateSettingsUI() {
+        document.getElementById('color1').value = settings.colors[0];
+        document.getElementById('color2').value = settings.colors[1];
+        document.getElementById('color3').value = settings.colors[2];
+        document.getElementById('cardBg').value = settings.cardBg;
+
+        document.querySelectorAll('#settings-popup .symbol-option').forEach(opt => {
+            opt.classList.toggle('selected', settings.symbols.includes(opt.dataset.symbol));
+        });
+        document.querySelector('#settings-popup .symbol-count').textContent = `Selected: ${settings.symbols.length} of 3 symbols`;
+
+        document.querySelectorAll('#settings-popup .orientation-option').forEach(opt => {
+            opt.classList.toggle('selected', settings.orientation === opt.dataset.orientation);
+        });
+      }
+
+      function updateSymbolOptions() {
+        document.querySelectorAll("#settings-popup .symbol-option").forEach((opt) => {
+          const symbol = opt.dataset.symbol;
+          const svg = drawShape(symbol, "#333", "solid", 40);
+          opt.querySelector("div").innerHTML = "";
+          opt.querySelector("div").appendChild(svg);
+        });
+      }
+
+      function drawShape(symbol, color, shading, size = 30) {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", size);
+        svg.setAttribute("height", size);
+        svg.classList.add("shape");
+        let shape;
+        const fillColor = shading === "solid" ? color : "none";
+        const strokeColor = color;
+        const strokeWidth = 2;
+        switch (symbol) {
+          case "circle": shape = document.createElementNS("http://www.w3.org/2000/svg", "circle"); shape.setAttribute("cx", size / 2); shape.setAttribute("cy", size / 2); shape.setAttribute("r", size / 2 - 2); break;
+          case "square": shape = document.createElementNS("http://www.w3.org/2000/svg", "rect"); shape.setAttribute("x", 2); shape.setAttribute("y", 2); shape.setAttribute("width", size - 4); shape.setAttribute("height", size - 4); break;
+          case "diamond": shape = document.createElementNS("http://www.w3.org/2000/svg", "polygon"); shape.setAttribute("points", `${size / 2},2 ${size - 2},${size / 2} ${size / 2},${size - 2} 2,${size / 2}`); break;
+          case "triangle": shape = document.createElementNS("http://www.w3.org/2000/svg", "polygon"); shape.setAttribute("points", `${size / 2},2 ${size - 2},${size - 2} 2,${size - 2}`); break;
+          case "pill": shape = document.createElementNS("http://www.w3.org/2000/svg", "rect"); shape.setAttribute("x", 2); shape.setAttribute("y", size / 4); shape.setAttribute("width", size - 4); shape.setAttribute("height", size / 2); shape.setAttribute("rx", size / 4); break;
+          case "star": shape = document.createElementNS("http://www.w3.org/2000/svg", "polygon"); const p = []; for (let i = 0; i < 10; i++) { const a = (i * Math.PI) / 5 - Math.PI / 2; const r = i % 2 === 0 ? size / 2 - 2 : size / 4; p.push(`${size / 2 + r * Math.cos(a)},${size / 2 + r * Math.sin(a)}`); } shape.setAttribute("points", p.join(" ")); break;
+          case "wave": shape = document.createElementNS("http://www.w3.org/2000/svg", "path"); const h = size / 4; shape.setAttribute("d", `M 2,${size / 2-h/2} Q ${size/4},${size/2-h*1.5} ${size/2},${size/2-h/2} T ${size-2},${size/2-h/2} L ${size-2},${size/2+h/2} Q ${size*3/4},${size/2+h*2} ${size/2},${size/2+h/2} T 2,${size/2+h/2} Z`); break;
+        }
+        shape.setAttribute("fill", fillColor);
+        shape.setAttribute("stroke", strokeColor);
+        shape.setAttribute("stroke-width", strokeWidth);
+        if (shading === "striped") {
+          const pattern = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
+          pattern.setAttribute("id", `stripe-${Math.random()}`);
+          pattern.setAttribute("width", "4");
+          pattern.setAttribute("height", "4");
+          pattern.setAttribute("patternUnits", "userSpaceOnUse");
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", "0"); line.setAttribute("y1", "0"); line.setAttribute("x2", "0"); line.setAttribute("y2", "4");
+          line.setAttribute("stroke", color); line.setAttribute("stroke-width", "2");
+          pattern.appendChild(line);
+          svg.appendChild(pattern);
+          shape.setAttribute("fill", `url(#${pattern.getAttribute("id")})`);
+        }
+        svg.appendChild(shape);
+        return svg;
+      }
+
+      function createDeck() {
+        deck = [];
+        const counts = [1, 2, 3];
+        const colors = [0, 1, 2];
+        const shadings = ["solid", "striped", "outline"];
+        const shapes = [0, 1, 2];
+        for (let count of counts) for (let color of colors) for (let shading of shadings) for (let shape of shapes) {
+            deck.push({ count, color, shading, shape });
+        }
+        for (let i = deck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+      }
+
+      function isSet(cards) {
+        if (cards.length !== 3) return false;
+        const counts = cards.map(c => c.count);
+        const colors = cards.map(c => c.color);
+        const shadings = cards.map(c => c.shading);
+        const shapes = cards.map(c => c.shape);
+        const countValid = (counts[0] === counts[1] && counts[1] === counts[2]) || (counts[0] !== counts[1] && counts[1] !== counts[2] && counts[0] !== counts[2]);
+        const colorValid = (colors[0] === colors[1] && colors[1] === colors[2]) || (colors[0] !== colors[1] && colors[1] !== colors[2] && colors[0] !== colors[2]);
+        const shadingValid = (shadings[0] === shadings[1] && shadings[1] === shadings[2]) || (shadings[0] !== shadings[1] && shadings[1] !== shadings[2] && shadings[0] !== shadings[2]);
+        const shapeValid = (shapes[0] === shapes[1] && shapes[1] === shapes[2]) || (shapes[0] !== shapes[1] && shapes[1] !== shapes[2] && shapes[0] !== shapes[2]);
+        return countValid && colorValid && shadingValid && shapeValid;
+      }
+
+      function hasSet(deckToCheck) {
+        if (deckToCheck.length < 3) return false;
+        const n = deckToCheck.length;
+        for (let i = 0; i < n - 2; i++) for (let j = i + 1; j < n - 1; j++) for (let k = j + 1; k < n; k++) {
+            if (isSet([deckToCheck[i], deckToCheck[j], deckToCheck[k]])) return true;
+        }
+        return false;
+      }
+
+      function drawNewCards() {
+        if (deck.length < 3 || !hasSet(deck)) {
+          endGame();
+          return;
+        }
+        let setProbability = 0.4;
+        if (deck.length < 30) setProbability = 0.6; else if (deck.length < 50) setProbability = 0.5;
+        if (consecutiveNonSets >= 3) setProbability = 0.8; else if (consecutiveNonSets >= 2) setProbability = 0.65;
+        
+        if (Math.random() < setProbability) {
+          if (!findAndDrawSet()) drawRandomCards();
+        } else {
+          drawRandomNonSet();
+        }
+        if (isInitialDraw) {
+            camera.x = 0;
+            camera.y = 0;
+            camera.zoom = 1;
+            updateWorldTransform();
+            isInitialDraw = false;
+        }
+        answered = false;
+        displayCards();
+        updateDeckDisplay();
+        document.getElementById("question").textContent = "Is This A SET?";
+        document.getElementById("question").className = "question";
+      }
+
+      function findAndDrawSet() {
+        for (let attempt = 0; attempt < 1000; attempt++) {
+          if (deck.length < 3) return false;
+          const indices = [];
+          while (indices.length < 3) {
+            const idx = Math.floor(Math.random() * deck.length);
+            if (!indices.includes(idx)) indices.push(idx);
+          }
+          const cards = indices.map(i => deck[i]);
+          if (isSet(cards)) {
+            currentCards = [...cards];
+            currentCardIndices = [...indices].sort((a, b) => b - a);
+            consecutiveNonSets = 0;
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function drawRandomNonSet() {
+        for (let attempt = 0; attempt < 1000; attempt++) {
+          if (deck.length < 3) { drawRandomCards(); return; }
+          const indices = [];
+          while (indices.length < 3) {
+            const idx = Math.floor(Math.random() * deck.length);
+            if (!indices.includes(idx)) indices.push(idx);
+          }
+          const cards = indices.map(i => deck[i]);
+          if (!isSet(cards)) {
+            currentCards = [...cards];
+            currentCardIndices = [...indices].sort((a, b) => b - a);
+            consecutiveNonSets++;
+            return;
+          }
+        }
+        drawRandomCards();
+      }
+
+      function drawRandomCards() {
+        const count = Math.min(3, deck.length);
+        currentCardIndices = Array.from({length: count}, (_, i) => i).sort((a,b) => b - a);
+        currentCards = currentCardIndices.map(i => deck[i]);
+        if (!isSet(currentCards)) consecutiveNonSets++; else consecutiveNonSets = 0;
+      }
+
+      function displayCards() {
+        const display = document.getElementById("cardsDisplay");
+        display.innerHTML = "";
+        display.classList.add("animate");
+        setTimeout(() => display.classList.remove("animate"), 500);
+        currentCards.forEach((cardData) => {
+          const card = document.createElement("div");
+          card.className = "game-card";
+          if (settings.orientation === "horizontal") card.classList.add("horizontal");
+          card.style.background = settings.cardBg;
+          const content = document.createElement("div");
+          content.className = "card-content";
+          const color = settings.colors[cardData.color];
+          const symbol = settings.symbols[cardData.shape];
+          for (let i = 0; i < cardData.count; i++) {
+            content.appendChild(drawShape(symbol, color, cardData.shading, 60));
+          }
+          card.appendChild(content);
+          const cross = document.createElement("div");
+          cross.className = "cross-mark";
+          cross.textContent = "✗";
+          card.appendChild(cross);
+          display.appendChild(card);
+        });
+      }
+
+      function answer(userSaysSet) {
+        if (answered) return;
+        answered = true;
+        const actuallySet = isSet(currentCards);
+        const correct = userSaysSet === actuallySet;
+        const question = document.getElementById("question");
+        if (correct) {
+          correctAnswers++;
+          playSuccessSound();
+          createConfetti();
+          question.textContent = actuallySet ? "This IS a SET ✓" : "This IS NOT a SET ✓";
+          question.className = "question correct";
+          document.querySelectorAll(".game-card").forEach((card) => card.classList.add("correct"));
+          if (actuallySet) {
+            currentCardIndices.forEach((idx) => deck.splice(idx, 1));
+            foundSets.push([...currentCards]);
+            updateHistoryDisplay();
+          } else {
+            findViolatingCards().forEach((idx) => {
+              document.querySelectorAll(".game-card")[idx].querySelector(".cross-mark").classList.add("show");
+            });
+          }
+        } else {
+          wrongAnswers++;
+          question.textContent = actuallySet ? "This IS a SET ✗" : "This IS NOT a SET ✗";
+          question.className = "question incorrect";
+          document.querySelectorAll(".game-card").forEach((card) => card.classList.add("incorrect"));
+          if (!actuallySet) {
+            findViolatingCards().forEach((idx) => {
+               document.querySelectorAll(".game-card")[idx].querySelector(".cross-mark").classList.add("show");
+            });
+          }
+        }
+        transformButtons(userSaysSet);
+        updateDeckDisplay();
+      }
+
+      function transformButtons() {
+        const yesBtn = document.getElementById("yesBtn");
+        const noBtn = document.getElementById("noBtn");
+        
+        noBtn.classList.add("hide");
+        yesBtn.classList.remove("yes-btn");
+        yesBtn.classList.add("transform-btn");
+        yesBtn.classList.add("wide-btn");
+        yesBtn.textContent = "";
+        setTimeout(() => {
+            yesBtn.textContent = "Next Puzzle";
+        }, 150);
+        yesBtn.onclick = nextPuzzle;
+      }
+
+      function findViolatingCards() {
+        const cards = currentCards;
+        const violating = new Set();
+        ['count', 'color', 'shading', 'shape'].forEach(attr => {
+            const values = cards.map(c => c[attr]);
+            if (!((values[0] === values[1] && values[1] === values[2]) || (values[0] !== values[1] && values[1] !== values[2] && values[0] !== values[2]))) {
+                if (values[0] === values[1]) violating.add(2);
+                else if (values[0] === values[2]) violating.add(1);
+                else if (values[1] === values[2]) violating.add(0);
+                else [0,1,2].forEach(i => violating.add(i));
+            }
+        });
+        return Array.from(violating);
+      }
+
+      function nextPuzzle() {
+        const yesBtn = document.getElementById("yesBtn");
+        const noBtn = document.getElementById("noBtn");
+        
+        noBtn.classList.remove("hide");
+
+        yesBtn.textContent = "YES";
+        yesBtn.classList.remove("transform-btn");
+        yesBtn.classList.remove("wide-btn");
+        yesBtn.classList.add("yes-btn");
+        yesBtn.onclick = () => answer(true);
+        
+        currentCards = [];
+        currentCardIndices = [];
+        drawNewCards();
+      }
+
+      function updateDeckDisplay() {
+        document.getElementById("deckCount").textContent = deck.length;
+        const deckCards = document.getElementById("deckCards");
+        deckCards.innerHTML = "";
+        deck.forEach(cardData => {
+            const card = document.createElement("div");
+            card.className = "panel-card";
+            if (settings.orientation === "horizontal") card.classList.add("horizontal");
+            card.style.background = settings.cardBg;
+            const content = document.createElement("div");
+            content.className = "panel-card-content";
+            const color = settings.colors[cardData.color];
+            const symbol = settings.symbols[cardData.shape];
+            for (let i = 0; i < cardData.count; i++) {
+                content.appendChild(drawShape(symbol, color, cardData.shading, 15));
+            }
+            card.appendChild(content);
+            deckCards.appendChild(card);
+        });
+      }
+
+      function updateHistoryDisplay() {
+        document.getElementById("setCount").textContent = foundSets.length;
+        const history = document.getElementById("historySets");
+        history.innerHTML = "";
+        foundSets.forEach((set) => {
+          const setDiv = document.createElement("div");
+          setDiv.className = "history-set";
+          set.forEach((cardData) => {
+            const card = document.createElement("div");
+            card.className = "panel-card";
+            if (settings.orientation === "horizontal") card.classList.add("horizontal");
+            card.style.background = settings.cardBg;
+            const content = document.createElement("div");
+            content.className = "panel-card-content";
+            const color = settings.colors[cardData.color];
+            const symbol = settings.symbols[cardData.shape];
+            for (let i = 0; i < cardData.count; i++) {
+              content.appendChild(drawShape(symbol, color, cardData.shading, 15));
+            }
+            card.appendChild(content);
+            setDiv.appendChild(card);
+          });
+          history.appendChild(setDiv);
+        });
+      }
+
+      function playSuccessSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 523.25; // C5
+        oscillator.type = "sine";
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      }
+
+      function createConfetti() {
+        const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff"];
+        const container = document.querySelector(".game-screen");
+        for (let i = 0; i < 50; i++) {
+          setTimeout(() => {
+            const confetti = document.createElement("div");
+            confetti.className = "confetti";
+            confetti.style.left = Math.random() * 100 + "%";
+            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDelay = Math.random() * 0.5 + "s";
+            container.appendChild(confetti);
+            setTimeout(() => confetti.remove(), 3000);
+          }, i * 30);
+        }
+      }
+
+      function endGame() {
+        document.querySelector(".game-screen").classList.remove("active");
+        document.querySelector(".end-screen").classList.add("active");
+        const stats = document.getElementById("endStats");
+        const accuracy = correctAnswers + wrongAnswers > 0 ? Math.round((correctAnswers / (correctAnswers + wrongAnswers)) * 100) : 0;
+        stats.innerHTML = `
+          <div>✅ Correct Answers: ${correctAnswers}</div>
+          <div>❌ Wrong Answers: ${wrongAnswers}</div>
+          <div>🎯 Accuracy: ${accuracy}%</div>
+          <div>🏆 SETs Found: ${foundSets.length} / 27</div>
+        `;
+      }
+      
+      function initGame() {
+        loadSettings();
+        gameViewport = document.getElementById('game-viewport');
+        gameWorld = document.getElementById('game-world');
+        gameViewport.addEventListener('mousedown', handleMouseDown);
+        gameViewport.addEventListener('contextmenu', (e) => e.preventDefault());
+        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mousemove', handleMouseMove);
+        gameViewport.addEventListener('wheel', handleWheel);
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            document.getElementById('settings-overlay').style.display = 'flex';
+        });
+        document.getElementById('settingsCloseBtn').addEventListener('click', () => {
+            document.getElementById('settings-overlay').style.display = 'none';
+        });
+        document.getElementById('settings-overlay').addEventListener('click', (e) => {
+            if (e.target.id === 'settings-overlay') {
+                document.getElementById('settings-overlay').style.display = 'none';
+            }
+        });
+        initSettingsHandlers();
+        updateSettingsUI();
+        updateSymbolOptions();
+        createDeck();
+        drawNewCards();
+      }
+      initGame();
+    </script>
+  </body>
+</html>

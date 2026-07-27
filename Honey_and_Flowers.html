@@ -1,0 +1,2360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+<title>🍯 Guess Which Cell Has Honey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Quicksand:wght@600;700;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#FBF7EA; --panel:rgba(255,255,255,0.85); --panel-bd:rgba(59,48,32,0.1);
+  --text:#3B3020; --muted:rgba(59,48,32,0.5);
+  --accent:#EA1E7C; --accent-soft:rgba(234,30,124,0.14);
+  --success:#3E9C4E; --danger:#E0554A;
+  --grid-line:#C3DE72; --cell-bg:#FFFDF3; --cell-hover:rgba(0,0,0,0.045);
+  --cell-flagged:rgba(224,85,74,0.16);
+  --modal-bg:rgba(255,253,244,0.98); --toast-bg:rgba(59,48,32,0.94);
+  --shadow:0 10px 30px rgba(59,48,32,0.16); --radius:14px; --radius-lg:22px;
+  --hex-center:#FDE08B;
+  --hex-facet-d:#E5A93A;
+  --hex-facet-dr:#F5C25A;
+  --hex-facet-dl:#F5C25A;
+  --hex-facet-l:#FFF9E6;
+  --hex-facet-lr:#FFF5D1;
+  --hex-facet-ll:#FFF5D1;
+}
+body.hexTheme{ --grid-line:#E8951B; --cell-bg:#FFE9B0; --accent:#EA1E7C; }
+body.dark{
+  --bg:#17110A; --panel:rgba(30,22,14,0.88); --panel-bd:rgba(255,235,200,0.12);
+  --text:#F3E9D8; --muted:rgba(243,233,216,0.5);
+  --cell-bg:#241A10; --grid-line:#5C4A2E; --cell-hover:rgba(255,255,255,0.07);
+  --modal-bg:rgba(28,20,12,0.97); --toast-bg:rgba(243,233,216,0.94);
+  --hex-center:#A88B3E;
+  --hex-facet-d:#7A5612;
+  --hex-facet-dr:#946F21;
+  --hex-facet-dl:#946F21;
+  --hex-facet-l:#DBC486;
+  --hex-facet-lr:#C7AE6B;
+  --hex-facet-ll:#C7AE6B;
+}
+body.dark.hexTheme{ --grid-line:#B5791C; --cell-bg:#3A2A12; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100vw;height:100vh;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'Nunito',system-ui,sans-serif;user-select:none;-webkit-tap-highlight-color:transparent;}
+body{display:flex;flex-direction:column;transition:background .25s;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(rgba(59,48,32,0.05) 1px, transparent 1px);
+  background-size:22px 22px;}
+
+/* ---------- TOP BAR ---------- */
+#topBar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 10px;
+  background:var(--panel);backdrop-filter:blur(14px);border-bottom:1px solid var(--panel-bd);
+  overflow-x:auto;scrollbar-width:none;position:relative;z-index:20;}
+#topBar::-webkit-scrollbar{display:none;}
+.logo{font-family:'Quicksand',sans-serif;font-weight:800;font-size:14px;letter-spacing:0.5px;
+  white-space:nowrap;flex-shrink:0;padding-right:4px;color:var(--accent);}
+.sep{width:1px;height:22px;background:var(--panel-bd);flex-shrink:0;}
+.pill-group{display:flex;background:var(--cell-hover);border-radius:20px;padding:3px;flex-shrink:0;gap:2px;}
+.pill{border:none;background:transparent;padding:6px 10px;border-radius:16px;font-size:11px;
+  font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:inherit;}
+.pill.active{background:var(--accent);color:#fff;}
+.cg{display:flex;align-items:center;background:var(--cell-hover);border-radius:20px;flex-shrink:0;overflow:hidden;}
+.size-display{padding:0 8px;font-weight:800;font-size:13px;min-width:20px;text-align:center;}
+.btn,.btn-icon{border:none;border-radius:14px;padding:8px 12px;font-weight:700;font-size:12px;
+  cursor:pointer;background:var(--cell-hover);color:var(--text);flex-shrink:0;font-family:inherit;
+  transition:transform .1s, background .15s;white-space:nowrap;}
+.btn-icon{padding:8px 10px;font-size:15px;}
+.btn:active,.btn-icon:active{transform:scale(0.93);}
+.btn.accent{background:var(--accent);color:#fff;}
+.btn:disabled,.btn-icon:disabled{opacity:0.35;cursor:default;}
+
+/* ---------- STATUS BAR (bottom) ---------- */
+#statusBar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:7px 10px;
+  background:var(--panel);backdrop-filter:blur(14px);border-top:1px solid var(--panel-bd);font-size:12px;font-weight:800;
+  overflow-x:auto;scrollbar-width:none;position:relative;z-index:19;}
+#statusBar::-webkit-scrollbar{display:none;}
+#timerDisplay,#honeyCounter{flex-shrink:0;color:var(--muted);}
+.seed-row{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:140px;}
+#seedInput{flex:1;min-width:90px;border:1px solid var(--panel-bd);border-radius:10px;
+  padding:6px 8px;font-family:'DejaVu Sans Mono','Liberation Mono','Consolas','Courier New',monospace;font-size:11px;background:var(--cell-bg);
+  color:var(--text);letter-spacing:0.5px;font-weight:700;}
+#seedInput:focus{outline:2px solid var(--accent-soft);}
+
+/* ---------- BUILD TOOLBAR ---------- */
+#buildToolbar{display:none;flex:0 0 auto;align-items:center;gap:8px;padding:8px 10px;
+  background:var(--accent-soft);border-bottom:1px solid var(--panel-bd);font-size:12px;
+  font-weight:700;overflow-x:auto;position:relative;z-index:19;}
+
+/* ---------- BOARD ---------- */
+#boardWrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;
+  padding:8px;overflow:hidden;position:relative;z-index:1;min-height:0;}
+#boardSvg{width:100%;height:100%;display:block;touch-action:manipulation;}
+.cell{fill:var(--cell-bg);stroke:var(--grid-line);cursor:pointer;transition:fill .12s;}
+.cell:hover{fill:var(--cell-hover);}
+.cell.flagged{fill:var(--cell-flagged);}
+.cell.build-honey{fill:var(--accent-soft);}
+.cell.wrong{fill:rgba(224,85,74,0.4) !important;}
+.cell.highlight{stroke:var(--accent) !important;stroke-width:2.5px;fill:var(--accent-soft) !important;}
+#boardSvg.editBoundary{cursor:crosshair;}
+#boardSvg.grabbing{cursor:grabbing;}
+#btnEditMap.on{background:var(--accent);color:var(--bg);}
+.cell.ghost{fill:rgba(255,255,255,0.02);stroke:var(--grid-line);stroke-width:1.5px;stroke-dasharray:4,4;opacity:0.45;}
+.cell.ghost:hover{opacity:1;fill:rgba(255,150,0,0.12);}
+#cellsLayer text{pointer-events:none;font-family:'Nunito',sans-serif;}
+.cell.overlay{fill:none;pointer-events:all;}
+.cell.overlay:hover{fill:var(--cell-hover);}
+.cell.overlay.flagged{fill:var(--cell-flagged);}
+.cell.overlay.build-honey{fill:var(--accent-soft);}
+.cell.overlay.wrong{fill:rgba(224,85,74,0.4) !important;}
+.cell.overlay.highlight{stroke:var(--accent) !important;stroke-width:2.5px;fill:var(--accent-soft) !important;}
+#cellsLayer svg,#cellsLayer g,#cellsLayer circle.mark-ring{pointer-events:none;}
+
+/* ---------- AMBIENT BEE BACKGROUND ---------- */
+#bee-bg-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    pointer-events: none;
+    background: transparent;
+}
+
+/* ---------- TOAST ---------- */
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--toast-bg);
+  color:var(--bg);padding:11px 18px;border-radius:30px;font-size:13px;font-weight:700;
+  box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:all .25s;z-index:250;max-width:86vw;text-align:center;}
+#toast.show{opacity:1;transform:translate(-50%,0);}
+
+/* ---------- CONFETTI ---------- */
+#confettiHost{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:280;}
+.confetti-piece{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;
+  animation:confFall linear forwards;}
+@keyframes confFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(110vh) rotate(600deg);opacity:0.3;}
+}
+
+/* ---------- MODALS ---------- */
+.modal-overlay{position:fixed;inset:0;background:rgba(30,20,10,0.5);display:flex;
+  align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;
+  transition:opacity .2s;padding:20px;}
+.modal-overlay.open{opacity:1;pointer-events:auto;}
+.modal-card{background:var(--modal-bg);border-radius:var(--radius-lg);padding:26px 22px;
+  max-width:340px;width:100%;box-shadow:var(--shadow);text-align:center;}
+.modal-card h2{font-family:'Quicksand',sans-serif;margin-bottom:10px;font-size:19px;}
+.modal-card p{font-size:13px;line-height:1.55;color:var(--muted);}
+.modal-emoji{font-size:34px;margin-bottom:6px;}
+.modal-actions{display:flex;gap:8px;justify-content:center;margin-top:18px;}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;margin:14px 0;justify-content:center;}
+.check-row input{width:16px;height:16px;}
+
+/* ---------- HELP POPUP REDESIGN (ADAPTIVE & HI-FI) ---------- */
+@keyframes helpFadeIn {
+  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+}
+@keyframes helpSlideUp {
+  from { transform: translateY(24px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+#helpModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 17, 10, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: 16px;
+  pointer-events: none;
+  animation: helpFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+#helpModal.open {
+  display: flex;
+  pointer-events: auto;
+}
+
+#helpModal .modal-card {
+  background: var(--modal-bg);
+  border: 1px solid var(--panel-bd);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 1020px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  animation: helpSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--panel-bd);
+  background: var(--accent-soft);
+  flex-shrink: 0;
+  user-select: none;
+}
+.help-header h2 {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+}
+.help-close {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 50%;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.help-close:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: rotate(90deg);
+}
+
+.help-body {
+  overflow-y: auto;
+  padding: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-bd) transparent;
+}
+.help-body::-webkit-scrollbar {
+  width: 6px;
+}
+.help-body::-webkit-scrollbar-thumb {
+  background: var(--panel-bd);
+  border-radius: 10px;
+}
+
+.help-top-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.help-section {
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--panel-bd);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+body.dark .help-section {
+  background: rgba(0, 0, 0, 0.15);
+}
+.help-section:first-of-type {
+  grid-column: 1 / -1;
+  background: transparent;
+  border: none;
+  padding: 0;
+  gap: 0;
+}
+
+.help-section h3 {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  margin: 0;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--accent-soft);
+  padding-bottom: 6px;
+}
+
+.help-desc {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.help-grid.cols-3, .help-grid.cols-4 {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 740px) {
+  .help-grid.cols-3, .help-grid.cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.help-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--cell-bg);
+  border: 1px solid var(--panel-bd);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 56px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.help-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+}
+
+.help-item .hi {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.help-item .hd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.help-item .hd strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.help-item .hd span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.help-tip {
+  background: var(--accent-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-top: 4px;
+}
+.help-tip strong {
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  #helpModal { padding: 10px; }
+  #helpModal .modal-card { max-height: 92vh; }
+  .help-header { padding: 16px; }
+  .help-header h2 { font-size: 20px; }
+  .help-body { padding: 16px; gap: 16px; }
+  .help-item { padding: 8px 12px; }
+}
+
+/* ---------- PREVIEW MODAL ---------- */
+#previewModal .modal-card{max-width:95vw;width:760px;padding:16px;display:flex;flex-direction:row;gap:20px;max-height:96vh;}
+.preview-left{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;}
+.preview-left .preview-img-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;padding:4px;}
+.preview-right{width:190px;display:flex;flex-direction:column;gap:16px;text-align:left;
+  border-left:1px solid var(--panel-bd);padding-left:16px;flex-shrink:0;}
+#previewImg{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;
+  border:1px solid var(--panel-bd);box-shadow:0 4px 20px rgba(0,0,0,0.15);}
+.ios-toggle{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;}
+.ios-toggle input{opacity:0;width:0;height:0;}
+.ios-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+  background-color:var(--muted);transition:0.3s;border-radius:20px;}
+.ios-slider:before{position:absolute;content:"";height:16px;width:16px;left:2px;bottom:2px;
+  background-color:#fff;transition:0.3s;border-radius:50%;}
+.ios-toggle input:checked+.ios-slider{background-color:var(--success);}
+.ios-toggle input:checked+.ios-slider:before{transform:translateX(16px);}
+.ctrl-row{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text);font-family:monospace;}
+.cycle-btn{background:var(--cell-hover);border:1px solid var(--panel-bd);color:var(--text);
+  padding:4px 8px;border-radius:6px;cursor:pointer;font-family:monospace;font-size:10px;transition:0.15s;}
+.cycle-btn:hover{background:rgba(255,255,255,0.1);}
+.cycle-btn:active{transform:scale(0.95);}
+@media(max-width:600px){
+  #previewModal .modal-card{flex-direction:column;padding:12px;}
+  .preview-right{width:100%;border-left:none;border-top:1px solid var(--panel-bd);padding-left:0;padding-top:16px;flex-direction:row;flex-wrap:wrap;}
+  .preview-right .ctrl-row{width:45%;}
+  .preview-right .m-btns{width:100%;flex-direction:row;}
+}
+</style>
+</head>
+<body>
+<canvas id="bee-bg-canvas"></canvas>
+
+<div id="topBar">
+  <a href="index.html" class="btn-icon" title="Back to games" style="text-decoration:none;font-size:16px;">🏠</a>
+  <div class="logo">🍯 Honey &amp; Flowers</div>
+  <div class="sep"></div>
+  <div class="pill-group" id="gridTypeGroup">
+    <button class="pill active" id="btnTypeHex">🍯 Honeycomb</button>
+    <button class="pill" id="btnTypeSquare">🌼 Flower Patch</button>
+  </div>
+  <div class="sep"></div>
+  <div class="cg">
+    <button class="btn-icon" id="sizeMinus">−</button>
+    <span class="size-display" id="sizeDisplay">6</span>
+    <button class="btn-icon" id="sizePlus">+</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;" title="Extra challenge map shapes">
+    <span style="font-size:11px;opacity:0.7;">Extra</span>
+    <label class="ios-toggle"><input type="checkbox" id="tglExtraMaps" /><span class="ios-slider"></span></label>
+  </div>
+  <button class="btn" id="btnNewGame">🔀 New</button>
+  <button class="btn" id="btnBuildMode">🖌️ Build</button>
+  <div class="sep"></div>
+  <button class="btn-icon" id="btnUndo" title="Undo">↩️</button>
+  <button class="btn accent" id="btnCheck">🍯 Check</button>
+  <div class="sep"></div>
+  <button class="btn-icon" id="btnExport" title="Export SVG">⬇️</button>
+  <button class="btn-icon" id="btnFit" title="Auto-fit board">⊞</button>
+  <button class="btn-icon" id="btnHelp" title="How to play">❓</button>
+  <button class="btn-icon" id="btnTheme" title="Theme">🌙</button>
+</div>
+
+<div id="buildToolbar">
+  <span>🖌️ Build Mode</span>
+  <div class="sep"></div>
+  <button class="btn" id="btnEditMap">📐 Edit Map</button>
+  <button class="btn" id="btnCustomMode">🔢 Custom</button>
+  <div class="sep"></div>
+  <button class="btn" id="btnBuildClear">🧹 Clear</button>
+  <button class="btn" id="btnBuildRandom">🎲 Random</button>
+  <button class="btn accent" id="btnBuildStart">✅ Start</button>
+</div>
+
+<div id="boardWrap">
+  <svg id="boardSvg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 100 100">
+    <defs>
+      <radialGradient id="honeyGrad" cx="35%" cy="30%" r="75%">
+        <stop offset="0%" stop-color="#FFE28A"/>
+        <stop offset="55%" stop-color="#FFC94D"/>
+        <stop offset="100%" stop-color="#E8951B"/>
+      </radialGradient>
+    </defs>
+    <g id="cellsLayer"></g>
+  </svg>
+</div>
+
+<div id="statusBar">
+  <span id="timerDisplay">⏱ 00:00</span>
+  <span id="honeyCounter">🌸 0 / 0</span>
+  <div class="seed-row">
+    <input id="seedInput" type="text" placeholder="Seed e.g. S6-!@#..." spellcheck="false" autocomplete="off" />
+    <button class="btn-icon" id="btnLoadSeed" title="Load seed">📥</button>
+    <button class="btn-icon" id="btnCopySeed" title="Copy seed">📋</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="confettiHost"></div>
+
+<div class="modal-overlay" id="winModal">
+  <div class="modal-card">
+    <div class="modal-emoji">🎉🍯🌸</div>
+    <h2>Hive Complete!</h2>
+    <p>You found every honey cell in <strong id="winTimeText">00:00</strong>, correctly marking <strong id="winHoneyText">0</strong> honey cells.</p>
+    <div class="modal-actions">
+      <button class="btn accent" id="btnPlayAgain">🔀 Play Again</button>
+      <button class="btn" id="btnCloseWin">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="exportModal" style="display:none;"></div>
+
+<div class="modal-overlay" id="previewModal">
+  <div class="modal-card" style="position:relative">
+    <div class="preview-left">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-shrink:0;">
+        <button class="close-x" id="prevClose" style="position:static;font-size:20px;padding:2px 6px;color:var(--text);border:none;background:none;cursor:pointer;">✕</button>
+        <span style="font-size:18px;line-height:1;">🖼</span>
+        <span style="font-size:14px;font-weight:800;margin:0;">Preview</span>
+      </div>
+      <div class="preview-img-wrap">
+        <img id="previewImg" />
+      </div>
+    </div>
+    <div class="preview-right">
+      <div class="ctrl-row">
+        <span>Background</span>
+        <label class="ios-toggle"><input type="checkbox" id="tglBg" checked /><span class="ios-slider"></span></label>
+      </div>
+      <div class="ctrl-row">
+        <span>Seed &amp; Clue</span>
+        <label class="ios-toggle"><input type="checkbox" id="tglSeed" checked /><span class="ios-slider"></span></label>
+      </div>
+      <div class="ctrl-row">
+        <span>Seed Pos</span>
+        <button class="cycle-btn" id="btnCycleSide">Bottom</button>
+      </div>
+      <div class="ctrl-row">
+        <span>Reveal</span>
+        <label class="ios-toggle"><input type="checkbox" id="tglReveal" /><span class="ios-slider"></span></label>
+      </div>
+      <div style="margin-top:auto;padding-top:8px;display:flex;flex-direction:column;gap:8px;">
+        <button class="btn accent" id="btnSavePNG" style="width:100%;">💾 Save Image</button>
+        <button class="btn" id="btnSaveStandardSVG" style="width:100%;">⬇️ Standard SVG</button>
+        <button class="btn" id="btnCancelPreview" style="width:100%;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="helpModal">
+  <div class="modal-card">
+    <div class="help-header">
+      <h2>🍯 How to Play</h2>
+      <button class="help-close" id="btnCloseHelp">&times;</button>
+    </div>
+    <div class="help-body">
+      <div class="help-top-row">
+        <div class="help-section">
+          <p class="help-desc">Every cell shows a number — how many neighbors contain honey. Mark every honey cell (and only those) to win!</p>
+        </div>
+        <div class="help-section">
+          <h3>🖱️ Controls</h3>
+          <div class="help-grid cols-3">
+            <div class="help-item"><div class="hi">👆</div><div class="hd"><strong>Left-click</strong><span>Mark honey 🌸</span></div></div>
+            <div class="help-item"><div class="hi">👇</div><div class="hd"><strong>Right-click</strong><span>Flag safe ❌</span></div></div>
+            <div class="help-item"><div class="hi">🔄</div><div class="hd"><strong>Scroll</strong><span>Zoom</span></div></div>
+            <div class="help-item"><div class="hi">✋</div><div class="hd"><strong>Drag</strong><span>Pan</span></div></div>
+            <div class="help-item"><div class="hi">↩️</div><div class="hd"><strong>Z</strong><span>Undo</span></div></div>
+            <div class="help-item"><div class="hi">⏎</div><div class="hd"><strong>Enter</strong><span>Load seed</span></div></div>
+          </div>
+        </div>
+        <div class="help-section">
+          <h3>🖌️ Build</h3>
+          <div class="help-grid cols-3">
+            <div class="help-item"><div class="hi">🧹</div><div class="hd"><strong>Clear</strong><span>All honey</span></div></div>
+            <div class="help-item"><div class="hi">🎲</div><div class="hd"><strong>Random</strong><span>Scatter</span></div></div>
+            <div class="help-item"><div class="hi">📐</div><div class="hd"><strong>Edit Map</strong><span>Cells</span></div></div>
+            <div class="help-item"><div class="hi">🔢</div><div class="hd"><strong>Custom</strong><span>Clues</span></div></div>
+            <div class="help-item"><div class="hi">✅</div><div class="hd"><strong>Start</strong><span>Play</span></div></div>
+          </div>
+        </div>
+        <div class="help-section">
+          <h3>🗺️ Extra Maps</h3>
+          <p class="help-desc" style="margin-bottom:4px;">Toggle <strong>Extra</strong> for wild shapes — heart, tree, banana, pill, island, cloud, fish! Size = vertical; horizontal grows wider. Always one connected island.</p>
+        </div>
+      </div>
+      <div class="help-section">
+        <h3>🔧 Top Bar</h3>
+        <div class="help-grid cols-4">
+          <div class="help-item"><div class="hi">🏠</div><div class="hd"><strong>Home</strong><span>Game list</span></div></div>
+          <div class="help-item"><div class="hi">🍯</div><div class="hd"><strong>Grid Type</strong><span>Honeycomb / Flower</span></div></div>
+          <div class="help-item"><div class="hi">−/+</div><div class="hd"><strong>Size</strong><span>Vertical cells</span></div></div>
+          <div class="help-item"><div class="hi">🔘</div><div class="hd"><strong>Extra</strong><span>Challenge shapes</span></div></div>
+          <div class="help-item"><div class="hi">🔀</div><div class="hd"><strong>New</strong><span>Fresh game</span></div></div>
+          <div class="help-item"><div class="hi">🖌️</div><div class="hd"><strong>Build</strong><span>Create maps</span></div></div>
+          <div class="help-item"><div class="hi">↩️</div><div class="hd"><strong>Undo</strong><span>Last action</span></div></div>
+          <div class="help-item"><div class="hi">✅</div><div class="hd"><strong>Check</strong><span>Verify solve</span></div></div>
+          <div class="help-item"><div class="hi">⬇️</div><div class="hd"><strong>Export</strong><span>SVG / PNG</span></div></div>
+          <div class="help-item"><div class="hi">⊞</div><div class="hd"><strong>Fit</strong><span>Auto-fit board</span></div></div>
+          <div class="help-item"><div class="hi">🌙</div><div class="hd"><strong>Theme</strong><span>Dark/light</span></div></div>
+          <div class="help-item"><div class="hi">🔗</div><div class="hd"><strong>Seed</strong><span>Share maps</span></div></div>
+        </div>
+      </div>
+      <div class="help-tip"><strong>💡 Tip:</strong> Numbers count <em>all</em> neighbors — diagonals on square, 6 sides on hex. Deduce which cells must or must not have honey!</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   HONEY & FLOWERS — cell-based deduction engine
+   ========================================================= */
+const svgNS = "http://www.w3.org/2000/svg";
+const CELL_SIZE = 46;
+const SAVE_KEY = "honey-flowers-save-v2";
+const SIZE_BOUNDS = { square:[4,10], hexagon:[3,6] };
+const CLUE_COLORS = ["#9C8B72","#3F8EFA","#4CAF50","#E0554A","#9B59B6","#F39C12","#16A2A2","#555555","#2C2C2C"];
+const GAME_FONT = '"Arial Rounded MT Bold", "Comic Sans MS", "Chalkboard SE", sans-serif';
+const MONO_FONT = '"DejaVu Sans Mono", "Liberation Mono", "Consolas", "Courier New", monospace';
+
+const GS = {
+    gridType: "hexagon",
+    size: 4,
+    cells: [],
+    history: [],
+    won: false,
+    timeSec: 0,
+    timerOn: false,
+    timerInt: null,
+    seed: null,
+    mode: "play",
+    activeCellId: null,
+    editBoundary: false,
+    extraMaps: false,
+    viewBox: [0,0,100,100],
+};
+
+/* =========================================================
+   1. Seeded RNG
+   ========================================================= */
+function makeRng(seedStr) {
+    let h = 1779033703 ^ seedStr.length;
+    for (let i = 0; i < seedStr.length; i++) {
+        h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+    }
+    return function () {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        h ^= h >>> 16;
+        return (h >>> 0) / 4294967296;
+    };
+}
+
+/* =========================================================
+   2. Grid Generator & Adjacency Engine
+   ========================================================= */
+function buildCells(gridType, size) {
+    const cells = [];
+    if (gridType === "square") {
+        for (let rr = 0; rr < size; rr++) {
+            for (let cc = 0; cc < size; cc++) {
+                cells.push({ id:cells.length, row:rr, col:cc, q:null, r:null, s:null,
+                    hasHoney:false, markedState:0, clue:0, customClue:null, cx:0, cy:0, pts:"" });
+            }
+        }
+    } else {
+        for (let q = -size+1; q < size; q++) {
+            for (let r = -size+1; r < size; r++) {
+                const s = -q-r;
+                if (Math.max(Math.abs(q), Math.abs(r), Math.abs(s)) < size) {
+                    cells.push({ id:cells.length, row:null, col:null, q, r, s,
+                        hasHoney:false, markedState:0, clue:0, customClue:null, cx:0, cy:0, pts:"" });
+                }
+            }
+        }
+    }
+    return cells;
+}
+
+function computeClues(cells, gridType) {
+    cells.forEach(cell => {
+        let count = 0;
+        cell.neighbors = [];
+        for (const n of cells) {
+            if (n.id === cell.id) continue;
+            let isNeighbor;
+            if (gridType === "square") {
+                isNeighbor = Math.abs(n.row-cell.row) <= 1 && Math.abs(n.col-cell.col) <= 1;
+            } else {
+                isNeighbor = Math.max(Math.abs(n.q-cell.q), Math.abs(n.r-cell.r), Math.abs(n.s-cell.s)) === 1;
+            }
+            if (isNeighbor) {
+                cell.neighbors.push(n);
+                if (n.hasHoney) count++;
+            }
+        }
+        cell.clue = count;
+    });
+    cells.forEach(cell => {
+        cell.hideWallClue = false;
+        if (cell.clue === 1 && !cell.hasHoney) {
+            const neighborOnes = cell.neighbors.filter(n => n.clue === 1 && !n.hasHoney).length;
+            if (neighborOnes >= 2) {
+                cell.hideWallClue = true;
+            }
+        }
+    });
+}
+
+function computeGeometry(cells, gridType, cellSize) {
+    if (gridType === "square") {
+        cells.forEach(cell => {
+            const x = cell.col*cellSize, y = cell.row*cellSize;
+            cell.cx = x + cellSize/2; cell.cy = y + cellSize/2;
+            cell.pts = `${x},${y} ${x+cellSize},${y} ${x+cellSize},${y+cellSize} ${x},${y+cellSize}`;
+        });
+    } else {
+        const innerRadius = cellSize * 0.76;
+        cells.forEach(cell => {
+            const cx = cellSize*1.5*cell.q;
+            const cy = cellSize*Math.sqrt(3)*(cell.r + cell.q/2);
+            cell.cx = cx; cell.cy = cy;
+            const pts = [];
+            const innerPts = [];
+            for (let i = 0; i < 6; i++) {
+                const a = i*60*Math.PI/180;
+                const cosA = Math.cos(a), sinA = Math.sin(a);
+                pts.push(`${(cx+cellSize*cosA).toFixed(2)},${(cy+cellSize*sinA).toFixed(2)}`);
+                innerPts.push(`${(cx+innerRadius*cosA).toFixed(2)},${(cy+innerRadius*sinA).toFixed(2)}`);
+            }
+            cell.pts = pts.join(" ");
+            cell.innerPts = innerPts.join(" ");
+            cell.ptsArray = pts;
+            cell.innerPtsArray = innerPts;
+        });
+    }
+}
+
+function computeViewBox(cells) {
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    cells.forEach(c => {
+        c.pts.split(" ").forEach(p => {
+            const [x,y] = p.split(",").map(Number);
+            if (x<minX) minX=x; if (x>maxX) maxX=x;
+            if (y<minY) minY=y; if (y>maxY) maxY=y;
+        });
+    });
+    // Conditionally apply base padding only if not in a transparent export context
+    const pad = (typeof window.GS !== 'undefined' && window.GS.__exportingTransparent) ? 0 : CELL_SIZE*0.35;
+    return [minX-pad, minY-pad, (maxX-minX)+pad*2, (maxY-minY)+pad*2];
+}
+
+/* =========================================================
+   Extra Hex Shape Generators (single connected island, horizontal priority)
+   ========================================================= */
+function shapeHeart(rng, size) {
+    const R = Math.max(3, size);
+    const cells = [];
+    for (let r = -R; r <= R; r++) {
+        const t = (r + R) / (2 * R);
+        if (t < 0.5) {
+            const lobeR = R * 0.55, lobeCY = -R * 0.3;
+            const dy = r - lobeCY;
+            const w = Math.round(lobeR * Math.sqrt(Math.max(0, 1 - dy*dy / (lobeR*lobeR))));
+            const gap = Math.max(0, Math.round(R * 0.15 * (1 - t / 0.5)));
+            if (w > 0) { for (let q = -(w+gap); q <= -gap-1; q++) cells.push([q,r]); for (let q = gap; q <= w+gap; q++) cells.push([q,r]); }
+        } else {
+            const w = Math.round(R * 1.1 * (1 - (t - 0.5) / 0.5));
+            if (w > 0) for (let q = -w; q <= w; q++) cells.push([q,r]);
+        }
+    }
+    return cells;
+}
+function shapeTree(rng, size) {
+    const R = Math.max(3, size);
+    const cells = [];
+    const canopyH = Math.round(R * 0.7), trunkH = R - canopyH + 1;
+    const trunkW = Math.max(1, Math.round(R * 0.2));
+    for (let i = 0; i < canopyH; i++) {
+        const w = Math.round((i + 1) * R * 0.85 / canopyH);
+        for (let q = -w; q <= w; q++) cells.push([q, -R + i]);
+    }
+    for (let i = 0; i < trunkH; i++)
+        for (let q = -trunkW; q <= trunkW; q++) cells.push([q, -R + canopyH + i]);
+    return cells;
+}
+function shapeBanana(rng, size) {
+    const R = Math.max(3, size);
+    const cells = [];
+    const curve = Math.round(R * (0.3 + rng() * 0.3));
+    const thick = Math.max(1, Math.round(R * 0.35));
+    for (let r = -R; r <= R; r++) {
+        const t = (r + R) / (2 * R);
+        const cx = Math.round(curve * Math.sin(Math.PI * t));
+        const w = Math.round(thick * (1 - Math.pow(2 * t - 1, 2)) * (0.8 + 0.4 * Math.sin(Math.PI * t)));
+        if (w > 0) for (let q = cx - w; q <= cx + w; q++) cells.push([q, r]);
+    }
+    return cells;
+}
+function shapePill(rng, size) {
+    const R = Math.max(2, Math.round(size * 0.5));
+    const halfLen = Math.round(size * 1.3 + rng() * size * 0.5);
+    const cells = [];
+    for (let r = -R; r <= R; r++) {
+        const dy = Math.abs(r);
+        const cap = Math.round(R * Math.sqrt(Math.max(0, 1 - (dy*dy)/(R*R))));
+        const w = halfLen + cap;
+        for (let q = -w; q <= w; q++) cells.push([q, r]);
+    }
+    return cells;
+}
+function shapeIsland(rng, size) {
+    const target = Math.floor(size * (size + 2) * 1.8);
+    const pos = new Set(["0,0"]);
+    const fSet = new Set(["0,0"]);
+    const fArr = ["0,0"];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+    while (fArr.length > 0 && pos.size < target) {
+        const idx = Math.floor(rng() * fArr.length);
+        const key = fArr[idx]; fArr[idx] = fArr[fArr.length-1]; fArr.pop(); fSet.delete(key);
+        const [q,r] = key.split(',').map(Number);
+        let adj = false;
+        for (const [dq,dr] of dirs) if (pos.has(`${q+dq},${r+dr}`)) { adj=true; break; }
+        if (!adj) continue;
+        if (rng() < 0.18 && pos.size > 5) continue;
+        pos.add(key);
+        for (const [dq,dr] of dirs) { const k=`${q+dq},${r+dr}`; if (!pos.has(k)&&!fSet.has(k)) { fSet.add(k); fArr.push(k); } }
+        if (rng() < 0.35) for (const dq of [1,-1]) { const k=`${q+dq},${r}`; if (!pos.has(k)&&!fSet.has(k)) { fSet.add(k); fArr.push(k); } }
+    }
+    return [...pos].map(v => v.split(',').map(Number));
+}
+function shapeCloud(rng, size) {
+    const R = Math.max(3, size);
+    const numBlobs = 2 + Math.floor(rng() * 3);
+    const pos = new Set();
+    for (let i = 0; i < numBlobs; i++) {
+        const cx = Math.round((rng() - 0.5) * R * 1.8);
+        const cy = Math.round((rng() - 0.5) * R * 0.7);
+        const bR = Math.max(2, Math.round(R * (0.35 + rng() * 0.35)));
+        for (let r = cy - bR; r <= cy + bR; r++)
+            for (let q = cx - bR; q <= cx + bR; q++) {
+                const dq = q-cx, dr = r-cy, ds = -dq-dr;
+                if (Math.max(Math.abs(dq), Math.abs(dr), Math.abs(ds)) <= bR) pos.add(`${q},${r}`);
+            }
+    }
+    return [...pos].map(v => v.split(',').map(Number));
+}
+function shapeFish(rng, size) {
+    const R = Math.max(3, size);
+    const cells = [];
+    const bodyLen = Math.round(R * 1.4);
+    for (let q = -bodyLen; q <= bodyLen; q++) {
+        const t = q / bodyLen;
+        const w = Math.round(R * 0.55 * Math.sqrt(Math.max(0, 1 - t*t)));
+        for (let r = -w; r <= w; r++) cells.push([q, r]);
+    }
+    const tailLen = Math.max(2, Math.round(R * 0.4));
+    for (let i = 0; i < tailLen; i++) {
+        const w = Math.round((i+1) * R * 0.45 / tailLen);
+        for (let r = -w; r <= w; r++) cells.push([bodyLen + i + 1, r]);
+    }
+    return cells;
+}
+const EXTRA_SHAPE_FNS = [shapeHeart, shapeTree, shapeBanana, shapePill, shapeIsland, shapeCloud, shapeFish];
+function buildExtraHexCells(size, rng) {
+    const fn = EXTRA_SHAPE_FNS[Math.floor(rng() * EXTRA_SHAPE_FNS.length)];
+    let positions = fn(rng, size);
+    const qV = positions.map(p=>p[0]), rV = positions.map(p=>p[1]);
+    const qO = Math.round(-(Math.min(...qV)+Math.max(...qV))/2);
+    const rO = Math.round(-(Math.min(...rV)+Math.max(...rV))/2);
+    return positions.map(([q,r],i) => ({ id:i, row:null, col:null, q:q+qO, r:r+rO, s:-(q+qO)-(r+rO),
+        hasHoney:false, markedState:0, clue:0, customClue:null, cx:0, cy:0, pts:"" }));
+}
+function generateHoneyMap(gridType, size, seedStr, density) {
+    const rng = makeRng(seedStr);
+    let cells, tries = 0;
+    do {
+        cells = buildCells(gridType, size);
+        cells.forEach(c => { c.hasHoney = rng() < density; });
+        tries++;
+    } while (tries < 8 && (cells.every(c=>!c.hasHoney) || cells.every(c=>c.hasHoney)));
+    computeClues(cells, gridType);
+    computeGeometry(cells, gridType, CELL_SIZE);
+    return cells;
+}
+
+/* =========================================================
+   2b. Ultra-Compressed Seed Encoder/Decoder (Direct Token-Stream)
+   ========================================================= */
+const B81_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()-_=+[]{};";
+
+class BitStream {
+    constructor() {
+        this.bits = [];
+        this.pointer = 0;
+    }
+    write(value, count) {
+        let v = BigInt(value);
+        for (let i = count - 1; i >= 0; i--) {
+            this.bits.push(Number((v >> BigInt(i)) & 1n));
+        }
+    }
+    read(count) {
+        let v = 0;
+        for (let i = 0; i < count; i++) {
+            let bit = this.bits[this.pointer++];
+            if (bit === undefined) bit = 0;
+            v = (v << 1) | bit;
+        }
+        return v;
+    }
+}
+
+function bitStreamToBigInt(stream) {
+    let res = 1n; // Sentinel high bit to retain leading bitstream zeros safely
+    for (let i = 0; i < stream.bits.length; i++) {
+        res = (res << 1n) | BigInt(stream.bits[i]);
+    }
+    return res;
+}
+
+function bigIntToBitStream(bigintVal) {
+    let stream = new BitStream();
+    let bits = [];
+    let n = bigintVal;
+    while (n > 1n) {
+        bits.push(Number(n & 1n));
+        n >>= 1n;
+    }
+    bits.reverse();
+    stream.bits = bits;
+    stream.pointer = 0;
+    return stream;
+}
+
+function toBase81(bigintVal) {
+    if (bigintVal === 0n) return B81_CHARS[0];
+    let res = "";
+    let n = bigintVal;
+    while (n > 0n) {
+        let rem = n % 81n;
+        res = B81_CHARS[Number(rem)] + res;
+        n = n / 81n;
+    }
+    return res;
+}
+
+function fromBase81(str) {
+    let res = 0n;
+    for (let i = 0; i < str.length; i++) {
+        let idx = B81_CHARS.indexOf(str[i]);
+        if (idx === -1) continue;
+        res = res * 81n + BigInt(idx);
+    }
+    return res;
+}
+
+function isStandardBoundary() {
+    const base = buildCells(GS.gridType, GS.size);
+    if (base.length !== GS.cells.length) return false;
+    for (let i = 0; i < base.length; i++) {
+        if (GS.gridType === "square") {
+            if (base[i].row !== GS.cells[i].row || base[i].col !== GS.cells[i].col) return false;
+        } else {
+            if (base[i].q !== GS.cells[i].q || base[i].r !== GS.cells[i].r) return false;
+        }
+    }
+    return true;
+}
+
+function buildSeedIdFromCells() {
+    let stream = new BitStream();
+    
+    // 1. Write Immutable Core Header (7 bits total)
+    stream.write(GS.gridType === "hexagon" ? 1 : 0, 1);
+    stream.write(GS.size, 5);
+    
+    const customBound = !isStandardBoundary();
+    stream.write(customBound ? 1 : 0, 1);
+    
+    if (!customBound) {
+        // Standard Map: Linearly stream cell values directly
+        GS.cells.forEach(cell => {
+            if (cell.customClue !== null) {
+                stream.write(3, 2); // '11' prefix flag
+                stream.write(cell.customClue, 4);
+            } else if (cell.hasHoney) {
+                stream.write(2, 2); // '10' prefix flag
+            } else {
+                stream.write(0, 1); // '0' single bit clean cell flag
+            }
+        });
+    } else {
+        // Custom Bounded Geometry: Generate tight bounding frame constraints
+        let minX = 999, maxX = -999, minY = 999, maxY = -999;
+        GS.cells.forEach(cell => {
+            let x = GS.gridType === "square" ? cell.row : cell.q;
+            let y = GS.gridType === "square" ? cell.col : cell.r;
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+        });
+        
+        let bias = 50;
+        stream.write(minX + bias, 7);
+        stream.write(maxX - minX + 1, 6); // width window size
+        stream.write(minY + bias, 7);
+        stream.write(maxY - minY + 1, 6); // height window size
+        
+        let cellMap = new Map();
+        GS.cells.forEach(c => {
+            let x = GS.gridType === "square" ? c.row : c.q;
+            let y = GS.gridType === "square" ? c.col : c.r;
+            cellMap.set(`${x},${y}`, c);
+        });
+        
+        // Stream spatial geometry structure combined with cell state changes
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                let key = `${x},${y}`;
+                if (!cellMap.has(key)) {
+                    stream.write(0, 1); // '0' = empty structural matrix gap
+                } else {
+                    let cell = cellMap.get(key);
+                    if (cell.customClue !== null) {
+                        stream.write(7, 3); // '111' token code
+                        stream.write(cell.customClue, 4);
+                    } else if (cell.hasHoney) {
+                        stream.write(6, 3); // '110' token code
+                    } else {
+                        stream.write(2, 2); // '10' token code
+                    }
+                }
+            }
+        }
+    }
+    
+    return toBase81(bitStreamToBigInt(stream));
+}
+
+function loadMapFromSeedID(seedStr) {
+    seedStr = seedStr.trim();
+    if (!seedStr) return false;
+    
+    let num;
+    try {
+        num = fromBase81(seedStr);
+    } catch(e) {
+        toast("⚠️ Invalid seed characters");
+        return false;
+    }
+    
+    if (num === 0n) {
+        toast("⚠️ Invalid empty seed");
+        return false;
+    }
+    
+    let stream = bigIntToBitStream(num);
+    
+    let typeBit = stream.read(1);
+    let gridType = typeBit === 1 ? "hexagon" : "square";
+    
+    let size = stream.read(5);
+    if (size < 2 || size > 31) {
+        toast("⚠️ Seed size out of range");
+        return false;
+    }
+    
+    let customBound = stream.read(1) === 1;
+    let activeCells = [];
+    
+    if (!customBound) {
+        let template = buildCells(gridType, size);
+        template.forEach((tc, idx) => {
+            let prefix = stream.read(1);
+            let hasHoney = false;
+            let customClue = null;
+            
+            if (prefix !== 0) {
+                let nextBit = stream.read(1);
+                if (nextBit === 0) {
+                    hasHoney = true;
+                } else {
+                    customClue = stream.read(4);
+                }
+            }
+            
+            activeCells.push({
+                id: idx,
+                row: tc.row, col: tc.col,
+                q: tc.q, r: tc.r, s: tc.s,
+                hasHoney: hasHoney, markedState: 0, clue: 0, customClue: customClue,
+                cx: 0, cy: 0, pts: ""
+            });
+        });
+    } else {
+        let bias = 50;
+        let minX = stream.read(7) - bias;
+        let width = stream.read(6);
+        let maxX = minX + width - 1;
+        let minY = stream.read(7) - bias;
+        let height = stream.read(6);
+        let maxY = minY + height - 1;
+        
+        let cellIdCounter = 0;
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                let prefix = stream.read(1);
+                if (prefix === 0) continue; // Slot doesn't exist inside custom boundary shape
+                
+                let nextBit = stream.read(1);
+                let hasHoney = false;
+                let customClue = null;
+                
+                if (nextBit !== 0) {
+                    let thirdBit = stream.read(1);
+                    if (thirdBit === 0) {
+                        hasHoney = true;
+                    } else {
+                        customClue = stream.read(4);
+                    }
+                }
+                
+                activeCells.push({
+                    id: cellIdCounter++,
+                    row: gridType === "square" ? x : null,
+                    col: gridType === "square" ? y : null,
+                    q: gridType === "hexagon" ? x : null,
+                    r: gridType === "hexagon" ? y : null,
+                    s: gridType === "hexagon" ? -x-y : null,
+                    hasHoney: hasHoney,
+                    markedState: 0,
+                    clue: 0,
+                    customClue: customClue,
+                    cx: 0, cy: 0, pts: ""
+                });
+            }
+        }
+    }
+    
+    computeClues(activeCells, gridType);
+    computeGeometry(activeCells, gridType, CELL_SIZE);
+    
+    GS.gridType = gridType;
+    GS.size = size;
+    GS.cells = activeCells;
+    GS.viewBox = computeViewBox(activeCells);
+    GS.won = false;
+    GS.history = [];
+    GS.mode = "play";
+    GS.timeSec = 0;
+    GS.seed = seedStr;
+    GS.editBoundary = false;
+    
+    document.getElementById("btnEditMap").classList.remove("on");
+    boardSvg().classList.remove("editBoundary");
+    document.getElementById("buildToolbar").style.display = "none";
+    document.getElementById("btnCheck").style.display = "";
+    
+    updateGridTypeUI();
+    resetTimer();
+    renderBoard();
+    updateSeedUI();
+    autoSave();
+    toast("🗺️ Map loaded!");
+    return true;
+}
+
+function recalculateGeometries() {
+    computeGeometry(GS.cells, GS.gridType, CELL_SIZE);
+    GS.viewBox = computeViewBox(GS.cells);
+    renderBoard();
+}
+
+function toggleEditBoundaryMode() {
+    if (GS.editBoundary) {
+        GS.editBoundary = false;
+        document.getElementById("btnEditMap").classList.remove("on");
+        boardSvg().classList.remove("editBoundary");
+        toast("🚫 Edit Map mode off");
+        GS.mode = "build";
+    } else {
+        GS.editBoundary = true;
+        if (GS.mode === "custom") toggleCustomMode();
+        document.getElementById("btnEditMap").classList.add("on");
+        boardSvg().classList.add("editBoundary");
+        toast("✏️ Edit Map mode on — Click ghosts to add, right-click to remove");
+    }
+    GS.cells.forEach(c => c.markedState = 0);
+    recalculateGeometries(); autoSave();
+}
+
+/* =========================================================
+   4. New Game / Build Mode
+   ========================================================= */
+function newGame(gridType, size) {
+    stopTimer();
+    const rndSeed = Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-3);
+    const density = gridType === "square" ? 0.28 : 0.25;
+    GS.gridType = gridType; GS.size = size;
+    if (gridType === "hexagon" && GS.extraMaps) {
+        const rng = makeRng(rndSeed);
+        const cells = buildExtraHexCells(size, rng);
+        cells.forEach(c => { c.hasHoney = rng() < density; });
+        computeClues(cells, "hexagon");
+        computeGeometry(cells, "hexagon", CELL_SIZE);
+        GS.cells = cells;
+    } else {
+        GS.cells = generateHoneyMap(gridType, size, rndSeed, density);
+    }
+    GS.viewBox = computeViewBox(GS.cells);
+    GS.won = false; GS.history = []; GS.mode = "play"; GS.timeSec = 0;
+    GS.seed = buildSeedIdFromCells();
+    GS.editBoundary = false;
+    document.getElementById("btnEditMap").classList.remove("on");
+    boardSvg().classList.remove("editBoundary");
+    document.getElementById("buildToolbar").style.display = "none";
+    document.getElementById("btnCheck").style.display = "";
+    updateGridTypeUI(); resetTimer(); renderBoard(); fitBoard(); updateSeedUI(); autoSave();
+}
+
+function enterBuildMode() {
+    GS.mode = "build"; GS.history = []; GS.won = false; stopTimer();
+    GS.cells.forEach(c => c.markedState = 0);
+    document.getElementById("buildToolbar").style.display = "flex";
+    document.getElementById("btnCheck").style.display = "none";
+    renderBoard(); autoSave();
+    toast("🖌️ Build Mode: tap cells to place honey");
+}
+
+function exitBuildModeToPlay() {
+    if (GS.cells.every(c=>!c.hasHoney) || GS.cells.every(c=>c.hasHoney)) {
+        toast("⚠️ Place at least one honey cell (and leave some empty)"); return;
+    }
+    computeClues(GS.cells, GS.gridType);
+    GS.cells.forEach(c => c.markedState = 0);
+
+    GS.mode = "play"; GS.won = false; GS.history = []; GS.timeSec = 0;
+    GS.seed = buildSeedIdFromCells();
+    GS.activeCellId = null;
+
+    if (GS.editBoundary) {
+        GS.editBoundary = false;
+        document.getElementById("btnEditMap").classList.remove("on");
+        boardSvg().classList.remove("editBoundary");
+    }
+    document.getElementById("btnCustomMode").classList.remove("accent");
+
+    document.getElementById("buildToolbar").style.display = "none";
+    document.getElementById("btnCheck").style.display = "";
+    resetTimer(); renderBoard(); updateSeedUI(); autoSave();
+    toast("✅ Puzzle ready! Seed: " + GS.seed);
+}
+function buildClear() { GS.cells.forEach(c => c.hasHoney = false); renderBoard(); }
+function buildRandomize() {
+    const density = GS.gridType === "square" ? 0.28 : 0.25;
+    const rng = makeRng(Math.random().toString(36));
+    GS.cells.forEach(c => { c.hasHoney = rng() < density; });
+    renderBoard();
+}
+function toggleBuildCell(cellId) {
+    const cell = GS.cells.find(c => c.id === cellId);
+    if (!cell) return;
+    cell.hasHoney = !cell.hasHoney;
+    renderBoard();
+}
+
+/* =========================================================
+   5. Dual Interaction Event Pipeline
+   ========================================================= */
+function pushHistory() {
+    GS.history.push(GS.cells.map(c => c.markedState));
+    if (GS.history.length > 60) GS.history.shift();
+}
+function undo() {
+    if (GS.mode !== "play" || GS.won) return;
+    if (!GS.history.length) { toast("Nothing to undo"); return; }
+    const prev = GS.history.pop();
+    GS.cells.forEach((c,i) => c.markedState = prev[i]);
+    renderBoard(); autoSave();
+}
+function handleCellInteraction(cellId, clickType) {
+    if (GS.mode === "build") { toggleBuildCell(cellId); return; }
+    if (GS.mode === "custom") {
+        const cell = GS.cells.find(c => c.id === cellId);
+        if (!cell) return;
+        if (clickType === "LEFT_CLICK") {
+            GS.activeCellId = (GS.activeCellId === cellId) ? null : cellId;
+        } else {
+            GS.activeCellId = cellId;
+            const maxClue = GS.gridType === "square" ? 8 : 6;
+            if (cell.customClue === null) cell.customClue = 0;
+            else if (cell.customClue >= maxClue) cell.customClue = null;
+            else cell.customClue++;
+        }
+        renderBoard();
+        return;
+    }
+    if (GS.won) return;
+    const cell = GS.cells.find(c => c.id === cellId);
+    if (!cell) return;
+    pushHistory();
+    if (clickType === "LEFT_CLICK") {
+        cell.markedState = (cell.markedState === 1) ? 0 : 1;
+        beep(cell.markedState === 1 ? 720 : 380);
+    } else {
+        cell.markedState = (cell.markedState === 2) ? 0 : 2;
+        beep(240);
+    }
+    if (!GS.timerOn) startTimer();
+    renderBoard(); autoSave();
+}
+
+/* =========================================================
+   6. Board Verification Engine
+   ========================================================= */
+function verifyBoardState() {
+    if (GS.mode === "build" || GS.mode === "custom") return;
+
+    const targetHoneyCount = GS.cells.filter(c => c.hasHoney).length;
+    const playerMarkedCount = GS.cells.filter(c => c.markedState === 1).length;
+    if (playerMarkedCount !== targetHoneyCount) {
+        toast(`🍯 You need to mark exactly ${targetHoneyCount} honey cells (you have ${playerMarkedCount}).`);
+        return;
+    }
+
+    let isCorrect = true;
+    const hasCustom = GS.cells.some(c => c.customClue !== null);
+
+    GS.cells.forEach(cell => {
+        let isVisibleNumber = false;
+        let targetClue = 0;
+
+        if (hasCustom) {
+            if (cell.customClue !== null) {
+                isVisibleNumber = true;
+                targetClue = cell.customClue;
+            }
+        } else {
+            if (!cell.hasHoney && cell.clue > 0 && !cell.hideWallClue) {
+                isVisibleNumber = true;
+                targetClue = cell.clue;
+            }
+        }
+
+        if (isVisibleNumber) {
+            const markedNeighbors = cell.neighbors.filter(n => n.markedState === 1).length;
+            if (markedNeighbors !== targetClue) {
+                isCorrect = false;
+                const p = document.querySelector(`#cellsLayer polygon[data-id="${cell.id}"]`);
+                if (p) { p.classList.add("wrong"); setTimeout(()=>p.classList.remove("wrong"), 800); }
+            }
+        }
+    });
+
+    if (isCorrect) {
+        GS.won = true; stopTimer(); renderBoard();
+        launchConfetti(); showWinModal(); autoSave();
+    } else {
+        toast("🍯 A visible number doesn't match the honey around it!");
+    }
+}
+function showWinModal() {
+    document.getElementById("winTimeText").textContent = fmt(GS.timeSec);
+    document.getElementById("winHoneyText").textContent = GS.cells.filter(c=>c.hasHoney).length;
+    document.getElementById("winModal").classList.add("open");
+}
+
+/* =========================================================
+   7. Vector Asset Factory (flowers / honey pools)
+   ========================================================= */
+function flowerMarkup(styleIndex) {
+    const type = styleIndex % 5;
+    let paths = `
+        <path d="M32 32 C 32 45, 28 55, 32 60" stroke="#81C784" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path d="M30 45 C 20 45, 18 35, 18 35 C 24 38, 30 40, 30 45 Z" fill="#81C784"/>
+        <path d="M31 52 C 40 52, 44 42, 44 42 C 38 46, 32 48, 31 52 Z" fill="#81C784"/>
+    `;
+    if (type === 0) {
+        for (let deg = 0; deg < 360; deg += 72) {
+            paths += `<path d="M32 26 C 22 8, 26 -2, 32 2 C 38 -2, 42 8, 32 26 Z" fill="#FFB7B2" transform="rotate(${deg} 32 26)"/>`;
+        }
+        paths += `<circle cx="32" cy="26" r="4" fill="#E2858E"/>`;
+    } else if (type === 1) {
+        for (let deg = 0; deg < 360; deg += 45) {
+            paths += `<path d="M32 26 C 22 4, 42 4, 32 26 Z" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1" transform="rotate(${deg} 32 26)"/>`;
+        }
+        paths += `<circle cx="32" cy="26" r="7" fill="#FFCA28"/>`;
+    } else if (type === 2) {
+        for (let deg = 0; deg < 360; deg += 30) {
+            paths += `<path d="M32 26 C 26 6, 38 6, 32 26 Z" fill="#FFCA28" transform="rotate(${deg} 32 26)"/>`;
+            paths += `<path d="M32 26 C 28 8, 36 8, 32 26 Z" fill="#FFA000" transform="rotate(${deg + 15} 32 26)"/>`;
+        }
+        paths += `<circle cx="32" cy="26" r="11" fill="#5D4037"/>`;
+        paths += `<circle cx="32" cy="26" r="8" fill="#4E342E" stroke="#3E2723" stroke-width="1" stroke-dasharray="1 2"/>`;
+    } else if (type === 3) {
+        paths = `
+            <path d="M32 30 L 32 58" stroke="#66BB6A" stroke-width="3" stroke-linecap="round"/>
+            <path d="M32 52 C 22 52, 18 40, 18 40 C 24 44, 32 46, 32 52 Z" fill="#66BB6A"/>
+            <path d="M32 48 C 42 48, 46 36, 46 36 C 40 40, 32 42, 32 48 Z" fill="#66BB6A"/>
+            <path d="M 21 28 C 21 42, 43 42, 43 28 L 43 14 L 37 22 L 32 12 L 27 22 L 21 14 Z" fill="#EF5350"/>
+        `;
+    } else {
+        for (let deg = 0; deg < 360; deg += 72) {
+            paths += `<circle cx="32" cy="14" r="9" fill="#42A5F5" transform="rotate(${deg} 32 26)"/>`;
+            paths += `<circle cx="32" cy="14" r="4" fill="#1E88E5" transform="rotate(${deg} 32 26)"/>`;
+        }
+        paths += `<circle cx="32" cy="26" r="6" fill="#FFEE58"/>`;
+        paths += `<circle cx="32" cy="26" r="3" fill="#FBC02D"/>`;
+    }
+    return paths;
+}
+function iconFor(cell) {
+    if (GS.gridType === "square") {
+        const s = CELL_SIZE*0.68;
+        const nested = document.createElementNS(svgNS, "svg");
+        nested.setAttribute("x", cell.cx - s/2);
+        nested.setAttribute("y", cell.cy - s/2);
+        nested.setAttribute("width", s); nested.setAttribute("height", s);
+        nested.setAttribute("viewBox", "0 0 64 64");
+        nested.innerHTML = flowerMarkup(cell.id % 5);
+        return nested;
+    }
+    const g = document.createElementNS(svgNS, "g");
+    const r = CELL_SIZE*0.36;
+    g.innerHTML = `<ellipse cx="${cell.cx}" cy="${cell.cy+r*0.08}" rx="${r}" ry="${r*0.86}" fill="url(#honeyGrad)"/><ellipse cx="${cell.cx-r*0.32}" cy="${cell.cy-r*0.38}" rx="${r*0.26}" ry="${r*0.15}" fill="#fff" opacity="0.55"/>`;
+    return g;
+}
+function svgText(x, y, content, fill, cls) {
+    const t = document.createElementNS(svgNS, "text");
+    t.setAttribute("x", x); t.setAttribute("y", y);
+    t.setAttribute("text-anchor", "middle"); t.setAttribute("dominant-baseline", "central");
+    t.setAttribute("font-family", GAME_FONT);
+    t.setAttribute("font-weight", "800");
+    t.setAttribute("font-size", CELL_SIZE*0.70);
+    if (fill) t.setAttribute("fill", fill);
+    if (cls) t.setAttribute("class", cls);
+    t.textContent = content;
+    return t;
+}
+
+/* =========================================================
+   8. Render Pipeline
+   ========================================================= */
+const boardSvg = () => document.getElementById("boardSvg");
+function computeGhostPerimeter() {
+    const ghosts = [];
+    if (GS.gridType === "square") {
+        const edge = Math.round(Math.sqrt(GS.cells.length));
+        const deltas = [[-1,0],[1,0],[0,-1],[0,1]];
+        GS.cells.forEach(c => {
+            deltas.forEach(([dr,dc]) => {
+                const nr = c.row + dr, nc = c.col + dc;
+                if (!GS.cells.some(cc => cc.row === nr && cc.col === nc)) {
+                    const id = -(ghosts.length + 1);
+                    const x = nc * CELL_SIZE, y = nr * CELL_SIZE;
+                    ghosts.push({ id, row: nr, col: nc, q: null, r: null, s: null, cx: x + CELL_SIZE/2, cy: y + CELL_SIZE/2,
+                        pts: `${x},${y} ${x+CELL_SIZE},${y} ${x+CELL_SIZE},${y+CELL_SIZE} ${x},${y+CELL_SIZE}`, hasHoney: false, isGhost: true });
+                }
+            });
+        });
+    } else {
+        const hexDirs = [{q:1,r:0,s:-1},{q:-1,r:0,s:1},{q:0,r:1,s:-1},{q:0,r:-1,s:1},{q:1,r:-1,s:0},{q:-1,r:1,s:0}];
+        GS.cells.forEach(c => {
+            hexDirs.forEach(d => {
+                const nq = c.q + d.q, nr = c.r + d.r, ns = c.s + d.s;
+                if (!GS.cells.some(cc => cc.q === nq && cc.r === nr)) {
+                    const id = -(ghosts.length + 1);
+                    const cx = CELL_SIZE*1.5*nq, cy = CELL_SIZE*Math.sqrt(3)*(nr + nq/2);
+                    const pts = []; for (let i = 0; i < 6; i++) {
+                        const a = i*60*Math.PI/180; pts.push(`${(cx+CELL_SIZE*Math.cos(a)).toFixed(2)},${(cy+CELL_SIZE*Math.sin(a)).toFixed(2)}`);
+                    }
+                    ghosts.push({ id, row: null, col: null, q: nq, r: nr, s: ns, cx, cy, pts: pts.join(" "), hasHoney: false, isGhost: true });
+                }
+            });
+        });
+    }
+    return ghosts;
+}
+function ghostPolyPoints(g) { return g.pts; }
+function renderBoard() {
+    const svg = boardSvg();
+    const layer = document.getElementById("cellsLayer");
+    layer.innerHTML = "";
+    const vb = GS.viewBox;
+    svg.setAttribute("viewBox", vb.join(" "));
+
+    if (GS.editBoundary) {
+        const ghosts = computeGhostPerimeter();
+        ghosts.forEach(g => {
+            const poly = document.createElementNS(svgNS, "polygon");
+            poly.setAttribute("points", g.pts);
+            poly.setAttribute("data-id", g.id);
+            poly.setAttribute("stroke-width", "1.5");
+            poly.setAttribute("class", "cell ghost");
+            layer.appendChild(poly);
+        });
+    }
+
+    const hasCustom = GS.cells.some(c => c.customClue !== null);
+
+    GS.cells.forEach(cell => {
+        // --- 3D Hexagon Visual Base ---
+        if (GS.gridType === "hexagon") {
+            const hex3D = document.createElementNS(svgNS, "g");
+            const dark = document.body.classList.contains("dark");
+            const colors = dark
+                ? ["#946F21", "#7A5612", "#946F21", "#C7AE6B", "#DBC486", "#C7AE6B"]
+                : ["#F5C25A", "#E5A93A", "#F5C25A", "#FFF5D1", "#FFF9E6", "#FFF5D1"];
+            const centerC = dark ? "#A88B3E" : "#FDE08B";
+
+            // Draw the 6 trapezoid bevels
+            for(let i = 0; i < 6; i++) {
+                const nextI = (i + 1) % 6;
+                const facet = document.createElementNS(svgNS, "polygon");
+                const pt1 = cell.ptsArray[i], pt2 = cell.ptsArray[nextI];
+                const pt3 = cell.innerPtsArray[nextI], pt4 = cell.innerPtsArray[i];
+                facet.setAttribute("points", `${pt1} ${pt2} ${pt3} ${pt4}`);
+                facet.setAttribute("fill", colors[i]);
+                facet.setAttribute("stroke", colors[i]);
+                facet.setAttribute("stroke-width", "0.5");
+                hex3D.appendChild(facet);
+            }
+
+            // Draw flat center face
+            const centerPoly = document.createElementNS(svgNS, "polygon");
+            centerPoly.setAttribute("points", cell.innerPts);
+            centerPoly.setAttribute("fill", centerC);
+            centerPoly.setAttribute("stroke", centerC);
+            centerPoly.setAttribute("stroke-width", "0.5");
+            hex3D.appendChild(centerPoly);
+
+            layer.appendChild(hex3D);
+        }
+
+        // --- Interaction Overlay ---
+        const poly = document.createElementNS(svgNS, "polygon");
+        poly.setAttribute("points", cell.pts);
+        poly.setAttribute("data-id", cell.id);
+        poly.setAttribute("stroke-width", (CELL_SIZE*0.035).toFixed(2));
+
+        // Use the transparent overlay class if it's a hexagon
+        let cls = GS.gridType === "hexagon" ? "cell overlay" : "cell";
+
+        if (GS.mode === "build") {
+            if (cell.hasHoney) cls += " build-honey";
+        } else if (GS.mode === "custom") {
+            if (cell.id === GS.activeCellId) cls += " highlight";
+            if (cell.hasHoney) cls += " build-honey";
+        } else {
+            if (cell.markedState === 1) cls += " marked";
+            if (cell.markedState === 2) cls += " flagged";
+        }
+
+        poly.setAttribute("class", cls);
+        layer.appendChild(poly);
+
+        if (GS.mode === "build") {
+            if (cell.hasHoney) layer.appendChild(iconFor(cell));
+        } else if (GS.mode === "custom") {
+            if (cell.hasHoney) layer.appendChild(iconFor(cell));
+            if (cell.customClue !== null) {
+                layer.appendChild(svgText(cell.cx, cell.cy, String(cell.customClue), CLUE_COLORS[Math.min(cell.customClue, 8)]));
+            }
+        } else {
+            const shouldShowNumber = hasCustom
+                ? (cell.customClue !== null)
+                : (!cell.hasHoney && cell.clue > 0 && !cell.hideWallClue);
+            const displayClue = hasCustom ? cell.customClue : cell.clue;
+            if (shouldShowNumber) {
+                layer.appendChild(svgText(cell.cx, cell.cy, String(displayClue), CLUE_COLORS[Math.min(displayClue, 8)]));
+            } else if (GS.gridType === "square") {
+                layer.appendChild(iconFor(cell));
+            }
+            if (cell.markedState === 1) {
+                if (GS.gridType === "hexagon") layer.appendChild(iconFor(cell));
+                const ring = document.createElementNS(svgNS, "circle");
+                ring.setAttribute("cx", cell.cx); ring.setAttribute("cy", cell.cy);
+                ring.setAttribute("r", CELL_SIZE*0.4);
+                ring.setAttribute("stroke-width", CELL_SIZE*0.06);
+                ring.setAttribute("class", "mark-ring");
+                ring.setAttribute("style", "stroke:var(--accent);fill:none;");
+                layer.appendChild(ring);
+            } else if (cell.markedState === 2) {
+                layer.appendChild(svgText(cell.cx, cell.cy, "✕", "#C0392B", "flag-mark"));
+            }
+        }
+    });
+    updateHoneyCounter();
+}
+
+/* =========================================================
+   9. Input Router — mouse / touch, contextmenu prevention
+   ========================================================= */
+function bindBoardInput() {
+    const svg = boardSvg();
+    svg.addEventListener("contextmenu", e => e.preventDefault());
+    svg.addEventListener("click", e => {
+        const id = e.target.getAttribute && e.target.getAttribute("data-id");
+        if (id === null || id === undefined) {
+            if (GS.mode === "custom" && GS.activeCellId !== null) {
+                GS.activeCellId = null; renderBoard();
+            } else if (GS.editBoundary && e.target.classList.contains("ghost")) {
+                const gid = parseInt(id, 10);
+                const ghosts = computeGhostPerimeter().filter(g => g.id === gid);
+                if (ghosts.length) {
+                    const g = ghosts[0];
+                    const newCell = { id: GS.cells.length, row: g.row, col: g.col, q: g.q, r: g.r, s: g.s,
+                        hasHoney: false, markedState: 0, clue: 0, customClue: null, cx: g.cx, cy: g.cy, pts: g.pts };
+                    GS.cells.push(newCell);
+                    recalculateGeometries(); autoSave();
+                    toast("➕ Cell added");
+                }
+            }
+            return;
+        }
+        if (GS.editBoundary) {
+            const cid = parseInt(id, 10);
+            if (cid < 0) {
+                const ghosts = computeGhostPerimeter().filter(g => g.id === cid);
+                if (ghosts.length) {
+                    const g = ghosts[0];
+                    const newCell = { id: GS.cells.length, row: g.row, col: g.col, q: g.q, r: g.r, s: g.s,
+                        hasHoney: false, markedState: 0, clue: 0, customClue: null, cx: g.cx, cy: g.cy, pts: g.pts };
+                    GS.cells.push(newCell); recalculateGeometries(); autoSave(); toast("➕ Cell added");
+                }
+                return;
+            }
+            if (GS.cells.length > 3) {
+                GS.cells = GS.cells.filter(c => c.id !== cid);
+                GS.cells.forEach((c,i) => c.id = i);
+                recalculateGeometries(); autoSave(); toast("➖ Cell removed");
+            }
+            return;
+        }
+        handleCellInteraction(parseInt(id, 10), "LEFT_CLICK");
+    });
+    svg.addEventListener("contextmenu", e => {
+        const id = e.target.getAttribute && e.target.getAttribute("data-id");
+        if (id === null || id === undefined) return;
+        const cid = parseInt(id, 10);
+        if (GS.editBoundary) {
+            if (cid < 0) return;
+            if (GS.cells.length > 3) {
+                GS.cells = GS.cells.filter(c => c.id !== cid);
+                GS.cells.forEach((c,i) => c.id = i);
+                recalculateGeometries(); autoSave(); toast("➖ Cell removed");
+            }
+            return;
+        }
+        handleCellInteraction(parseInt(id, 10), "RIGHT_CLICK");
+    });
+    let lpTimer=null, lpFired=false, activeId=null, startX=0, startY=0;
+    svg.addEventListener("touchstart", e => {
+        const t = e.target.closest ? e.target.closest("[data-id]") : null;
+        if (!t) { activeId=null; return; }
+        activeId = t.getAttribute("data-id"); lpFired = false;
+        const touch = e.touches[0]; startX=touch.clientX; startY=touch.clientY;
+        lpTimer = setTimeout(() => {
+            lpFired = true;
+            handleCellInteraction(parseInt(activeId,10), "RIGHT_CLICK");
+            if (navigator.vibrate) navigator.vibrate(12);
+        }, 450);
+    }, {passive:true});
+    svg.addEventListener("touchmove", e => {
+        if (!activeId) return;
+        const touch = e.touches[0];
+        if (Math.abs(touch.clientX-startX) > 10 || Math.abs(touch.clientY-startY) > 10) {
+            clearTimeout(lpTimer); activeId = null;
+        }
+    }, {passive:true});
+    svg.addEventListener("touchend", e => {
+        clearTimeout(lpTimer);
+        if (activeId && !lpFired) handleCellInteraction(parseInt(activeId,10), "LEFT_CLICK");
+        if (activeId) e.preventDefault();
+        activeId = null;
+    }, {passive:false});
+    svg.addEventListener("wheel", e => {
+        e.preventDefault();
+        const vb = GS.viewBox;
+        const zoomFactor = e.deltaY > 0 ? 1.12 : 0.89;
+        const rect = svg.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+        const newW = vb[2] * zoomFactor, newH = vb[3] * zoomFactor;
+        vb[0] += (vb[2] - newW) * mx; vb[1] += (vb[3] - newH) * my;
+        vb[2] = newW; vb[3] = newH;
+        renderBoard();
+    }, {passive:false});
+    let isPanning = false, panStartX = 0, panStartY = 0, panVB0 = 0, panVB1 = 0;
+    svg.addEventListener("mousedown", e => {
+        if (e.button === 1 || (e.button === 0 && e.altKey)) {
+            e.preventDefault(); isPanning = true;
+            panStartX = e.clientX; panStartY = e.clientY;
+            panVB0 = GS.viewBox[0]; panVB1 = GS.viewBox[1];
+            svg.classList.add("grabbing");
+        }
+    });
+    document.addEventListener("mousemove", e => {
+        if (!isPanning) return;
+        const rect = svg.getBoundingClientRect();
+        const dx = (e.clientX - panStartX) / rect.width * GS.viewBox[2];
+        const dy = (e.clientY - panStartY) / rect.height * GS.viewBox[3];
+        GS.viewBox[0] = panVB0 - dx; GS.viewBox[1] = panVB1 - dy;
+        renderBoard();
+    });
+    document.addEventListener("mouseup", e => {
+        if (isPanning) { isPanning = false; svg.classList.remove("grabbing"); }
+    });
+}
+
+/* =========================================================
+   10. SVG Export
+   ========================================================= */
+function buildExportSVGString(reveal, showBg) {
+    if (showBg === undefined) showBg = true;
+    const vb = computeViewBox(GS.cells);
+    const dark = document.body.classList.contains("dark");
+    const isHex = GS.gridType === "hexagon";
+    const bgColor = dark ? "#17110A" : "#FBF7EA";
+    const cellFill = isHex ? (dark ? "#3A2A12" : "#FFE9B0") : (dark ? "#241A10" : "#FFFDF3");
+    const gridLine = isHex ? (dark ? "#B5791C" : "#E8951B") : (dark ? "#5C4A2E" : "#C3DE72");
+    const textColor = dark ? "#F3E9D8" : "#3B3020";
+    const strokeW = (CELL_SIZE*0.035).toFixed(2);
+    let body = "";
+    if (showBg) body += `<rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${bgColor}" stroke="none"/>`;
+    GS.cells.forEach(cell => {
+        let fill = cellFill;
+        if (isHex) {
+            const colors = ["#F5C25A", "#E5A93A", "#F5C25A", "#FFF5D1", "#FFF9E6", "#FFF5D1"];
+            const darkColors = ["#946F21", "#7A5612", "#946F21", "#C7AE6B", "#DBC486", "#C7AE6B"];
+            const palette = dark ? darkColors : colors;
+
+            for(let i = 0; i < 6; i++) {
+                const nextI = (i + 1) % 6;
+                body += `<polygon points="${cell.ptsArray[i]} ${cell.ptsArray[nextI]} ${cell.innerPtsArray[nextI]} ${cell.innerPtsArray[i]}" fill="${palette[i]}" stroke="${palette[i]}" stroke-width="0.5"/>`;
+            }
+            const centerC = dark ? "#A88B3E" : "#FDE08B";
+            body += `<polygon points="${cell.innerPts}" fill="${centerC}" stroke="${centerC}" stroke-width="0.5"/>`;
+            body += `<polygon points="${cell.pts}" fill="none" stroke="${gridLine}" stroke-width="${strokeW}"/>`;
+        } else {
+            body += `<polygon points="${cell.pts}" fill="${fill}" stroke="${gridLine}" stroke-width="${strokeW}"/>`;
+        }
+        const hasAnyCustom = GS.cells.some(c => c.customClue !== null);
+        const shouldShowNumber = hasAnyCustom
+            ? (cell.customClue !== null)
+            : (!cell.hasHoney && cell.clue > 0 && !cell.hideWallClue);
+        const displayClue = hasAnyCustom ? cell.customClue : cell.clue;
+        if (shouldShowNumber) {
+            body += `<text x="${cell.cx}" y="${cell.cy}" text-anchor="middle" dy="0.35em" font-family='${GAME_FONT}' font-weight="800" font-size="${(CELL_SIZE*0.70).toFixed(2)}" fill="${CLUE_COLORS[Math.min(displayClue,8)]}">${displayClue}</text>`;
+        } else if (!isHex) {
+            const s = CELL_SIZE*0.68;
+            body += `<svg x="${(cell.cx-s/2).toFixed(2)}" y="${(cell.cy-s/2).toFixed(2)}" width="${s}" height="${s}" viewBox="0 0 64 64">${flowerMarkup(cell.id % 5)}</svg>`;
+        }
+        if (reveal && cell.hasHoney) {
+            if (isHex) {
+                const r = (CELL_SIZE*0.36).toFixed(2);
+                body += `<ellipse cx="${cell.cx}" cy="${(cell.cy+CELL_SIZE*0.03).toFixed(2)}" rx="${r}" ry="${(CELL_SIZE*0.31).toFixed(2)}" fill="url(#honeyGradExp)"/>`;
+            }
+            body += `<circle cx="${cell.cx}" cy="${cell.cy}" r="${(CELL_SIZE*0.4).toFixed(2)}" fill="none" stroke="#EA1E7C" stroke-width="${(CELL_SIZE*0.06).toFixed(2)}"/>`;
+        }
+    });
+    const expPadding = 10;
+    const expVb = [vb[0] - expPadding, vb[1] - expPadding, vb[2] + expPadding * 2, vb[3] + expPadding * 2];
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="${expVb.join(" ")}" width="1000" height="${Math.round(1000*expVb[3]/expVb[2])}">
+<defs>
+<radialGradient id="honeyGradExp" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#FFE28A"/><stop offset="55%" stop-color="#FFC94D"/><stop offset="100%" stop-color="#E8951B"/></radialGradient></defs>
+${body}
+</svg>`;
+}
+function exportFileName(ext) {
+    const ts = new Date().toISOString().replace(/[-:.T]/g,"").slice(0,14);
+    return `honey-${GS.size}x${GS.size}-${ts}.${ext}`;
+}
+function exportSVG(reveal, showBg) {
+    const str = buildExportSVGString(reveal, showBg);
+    const svgEl = new DOMParser().parseFromString(str, "image/svg+xml").querySelector("svg");
+    if (!svgEl) { fallbackExport(str, reveal); return; }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    svgEl.querySelectorAll("polygon, circle, ellipse, text").forEach(el => {
+        if (el.tagName === "polygon") {
+            el.getAttribute("points").split(/\s+/).forEach(p => {
+                if (!p) return;
+                const [x, y] = p.split(",").map(Number);
+                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            });
+        } else if (el.tagName === "circle" || el.tagName === "ellipse") {
+            const cx = parseFloat(el.getAttribute("cx")) || 0;
+            const cy = parseFloat(el.getAttribute("cy")) || 0;
+            const r = parseFloat(el.getAttribute("r")) || parseFloat(el.getAttribute("rx")) || 0.1;
+            minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r);
+            minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r);
+        } else if (el.tagName === "text") {
+            const x = parseFloat(el.getAttribute("x")) || 0;
+            const y = parseFloat(el.getAttribute("y")) || 0;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+    });
+    const contentW = maxX - minX, contentH = maxY - minY;
+    const tightPad = showBg ? 16 : (GS.gridType === "hexagon" ? 8 : 2);
+
+    const dark = document.body.classList.contains("dark");
+    const tc = dark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.5)";
+    const honeyCount = GS.cells.filter(c => c.hasHoney).length;
+    const flowerCount = GS.gridType === "square" ? GS.cells.filter(c => c.hasHoney).length : 0;
+
+    let padT = 0, padB = 0, padL = 0, padR = 0;
+    const side = expCfg.seedSide % 4;
+    const gap = Math.max(0.12, contentW * 0.015);
+    const fontSize = Math.max(0.12, Math.min(contentW, contentH) * 0.04);
+
+    function addText(x, y, content, font, anchor, extras) {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("font-family", font);
+        t.setAttribute("font-weight", "bold");
+        t.setAttribute("font-size", fontSize.toFixed(3));
+        t.setAttribute("fill", tc);
+        t.setAttribute("text-anchor", anchor);
+        if (extras) { extras(t); } else { t.setAttribute("x", x); t.setAttribute("y", y); }
+        t.textContent = content;
+        svgEl.appendChild(t);
+    }
+
+    if (expCfg.showSeed && GS.seed) {
+        const extra = gap + fontSize * 1.2;
+        const seedText = `\uD83D\uDCBE: ${GS.seed}`;
+        const clueText = GS.gridType === "square" ? `\uD83C\uDF3B x${flowerCount}` : `\uD83D\uDC1D x${honeyCount}`;
+
+        if (side === 0) { 
+            padB = extra; 
+            addText(minX, maxY + gap + fontSize * 0.8, seedText, MONO_FONT, "start"); 
+            addText(maxX, maxY + gap + fontSize * 0.8, clueText, GAME_FONT, "end"); 
+        } else if (side === 2) { 
+            padT = extra; 
+            addText(minX, minY - gap - fontSize * 0.2, seedText, MONO_FONT, "start"); 
+            addText(maxX, minY - gap - fontSize * 0.2, clueText, GAME_FONT, "end"); 
+        } else if (side === 1) { 
+            padR = extra; 
+            addText(0, 0, seedText, MONO_FONT, "start", t => t.setAttribute("transform", `translate(${maxX + gap + fontSize * 0.8}, ${minY}) rotate(90)`)); 
+            addText(0, 0, clueText, GAME_FONT, "end", t => t.setAttribute("transform", `translate(${maxX + gap + fontSize * 0.8}, ${maxY}) rotate(90)`)); 
+        } else { 
+            padL = extra; 
+            addText(0, 0, seedText, MONO_FONT, "start", t => t.setAttribute("transform", `translate(${minX - gap - fontSize * 0.2}, ${maxY}) rotate(-90)`)); 
+            addText(0, 0, clueText, GAME_FONT, "end", t => t.setAttribute("transform", `translate(${minX - gap - fontSize * 0.2}, ${minY}) rotate(-90)`)); 
+        }
+    }
+
+    const finalVb = [minX - tightPad - padL, minY - tightPad - padT, contentW + tightPad * 2 + padL + padR, contentH + tightPad * 2 + padT + padB];
+    if (showBg) {
+        const bgColor = dark ? "#17110A" : "#FBF7EA";
+        const cardPad = Math.max(0.3, Math.min(contentW, contentH) * 0.025);
+        const cardVb = [finalVb[0] - cardPad, finalVb[1] - cardPad, finalVb[2] + cardPad * 2, finalVb[3] + cardPad * 2];
+        const cr = Math.max(0.2, cardPad * 0.8);
+        svgEl.setAttribute("viewBox", cardVb.join(" "));
+        const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.setAttribute("x", cardVb[0]); bgRect.setAttribute("y", cardVb[1]);
+        bgRect.setAttribute("width", cardVb[2]); bgRect.setAttribute("height", cardVb[3]);
+        bgRect.setAttribute("rx", cr); bgRect.setAttribute("ry", cr);
+        bgRect.setAttribute("fill", bgColor);
+        svgEl.insertBefore(bgRect, svgEl.firstChild);
+    } else {
+        svgEl.setAttribute("viewBox", finalVb.join(" "));
+    }
+    svgEl.removeAttribute("style");
+    const baseW = 960;
+    svgEl.setAttribute("width", baseW);
+    svgEl.setAttribute("height", Math.round(baseW * parseFloat(svgEl.getAttribute("viewBox").split(" ")[3]) / parseFloat(svgEl.getAttribute("viewBox").split(" ")[2])));
+    const outStr = new XMLSerializer().serializeToString(svgEl);
+    const blob = new Blob([outStr], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFileName("svg");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(reveal ? "🍯 Answer key exported!" : "⬇️ Board exported!");
+}
+function fallbackExport(str, reveal) {
+    const blob = new Blob([str], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFileName("svg");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(reveal ? "🍯 Answer key exported!" : "⬇️ Board exported!");
+}
+
+/* =========================================================
+   10b. Export Preview Modal
+   ========================================================= */
+const expCfg = { bgShow: true, showSeed: true, seedSide: 0, reveal: false };
+const SEED_SIDES = ["Bottom","Right","Top","Left"];
+
+function updatePreviewImage() {
+    const dark = document.body.classList.contains("dark");
+    const str = buildExportSVGString(expCfg.reveal, expCfg.bgShow);
+    const svgEl = new DOMParser().parseFromString(str, "image/svg+xml").querySelector("svg");
+    if (!svgEl) return;
+    const vb = GS.viewBox;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    svgEl.querySelectorAll("polygon, circle, ellipse, text").forEach(el => {
+        if (el.tagName === "polygon") {
+            el.getAttribute("points").split(/\s+/).forEach(p => {
+                if (!p) return;
+                const [x, y] = p.split(",").map(Number);
+                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            });
+        } else if (el.tagName === "circle" || el.tagName === "ellipse") {
+            const cx = parseFloat(el.getAttribute("cx")) || 0;
+            const cy = parseFloat(el.getAttribute("cy")) || 0;
+            const r = parseFloat(el.getAttribute("r")) || parseFloat(el.getAttribute("rx")) || 0.1;
+            minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r);
+            minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r);
+        } else if (el.tagName === "text") {
+            const x = parseFloat(el.getAttribute("x")) || 0;
+            const y = parseFloat(el.getAttribute("y")) || 0;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+    });
+    const contentW = maxX - minX, contentH = maxY - minY;
+    const tightPad = expCfg.bgShow ? 16 : (GS.gridType === "hexagon" ? 8 : 2);
+
+    const honeyCount = GS.cells.filter(c=>c.hasHoney).length;
+    const flowerCount = GS.gridType==="square" ? GS.cells.filter(c=>c.hasHoney).length : 0;
+    const honeyStr = `\uD83D\uDC1D x${honeyCount}`;
+    const flowerStr = `\uD83C\uDF3B x${flowerCount}`;
+    const tc = dark?"rgba(255,255,255,0.45)":"rgba(0,0,0,0.5)";
+
+    let padT = 0, padB = 0, padL = 0, padR = 0;
+    const side = expCfg.seedSide % 4;
+    const gap = Math.max(0.12, contentW * 0.015);
+    const fontSize = Math.max(0.12, Math.min(contentW, contentH) * 0.04);
+
+    function addText(x, y, content, font, anchor, extras) {
+        const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+        t.setAttribute("font-family", font);
+        t.setAttribute("font-weight","bold");
+        t.setAttribute("font-size", fontSize.toFixed(3));
+        t.setAttribute("fill", tc);
+        t.setAttribute("text-anchor", anchor);
+        if (extras) {
+            extras(t);
+        } else {
+            t.setAttribute("x", x);
+            t.setAttribute("y", y);
+        }
+        t.textContent = content;
+        svgEl.appendChild(t);
+    }
+
+    if (expCfg.showSeed && GS.seed) {
+        const extra = gap + fontSize * 1.2;
+        const seedText = `\uD83D\uDCBE: ${GS.seed}`;
+        const clueText = GS.gridType === "square" ? `\uD83C\uDF3B x${flowerCount}` : `\uD83D\uDC1D x${honeyCount}`;
+
+        if (side === 0) { 
+            padB = extra; 
+            addText(minX, maxY + gap + fontSize * 0.8, seedText, MONO_FONT, "start"); 
+            addText(maxX, maxY + gap + fontSize * 0.8, clueText, GAME_FONT, "end"); 
+        } else if (side === 2) { 
+            padT = extra; 
+            addText(minX, minY - gap - fontSize * 0.2, seedText, MONO_FONT, "start"); 
+            addText(maxX, minY - gap - fontSize * 0.2, clueText, GAME_FONT, "end"); 
+        } else if (side === 1) { 
+            padR = extra; 
+            addText(0, 0, seedText, MONO_FONT, "start", t => t.setAttribute("transform", `translate(${maxX + gap + fontSize * 0.8}, ${minY}) rotate(90)`)); 
+            addText(0, 0, clueText, GAME_FONT, "end", t => t.setAttribute("transform", `translate(${maxX + gap + fontSize * 0.8}, ${maxY}) rotate(90)`)); 
+        } else { 
+            padL = extra; 
+            addText(0, 0, seedText, MONO_FONT, "start", t => t.setAttribute("transform", `translate(${minX - gap - fontSize * 0.2}, ${maxY}) rotate(-90)`)); 
+            addText(0, 0, clueText, GAME_FONT, "end", t => t.setAttribute("transform", `translate(${minX - gap - fontSize * 0.2}, ${minY}) rotate(-90)`)); 
+        }
+    }
+
+    const finalVb = [
+        minX - tightPad - padL,
+        minY - tightPad - padT,
+        contentW + tightPad * 2 + padL + padR,
+        contentH + tightPad * 2 + padT + padB,
+    ];
+    svgEl.setAttribute("viewBox", finalVb.join(" "));
+    if (expCfg.bgShow) {
+        const dark = document.body.classList.contains("dark");
+        const bgColor = dark ? "#17110A" : "#FBF7EA";
+        const cardPad = Math.max(0.3, Math.min(contentW, contentH) * 0.025);
+        const cardVb = [
+            finalVb[0] - cardPad,
+            finalVb[1] - cardPad,
+            finalVb[2] + cardPad * 2,
+            finalVb[3] + cardPad * 2,
+        ];
+        const cr = Math.max(0.2, cardPad * 0.8);
+        svgEl.setAttribute("viewBox", cardVb.join(" "));
+        const bgRect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+        bgRect.setAttribute("x", cardVb[0]);
+        bgRect.setAttribute("y", cardVb[1]);
+        bgRect.setAttribute("width", cardVb[2]);
+        bgRect.setAttribute("height", cardVb[3]);
+        bgRect.setAttribute("rx", cr);
+        bgRect.setAttribute("ry", cr);
+        bgRect.setAttribute("fill", bgColor);
+        svgEl.insertBefore(bgRect, svgEl.firstChild);
+    }
+    svgEl.removeAttribute("style");
+    const baseW = 960, baseH = Math.round(baseW * finalVb[3] / finalVb[2]);
+    svgEl.setAttribute("width", baseW);
+    svgEl.setAttribute("height", baseH);
+    const svgStr = new XMLSerializer().serializeToString(svgEl);
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = 2;
+        canvas.width = baseW * scale; canvas.height = baseH * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        if (expCfg.bgShow) { ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,baseW,baseH); }
+        ctx.drawImage(img, 0, 0, baseW, baseH);
+        document.getElementById("previewImg").src = canvas.toDataURL("image/png");
+    };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+}
+
+document.getElementById("tglBg").addEventListener("change", e => { expCfg.bgShow = e.target.checked; updatePreviewImage(); });
+document.getElementById("tglSeed").addEventListener("change", e => { expCfg.showSeed = e.target.checked; updatePreviewImage(); });
+document.getElementById("tglReveal").addEventListener("change", e => { expCfg.reveal = e.target.checked; updatePreviewImage(); });
+document.getElementById("btnCycleSide").addEventListener("click", () => {
+    expCfg.seedSide = (expCfg.seedSide+1)%4;
+    document.getElementById("btnCycleSide").textContent = SEED_SIDES[expCfg.seedSide];
+    updatePreviewImage();
+});
+document.getElementById("prevClose").onclick = () => document.getElementById("previewModal").classList.remove("open");
+document.getElementById("btnCancelPreview").onclick = () => document.getElementById("previewModal").classList.remove("open");
+document.getElementById("btnSavePNG").onclick = () => {
+    const a = document.createElement("a");
+    a.download = exportFileName("png");
+    a.href = document.getElementById("previewImg").src;
+    a.click();
+    document.getElementById("previewModal").classList.remove("open");
+    toast("💾 Image saved!");
+};
+document.getElementById("btnSaveStandardSVG").onclick = () => {
+    exportSVG(expCfg.reveal, expCfg.bgShow);
+    document.getElementById("previewModal").classList.remove("open");
+};
+
+/* =========================================================
+   11. Timer / Toast / Confetti / Audio
+   ========================================================= */
+function fmt(s) { const m=Math.floor(s/60), sec=s%60; return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`; }
+function updateTimerUI() { const el=document.getElementById("timerDisplay"); if (el) el.textContent = "⏱ "+fmt(GS.timeSec); }
+function startTimer() { if (GS.timerOn) return; GS.timerOn=true; GS.timerInt=setInterval(()=>{GS.timeSec++; updateTimerUI();},1000); }
+function stopTimer() { GS.timerOn=false; clearInterval(GS.timerInt); }
+function resetTimer() { stopTimer(); GS.timeSec=0; updateTimerUI(); }
+
+let toastTimer=null;
+function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove("show"), 2600);
+}
+function launchConfetti() {
+    const host = document.getElementById("confettiHost");
+    const colors = ["#EA1E7C","#FFC94D","#4CAF50","#3F8EFA","#E0554A"];
+    for (let i=0;i<44;i++) {
+        const p = document.createElement("div");
+        p.className = "confetti-piece";
+        p.style.left = Math.random()*100+"%";
+        p.style.background = colors[i%colors.length];
+        p.style.animationDelay = (Math.random()*0.4)+"s";
+        p.style.animationDuration = (1.6+Math.random()*1.2)+"s";
+        host.appendChild(p);
+        setTimeout(()=>p.remove(), 3200);
+    }
+}
+let actx = null;
+function beep(freq) {
+    try {
+        actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+        const osc = actx.createOscillator(), gain = actx.createGain();
+        osc.type = "sine"; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.06, actx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime+0.09);
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(); osc.stop(actx.currentTime+0.09);
+    } catch (e) {}
+}
+
+/* =========================================================
+   12. UI Sync Helpers
+   ========================================================= */
+function updateGridTypeUI() {
+    document.body.classList.toggle("hexTheme", GS.gridType === "hexagon");
+    document.getElementById("btnTypeSquare").classList.toggle("active", GS.gridType === "square");
+    document.getElementById("btnTypeHex").classList.toggle("active", GS.gridType === "hexagon");
+    document.getElementById("sizeDisplay").textContent = GS.size;
+    const b = SIZE_BOUNDS[GS.gridType];
+    document.getElementById("sizeMinus").disabled = GS.size <= b[0];
+    document.getElementById("sizePlus").disabled = GS.size >= b[1];
+}
+function updateSeedUI() { document.getElementById("seedInput").value = GS.seed || ""; }
+function updateHoneyCounter() {
+    const total = GS.cells.filter(c=>c.hasHoney).length;
+    const el = document.getElementById("honeyCounter");
+    if (GS.mode === "build") { el.textContent = `🌸 Placed: ${total}`; return; }
+    const marked = GS.cells.filter(c=>c.markedState===1).length;
+    el.textContent = `🌸 Marked: ${marked} / ${total}`;
+}
+function changeSize(delta) {
+    const b = SIZE_BOUNDS[GS.gridType];
+    const newSize = Math.max(b[0], Math.min(b[1], GS.size+delta));
+    if (newSize === GS.size) return;
+    newGame(GS.gridType, newSize);
+}
+function switchGridType(type) {
+    if (type === GS.gridType) return;
+    localStorage.setItem("honey-gridType", type);
+    newGame(type, type === "square" ? 6 : 4);
+}
+function applyTheme(mode) {
+    document.body.classList.toggle("dark", mode === "dark");
+    localStorage.setItem("honey-theme", mode);
+    document.getElementById("btnTheme").textContent = mode === "dark" ? "☀️" : "🌙";
+}
+
+/* =========================================================
+   13. Persistence — autosave / load (purges legacy save)
+   ========================================================= */
+function autoSave() {
+    try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+            gridType: GS.gridType, size: GS.size, seed: GS.seed, won: GS.won, timeSec: GS.timeSec,
+            cells: GS.cells.map(c => ({
+                id: c.id, hasHoney: c.hasHoney, markedState: c.markedState,
+                row: c.row, col: c.col, q: c.q, r: c.r, s: c.s,
+                cx: c.cx, cy: c.cy, pts: c.pts, customClue: c.customClue
+            }))
+        }));
+    } catch (e) {}
+}
+function loadSave() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data.cells || data.cells.length === 0) return false;
+
+        let cells = data.cells.map(c => ({
+            id: c.id, row: c.row, col: c.col, q: c.q, r: c.r, s: c.s,
+            hasHoney: c.hasHoney, markedState: c.markedState,
+            clue: 0, customClue: c.customClue !== undefined ? c.customClue : null,
+            cx: c.cx, cy: c.cy, pts: c.pts
+        }));
+
+        computeClues(cells, data.gridType);
+
+        GS.gridType = data.gridType; GS.size = data.size; GS.seed = data.seed;
+        GS.won = !!data.won; GS.timeSec = data.timeSec || 0;
+        GS.cells = cells; GS.viewBox = computeViewBox(cells); GS.history = []; GS.mode = "play";
+        GS.editBoundary = false;
+        document.getElementById("btnEditMap").classList.remove("on");
+        boardSvg().classList.remove("editBoundary");
+        updateGridTypeUI(); renderBoard(); updateSeedUI(); updateTimerUI();
+        if (GS.timeSec && !GS.won) startTimer();
+        return true;
+    } catch (e) { return false; }
+}
+
+/* =========================================================
+   14. Init / Bindings
+   ========================================================= */
+function toggleCustomMode() {
+    if (GS.mode === "custom") {
+        GS.mode = "build";
+        GS.activeCellId = null;
+        document.getElementById("btnCustomMode").classList.remove("accent");
+        toast("🖌️ Build mode active.");
+    } else {
+        GS.mode = "custom";
+        GS.activeCellId = null;
+        if (GS.editBoundary) toggleEditBoundaryMode();
+        document.getElementById("btnCustomMode").classList.add("accent");
+        toast("🔢 Custom Mode: Click cells, type numbers 0-8, Enter for honey.");
+    }
+    GS.cells.forEach(c => c.markedState = 0);
+    renderBoard(); autoSave();
+}
+
+function fitBoard() {
+    const svg = boardSvg();
+    const wrap = document.getElementById("boardWrap");
+    const wrapRect = wrap.getBoundingClientRect();
+    const vb = computeViewBox(GS.cells);
+    const contentAspect = vb[2] / vb[3];
+    const wrapAspect = wrapRect.width / wrapRect.height;
+    let newW, newH, cx, cy;
+    if (wrapAspect > contentAspect) {
+        newH = vb[3]; newW = newH * wrapAspect;
+    } else {
+        newW = vb[2]; newH = newW / wrapAspect;
+    }
+    cx = vb[0] + vb[2] / 2;
+    cy = vb[1] + vb[3] / 2;
+    GS.viewBox = [cx - newW / 2, cy - newH / 2, newW, newH];
+    svg.setAttribute("viewBox", GS.viewBox.join(" "));
+}
+
+function bindUI() {
+    document.getElementById("btnTypeSquare").onclick = () => switchGridType("square");
+    document.getElementById("btnTypeHex").onclick = () => switchGridType("hexagon");
+    document.getElementById("sizeMinus").onclick = () => changeSize(-1);
+    document.getElementById("sizePlus").onclick = () => changeSize(1);
+    document.getElementById("btnNewGame").onclick = () => newGame(GS.gridType, GS.size);
+    const tglExtra = document.getElementById("tglExtraMaps");
+    tglExtra.onchange = () => { GS.extraMaps = tglExtra.checked; localStorage.setItem("honey-extraMaps", GS.extraMaps); };
+    document.getElementById("btnCustomMode").onclick = toggleCustomMode;
+    document.getElementById("btnBuildMode").onclick = () => {
+        if (GS.mode === "build") exitBuildModeToPlay(); else enterBuildMode();
+    };
+    document.getElementById("btnEditMap").onclick = toggleEditBoundaryMode;
+    document.getElementById("btnBuildClear").onclick = buildClear;
+    document.getElementById("btnBuildRandom").onclick = buildRandomize;
+    document.getElementById("btnBuildStart").onclick = exitBuildModeToPlay;
+    document.getElementById("btnUndo").onclick = undo;
+    document.getElementById("btnCheck").onclick = verifyBoardState;
+    document.getElementById("btnTheme").onclick = () => applyTheme(document.body.classList.contains("dark") ? "light" : "dark");
+    document.getElementById("btnLoadSeed").onclick = () => {
+        const v = document.getElementById("seedInput").value.trim();
+        if (v) loadMapFromSeedID(v);
+    };
+    document.getElementById("btnCopySeed").onclick = async () => {
+        try { await navigator.clipboard.writeText(GS.seed || ""); toast("📋 Seed copied!"); }
+        catch (e) { toast("Copy failed — select the seed text manually"); }
+    };
+    document.getElementById("btnExport").onclick = () => {
+        expCfg.seedSide = 0; expCfg.reveal = false;
+        document.getElementById("btnCycleSide").textContent = SEED_SIDES[0];
+        document.getElementById("tglReveal").checked = false;
+        updatePreviewImage();
+        document.getElementById("previewModal").classList.add("open");
+    };
+    document.getElementById("btnFit").onclick = fitBoard;
+    document.getElementById("btnHelp").onclick = () => { const m=document.getElementById("helpModal"); m.classList.add("open"); };
+    document.getElementById("btnCloseHelp").onclick = () => document.getElementById("helpModal").classList.remove("open");
+    // Drag removed — new CSS handles centering
+    document.getElementById("btnPlayAgain").onclick = () => { document.getElementById("winModal").classList.remove("open"); newGame(GS.gridType, GS.size); };
+    document.getElementById("btnCloseWin").onclick = () => document.getElementById("winModal").classList.remove("open");
+    document.getElementById("seedInput").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btnLoadSeed").click(); });
+    document.addEventListener("keydown", e => {
+        if (e.target.tagName === "INPUT") return;
+        if (GS.mode === "custom" && GS.activeCellId !== null) {
+            const cell = GS.cells.find(c => c.id === GS.activeCellId);
+            if (!cell) return;
+            const maxClue = GS.gridType === "square" ? 8 : 6;
+            const num = parseInt(e.key, 10);
+            if (!isNaN(num) && num >= 0 && num <= maxClue) {
+                cell.customClue = num;
+                renderBoard();
+            } else if (e.key === "Delete" || e.key === "Backspace" || e.key === " ") {
+                e.preventDefault();
+                cell.customClue = null;
+                renderBoard();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                cell.hasHoney = !cell.hasHoney;
+                renderBoard();
+            } else if (e.key === "Escape") {
+                GS.activeCellId = null;
+                renderBoard();
+            }
+            return;
+        }
+        if (e.key === "u") undo();
+        if (e.key === "n") newGame(GS.gridType, GS.size);
+        if (e.key === "c") verifyBoardState();
+    });
+    bindBoardInput();
+}
+
+/* =========================================================
+   15. Ambient Bee Background Engine
+   ========================================================= */
+function initBeeBackground() {
+    const canvas = document.getElementById('bee-bg-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let bees = [];
+    const maxBees = 15;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function createBee(spawnAtEdge = false) {
+        const size = Math.floor(Math.random() * (32 - 14 + 1)) + 14;
+        let x, y;
+        if (spawnAtEdge) {
+            const edge = Math.floor(Math.random() * 4);
+            if (edge === 0) { x = -40; y = Math.random() * canvas.height; }
+            else if (edge === 1) { x = canvas.width + 40; y = Math.random() * canvas.height; }
+            else if (edge === 2) { x = Math.random() * canvas.width; y = -40; }
+            else { x = Math.random() * canvas.width; y = canvas.height + 40; }
+        } else {
+            x = Math.random() * canvas.width;
+            y = Math.random() * canvas.height;
+        }
+        return {
+            x, y,
+            vx: (Math.random() * 1.2 + 0.4) * (Math.random() < 0.5 ? 1 : -1),
+            vy: (Math.random() * 0.8 + 0.2) * (Math.random() < 0.5 ? 1 : -1),
+            size,
+            angle: Math.random() * Math.PI * 2,
+            waveSpeed: Math.random() * 0.05 + 0.02,
+            waveAmp: Math.random() * 0.5 + 0.2
+        };
+    }
+
+    for (let i = 0; i < maxBees; i++) bees.push(createBee(false));
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        bees.forEach((bee, index) => {
+            bee.angle += bee.waveSpeed;
+            bee.x += bee.vx + Math.sin(bee.angle) * bee.waveAmp;
+            bee.y += bee.vy + Math.cos(bee.angle) * bee.waveAmp;
+
+            ctx.font = `${bee.size}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.save();
+            ctx.translate(bee.x, bee.y);
+            if (bee.vx < 0) ctx.scale(-1, 1);
+            ctx.fillText('🐝', 0, 0);
+            ctx.restore();
+
+            const padding = 50;
+            if (bee.x < -padding || bee.x > canvas.width + padding ||
+                bee.y < -padding || bee.y > canvas.height + padding) {
+                bees[index] = createBee(true);
+            }
+        });
+        requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+window.onload = () => {
+    initBeeBackground();
+    localStorage.removeItem("laser-save");
+    applyTheme(localStorage.getItem("honey-theme") || "light");
+    GS.extraMaps = localStorage.getItem("honey-extraMaps") === "true";
+    document.getElementById("tglExtraMaps").checked = GS.extraMaps;
+    bindUI();
+    if (!loadSave()) { const pref = localStorage.getItem("honey-gridType") || "hexagon"; newGame(pref, pref === "square" ? 6 : 4); }
+    setTimeout(() => { fitBoard(); toast("Left-click marks 🌸 honey · Right-click flags ❌ safe"); }, 700);
+};
+</script>
+</body>
+</html>

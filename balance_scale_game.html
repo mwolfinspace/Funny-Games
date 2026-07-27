@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Balance Scale - Final Fix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #ecf0f1;
+            --hud-bg: rgba(255,255,255,0.95);
+            --accent: #d35400;
+            --text: #2c3e50;
+            --balanced-green: #2ecc71;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2c3e50;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-size: 1.1rem;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease;
+            pointer-events: none;
+            z-index: 2000;
+            white-space: nowrap;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #toast.success { background-color: #27ae60; }
+        #toast.error { background-color: #c0392b; }
+
+        /* Animations */
+        @keyframes rainbow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .rainbow-mystery {
+            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+            background-size: 400% 400%;
+            animation: rainbow 3s ease infinite;
+            border: 2px solid white;
+        }
+
+        /* Buttons */
+        .btn-lion {
+            background-color: var(--accent);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #a04000;
+            transition: transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .btn-lion:active { transform: translateY(4px); box-shadow: 0 0 0 #a04000; }
+        .btn-lion.secondary { background-color: #7f8c8d; box-shadow: 0 4px 0 #5f6a6a; }
+        .btn-lion.secondary:active { box-shadow: 0 0 0 #5f6a6a; }
+
+        /* HUD */
+        #hud {
+            padding: 10px 20px;
+            background: var(--hud-bg);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Game Container */
+        .game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            padding: 10px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        /* Draggable Weights */
+        .weight-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 900;
+            color: white;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+            cursor: grab;
+            transition: transform 0.1s;
+            border: 3px solid rgba(255,255,255,0.4);
+            z-index: 100;
+        }
+        .weight-item:active { cursor: grabbing; transform: scale(1.05); }
+
+        /* Weight Colors */
+        .w-color-1 { background-color: #e74c3c; } 
+        .w-color-2 { background-color: #3498db; }
+        .w-color-3 { background-color: #2ecc71; }
+        .w-color-4 { background-color: #f1c40f; color: #333; text-shadow: none; }
+        .w-color-5 { background-color: #9b59b6; }
+        .w-color-6 { background-color: #e67e22; }
+        .w-color-7 { background-color: #ff9ff3; color: #333; text-shadow: none;}
+        .w-color-8 { background-color: #1abc9c; }
+        .w-color-9 { background-color: #34495e; }
+        .w-color-10 { background-color: #a29bfe; }
+        .w-color-11 { background-color: #00cec9; }
+        .w-color-12 { background-color: #fab1a0; color: #333; text-shadow: none;}
+        .w-color-13 { background-color: #fdcb6e; color: #333; text-shadow: none;}
+        .w-color-14 { background-color: #636e72; }
+        .w-color-15 { background-color: #d63031; }
+        .w-color-16 { background-color: #0984e3; }
+
+        /* Pans */
+        .pan-container {
+            background: rgba(255,255,255,0.8);
+            border: 4px dashed #bdc3c7;
+            border-radius: 20px;
+            transition: all 0.3s;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            justify-content: center;
+            gap: 5px;
+            padding: 10px;
+            min-height: 150px; 
+            width: 100%;
+        }
+        .pan-balanced {
+            border-color: var(--balanced-green);
+            background: rgba(46, 204, 113, 0.15);
+            border-style: solid;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
+        }
+
+        /* Counter Buttons */
+        .counter-btn {
+            width: 80px; height: 80px;
+            font-size: 3rem;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--accent); color: white;
+            border-radius: 15px; cursor: pointer;
+            box-shadow: 0 5px 0 #a04000;
+        }
+        .counter-btn:active { transform: translateY(5px); box-shadow: none; }
+
+        /* Chain visualization */
+        .chain-line {
+            width: 6px;
+            background: repeating-linear-gradient(to bottom, #7f8c8d 0, #7f8c8d 10px, #bdc3c7 10px, #bdc3c7 20px);
+        }
+
+        #inventory::-webkit-scrollbar { height: 10px; }
+        #inventory::-webkit-scrollbar-thumb { background: #95a5a6; border-radius: 5px; }
+        #inventory::-webkit-scrollbar-track { background: #ecf0f1; }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Message</div>
+
+    <div id="hud">
+        <div class="flex gap-2 items-center">
+            <button class="btn-lion secondary" onclick="location.href='index.html'">🏠 Home</button>
+            <button class="btn-lion" id="randomBtn">🎲 New Mystery</button>
+        </div>
+        
+        <div id="equationDisplay" class="hidden bg-slate-800 text-white px-4 py-2 rounded-xl text-2xl font-mono font-bold shadow-lg border-2 border-slate-600 mx-2"></div>
+
+        <div class="flex gap-2 items-center overflow-x-auto pb-1 max-w-full">
+             <button class="btn-lion secondary min-w-max" id="toggleDiffBtn">👁️ Show Diff</button>
+             <button class="btn-lion secondary min-w-max" id="showEquationBtn">📊 Equation</button>
+             <button class="btn-lion min-w-max" id="guessBtn">🤔 Guess ?</button>
+             <button class="btn-lion secondary min-w-max" id="resetBtn">🔄 Reset</button>
+        </div>
+    </div>
+
+    <div class="game-container">
+        
+        <div id="diffLabel" class="absolute top-4 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full text-2xl font-bold text-slate-700 shadow border-2 border-slate-200 z-10 transition-opacity duration-300 opacity-0 pointer-events-none">
+            Difference: 0
+        </div>
+
+        <div class="relative flex-1 w-full mt-8 mb-4 flex justify-center">
+            
+            <div class="absolute left-1/2 bottom-0 -translate-x-1/2 w-10 h-[calc(100%-80px)] bg-slate-300 rounded-t-xl border-x-2 border-slate-400"></div>
+            <div class="absolute left-1/2 bottom-0 -translate-x-1/2 w-64 h-8 bg-slate-400 rounded-full"></div>
+
+            <div id="beamContainer" class="absolute left-1/2 top-[80px] w-full h-full -translate-x-1/2 pointer-events-none">
+                
+                <div id="beam" class="w-[95%] h-6 mx-auto relative transition-transform duration-500 ease-out origin-center">
+                    
+                    <div id="leftAssembly" class="absolute left-0 top-3 w-[40%] transition-transform duration-500 ease-out origin-top flex flex-col items-center z-0">
+                        <div class="w-full flex justify-between px-[15%] h-[180px] relative -top-3">
+                             <div class="chain-line h-full"></div>
+                             <div class="chain-line h-full"></div>
+                        </div>
+                        <div id="leftPan" class="pan-container bg-white pointer-events-auto shadow-xl"></div>
+                    </div>
+
+                    <div id="rightAssembly" class="absolute right-0 top-3 w-[40%] transition-transform duration-500 ease-out origin-top flex flex-col items-center z-0">
+                        <div class="w-full flex justify-between px-[15%] h-[180px] relative -top-3">
+                             <div class="chain-line h-full"></div>
+                             <div class="chain-line h-full"></div>
+                        </div>
+                        <div id="rightPan" class="pan-container bg-white pointer-events-auto shadow-xl"></div>
+                    </div>
+
+                    <div class="absolute inset-0 bg-slate-500 rounded-full border-b-4 border-slate-600 z-10 shadow-md"></div>
+
+                    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-slate-700 rounded-full border-4 border-slate-200 z-20 shadow-lg"></div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-200 p-4 border-t-4 border-slate-300 shadow-inner z-30 relative">
+            <div class="text-slate-500 font-bold uppercase tracking-wider mb-2 ml-2 text-sm">Inventory (Drag copies to pans, drag out to remove)</div>
+            <div id="inventory" class="flex gap-4 overflow-x-auto pb-4 px-2 items-center h-[120px]"></div>
+        </div>
+    </div>
+
+    <div id="guessModal" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center z-[2000] p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl text-center border-4 border-slate-200">
+            <h3 class="text-3xl font-extrabold mb-6 text-slate-700">Guess the <span class="px-3 py-1 bg-black text-white rounded rainbow-mystery">?</span> Value</h3>
+            <div class="flex items-center justify-center gap-6 mb-8">
+                <div class="counter-btn" id="minusBtn">−</div>
+                <input type="number" id="guessInput" class="w-32 text-6xl font-black text-center border-b-4 border-slate-300 outline-none bg-transparent" value="1" readonly>
+                <div class="counter-btn" id="plusBtn">+</div>
+            </div>
+            <div class="flex flex-col gap-4">
+                <button id="submitGuess" class="btn-lion w-full py-5 text-2xl justify-center shadow-[0_6px_0_#a04000]">CHECK ANSWER</button>
+                <button id="closeModal" class="text-slate-400 py-3 font-bold text-xl hover:text-slate-600">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Game State ---
+        let mysteryValue = Math.floor(Math.random() * 16) + 1;
+        let showDiff = false;
+        let showEq = false;
+        let isRainbow = false;
+
+        // --- Toast Notification ---
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.className = ''; 
+            toast.classList.add('show');
+            if (type === 'success') toast.classList.add('success');
+            if (type === 'error') toast.classList.add('error');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // --- Init ---
+        function initGame() {
+            const inv = document.getElementById('inventory');
+            inv.innerHTML = '';
+            // Mystery
+            inv.appendChild(createWeightElement('?', 'mystery', true));
+            // Weights 1-16
+            for (let i = 1; i <= 16; i++) {
+                inv.appendChild(createWeightElement(i, i, true));
+            }
+        }
+
+        function createWeightElement(label, value, isSource) {
+            const el = document.createElement('div');
+            el.className = `weight-item ${isSource ? 'w-20 h-20 text-4xl' : 'w-16 h-16 text-3xl'} flex-shrink-0`;
+            el.draggable = true;
+            el.innerText = label;
+            el.dataset.weight = value === 'mystery' ? 'mystery' : value;
+            el.dataset.sourceType = isSource ? 'inventory' : 'pan';
+            
+            // Unique ID for non-source items
+            if (!isSource) el.id = `w-${Date.now()}-${Math.random()}`;
+
+            if (value === 'mystery' && isRainbow) el.classList.add('rainbow-mystery');
+            else if (value === 'mystery') el.classList.add('bg-slate-800');
+            else el.classList.add(`w-color-${value}`);
+
+            el.addEventListener('dragstart', handleDragStart);
+            
+            // Click to remove shortcut
+            if (!isSource) {
+                el.style.cursor = 'pointer';
+                el.title = "Click to remove";
+                el.addEventListener('click', function() {
+                    this.remove();
+                    updateScale();
+                });
+            }
+            return el;
+        }
+
+        // --- Drag & Drop Logic ---
+        let draggedData = null;
+
+        function handleDragStart(e) {
+            draggedData = {
+                weight: e.target.dataset.weight,
+                label: e.target.innerText,
+                sourceType: e.target.dataset.sourceType,
+                elementId: e.target.id
+            };
+            e.dataTransfer.setData('text/plain', JSON.stringify(draggedData));
+            e.dataTransfer.effectAllowed = "copyMove";
+        }
+
+        function setupDropZones() {
+            // Drop on Pans
+            ['leftPan', 'rightPan'].forEach(id => {
+                const zone = document.getElementById(id);
+                zone.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
+                });
+                zone.addEventListener('drop', e => {
+                    e.preventDefault();
+                    if (!draggedData) return;
+
+                    // If coming from another pan, remove the original first (Move)
+                    if (draggedData.sourceType === 'pan') {
+                         const original = document.getElementById(draggedData.elementId);
+                         if(original) original.remove();
+                    }
+
+                    // Create new element in this pan
+                    const newWeight = createWeightElement(draggedData.label, draggedData.weight, false);
+                    zone.appendChild(newWeight);
+                    
+                    updateScale();
+                    draggedData = null;
+                    e.stopPropagation();
+                });
+            });
+
+            // Drop on Body/Inventory (Removal Zone)
+            document.body.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+            });
+
+            document.body.addEventListener('drop', e => {
+                // If dropping outside pans...
+                if (draggedData && draggedData.sourceType === 'pan') {
+                    const original = document.getElementById(draggedData.elementId);
+                    if (original) {
+                        original.remove();
+                        updateScale();
+                    }
+                }
+                draggedData = null;
+            });
+        }
+
+        // --- Physics & Display Logic ---
+        function getPanDetails(panId) {
+            const items = Array.from(document.getElementById(panId).children);
+            const values = items.map(el => {
+                const w = el.dataset.weight;
+                if (w === 'mystery') return { val: mysteryValue, str: '?' };
+                return { val: parseInt(w), str: w };
+            });
+            const sum = values.reduce((acc, cur) => acc + cur.val, 0);
+            return { items, values, sum };
+        }
+
+        function updateScale() {
+            const left = getPanDetails('leftPan');
+            const right = getPanDetails('rightPan');
+            const diff = right.sum - left.sum;
+
+            // Rotation
+            const maxTilt = 15;
+            const tilt = Math.max(Math.min(diff * 1.5, maxTilt), -maxTilt);
+            
+            document.getElementById('beam').style.transform = `rotate(${tilt}deg)`;
+            document.getElementById('leftAssembly').style.transform = `rotate(${-tilt}deg)`; 
+            document.getElementById('rightAssembly').style.transform = `rotate(${-tilt}deg)`;
+
+            // Diff Label
+            const diffLbl = document.getElementById('diffLabel');
+            diffLbl.innerText = `Difference: ${Math.abs(diff)}`;
+            if (showDiff && (left.sum > 0 || right.sum > 0)) diffLbl.classList.remove('opacity-0');
+            else diffLbl.classList.add('opacity-0');
+
+            // Balanced Indicator
+            const isBalanced = (diff === 0 && (left.sum > 0 || right.sum > 0));
+            document.getElementById('leftPan').classList.toggle('pan-balanced', isBalanced);
+            document.getElementById('rightPan').classList.toggle('pan-balanced', isBalanced);
+
+            // Equation
+            if (showEq) {
+                const lStr = left.values.map(v => v.str).join(' + ') || '0';
+                const rStr = right.values.map(v => v.str).join(' + ') || '0';
+                const operator = left.sum === right.sum ? '=' : (left.sum > right.sum ? '>' : '<');
+                document.getElementById('equationDisplay').innerText = `${lStr} ${operator} ${rStr}`;
+            }
+        }
+
+        // --- Controls ---
+        document.getElementById('randomBtn').addEventListener('click', () => {
+            mysteryValue = Math.floor(Math.random() * 16) + 1;
+            isRainbow = true;
+            resetGame();
+            showToast("New Mystery Weight Set!", "info");
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            isRainbow = false;
+            resetGame();
+            showToast("Scale Reset", "info");
+        });
+
+        function resetGame() {
+            document.getElementById('leftPan').innerHTML = '';
+            document.getElementById('rightPan').innerHTML = '';
+            initGame();
+            updateScale();
+        }
+
+        document.getElementById('toggleDiffBtn').addEventListener('click', function() {
+            showDiff = !showDiff;
+            this.innerText = showDiff ? "🙈 Hide Diff" : "👁️ Show Diff";
+            updateScale();
+        });
+
+        document.getElementById('showEquationBtn').addEventListener('click', function() {
+            showEq = !showEq;
+            document.getElementById('equationDisplay').classList.toggle('hidden', !showEq);
+            updateScale();
+        });
+
+        // --- Guess Modal ---
+        const guessInp = document.getElementById('guessInput');
+        document.getElementById('guessBtn').onclick = () => document.getElementById('guessModal').classList.remove('hidden');
+        document.getElementById('closeModal').onclick = () => document.getElementById('guessModal').classList.add('hidden');
+        document.getElementById('plusBtn').onclick = () => guessInp.value = parseInt(guessInp.value) + 1;
+        document.getElementById('minusBtn').onclick = () => { if (guessInp.value > 1) guessInp.value -= 1; };
+
+        document.getElementById('submitGuess').onclick = () => {
+            const val = parseInt(guessInp.value);
+            
+            // Close modal immediately regardless of result
+            document.getElementById('guessModal').classList.add('hidden');
+
+            if (val === mysteryValue) {
+                confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
+                showToast(`CORRECT! The answer was ${mysteryValue}`, "success");
+            } else {
+                showToast(`Wrong! It is not ${val}. Try again.`, "error");
+            }
+        };
+
+        initGame();
+        setupDropZones();
+        updateScale();
+    </script>
+</body>
+</html>

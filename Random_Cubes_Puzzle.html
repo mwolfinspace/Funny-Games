@@ -1,0 +1,3992 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🧊 Random Cubes Puzzle</title>
+    <style>
+      :root {
+        --bg-color: #f0f2f5;
+        --hud-bg: rgba(255, 255, 255, 0.7);
+        --text-color: #222;
+        --button-bg: rgba(0, 0, 0, 0.05);
+        --button-hover-bg: rgba(0, 0, 0, 0.1);
+        --accent-color: #0078d4;
+      }
+
+      body.dark-mode {
+        --bg-color: #202020;
+        --hud-bg: rgba(30, 30, 30, 0.7);
+        --text-color: #f5f5f5;
+        --button-bg: rgba(255, 255, 255, 0.1);
+        --button-hover-bg: rgba(255, 255, 255, 0.15);
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        cursor: default;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        transition:
+          background-color 0.3s,
+          color 0.3s;
+      }
+      #container {
+        width: 100vw;
+        height: 100vh;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      #hud {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: var(--hud-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 5px 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 100;
+        box-sizing: border-box;
+      }
+      #hud-top-row,
+      #hud-bottom-row {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: 10px;
+      }
+      #hud-top-row {
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      #hud-bottom-row {
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .hud-cluster {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 2px 5px;
+        background-color: transparent;
+        border-radius: 8px;
+      }
+      .hud-sub-cluster {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background-color: var(--button-bg);
+      }
+      .color-toggle-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px;
+        border-radius: 5px;
+        background-color: var(--button-bg);
+      }
+      .color-toggle-wrapper input[type="color"] {
+        opacity: 1;
+        transition: opacity 0.2s;
+      }
+      .color-toggle-wrapper:not(:has(:checked)) input[type="color"] {
+        opacity: 0.4;
+      }
+
+      button,
+      label,
+      span {
+        color: var(--text-color);
+        font-size: 14px;
+        font-family: "Segoe UI", sans-serif;
+        font-weight: 500;
+      }
+      button {
+        padding: 6px 10px;
+        border-radius: 5px;
+        background-color: var(--button-bg);
+        border: 1px solid transparent;
+        cursor: pointer;
+        min-width: 35px;
+        height: 32px;
+        transition: background-color 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1;
+      }
+      button:hover {
+        background-color: var(--button-hover-bg);
+        border-color: rgba(0, 0, 0, 0.05);
+      }
+      button.mode-active {
+        background-color: var(--accent-color);
+        color: #fff;
+        border-color: transparent;
+      }
+      button.mode-active:hover {
+        background-color: color-mix(in srgb, var(--accent-color) 88%, black);
+      }
+      body.dark-mode button:hover {
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+      a.button-like {
+        padding: 6px 10px;
+        border-radius: 5px;
+        background-color: var(--button-bg);
+        border: 1px solid transparent;
+        cursor: pointer;
+        min-width: 25px;
+        text-decoration: none;
+        color: var(--text-color);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1;
+      }
+      a.button-like:hover {
+        background-color: var(--button-hover-bg);
+      }
+      #cube-count,
+      #edge-width-display {
+        min-width: 18px;
+        text-align: center;
+        padding: 4px;
+        background-color: var(--button-bg);
+        border-radius: 4px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+      }
+      input[type="color"] {
+        width: 28px;
+        height: 32px;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        background: none;
+        border-radius: 5px;
+      }
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        margin-left: 4px;
+      }
+      input[type="range"] {
+        cursor: pointer;
+        width: 80px;
+      }
+
+      #preview-overlay,
+      #help-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(5px);
+        display: none; /* Initially hidden */
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+      #preview-modal {
+        background-color: var(--bg-color);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        color: var(--text-color);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--button-hover-bg);
+      }
+      #preview-image {
+        max-width: 80vw;
+        max-height: 70vh;
+        border: 1px solid rgba(127, 127, 127, 0.2);
+        border-radius: 5px;
+        margin: 15px 0;
+      }
+      #preview-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 15px;
+      }
+      #preview-controls button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        vertical-align: middle;
+        line-height: 1.2;
+      }
+      #preview-controls button {
+        padding: 10px 20px;
+        margin: 0;
+        cursor: pointer;
+        background-color: var(--accent-color);
+        color: white;
+      }
+
+      #help-modal {
+        background-color: var(--bg-color);
+        padding: 25px;
+        border-radius: 15px;
+        color: var(--text-color);
+        width: 90%;
+        max-width: 800px;
+        min-width: 300px;
+        border: 1px solid var(--button-hover-bg);
+        text-align: left;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        /* overflow-y: auto; */ /* Removed to prevent scrolling */
+        /* max-height: 80vh; */ /* Removed to prevent scrolling */
+      }
+      #help-modal h2 {
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 25px;
+        color: var(--accent-color);
+      }
+      #help-modal .help-sections {
+        list-style-type: none;
+        padding-left: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 25px;
+      }
+      #help-modal li {
+        margin-bottom: 12px;
+      }
+      #help-modal strong {
+        color: var(--accent-color);
+        display: block;
+        margin-bottom: 5px;
+      }
+      #help-modal .help-sections ul {
+        list-style-type: "▸ ";
+        padding-left: 20px;
+        margin-top: 5px;
+      }
+      #help-modal button {
+        display: block;
+        margin: 20px auto 0;
+        padding: 10px 25px;
+        background-color: var(--accent-color);
+        color: white;
+      }
+
+      /* Added for Seed UI */
+      #seed-input {
+        width: 160px;
+        background-color: var(--button-bg);
+        border: 1px solid transparent;
+        color: var(--text-color);
+        border-radius: 5px;
+        padding: 6px 8px;
+        font-family: monospace;
+        font-size: 12px;
+        height: 32px;
+        box-sizing: border-box;
+      }
+      #seed-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+      }
+
+      #color-seed-input {
+        width: 80px;
+        background-color: var(--button-bg);
+        border: 1px solid transparent;
+        color: var(--text-color);
+        border-radius: 5px;
+        padding: 6px 8px;
+        font-family: monospace;
+        font-size: 12px;
+        height: 32px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+
+      #color-seed-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+      }
+
+      #camera-debug-info {
+        position: fixed;
+        bottom: 130px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        z-index: 201;
+        pointer-events: none;
+      }
+
+      #toast-notification {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: var(--accent-color);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        z-index: 2000;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 0.3s,
+          visibility 0.3s,
+          transform 0.3s;
+      }
+      #toast-notification.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+      }
+      #on-screen-seed {
+        position: fixed;
+        bottom: 1.5vmin;
+        left: 1.5vmin;
+        font-family: monospace;
+        font-size: 3.5vmin;
+        font-weight: bold;
+        color: var(--text-color);
+        opacity: 1;
+        pointer-events: none; /* So it doesn't interfere with mouse controls */
+        z-index: 5;
+      }
+
+      #view-controls {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        gap: 8px;
+        z-index: 200;
+        pointer-events: none; /* Let clicks pass through to camera controls */
+      }
+
+      .view-btn {
+        width: 45px;
+        height: 45px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--text-color);
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        pointer-events: auto; /* Enable clicks on buttons */
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.2;
+      }
+
+      .view-btn:hover {
+        background: rgba(255, 255, 255, 0.35);
+        transform: scale(1.05);
+      }
+
+      body.dark-mode .view-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      body.dark-mode .view-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* Light versions of 3-color mode colors for view buttons */
+      .view-btn[data-view="front"] {
+        background: color-mix(in srgb, var(--color-b) 70%, white);
+        color: white;
+      }
+      .view-btn[data-view="back"] {
+        background: color-mix(in srgb, var(--color-b) 70%, white);
+        color: white;
+      }
+      .view-btn[data-view="left"] {
+        background: color-mix(in srgb, var(--color-c) 70%, white);
+        color: white;
+      }
+      .view-btn[data-view="right"] {
+        background: color-mix(in srgb, var(--color-c) 70%, white);
+        color: white;
+      }
+      .view-btn[data-view="top"] {
+        background: color-mix(in srgb, var(--color-a) 70%, white);
+        color: white;
+      }
+      .view-btn[data-view="bottom"] {
+        background: color-mix(in srgb, var(--color-a) 70%, white);
+        color: white;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.164.1",
+          "three/addons/": "https://esm.sh/three@0.164.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="on-screen-seed"></div>
+    <div id="hud">
+      <div id="hud-top-row">
+        <div class="hud-cluster">
+          <a href="index.html" class="button-like" title="Main Menu">🏠</a>
+          <button id="lang-toggle" title="Switch Language">🌐</button>
+          <button id="help-btn" title="Help">❔</button>
+        </div>
+        <div class="hud-cluster">
+          <button id="remove-cube" title="Remove Cube">&#x2796;</button>
+          <button id="remove-mode-btn" title="Remove Mode">Cube -</button>
+          <span id="cube-count">5</span>
+          <button id="add-mode-btn" title="Add Mode">Cube +</button>
+          <button id="add-cube" title="Add Cube">&#x2795;</button>
+          <button id="randomize" data-i18n="random-btn">🔀</button>
+        </div>
+        <div class="hud-cluster">
+          <button id="export-png" data-i18n="export-btn">🖼️</button>
+          <button id="export-cabinet">🧊</button>
+          <input type="text" id="seed-input" title="Scene Seed ID" readonly />
+          <button id="copy-seed-btn" title="Copy Seed ID">📋</button>
+        </div>
+        <div class="hud-cluster">
+          <button id="theme-btn" title="Toggle Theme">🌙</button>
+        </div>
+      </div>
+      <div id="hud-bottom-row">
+        <div class="hud-cluster" id="three-color-controls">
+          <label
+            id="reset-colors-label"
+            style="cursor: pointer"
+            title="Reset colors to default"
+            >🎨</label
+          >
+          <div class="color-toggle-wrapper">
+            <input
+              type="checkbox"
+              id="color-a-toggle"
+              data-color-id="a"
+              checked
+            />
+            <input
+              type="color"
+              id="color-picker-a"
+              data-color-id="a"
+              value="#ff8800"
+            />
+          </div>
+          <div class="color-toggle-wrapper">
+            <input
+              type="checkbox"
+              id="color-b-toggle"
+              data-color-id="b"
+              checked
+            />
+            <input
+              type="color"
+              id="color-picker-b"
+              data-color-id="b"
+              value="#ff0000"
+            />
+          </div>
+          <div class="color-toggle-wrapper">
+            <input
+              type="checkbox"
+              id="color-c-toggle"
+              data-color-id="c"
+              checked
+            />
+            <input
+              type="color"
+              id="color-picker-c"
+              data-color-id="c"
+              value="#0000ff"
+            />
+          </div>
+        </div>
+        <div class="hud-cluster">
+          <label for="color-seed-input" title="Color Scheme Seed">🎨</label>
+          <input type="text" id="color-seed-input" title="Color Scheme Seed" />
+          <button id="copy-color-seed-btn" title="Copy Color Seed">📋</button>
+        </div>
+        <div class="hud-cluster">
+          <label for="edges-toggle" data-i18n="edges-label">✒️</label>
+          <input type="checkbox" id="edges-toggle" checked />
+          <input type="color" id="edges-color-picker" value="#000000" />
+          <input
+            type="range"
+            id="edges-opacity-slider"
+            min="0"
+            max="1"
+            step="0.05"
+            value="1.0"
+          />
+          <button id="decr-edge-width" title="Decrease Edge Width">➖</button>
+          <span id="edge-width-display" title="Edge Width">2</span>
+          <button id="incr-edge-width" title="Increase Edge Width">➕</button>
+        </div>
+        <div class="hud-cluster">
+          <label
+            for="bg-color-picker"
+            data-i18n="bg-label"
+            style="cursor: pointer"
+            title="Reset background color to default"
+            >🖼️:</label
+          >
+          <input type="color" id="bg-color-picker" value="#ffffff" />
+        </div>
+      </div>
+    </div>
+    <div id="container"></div>
+
+    <div id="preview-overlay">
+      <div id="preview-modal">
+        <p data-i18n="preview-title">Image Preview (4:3)</p>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <button id="camera-prev" style="display: none">&lt;</button>
+          <img id="preview-image" src="" alt="Export Preview" />
+          <button id="camera-next" style="display: none">&gt;</button>
+        </div>
+        <div
+          id="preview-info"
+          style="min-height: 20px; font-weight: bold; margin-top: 5px"
+        ></div>
+        <div id="preview-controls">
+          <div class="hud-sub-cluster">
+            <label
+              for="export-solid-bg"
+              title="Use solid, rounded-corner background for exports. Default is transparent."
+              >Solid BG</label
+            >
+            <input type="checkbox" id="export-solid-bg" />
+          </div>
+          <div class="hud-sub-cluster">
+            <label
+              for="export-seed-toggle"
+              title="Include the seed ID text on the exported image."
+              >Show Seed</label
+            >
+            <input type="checkbox" id="export-seed-toggle" />
+            <button id="export-seed-pos-btn" title="Cycle Seed Position">
+              🔄
+            </button>
+            <button id="export-seed-size-down" title="Decrease Seed Text Size">
+              A-
+            </button>
+            <button id="export-seed-size-up" title="Increase Seed Text Size">
+              A+
+            </button>
+          </div>
+          <button id="preview-cancel" data-i18n="preview-cancel">Cancel</button>
+          <button id="preview-save" data-i18n="preview-save">Save PNG</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="help-overlay">
+      <div id="help-modal">
+        <h2 data-i18n="help-title">How to Play</h2>
+        <ul class="help-sections">
+          <li>
+            <strong data-i18n="help-camera">Camera Controls</strong>
+            <ul>
+              <li data-i18n="help-cam-rot" data-danger>
+                <strong>Left Mouse + Drag:</strong> Rotate camera.
+              </li>
+              <li data-i18n="help-cam-pan" data-danger>
+                <strong>Right Mouse + Drag:</strong> Pan camera.
+              </li>
+              <li data-i1e8n="help-cam-zoom" data-danger>
+                <strong>Scroll Wheel:</strong> Zoom in / out.
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong data-i18n="help-cubes">Cube Interaction</strong>
+            <ul>
+              <li data-i18n="help-cubes-select" data-danger>
+                <strong>Double-click a cube:</strong> Select it to move.
+              </li>
+              <li data-i18n="help-cubes-place" data-danger>
+                <strong>Click on another cube's face:</strong> Place the
+                selected cube.
+              </li>
+              <li data-i18n="help-cubes-cancel" data-danger>
+                <strong>Press 'Esc' key:</strong> Cancel the move.
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong data-i18n="help-controls">Controls</strong>
+            <ul>
+              <li data-i18n="help-ctrl-menu" data-danger>
+                <strong>🏠 Menu:</strong> Return to the main page.
+              </li>
+              <li data-i18n="help-ctrl-addrem" data-danger>
+                <strong>➖ / ➕:</strong> Decrease / Increase the number of
+                cubes.
+              </li>
+              <li data-i18n="help-ctrl-rand" data-danger>
+                <strong>🔀 Random:</strong> Generate a new random shape.
+              </li>
+              <li data-i18n="help-ctrl-export" data-danger>
+                <strong>🖼️ Export:</strong> Export the current view as a PNG
+                image.
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <button id="help-close" data-i18n="help-close-btn">Got it</button>
+      </div>
+    </div>
+
+    <div id="camera-debug-info"></div>
+    <div id="toast-notification">Copied to clipboard!</div>
+
+    <script src="color_seed_system.js"></script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+      import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
+      import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+      import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+      import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
+
+      // --- Application State ----------------------------------------------------
+      let isDarkMode = false;
+      const app = {
+        // Core THREE.js components
+        scene: null,
+        camera: null,
+        renderer: null,
+        controls: null,
+        composer: null,
+        outlinePass: null,
+        fxaaPass: null,
+        // Main object groups
+        cubeGroup: null,
+        floor: null,
+        // Lights
+        ambientLight: null,
+        directionalLight: null,
+        // On-demand rendering flag
+        renderRequested: false,
+        // Camera view transition state
+        viewTransitionRaf: null,
+        isViewTransitioning: false,
+      };
+
+      const settings = {
+        cubeCount: 5,
+        edgeColor: "#000000",
+        edgeOpacity: 1.0,
+        edgeVisible: true,
+        edgeWidth: 2,
+        shadows: false, // Shadows are disabled
+        bgColor: "#ffffff",
+        gradientBg: false, // Gradient is disabled
+        colorA: "#ff8800", // Top/Bottom
+        colorB: "#ff0000", // Front/Back
+        colorC: "#0000ff", // Left/Right
+        colorA_enabled: true,
+        colorB_enabled: true,
+        colorC_enabled: true,
+        exportSolidBg: false,
+      };
+
+      const exportSettings = {
+        showSeed: false,
+        seedPosition: 7, // 7: bottom-left horizontal (was 0: bottom-left vertical)
+        seedSize: 2.0, // Size multiplier for seed text (largest default)
+      };
+
+      const interaction = {
+        state: "IDLE", // 'IDLE', 'MOVING', 'ADDING', 'REMOVING'
+        selectedCube: null,
+        selectedEdges: null,
+        removePreviewCube: null,
+        removePreviewEdges: null,
+        addPreviewPosition: null,
+        ghostCube: null,
+        mouse: new THREE.Vector2(),
+        raycaster: new THREE.Raycaster(),
+        // Touch interaction state
+        touchStartPos: null,
+        touchStartTime: 0,
+        isTouchDragging: false,
+        touchTapStartTime: 0,
+        touchTapCount: 0,
+        touchTapTimeout: null,
+        // Mouse interaction state
+        mouseStartPos: null,
+        isMouseDragging: false,
+        dragThreshold: 5, // pixels
+        // Cubezone detection
+        hoverTarget: null,
+        isNearCubezone: false,
+      };
+
+      const CUBE_SIZE = 1;
+      const CUBE_GEOMETRY = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+      const lightDirection = new THREE.Vector3(8, 15, 10).normalize();
+      const VIEW_TRANSITION_DURATION_MS = 800;
+      const GHOST_COLORS = {
+        MOVE: 0xffeb3b, // yellow
+        ADD: 0x00ff00, // green
+        REMOVE: 0xff3333, // red
+      };
+
+      // --- I18n -----------------------------------------------------------------
+      let currentLanguage = "en";
+      const translations = {
+        en: {
+          "menu-btn": "🏠 Menu",
+          "random-btn": "🔀 Random",
+          "export-btn": "🖼️ Export",
+          "help-btn": "❔ Help",
+          "cubes-label": "🎨 Cubes:",
+          "bg-label": "🖼️:",
+          "edges-label": "✒️:",
+          "shadows-label": "☀️ Shadows:",
+          "contrast-label": "🌗 Contrast:",
+          "gradient-label": "🌈 Gradient:",
+          "preview-title": "Image Preview (4:3)",
+          "preview-cancel": "Cancel",
+          "preview-save": "Save PNG",
+          "help-title": "How to Play",
+          "help-close-btn": "Got It",
+          "help-camera": "Camera Controls",
+          "help-cam-rot": "<strong>Left Mouse + Drag:</strong> Rotate camera.",
+          "help-cam-pan": "<strong>Right Mouse + Drag:</strong> Pan camera.",
+          "help-cam-zoom": "<strong>Scroll Wheel:</strong> Zoom in / out.",
+          "help-cubes": "Cube Interaction",
+          "help-cubes-select":
+            "<strong>Double-click a cube:</strong> Select it to move.",
+          "help-cubes-place":
+            "<strong>Click on another cube's face:</strong> Place the selected cube.",
+          "help-cubes-cancel":
+            "<strong>Press 'Esc' key:</strong> Cancel the move.",
+          "help-controls": "Controls",
+          "help-ctrl-menu":
+            "<strong>🏠 Menu:</strong> Return to the main page.",
+          "help-ctrl-addrem":
+            "<strong>Cube - / Cube +:</strong> Remove or add one cube to the current shape.",
+          "help-ctrl-rand":
+            "<strong>🔀 Random:</strong> Generate a new random shape.",
+          "help-ctrl-export":
+            "<strong>🖼️ Export:</strong> Export the current view as a PNG image.",
+        },
+        vi: {
+          "menu-btn": "🏠 Menu",
+          "random-btn": "🔀 Ngẫu nhiên",
+          "export-btn": "🖼️ Xuất ảnh",
+          "help-btn": "❔ Hướng dẫn",
+          "cubes-label": "🎨 Khối:",
+          "bg-label": "🖼️ Nền:",
+          "edges-label": "✒️ Viền:",
+          "shadows-label": "☀️ Đổ bóng:",
+          "contrast-label": "🌗 Tương phản:",
+          "gradient-label": "🌈 Gradient:",
+          "preview-title": "Xem trước ảnh (4:3)",
+          "preview-cancel": "Hủy",
+          "preview-save": "Lưu PNG",
+          "help-title": "Hướng Dẫn",
+          "help-close-btn": "Đã hiểu",
+          "help-camera": "Điều khiển Camera",
+          "help-cam-rot": "<strong>Chuột trái + Kéo:</strong> Xoay camera.",
+          "help-cam-pan":
+            "<strong>Chuột phải + Kéo:</strong> Di chuyển camera.",
+          "help-cam-zoom": "<strong>Lăn chuột:</strong> Phóng to / Thu nhỏ.",
+          "help-cubes": "Tương tác với Khối",
+          "help-cubes-select":
+            "<strong>Double-click (nhấn đúp) một khối:</strong> Chọn khối đó để di chuyển.",
+          "help-cubes-place":
+            "<strong>Click vào mặt của khối khác:</strong> Đặt khối đang chọn vào vị trí đó.",
+          "help-cubes-cancel":
+            "<strong>Nhấn phím 'Esc':</strong> Hủy bỏ việc di chuyển khối.",
+          "help-controls": "Các Nút điều khiển",
+          "help-ctrl-menu": "<strong>🏠 Menu:</strong> Quay về trang chủ.",
+          "help-ctrl-addrem":
+            "<strong>Cube - / Cube +:</strong> Xoa mot khoi hoac them mot khoi vao hinh hien tai.",
+          "help-ctrl-rand":
+            "<strong>🔀 Random:</strong> Tạo một hình khối ngẫu nhiên mới.",
+          "help-ctrl-export":
+            "<strong>🖼️ Export:</strong> Xuất hình ảnh hiện tại ra file PNG.",
+        },
+      };
+
+      function setLanguage(lang) {
+        currentLanguage = lang;
+        document.documentElement.lang = lang;
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (translations[lang]?.[key]) {
+            el[el.hasAttribute("data-danger") ? "innerHTML" : "textContent"] =
+              translations[lang][key];
+          }
+        });
+        updateAndRender();
+      }
+
+      function toggleTheme() {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle("dark-mode", isDarkMode);
+        document.getElementById("theme-btn").innerText = isDarkMode
+          ? "☀️"
+          : "🌙";
+
+        // Update the 3D scene's background color
+        const newBgColor = getComputedStyle(document.body).getPropertyValue(
+          "--bg-color",
+        );
+        document.getElementById("bg-color-picker").value = newBgColor.trim();
+        settings.bgColor = newBgColor.trim();
+        updateBackground();
+      }
+
+      // --- Core Functions -------------------------------------------------------
+
+      /**
+       * Requests a new frame to be rendered. Important for on-demand rendering.
+       */
+      function requestRender() {
+        app.renderRequested = true;
+      }
+
+      function updateCameraDebugInfo() {
+        const infoDiv = document.getElementById("camera-debug-info");
+        if (!infoDiv || !app.camera || !app.controls) return;
+
+        const pos = app.camera.position;
+        const rot = app.camera.rotation;
+        const zoom = app.camera.zoom;
+        const target = app.controls.target;
+
+        const content = `
+                <strong>Position:</strong><br>
+                X: ${pos.x.toFixed(2)}<br>
+                Y: ${pos.y.toFixed(2)}<br>
+                Z: ${pos.z.toFixed(2)}<br>
+                <strong>Rotation:</strong><br>
+                _X: ${rot._x.toFixed(2)}<br>
+                _Y: ${rot._y.toFixed(2)}<br>
+                _Z: ${rot._z.toFixed(2)}<br>
+                <strong>Target:</strong><br>
+                X: ${target.x.toFixed(2)}<br>
+                Y: ${target.y.toFixed(2)}<br>
+                Z: ${target.z.toFixed(2)}<br>
+                <strong>Zoom:</strong> ${zoom.toFixed(2)}
+            `.replace(/^\s+/gm, ""); // Remove leading whitespace from each line
+
+        infoDiv.innerHTML = content;
+      }
+
+      /**
+       * The main animation loop. Only renders if requested or if controls are damping.
+       */
+      function animate() {
+        requestAnimationFrame(animate);
+        // Damping requires continuous updates. It returns true if the view is still changing.
+        const controlsUpdated = app.controls.update();
+
+        updateCameraDebugInfo();
+
+        if (controlsUpdated || app.renderRequested) {
+          app.composer.render();
+          app.renderRequested = false;
+        }
+      }
+
+      /**
+       * Initializes the entire THREE.js scene, objects, and event listeners.
+       */
+      function init() {
+        // Core component initialization first
+        app.scene = new THREE.Scene();
+        app.camera = new THREE.OrthographicCamera(
+          window.innerWidth / -100,
+          window.innerWidth / 100,
+          window.innerHeight / 100,
+          window.innerHeight / -100,
+          0.1,
+          1000,
+        );
+        app.camera.position.set(5, 5, 5);
+        app.camera.lookAt(0, 0, 0);
+        app.renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          preserveDrawingBuffer: true,
+          alpha: true,
+        });
+        app.cubeGroup = new THREE.Group();
+        app.scene.add(app.cubeGroup);
+
+        // Now that core objects exist, load settings
+        loadSettingsFromLocalStorage();
+        updateSettingsFromDOM();
+
+        // Renderer and controls setup
+        app.renderer.shadowMap.enabled = false;
+        app.renderer.setSize(window.innerWidth, window.innerHeight);
+        document
+          .getElementById("container")
+          .appendChild(app.renderer.domElement);
+        app.controls = new OrbitControls(app.camera, app.renderer.domElement);
+        app.controls.enableDamping = true;
+        app.controls.addEventListener("change", requestRender);
+
+        // Lights
+        app.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        app.scene.add(app.ambientLight);
+        app.directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        app.directionalLight.position
+          .set(lightDirection.x, lightDirection.y, lightDirection.z)
+          .multiplyScalar(15);
+        app.directionalLight.castShadow = false;
+        app.scene.add(app.directionalLight);
+
+        // Post-processing
+        app.composer = new EffectComposer(app.renderer);
+        app.composer.addPass(new RenderPass(app.scene, app.camera));
+        app.outlinePass = new OutlinePass(
+          new THREE.Vector2(window.innerWidth, window.innerHeight),
+          app.scene,
+          app.camera,
+        );
+        app.outlinePass.edgeStrength = 8;
+        app.outlinePass.edgeGlow = 0.5;
+        app.outlinePass.visibleEdgeColor.set(settings.edgeColor);
+        app.outlinePass.hiddenEdgeColor.set(settings.edgeColor);
+        app.composer.addPass(app.outlinePass);
+
+        app.composer.addPass(new OutputPass());
+
+        // Setup listeners first
+        setupEventListeners();
+        setupViewControls();
+        initCustomSeedSystem();
+        initColorSeedUI();
+
+        // Add color reset functionality
+        document
+          .getElementById("reset-colors-label")
+          .addEventListener("click", resetColorsToDefault);
+
+        // Add background color reset functionality
+        document
+          .getElementById("bg-color-picker")
+          .previousElementSibling.addEventListener(
+            "click",
+            resetBackgroundColorToDefault,
+          );
+
+        // Load shape from URL seed when present; otherwise start with 5 cubes.
+        loadInitialShape();
+
+        // Final setup
+        setLanguage("en");
+        if (
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+        ) {
+          if (!localStorage.getItem("funnyCubesSettings")) {
+            // Only auto-theme if no settings saved
+            toggleTheme();
+          }
+        }
+
+        updateBackground();
+
+        // Ensure view button colors are set up properly after all initialization
+        updateViewButtonColors();
+
+        updateAndRender(); // Initial render and seed update
+        animate();
+        scheduleStartupFit();
+      }
+
+      // --- Event Listeners ------------------------------------------------------
+
+      function setupEventListeners() {
+        // Window
+        window.addEventListener("resize", onWindowResize);
+        window.addEventListener("keydown", onKeyDown);
+
+        // Container
+        const container = document.getElementById("container");
+        container.addEventListener("dblclick", onDoubleClick);
+        container.addEventListener("pointermove", onPointerMove);
+        container.addEventListener("pointerdown", onPointerDown);
+
+        // Controls
+        document
+          .getElementById("theme-btn")
+          .addEventListener("click", toggleTheme);
+        document
+          .getElementById("lang-toggle")
+          .addEventListener("click", () =>
+            setLanguage(currentLanguage === "en" ? "vi" : "en"),
+          );
+        document
+          .getElementById("add-cube")
+          .addEventListener("click", autoAddCubeOnDominantFloor);
+        document
+          .getElementById("remove-cube")
+          .addEventListener("click", autoRemoveCubeOnDominantFloor);
+        document
+          .getElementById("add-mode-btn")
+          .addEventListener("click", toggleAddMode);
+        document
+          .getElementById("remove-mode-btn")
+          .addEventListener("click", toggleRemoveMode);
+        document
+          .getElementById("randomize")
+          .addEventListener("click", randomizeCurrentCubeCount);
+        document
+          .getElementById("bg-color-picker")
+          .addEventListener("input", changeBackgroundColor);
+        document
+          .getElementById("edges-toggle")
+          .addEventListener("change", toggleEdgesVisibility);
+        document
+          .getElementById("edges-color-picker")
+          .addEventListener("input", changeEdgesColor);
+        document
+          .getElementById("edges-opacity-slider")
+          .addEventListener("input", changeEdgesOpacity);
+        document
+          .getElementById("incr-edge-width")
+          .addEventListener("click", () => updateEdgeWidth(1));
+        document
+          .getElementById("decr-edge-width")
+          .addEventListener("click", () => updateEdgeWidth(-1));
+
+        // New 3-Color-Mode Listeners
+        document
+          .getElementById("color-picker-a")
+          .addEventListener("input", (e) => {
+            settings.colorA = e.target.value;
+            updateAllCubeMaterials();
+          });
+        document
+          .getElementById("color-picker-b")
+          .addEventListener("input", (e) => {
+            settings.colorB = e.target.value;
+            updateAllCubeMaterials();
+          });
+        document
+          .getElementById("color-picker-c")
+          .addEventListener("input", (e) => {
+            settings.colorC = e.target.value;
+            updateAllCubeMaterials();
+          });
+        document
+          .getElementById("color-a-toggle")
+          .addEventListener("change", (e) => {
+            settings.colorA_enabled = e.target.checked;
+            updateAllCubeMaterials();
+          });
+        document
+          .getElementById("color-b-toggle")
+          .addEventListener("change", (e) => {
+            settings.colorB_enabled = e.target.checked;
+            updateAllCubeMaterials();
+          });
+        document
+          .getElementById("color-c-toggle")
+          .addEventListener("change", (e) => {
+            settings.colorC_enabled = e.target.checked;
+            updateAllCubeMaterials();
+          });
+
+        // Modals & Export
+        let lastExportType = null;
+        document.getElementById("export-png").addEventListener("click", () => {
+          lastExportType = "png";
+          exportToPNG();
+        });
+        document
+          .getElementById("export-cabinet")
+          .addEventListener("click", () => {
+            lastExportType = "cabinet";
+            currentCabinetViewIndex = 0; // Reset to front view
+            exportCabinet();
+          });
+        document
+          .getElementById("export-solid-bg")
+          .addEventListener("change", () => {
+            updateSettingsFromDOM();
+            if (lastExportType === "png") exportToPNG();
+            else if (lastExportType === "cabinet") exportCabinet();
+          });
+
+        document
+          .getElementById("export-seed-toggle")
+          .addEventListener("change", (e) => {
+            exportSettings.showSeed = e.target.checked;
+            if (lastExportType === "png") exportToPNG();
+            else if (lastExportType === "cabinet") exportCabinet();
+          });
+
+        document
+          .getElementById("export-seed-pos-btn")
+          .addEventListener("click", () => {
+            // Cycle through corners: each corner shows horizontal then vertical
+            // Order: Top-left(H)→Top-left(V)→Top-right(H)→Top-right(V)→Bottom-right(H)→Bottom-right(V)→Bottom-left(H)→Bottom-left(V)
+            const currentPos = exportSettings.seedPosition;
+            let nextPos;
+
+            // Define the cycling order: each corner shows horizontal then vertical
+            const cycleOrder = [4, 0, 5, 1, 6, 2, 7, 3]; // H4→V0→H5→V1→H6→V2→H7→V3
+
+            // Find current position in the cycle
+            const currentIndex = cycleOrder.indexOf(currentPos);
+            if (currentIndex === -1) {
+              // If not found (shouldn't happen), start at beginning
+              nextPos = 4;
+            } else {
+              // Move to next position in the cycle
+              const nextIndex = (currentIndex + 1) % cycleOrder.length;
+              nextPos = cycleOrder[nextIndex];
+            }
+
+            exportSettings.seedPosition = nextPos;
+            if (lastExportType === "png") exportToPNG();
+            else if (lastExportType === "cabinet") exportCabinet();
+          });
+
+        // Seed size adjustment buttons
+        document
+          .getElementById("export-seed-size-down")
+          .addEventListener("click", () => {
+            exportSettings.seedSize = Math.max(
+              0.5,
+              exportSettings.seedSize - 0.1,
+            );
+            if (lastExportType === "png") exportToPNG();
+            else if (lastExportType === "cabinet") exportCabinet();
+          });
+
+        document
+          .getElementById("export-seed-size-up")
+          .addEventListener("click", () => {
+            exportSettings.seedSize = Math.min(
+              2.0,
+              exportSettings.seedSize + 0.1,
+            );
+            if (lastExportType === "png") exportToPNG();
+            else if (lastExportType === "cabinet") exportCabinet();
+          });
+
+        document.getElementById("help-btn").addEventListener("click", () => {
+          document.getElementById("help-overlay").style.display = "flex";
+        });
+        document.getElementById("help-close").addEventListener("click", () => {
+          document.getElementById("help-overlay").style.display = "none";
+        });
+        document
+          .getElementById("preview-cancel")
+          .addEventListener("click", () => {
+            document.getElementById("preview-overlay").style.display = "none";
+          });
+        document
+          .getElementById("preview-save")
+          .addEventListener("click", savePreviewImage);
+
+        // Cabinet Preview Navigation
+        document.getElementById("camera-prev").addEventListener("click", () => {
+          if (!isCabinetExport) return;
+          currentCabinetViewIndex =
+            (currentCabinetViewIndex - 1 + cabinetViews.length) %
+            cabinetViews.length;
+          exportCabinet();
+        });
+        document.getElementById("camera-next").addEventListener("click", () => {
+          if (!isCabinetExport) return;
+          currentCabinetViewIndex =
+            (currentCabinetViewIndex + 1) % cabinetViews.length;
+          exportCabinet();
+        });
+      }
+
+      function onWindowResize() {
+        app.camera.aspect = window.innerWidth / window.innerHeight;
+        app.camera.updateProjectionMatrix();
+        app.renderer.setSize(window.innerWidth, window.innerHeight);
+        app.composer.setSize(window.innerWidth, window.innerHeight);
+        updateAndRender();
+      }
+
+      // --- Interaction Logic ----------------------------------------------------
+
+      function getMeshCubes(excludedCube = null) {
+        return app.cubeGroup.children.filter(
+          (c) => c.isMesh && c !== excludedCube,
+        );
+      }
+
+      function findEdgesForCube(cube) {
+        return app.cubeGroup.children.find(
+          (c) => c.userData.isEdges && c.userData.cubeId === cube.uuid,
+        );
+      }
+
+      function syncCubeCountFromScene() {
+        const count = getMeshCubes().length;
+        settings.cubeCount = count;
+        document.getElementById("cube-count").textContent = String(count);
+      }
+
+      function getDominantFloorY() {
+        const cubes = getMeshCubes();
+        if (cubes.length === 0) return 0;
+
+        const floorCounts = new Map();
+        cubes.forEach((cube) => {
+          const y = Math.round(cube.position.y);
+          floorCounts.set(y, (floorCounts.get(y) || 0) + 1);
+        });
+
+        let dominantY = 0;
+        let dominantCount = -1;
+        floorCounts.forEach((count, y) => {
+          if (count > dominantCount || (count === dominantCount && y < dominantY)) {
+            dominantCount = count;
+            dominantY = y;
+          }
+        });
+
+        return dominantY;
+      }
+
+      function ensureGhostCube() {
+        if (interaction.ghostCube) return interaction.ghostCube;
+        const geo = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+        const mat = new THREE.MeshBasicMaterial({
+          color: GHOST_COLORS.MOVE,
+          transparent: true,
+          opacity: 0.5,
+          depthTest: false,
+        });
+        interaction.ghostCube = new THREE.Mesh(geo, mat);
+        return interaction.ghostCube;
+      }
+
+      function showGhostCube(position, color, opacity = 0.5) {
+        const ghost = ensureGhostCube();
+        ghost.material.color.setHex(color);
+        ghost.material.opacity = opacity;
+        ghost.position.copy(position);
+        if (ghost.parent !== app.scene) app.scene.add(ghost);
+      }
+
+      function hideGhostCube() {
+        if (interaction.ghostCube?.parent) {
+          interaction.ghostCube.parent.remove(interaction.ghostCube);
+        }
+      }
+
+      function updateModeButtons() {
+        document
+          .getElementById("add-mode-btn")
+          .classList.toggle("mode-active", interaction.state === "ADDING");
+        document
+          .getElementById("remove-mode-btn")
+          .classList.toggle("mode-active", interaction.state === "REMOVING");
+      }
+
+      function clearRemovePreview() {
+        if (interaction.removePreviewCube) interaction.removePreviewCube.visible = true;
+        if (interaction.removePreviewEdges)
+          interaction.removePreviewEdges.visible = settings.edgeVisible;
+        interaction.removePreviewCube = null;
+        interaction.removePreviewEdges = null;
+      }
+
+      function clearHoverPreview() {
+        interaction.hoverTarget = null;
+        interaction.isNearCubezone = false;
+        app.outlinePass.selectedObjects = [];
+      }
+
+      function updatePointerRay(event) {
+        interaction.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        interaction.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        interaction.raycaster.setFromCamera(interaction.mouse, app.camera);
+      }
+
+      function getAdjacentPosition(intersect) {
+        if (!intersect?.face) return null;
+        const normal = intersect.face.normal
+          .clone()
+          .transformDirection(intersect.object.matrixWorld)
+          .round();
+        return new THREE.Vector3()
+          .copy(intersect.object.position)
+          .add(normal.multiplyScalar(CUBE_SIZE));
+      }
+
+      function isPositionOccupied(position, excludedCube = null) {
+        return getMeshCubes(excludedCube).some(
+          (c) => c.position.distanceTo(position) < 0.1,
+        );
+      }
+
+      function updateMoveGhostFromPointer() {
+        const targetPos = getMovePlacementPositionFromRay();
+        if (!targetPos) return;
+        showGhostCube(targetPos, GHOST_COLORS.MOVE, 0.5);
+        updateAndRender();
+      }
+
+      function getMovePlacementPositionFromRay() {
+        const otherCubes = getMeshCubes(interaction.selectedCube);
+        const intersects = interaction.raycaster.intersectObjects(otherCubes);
+        if (intersects.length === 0) return null;
+        const newPos = getAdjacentPosition(intersects[0]);
+        return newPos || null;
+      }
+
+      function updateAddGhostFromPointer() {
+        const cubes = getMeshCubes();
+        if (cubes.length === 0) {
+          const origin = new THREE.Vector3(0, 0, 0);
+          interaction.addPreviewPosition = origin;
+          showGhostCube(origin, GHOST_COLORS.ADD, 0.5);
+          updateAndRender();
+          return;
+        }
+
+        const intersects = interaction.raycaster.intersectObjects(cubes);
+        if (intersects.length === 0) {
+          interaction.addPreviewPosition = null;
+          hideGhostCube();
+          updateAndRender();
+          return;
+        }
+
+        const newPos = getAdjacentPosition(intersects[0]);
+        if (!newPos || isPositionOccupied(newPos)) {
+          interaction.addPreviewPosition = null;
+          hideGhostCube();
+          updateAndRender();
+          return;
+        }
+
+        interaction.addPreviewPosition = newPos;
+        showGhostCube(newPos, GHOST_COLORS.ADD, 0.5);
+        updateAndRender();
+      }
+
+      function updateRemovePreviewFromPointer() {
+        const cubes = getMeshCubes();
+        const intersects = interaction.raycaster.intersectObjects(cubes);
+        const target = intersects.length > 0 ? intersects[0].object : null;
+
+        if (target === interaction.removePreviewCube) return;
+
+        clearRemovePreview();
+        if (!target) {
+          hideGhostCube();
+          updateAndRender();
+          return;
+        }
+
+        interaction.removePreviewCube = target;
+        interaction.removePreviewEdges = findEdgesForCube(target);
+        interaction.removePreviewCube.visible = false;
+        if (interaction.removePreviewEdges) interaction.removePreviewEdges.visible = false;
+
+        showGhostCube(target.position, GHOST_COLORS.REMOVE, 0.55);
+        updateAndRender();
+      }
+
+      function disposeEdges(edgesGroup) {
+        if (!edgesGroup) return;
+        const geometries = new Set();
+        const materials = new Set();
+        edgesGroup.children.forEach((mesh) => {
+          if (mesh.geometry) geometries.add(mesh.geometry);
+          if (mesh.material) materials.add(mesh.material);
+        });
+        geometries.forEach((g) => g.dispose());
+        materials.forEach((m) => m.dispose());
+      }
+
+      function disposeCube(cube) {
+        if (!cube) return;
+        cube.geometry.dispose();
+        if (Array.isArray(cube.material)) {
+          cube.material.forEach((m) => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
+        } else if (cube.material) {
+          if (cube.material.map) cube.material.map.dispose();
+          cube.material.dispose();
+        }
+      }
+
+      function removeCubeAndEdges(cube, edges = null) {
+        const linkedEdges = edges || findEdgesForCube(cube);
+        if (linkedEdges) {
+          app.cubeGroup.remove(linkedEdges);
+          disposeEdges(linkedEdges);
+        }
+        app.cubeGroup.remove(cube);
+        disposeCube(cube);
+      }
+
+      function confirmMovePlacement(candidatePosition = null) {
+        if (interaction.state !== "MOVING") return false;
+        if (!interaction.selectedCube || !interaction.selectedEdges || !interaction.ghostCube)
+          return false;
+
+        const targetPos =
+          candidatePosition || interaction.ghostCube?.position?.clone() || null;
+        if (!targetPos) return false;
+
+        const isOccupied = isPositionOccupied(
+          targetPos,
+          interaction.selectedCube,
+        );
+        if (!isOccupied) {
+          interaction.selectedCube.position.copy(targetPos);
+          interaction.selectedEdges.position.copy(targetPos);
+          leaveMoveState();
+          return true;
+        }
+        return false;
+      }
+
+      function confirmAddPlacement() {
+        if (interaction.state !== "ADDING") return false;
+        if (!interaction.addPreviewPosition) return false;
+        if (isPositionOccupied(interaction.addPreviewPosition)) return false;
+
+        createCubeAndEdges(interaction.addPreviewPosition.clone(), createCubeMaterials());
+        syncCubeCountFromScene();
+        interaction.addPreviewPosition = null;
+        updateAddGhostFromPointer();
+        return true;
+      }
+
+      function confirmRemovePlacement() {
+        if (interaction.state !== "REMOVING") return false;
+        if (!interaction.removePreviewCube) return false;
+
+        const cube = interaction.removePreviewCube;
+        const edges = interaction.removePreviewEdges;
+        interaction.removePreviewCube = null;
+        interaction.removePreviewEdges = null;
+
+        removeCubeAndEdges(cube, edges);
+        syncCubeCountFromScene();
+        updateRemovePreviewFromPointer();
+        return true;
+      }
+
+      function enterAddState() {
+        if (interaction.state !== "IDLE") leaveMoveState();
+        clearHoverPreview();
+        interaction.state = "ADDING";
+        interaction.addPreviewPosition = null;
+        updateModeButtons();
+        updateAddGhostFromPointer();
+      }
+
+      function enterRemoveState() {
+        if (interaction.state !== "IDLE") leaveMoveState();
+        clearHoverPreview();
+        interaction.state = "REMOVING";
+        updateModeButtons();
+        updateRemovePreviewFromPointer();
+      }
+
+      function toggleAddMode() {
+        if (interaction.state === "ADDING") {
+          leaveMoveState();
+          return;
+        }
+        enterAddState();
+      }
+
+      function toggleRemoveMode() {
+        if (interaction.state === "REMOVING") {
+          leaveMoveState();
+          return;
+        }
+        enterRemoveState();
+      }
+
+      function randomizeCurrentCubeCount() {
+        leaveMoveState();
+        generateConnectedCubes(settings.cubeCount);
+      }
+
+      function autoAddCubeOnDominantFloor() {
+        leaveMoveState();
+        const cubes = getMeshCubes();
+        if (cubes.length === 0) {
+          createCubeAndEdges(new THREE.Vector3(0, 0, 0), createCubeMaterials());
+          syncCubeCountFromScene();
+          updateAndRender();
+          return;
+        }
+
+        const dominantFloorY = getDominantFloorY();
+        const occupied = new Set(cubes.map((c) => posToString(c.position)));
+        const candidates = [];
+        const candidateKeys = new Set();
+        const floorCubes = cubes.filter(
+          (cube) => Math.round(cube.position.y) === dominantFloorY,
+        );
+        const floorDirs = [
+          new THREE.Vector3(1, 0, 0),
+          new THREE.Vector3(-1, 0, 0),
+          new THREE.Vector3(0, 0, 1),
+          new THREE.Vector3(0, 0, -1),
+        ];
+
+        floorCubes.forEach((cube) => {
+          floorDirs.forEach((dir) => {
+            const pos = new THREE.Vector3().copy(cube.position).add(dir);
+            pos.y = dominantFloorY;
+            const key = `${Math.round(pos.x)},${dominantFloorY},${Math.round(pos.z)}`;
+            if (!occupied.has(key) && !candidateKeys.has(key)) {
+              candidateKeys.add(key);
+              candidates.push(pos);
+            }
+          });
+        });
+
+        if (candidates.length === 0) {
+          showToast("No valid dominant-floor add position.");
+          return;
+        }
+
+        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        createCubeAndEdges(chosen, createCubeMaterials());
+        syncCubeCountFromScene();
+        updateAndRender();
+      }
+
+      function autoRemoveCubeOnDominantFloor() {
+        leaveMoveState();
+        const cubes = getMeshCubes();
+        if (cubes.length === 0) return;
+
+        // Find the floor with the least cubes (lowest floor if tied)
+        const floorCounts = new Map();
+        cubes.forEach((cube) => {
+          const y = Math.round(cube.position.y);
+          floorCounts.set(y, (floorCounts.get(y) || 0) + 1);
+        });
+
+        let targetFloor = null;
+        let minCount = Infinity;
+        
+        floorCounts.forEach((count, y) => {
+          if (count < minCount || (count === minCount && y > targetFloor)) {
+            minCount = count;
+            targetFloor = y;
+          }
+        });
+
+        if (targetFloor === null) return;
+
+        const floorCubes = cubes.filter(
+          (cube) => Math.round(cube.position.y) === targetFloor,
+        );
+        
+        if (floorCubes.length === 0) return;
+
+        const target = floorCubes[Math.floor(Math.random() * floorCubes.length)];
+        removeCubeAndEdges(target);
+        syncCubeCountFromScene();
+        updateAndRender();
+      }
+
+      function onDoubleClick(event) {
+        if (interaction.state !== "IDLE") return;
+        // Prevent double-click from interfering with camera controls
+        event.preventDefault();
+        event.stopPropagation();
+
+        updatePointerRay(event);
+        const intersects = interaction.raycaster.intersectObjects(
+          getMeshCubes(),
+        );
+        if (intersects.length > 0) enterMoveState(intersects[0].object);
+      }
+
+      function onPointerMove(event) {
+        // Update mouse position for raycasting
+        updatePointerRay(event);
+
+        // Handle drag detection for mouse
+        if (interaction.mouseStartPos && interaction.state === "IDLE") {
+          const dx = Math.abs(event.clientX - interaction.mouseStartPos.x);
+          const dy = Math.abs(event.clientY - interaction.mouseStartPos.y);
+          if (
+            dx > interaction.dragThreshold ||
+            dy > interaction.dragThreshold
+          ) {
+            interaction.isMouseDragging = true;
+          }
+        }
+
+        // Handle drag detection for touch
+        if (interaction.touchStartPos && interaction.state === "IDLE") {
+          const dx = Math.abs(event.clientX - interaction.touchStartPos.x);
+          const dy = Math.abs(event.clientY - interaction.touchStartPos.y);
+          if (
+            dx > interaction.dragThreshold ||
+            dy > interaction.dragThreshold
+          ) {
+            interaction.isTouchDragging = true;
+          }
+        }
+
+        // Handle hover preview for idle state
+        if (interaction.state === "IDLE") {
+          const cubes = getMeshCubes();
+          const intersects = interaction.raycaster.intersectObjects(cubes);
+
+          if (intersects.length > 0) {
+            const intersect = intersects[0];
+            const target = intersect.object;
+
+            // Check if we're near a cubezone (within 1.5 units)
+            const distance = target.position.distanceTo(app.camera.position);
+            interaction.isNearCubezone = distance < 15; // Adjust threshold as needed
+
+            if (interaction.hoverTarget !== target) {
+              interaction.hoverTarget = target;
+              // Highlight the target cube
+              app.outlinePass.selectedObjects = [target];
+              updateAndRender();
+            }
+          } else {
+            if (interaction.hoverTarget) {
+              interaction.hoverTarget = null;
+              app.outlinePass.selectedObjects = [];
+              updateAndRender();
+            }
+            interaction.isNearCubezone = false;
+          }
+        }
+
+        // Handle ghost cube movement for moving state
+        if (interaction.state === "MOVING") {
+          updateMoveGhostFromPointer();
+        } else if (interaction.state === "ADDING") {
+          updateAddGhostFromPointer();
+        } else if (interaction.state === "REMOVING") {
+          updateRemovePreviewFromPointer();
+        }
+      }
+
+      function onPointerDown(event) {
+        if (app.isViewTransitioning) {
+          cancelViewTransition();
+        }
+
+        // Store initial touch/mouse position for drag detection
+        if (event.pointerType === "touch") {
+          interaction.touchStartPos = { x: event.clientX, y: event.clientY };
+          interaction.touchStartTime = Date.now();
+          interaction.isTouchDragging = false;
+
+          // Handle touch double-tap detection
+          const now = Date.now();
+          const timeSinceLastTap = now - interaction.touchTapStartTime;
+
+          if (timeSinceLastTap < 300) {
+            // Double-tap threshold
+            interaction.touchTapCount++;
+          } else {
+            interaction.touchTapCount = 1;
+          }
+          interaction.touchTapStartTime = now;
+
+          // Clear previous timeout if exists
+          if (interaction.touchTapTimeout) {
+            clearTimeout(interaction.touchTapTimeout);
+          }
+
+          // Set new timeout to handle single tap after delay
+          interaction.touchTapTimeout = setTimeout(() => {
+            if (interaction.touchTapCount === 1) {
+              handleTouchSingleTap(event);
+            }
+            interaction.touchTapCount = 0;
+          }, 300);
+        } else {
+          interaction.mouseStartPos = { x: event.clientX, y: event.clientY };
+          interaction.isMouseDragging = false;
+        }
+
+        // Handle touch interactions
+        if (event.pointerType === "touch") {
+          if (interaction.state === "IDLE") {
+            // Single tap to preview (handled in timeout)
+            // Double-tap to select
+            if (interaction.touchTapCount === 2) {
+              clearTimeout(interaction.touchTapTimeout);
+              interaction.touchTapCount = 0;
+              handleTouchDoubleTap(event);
+            }
+          } else if (interaction.state === "MOVING") {
+            updatePointerRay(event);
+            updateMoveGhostFromPointer();
+            const candidate = getMovePlacementPositionFromRay();
+            if (candidate) {
+              confirmMovePlacement(candidate);
+            }
+          } else if (interaction.state === "ADDING") {
+            updatePointerRay(event);
+            updateAddGhostFromPointer();
+            confirmAddPlacement();
+          } else if (interaction.state === "REMOVING") {
+            updatePointerRay(event);
+            updateRemovePreviewFromPointer();
+            confirmRemovePlacement();
+          }
+        }
+        // Handle mouse interactions
+        else if (event.button === 0) {
+          if (interaction.state === "MOVING") {
+            updatePointerRay(event);
+            const candidate = getMovePlacementPositionFromRay();
+            if (candidate) {
+              confirmMovePlacement(candidate);
+            }
+          } else if (interaction.state === "ADDING") {
+            updatePointerRay(event);
+            updateAddGhostFromPointer();
+            confirmAddPlacement();
+          } else if (interaction.state === "REMOVING") {
+            updatePointerRay(event);
+            updateRemovePreviewFromPointer();
+            confirmRemovePlacement();
+          }
+        }
+      }
+
+      function onKeyDown(event) {
+        if (event.key === "Escape" && interaction.state !== "IDLE") leaveMoveState();
+      }
+
+      function enterMoveState(cube) {
+        const edges = findEdgesForCube(cube);
+        if (!edges) return;
+        if (interaction.state !== "IDLE") leaveMoveState();
+        interaction.state = "MOVING";
+        interaction.selectedCube = cube;
+        interaction.selectedEdges = edges;
+        app.outlinePass.selectedObjects = [interaction.selectedCube];
+        showGhostCube(interaction.selectedCube.position, GHOST_COLORS.MOVE, 0.5);
+        interaction.selectedCube.visible = false;
+        interaction.selectedEdges.visible = false;
+        updateModeButtons();
+        updateAndRender();
+      }
+
+      function leaveMoveState() {
+        if (interaction.selectedCube) interaction.selectedCube.visible = true;
+        if (interaction.selectedEdges)
+          interaction.selectedEdges.visible = settings.edgeVisible;
+        clearRemovePreview();
+        clearHoverPreview();
+        hideGhostCube();
+        interaction.state = "IDLE";
+        interaction.selectedCube = null;
+        interaction.selectedEdges = null;
+        interaction.addPreviewPosition = null;
+        updateModeButtons();
+        updateAndRender();
+      }
+
+      // --- Touch Interaction Helper Functions -----------------------------------
+
+      function handleTouchSingleTap(event) {
+        if (interaction.state !== "IDLE") return;
+
+        interaction.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        interaction.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        interaction.raycaster.setFromCamera(interaction.mouse, app.camera);
+        const cubes = app.cubeGroup.children.filter((c) => c.isMesh);
+        const intersects = interaction.raycaster.intersectObjects(cubes);
+
+        if (intersects.length > 0) {
+          const target = intersects[0].object;
+          // Highlight for preview
+          app.outlinePass.selectedObjects = [target];
+          updateAndRender();
+        }
+      }
+
+      function handleTouchDoubleTap(event) {
+        if (interaction.state !== "IDLE") return;
+
+        interaction.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        interaction.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        interaction.raycaster.setFromCamera(interaction.mouse, app.camera);
+        const intersects = interaction.raycaster.intersectObjects(
+          app.cubeGroup.children.filter((c) => c.isMesh),
+        );
+        if (intersects.length > 0) enterMoveState(intersects[0].object);
+      }
+
+      // --- Cube Generation and Management ---------------------------------------
+
+      /**
+       * Reads all settings from the DOM controls into the settings object.
+       */
+      function updateSettingsFromDOM() {
+        settings.edgeColor =
+          document.getElementById("edges-color-picker").value;
+        settings.edgeOpacity = parseFloat(
+          document.getElementById("edges-opacity-slider").value,
+        );
+        settings.edgeVisible = document.getElementById("edges-toggle").checked;
+        settings.edgeWidth =
+          parseInt(document.getElementById("edge-width-display").textContent) ||
+          2;
+        settings.shadows = false;
+        settings.bgColor = document.getElementById("bg-color-picker").value;
+        settings.gradientBg = false;
+        settings.colorA = document.getElementById("color-picker-a").value;
+        settings.colorB = document.getElementById("color-picker-b").value;
+        settings.colorC = document.getElementById("color-picker-c").value;
+        settings.colorA_enabled =
+          document.getElementById("color-a-toggle").checked;
+        settings.colorB_enabled =
+          document.getElementById("color-b-toggle").checked;
+        settings.colorC_enabled =
+          document.getElementById("color-c-toggle").checked;
+        settings.exportSolidBg =
+          document.getElementById("export-solid-bg").checked;
+      }
+
+      function saveSettingsToLocalStorage() {
+        // We call updateSettingsFromDOM first to make sure our settings object is fresh
+        updateSettingsFromDOM();
+        // Then we save the whole object.
+        localStorage.setItem("funnyCubesSettings", JSON.stringify(settings));
+      }
+
+      function loadSettingsFromLocalStorage() {
+        const savedSettings = localStorage.getItem("funnyCubesSettings");
+        if (savedSettings) {
+          const loaded = JSON.parse(savedSettings);
+
+          // Update the live settings object
+          Object.assign(settings, loaded);
+
+          // Update all the DOM elements to reflect the loaded settings
+          document.getElementById("bg-color-picker").value = settings.bgColor;
+          document.getElementById("edges-color-picker").value =
+            settings.edgeColor;
+          document.getElementById("edges-opacity-slider").value =
+            settings.edgeOpacity;
+          document.getElementById("edge-width-display").textContent =
+            settings.edgeWidth;
+          document.getElementById("edges-toggle").checked =
+            settings.edgeVisible;
+          document.getElementById("color-picker-a").value = settings.colorA;
+          document.getElementById("color-picker-b").value = settings.colorB;
+          document.getElementById("color-picker-c").value = settings.colorC;
+          document.getElementById("color-a-toggle").checked =
+            settings.colorA_enabled;
+          document.getElementById("color-b-toggle").checked =
+            settings.colorB_enabled;
+          document.getElementById("color-c-toggle").checked =
+            settings.colorC_enabled;
+          document.getElementById("export-solid-bg").checked =
+            settings.exportSolidBg;
+
+          // Now apply the settings to the scene
+          updateAllCubeMaterials();
+          updateBackground();
+          // This is a simplified version of updating edge styles
+          const newEdgeColor = new THREE.Color(settings.edgeColor);
+          app.cubeGroup.children.forEach((c) => {
+            if (c.userData.isEdges) {
+              c.visible = settings.edgeVisible;
+              c.children.forEach((tube) => {
+                tube.material.color.set(newEdgeColor);
+                tube.material.opacity = settings.edgeOpacity;
+              });
+            }
+          });
+
+          // Update view button colors to match the loaded settings
+          updateViewButtonColors();
+        }
+      }
+
+      function clearCubes() {
+        while (app.cubeGroup.children.length > 0) {
+          const child = app.cubeGroup.children[0];
+          app.cubeGroup.remove(child);
+          if (child.userData.isEdges) {
+            const geometries = new Set();
+            const materials = new Set();
+            child.children.forEach((mesh) => {
+              if (mesh.geometry) geometries.add(mesh.geometry);
+              if (mesh.material) materials.add(mesh.material);
+            });
+            geometries.forEach((g) => g.dispose());
+            materials.forEach((m) => m.dispose());
+          } else if (child.isMesh) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => {
+                if (m.map) m.map.dispose();
+                m.dispose();
+              });
+            } else if (child.material) {
+              if (child.material.map) child.material.map.dispose();
+              child.material.dispose();
+            }
+          }
+        }
+      }
+
+      function generateConnectedCubes(count) {
+        updateSettingsFromDOM();
+        leaveMoveState();
+        clearCubes();
+        document.getElementById("cube-count").textContent = count;
+        if (count <= 0) {
+          updateAndRender();
+          return;
+        }
+        const occupiedPositions = new Set();
+        const firstPos = new THREE.Vector3(0, 0, 0);
+
+        const cubeMaterials = createCubeMaterials(); // Create materials once
+
+        createCubeAndEdges(firstPos, cubeMaterials);
+        occupiedPositions.add(posToString(firstPos));
+        const potentialGrowthPoints = [firstPos];
+        for (let i = 1; i < count; i++) {
+          let placed = false;
+          while (!placed && potentialGrowthPoints.length > 0) {
+            const growthIndex = Math.floor(
+              Math.random() * potentialGrowthPoints.length,
+            );
+            const growthPos = potentialGrowthPoints[growthIndex];
+            const directions = [
+              new THREE.Vector3(1, 0, 0),
+              new THREE.Vector3(-1, 0, 0),
+              new THREE.Vector3(0, 1, 0),
+              new THREE.Vector3(0, -1, 0),
+              new THREE.Vector3(0, 0, 1),
+              new THREE.Vector3(0, 0, -1),
+            ].sort(() => Math.random() - 0.5);
+            for (const dir of directions) {
+              const newPos = new THREE.Vector3().copy(growthPos).add(dir);
+              if (!occupiedPositions.has(posToString(newPos))) {
+                createCubeAndEdges(newPos, cubeMaterials);
+                occupiedPositions.add(posToString(newPos));
+                potentialGrowthPoints.push(newPos);
+                placed = true;
+                break;
+              }
+            }
+            if (!placed) potentialGrowthPoints.splice(growthIndex, 1);
+          }
+          if (!placed) {
+            console.error("Could not place all cubes.");
+            break;
+          }
+        }
+        updateAndRender();
+        fitCameraToCubes();
+      }
+
+      const faceNormals = [
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, -1, 0),
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, 0, -1),
+      ];
+      const gradCanvas = document.createElement("canvas");
+      gradCanvas.width = 64;
+      gradCanvas.height = 64;
+      const gradCtx = gradCanvas.getContext("2d");
+
+      function createCubeMaterials() {
+        const enabledA = settings.colorA_enabled;
+        const enabledB = settings.colorB_enabled;
+        const enabledC = settings.colorC_enabled;
+        const enabledCount =
+          (enabledA ? 1 : 0) + (enabledB ? 1 : 0) + (enabledC ? 1 : 0);
+
+        if (enabledCount === 0) {
+          return new THREE.MeshBasicMaterial({ color: "#cccccc" });
+        }
+
+        if (enabledCount === 1) {
+          const singleColor = enabledA
+            ? settings.colorA
+            : enabledB
+              ? settings.colorB
+              : settings.colorC;
+          return new THREE.MeshBasicMaterial({ color: singleColor });
+        }
+
+        // Determine a sensible fallback color if a specific slot is disabled.
+        // Priority is A, then B, then C.
+        const fallbackColor = enabledA
+          ? settings.colorA
+          : enabledB
+            ? settings.colorB
+            : settings.colorC;
+
+        const colorRightLeft = enabledC ? settings.colorC : fallbackColor;
+        const colorTopBottom = enabledA ? settings.colorA : fallbackColor;
+        const colorFrontBack = enabledB ? settings.colorB : fallbackColor;
+
+        return [
+          new THREE.MeshBasicMaterial({ color: colorRightLeft }), // Right
+          new THREE.MeshBasicMaterial({ color: colorRightLeft }), // Left
+          new THREE.MeshBasicMaterial({ color: colorTopBottom }), // Top
+          new THREE.MeshBasicMaterial({ color: colorTopBottom }), // Bottom
+          new THREE.MeshBasicMaterial({ color: colorFrontBack }), // Front
+          new THREE.MeshBasicMaterial({ color: colorFrontBack }), // Back
+        ];
+      }
+
+      function createCubeAndEdges(position, materials) {
+        const cube = new THREE.Mesh(CUBE_GEOMETRY, materials);
+        cube.position.copy(position);
+        cube.castShadow = false;
+        cube.receiveShadow = false;
+        const edges = createTubeEdges(cube);
+        cube.userData.edgesId = edges.uuid;
+        app.cubeGroup.add(cube);
+        app.cubeGroup.add(edges);
+      }
+
+      function createTubeEdges(cube) {
+        const edgesGroup = new THREE.Group();
+        edgesGroup.userData.isEdges = true;
+        edgesGroup.userData.cubeId = cube.uuid;
+        const radius = settings.edgeWidth * 0.01;
+        const material = new THREE.MeshBasicMaterial({
+          color: settings.edgeColor,
+          opacity: settings.edgeOpacity,
+          transparent: true,
+          visible: settings.edgeVisible,
+        });
+        const half = CUBE_SIZE / 2;
+        const points = [
+          new THREE.Vector3(-half, -half, -half),
+          new THREE.Vector3(half, -half, -half),
+          new THREE.Vector3(half, half, -half),
+          new THREE.Vector3(-half, half, -half),
+          new THREE.Vector3(-half, -half, half),
+          new THREE.Vector3(half, -half, half),
+          new THREE.Vector3(half, half, half),
+          new THREE.Vector3(-half, half, half),
+        ];
+        const edgePairs = [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [3, 0],
+          [4, 5],
+          [5, 6],
+          [6, 7],
+          [7, 4],
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 7],
+        ];
+
+        edgePairs.forEach((pair) => {
+          const path = new THREE.LineCurve3(points[pair[0]], points[pair[1]]);
+          const geo = new THREE.TubeGeometry(path, 1, radius, 4, false);
+          const tube = new THREE.Mesh(geo, material);
+          edgesGroup.add(tube);
+        });
+
+        // Add spheres to cover corner gaps for a smoother look
+        const sphereGeo = new THREE.SphereGeometry(radius, 6, 4);
+        points.forEach((p) => {
+          const corner = new THREE.Mesh(sphereGeo, material);
+          corner.position.copy(p);
+          edgesGroup.add(corner);
+        });
+
+        edgesGroup.position.copy(cube.position);
+        edgesGroup.quaternion.copy(cube.quaternion);
+        return edgesGroup;
+      }
+
+      function posToString(v) {
+        return `${Math.round(v.x)},${Math.round(v.y)},${Math.round(v.z)}`;
+      }
+
+      // --- Control Update Handlers ----------------------------------------------
+
+      function getFitFrustumSizeFromBbox(bbox) {
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const padding = maxDim * 0.2;
+        const targetSize = maxDim + padding;
+        return targetSize * 1.5;
+      }
+
+      function fitCameraToCubes(applyHudOffset = true) {
+        const cubes = app.cubeGroup.children.filter((c) => c.isMesh);
+        if (cubes.length === 0) return;
+
+        // Calculate bounding box of all cubes
+        const bbox = new THREE.Box3();
+        cubes.forEach((cube) => bbox.expandByObject(cube));
+
+        // For orthographic projection, the frustum size determines the visible area.
+        const frustumSize = getFitFrustumSizeFromBbox(bbox);
+
+        // Update camera frustum
+        const aspect = window.innerWidth / window.innerHeight;
+        app.camera.left = (-frustumSize * aspect) / 2;
+        app.camera.right = (frustumSize * aspect) / 2;
+        app.camera.top = frustumSize / 2;
+        app.camera.bottom = -frustumSize / 2;
+        app.camera.updateProjectionMatrix();
+
+        // Update controls target to center of the shape, shifted upward so
+        // the fitted object appears lower on screen under the fixed top HUD.
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+        const hud = document.getElementById("hud");
+        if (applyHudOffset && hud && window.innerHeight > 0) {
+          const hudHeight = hud.getBoundingClientRect().height;
+          const hudFraction = THREE.MathUtils.clamp(
+            hudHeight / window.innerHeight,
+            0,
+            0.45,
+          );
+          const verticalOffsetWorld = frustumSize * hudFraction * 0.85;
+          if (verticalOffsetWorld > 0) {
+            const up = app.camera.up
+              .clone()
+              .normalize()
+              .multiplyScalar(verticalOffsetWorld);
+            center.add(up);
+          }
+        }
+
+        app.controls.target.copy(center);
+        app.controls.update();
+
+        requestRender();
+      }
+
+      function scheduleStartupFit() {
+        const fitIfReady = () => {
+          if (getMeshCubes().length === 0) return;
+          fitCameraToCubes();
+          updateAndRender();
+        };
+
+        // Wait for first visual layout, then fit.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(fitIfReady);
+        });
+
+        // Safety pass for cold first load where UI/fonts settle later.
+        setTimeout(fitIfReady, 250);
+      }
+
+      function updateCubeCount(delta) {
+        const newCount = settings.cubeCount + delta;
+        if (newCount >= 0 && newCount <= 150) {
+          settings.cubeCount = newCount;
+          generateConnectedCubes(settings.cubeCount);
+        }
+      }
+
+      function changeBackgroundColor(event) {
+        settings.bgColor = event.target.value;
+        updateBackground();
+        saveSettingsToLocalStorage();
+      }
+
+      function updateBackground() {
+        app.renderer.setClearColor(new THREE.Color(settings.bgColor), 1);
+        updateAndRender();
+      }
+
+      function toggleEdgesVisibility(event) {
+        settings.edgeVisible = event.target.checked;
+        app.cubeGroup.children.forEach((c) => {
+          if (c.userData.isEdges && c !== interaction.selectedEdges)
+            c.visible = settings.edgeVisible;
+        });
+        updateAndRender();
+        saveSettingsToLocalStorage();
+      }
+
+      function changeEdgesColor(event) {
+        settings.edgeColor = event.target.value;
+        const newColor = new THREE.Color(settings.edgeColor);
+        app.outlinePass.visibleEdgeColor.set(newColor);
+        app.outlinePass.hiddenEdgeColor.set(newColor);
+        app.cubeGroup.children.forEach((c) => {
+          if (c.userData.isEdges)
+            c.children.forEach((tube) => tube.material.color.set(newColor));
+        });
+        updateAndRender();
+        saveSettingsToLocalStorage();
+      }
+
+      function changeEdgesOpacity(event) {
+        settings.edgeOpacity = parseFloat(event.target.value);
+        app.cubeGroup.children.forEach((c) => {
+          if (c.userData.isEdges)
+            c.children.forEach(
+              (tube) => (tube.material.opacity = settings.edgeOpacity),
+            );
+        });
+        updateAndRender();
+        saveSettingsToLocalStorage();
+      }
+
+      function updateEdgeWidth(delta) {
+        const newWidth = settings.edgeWidth + delta;
+        if (newWidth >= 1 && newWidth <= 20) {
+          settings.edgeWidth = newWidth;
+          document.getElementById("edge-width-display").textContent =
+            settings.edgeWidth;
+          const allCubes = app.cubeGroup.children.filter((c) => c.isMesh);
+          const oldEdges = app.cubeGroup.children.filter(
+            (c) => c.userData.isEdges,
+          );
+
+          oldEdges.forEach((edges) => {
+            app.cubeGroup.remove(edges);
+            const geometries = new Set();
+            const materials = new Set();
+            edges.children.forEach((mesh) => {
+              if (mesh.geometry) geometries.add(mesh.geometry);
+              if (mesh.material) materials.add(mesh.material);
+            });
+            geometries.forEach((g) => g.dispose());
+            materials.forEach((m) => m.dispose());
+          });
+
+          allCubes.forEach((cube) => {
+            const newEdges = createTubeEdges(cube);
+            cube.userData.edgesId = newEdges.uuid;
+            app.cubeGroup.add(newEdges);
+          });
+          updateAndRender();
+          saveSettingsToLocalStorage();
+        }
+      }
+
+      function updateAllCubeMaterials() {
+        app.cubeGroup.children.forEach((c) => {
+          if (c.isMesh) {
+            // Dispose of the old materials and their textures first.
+            if (Array.isArray(c.material)) {
+              c.material.forEach((m) => {
+                if (m.map) m.map.dispose();
+                m.dispose();
+              });
+            } else if (c.material) {
+              // Handle case where it's a single material
+              if (c.material.map) c.material.map.dispose();
+              c.material.dispose();
+            }
+            // Assign a completely new set of materials. createCubeMaterials() handles the logic.
+            c.material = createCubeMaterials();
+          }
+        });
+
+        // Update view button colors based on current 3-color mode settings
+        updateViewButtonColors();
+
+        updateAndRender();
+        saveSettingsToLocalStorage();
+      }
+
+      // --- Export Logic ---------------------------------------------------------
+
+      /**
+       * The main export function, orchestrating the high-resolution render and capture.
+       */
+      async function exportToPNG() {
+        updateSettingsFromDOM();
+        isCabinetExport = false; // Ensure cabinet controls are hidden
+        const exportButton = document.getElementById("export-png");
+        const originalText = exportButton.textContent;
+        exportButton.disabled = true;
+        exportButton.textContent =
+          currentLanguage === "vi" ? "Đang xuất..." : "Exporting...";
+
+        const originalSize = new THREE.Vector2();
+        app.renderer.getSize(originalSize);
+        const originalAspect = app.camera.aspect;
+        app.controls.enabled = false;
+
+        // Store original background and set to transparent if needed
+        const originalClearColor = new THREE.Color();
+        app.renderer.getClearColor(originalClearColor);
+        const originalClearAlpha = app.renderer.getClearAlpha();
+
+        if (!settings.exportSolidBg) {
+          app.renderer.setClearColor(0x000000, 0); // Set to transparent
+        }
+
+        // Define target resolutions. RENDER is for SSAA, EXPORT is the final file size.
+        const EXPORT_CONFIG = {
+          RENDER_WIDTH: 4096,
+          RENDER_HEIGHT: 3072, // 4:3 aspect ratio
+          EXPORT_WIDTH: 4000,
+          EXPORT_HEIGHT: 3000, // 4:3 aspect ratio
+          PADDING_FACTOR: 1.1, // 10% padding (5% on each side)
+        };
+
+        // Create a temporary camera that exactly matches the current camera view
+        const exportCamera = new THREE.OrthographicCamera(
+          app.camera.left,
+          app.camera.right,
+          app.camera.top,
+          app.camera.bottom,
+          app.camera.near,
+          app.camera.far,
+        );
+
+        // Copy the exact camera position, rotation, and target from the current camera
+        exportCamera.position.copy(app.camera.position);
+        exportCamera.rotation.copy(app.camera.rotation);
+        exportCamera.quaternion.copy(app.camera.quaternion);
+        exportCamera.up.copy(app.camera.up);
+
+        // Calculate the correct frustum size to maintain aspect ratio and prevent stretching
+        const currentAspect = app.camera.right / app.camera.top; // Current camera aspect ratio
+        const exportAspect =
+          EXPORT_CONFIG.RENDER_WIDTH / EXPORT_CONFIG.RENDER_HEIGHT; // Export aspect ratio
+
+        let exportLeft, exportRight, exportTop, exportBottom;
+
+        if (exportAspect > currentAspect) {
+          // Export is wider than current view - adjust horizontal frustum
+          const scale = exportAspect / currentAspect;
+          const halfWidth = Math.abs(app.camera.right) * scale;
+          exportLeft = -halfWidth;
+          exportRight = halfWidth;
+          exportTop = app.camera.top;
+          exportBottom = app.camera.bottom;
+        } else {
+          // Export is taller than current view - adjust vertical frustum
+          const scale = currentAspect / exportAspect;
+          const halfHeight = Math.abs(app.camera.top) * scale;
+          exportLeft = app.camera.left;
+          exportRight = app.camera.right;
+          exportTop = halfHeight;
+          exportBottom = -halfHeight;
+        }
+
+        exportCamera.left = exportLeft;
+        exportCamera.right = exportRight;
+        exportCamera.top = exportTop;
+        exportCamera.bottom = exportBottom;
+        exportCamera.updateProjectionMatrix();
+
+        // Resize renderer for high-res capture
+        app.renderer.setSize(
+          EXPORT_CONFIG.RENDER_WIDTH,
+          EXPORT_CONFIG.RENDER_HEIGHT,
+          false,
+        );
+
+        // Render the scene at high resolution using the exact current camera view
+        app.renderer.render(app.scene, exportCamera);
+
+        // A timeout is critical to wait for the GPU to finish rendering before reading pixels.
+        setTimeout(() => {
+          try {
+            const sourceCanvas = app.renderer.domElement;
+
+            // Project the 3D bounding box of the cubes to 2D screen space
+            const min = new THREE.Vector2(1, 1);
+            const max = new THREE.Vector2(-1, -1);
+            const vertex = new THREE.Vector3();
+            app.cubeGroup.traverse((child) => {
+              if (child.isMesh && child.geometry) {
+                const position = child.geometry.attributes.position;
+                for (let i = 0; i < position.count; i++) {
+                  vertex
+                    .fromBufferAttribute(position, i)
+                    .applyMatrix4(child.matrixWorld);
+                  vertex.project(exportCamera); // Project using the clean export camera
+                  min.x = Math.min(min.x, vertex.x);
+                  min.y = Math.min(min.y, vertex.y);
+                  max.x = Math.max(max.x, vertex.x);
+                  max.y = Math.max(max.y, vertex.y);
+                }
+              }
+            });
+
+            if (max.x < min.x) {
+              alert("Object is not visible on screen. Cannot export.");
+              return;
+            }
+
+            // Calculate the final crop area in PIXEL space to avoid distortion
+            const { cropX, cropY, finalCropW, finalCropH } =
+              calculateCropInPixelSpace(min, max, EXPORT_CONFIG);
+
+            // Draw the cropped, downsampled image to the final canvas
+            const finalCanvas = document.createElement("canvas");
+            finalCanvas.width = EXPORT_CONFIG.EXPORT_WIDTH;
+            finalCanvas.height = EXPORT_CONFIG.EXPORT_HEIGHT;
+            const finalCtx = finalCanvas.getContext("2d");
+            finalCtx.imageSmoothingQuality = "high";
+
+            if (settings.exportSolidBg) {
+              const cornerRadius = 80; // ~2% of width
+              finalCtx.fillStyle = settings.bgColor;
+              finalCtx.beginPath();
+
+              // Apple-style curly corners using bezier curves for smoother curves
+              const curveControl = cornerRadius * 0.55228475; // Control point for perfect quarter circle
+
+              // Top-left corner
+              finalCtx.moveTo(cornerRadius, 0);
+              finalCtx.lineTo(finalCanvas.width - cornerRadius, 0);
+
+              // Top-right corner with bezier curve
+              finalCtx.bezierCurveTo(
+                finalCanvas.width - cornerRadius + curveControl,
+                0,
+                finalCanvas.width,
+                cornerRadius - curveControl,
+                finalCanvas.width,
+                cornerRadius,
+              );
+              finalCtx.lineTo(
+                finalCanvas.width,
+                finalCanvas.height - cornerRadius,
+              );
+
+              // Bottom-right corner with bezier curve
+              finalCtx.bezierCurveTo(
+                finalCanvas.width,
+                finalCanvas.height - cornerRadius + curveControl,
+                finalCanvas.width - cornerRadius + curveControl,
+                finalCanvas.height,
+                finalCanvas.width - cornerRadius,
+                finalCanvas.height,
+              );
+              finalCtx.lineTo(cornerRadius, finalCanvas.height);
+
+              // Bottom-left corner with bezier curve
+              finalCtx.bezierCurveTo(
+                cornerRadius - curveControl,
+                finalCanvas.height,
+                0,
+                finalCanvas.height - cornerRadius + curveControl,
+                0,
+                finalCanvas.height - cornerRadius,
+              );
+              finalCtx.lineTo(0, cornerRadius);
+
+              // Top-left corner with bezier curve
+              finalCtx.bezierCurveTo(
+                0,
+                cornerRadius - curveControl,
+                cornerRadius - curveControl,
+                0,
+                cornerRadius,
+                0,
+              );
+
+              finalCtx.closePath();
+              finalCtx.fill();
+            }
+
+            finalCtx.drawImage(
+              sourceCanvas,
+              cropX,
+              cropY,
+              finalCropW,
+              finalCropH,
+              0,
+              0,
+              EXPORT_CONFIG.EXPORT_WIDTH,
+              EXPORT_CONFIG.EXPORT_HEIGHT,
+            );
+
+            // Draw seed if requested
+            if (exportSettings.showSeed) {
+              const seed = document.getElementById("seed-input").value;
+              drawSeedOnCanvas(finalCtx, seed);
+            }
+
+            // Show preview
+            const finalImageDataURL = finalCanvas.toDataURL("image/png");
+            document.getElementById("preview-image").src = finalImageDataURL;
+            document.getElementById("preview-info").textContent = "";
+            document.getElementById("camera-prev").style.display = "none";
+            document.getElementById("camera-next").style.display = "none";
+            document.getElementById("preview-overlay").style.display = "flex";
+          } finally {
+            // Restore everything to its original state
+            app.renderer.setSize(originalSize.x, originalSize.y, false);
+            app.composer.setSize(originalSize.x, originalSize.y);
+            app.camera.aspect = originalAspect;
+            app.camera.updateProjectionMatrix();
+            app.renderer.setClearColor(originalClearColor, originalClearAlpha); // Restore background
+            app.controls.enabled = true;
+            exportButton.disabled = false;
+            exportButton.textContent = originalText;
+
+            // Force a render to ensure the scene is properly restored
+            requestRender();
+
+            // Add a small delay to ensure the renderer has time to settle
+            setTimeout(() => {
+              requestRender();
+            }, 50);
+          }
+        }, 100);
+      }
+
+      function drawSeedOnCanvas(ctx, seed) {
+        const width = ctx.canvas.width;
+        const height = ctx.canvas.height;
+        const padding = width * 0.015; // Proportional padding
+        const baseFontSize = Math.max(40, Math.round(height * 0.025));
+        const fontSize = Math.round(baseFontSize * exportSettings.seedSize);
+        const text = `➡ ${seed}`;
+
+        ctx.save();
+        ctx.font = `bold ${fontSize}px monospace`;
+
+        // Adaptive color based on background
+        const bgColor = settings.bgColor;
+        const isBgDark = isColorDark(bgColor);
+        const textColor = isBgDark
+          ? "rgba(255, 255, 255, 0.7)"
+          : "rgba(0, 0, 0, 0.7)";
+        ctx.fillStyle = textColor;
+        ctx.textBaseline = "top";
+
+        const metrics = ctx.measureText(text);
+        const textWidth = metrics.width;
+
+        let x,
+          y,
+          rotation = 0;
+        let textAlign = "left";
+
+        // 0-3 are vertical, 4-7 are horizontal
+        const position = exportSettings.seedPosition;
+        const isVertical = position < 4;
+
+        if (isVertical) {
+          switch (position) {
+            case 0: // Top-left, vertical
+              ctx.translate(padding + fontSize, padding);
+              ctx.rotate(Math.PI / 2);
+              break;
+            case 1: // Top-right, vertical
+              ctx.translate(width - padding - fontSize, padding);
+              ctx.rotate(Math.PI / 2);
+              break;
+            case 2: // Bottom-right, vertical
+              ctx.translate(width - padding - fontSize, height - padding);
+              ctx.rotate(-Math.PI / 2);
+              break;
+            case 3: // Bottom-left, vertical
+              ctx.translate(padding + fontSize, height - padding);
+              ctx.rotate(-Math.PI / 2);
+              break;
+          }
+        } else {
+          // Horizontal cases
+          switch (position) {
+            case 4: // Top-left, horizontal
+              ctx.translate(padding, padding);
+              break;
+            case 5: // Top-right, horizontal
+              ctx.translate(width - padding, padding);
+              textAlign = "right";
+              break;
+            case 6: // Bottom-right, horizontal
+              ctx.translate(width - padding, height - padding - fontSize);
+              textAlign = "right";
+              break;
+            case 7: // Bottom-left, horizontal
+              ctx.translate(padding, height - padding - fontSize);
+              break;
+          }
+        }
+
+        ctx.textAlign = textAlign;
+        ctx.fillText(text, 0, 0);
+        ctx.restore();
+      }
+
+      function isColorDark(hexColor) {
+        // Convert hex to RGB
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+
+        // Calculate luminance
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+        // Return true if luminance is less than 0.5 (dark color)
+        return luminance < 0.5;
+      }
+
+      function calculateCropInPixelSpace(minNDC, maxNDC, config) {
+        const targetAspect = config.EXPORT_WIDTH / config.EXPORT_HEIGHT;
+
+        // 1. Convert the object's NDC bounding box to pixel dimensions
+        const objPixelWidth = ((maxNDC.x - minNDC.x) * config.RENDER_WIDTH) / 2;
+        const objPixelHeight =
+          ((maxNDC.y - minNDC.y) * config.RENDER_HEIGHT) / 2;
+
+        // 2. Add padding
+        let paddedPixelW = objPixelWidth * config.PADDING_FACTOR;
+        let paddedPixelH = objPixelHeight * config.PADDING_FACTOR;
+
+        // 3. Enforce the target 4:3 aspect ratio on the padded pixel box
+        if (paddedPixelW / paddedPixelH > targetAspect) {
+          paddedPixelH = paddedPixelW / targetAspect;
+        } else {
+          paddedPixelW = paddedPixelH * targetAspect;
+        }
+        const finalCropW = paddedPixelW;
+        const finalCropH = paddedPixelH;
+
+        // 4. Find the center of the object in pixels
+        const centerPixelX =
+          ((1 + (minNDC.x + maxNDC.x) / 2) * config.RENDER_WIDTH) / 2;
+        const centerPixelY =
+          ((1 - (minNDC.y + maxNDC.y) / 2) * config.RENDER_HEIGHT) / 2;
+
+        // 5. Calculate the top-left corner of this final crop box
+        const cropX = centerPixelX - finalCropW / 2;
+        const cropY = centerPixelY - finalCropH / 2;
+
+        return { cropX, cropY, finalCropW, finalCropH };
+      }
+
+      function savePreviewImage() {
+        const dataURL = document.getElementById("preview-image").src;
+        if (dataURL?.startsWith("data:image/png")) {
+          // Get cube count
+          const cubes = app.cubeGroup.children.filter((c) => c.isMesh);
+          const cubeCount = cubes.length;
+
+          // Get seed ID and sanitize for Windows filename
+          const seed = document.getElementById("seed-input").value || "NO_SEED";
+          // Replace Windows forbidden characters: < > : " | ? * and control characters
+          const sanitizedSeed = seed.replace(/[<>:"|?*\x00-\x1f]/g, "_");
+
+          // Get current date and time in yy_mm_dd_hh_mm format
+          const now = new Date();
+          const year = String(now.getFullYear()).slice(-2);
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const day = String(now.getDate()).padStart(2, "0");
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+          const datetimeStr = `${year}_${month}_${day}_${hours}_${minutes}`;
+
+          // Create filename following the pattern: Cube [number] - [seed] - yy_mm_dd_hh_mm.png
+          const filename = `Cube ${cubeCount} - ${sanitizedSeed} - ${datetimeStr}.png`;
+
+          const link = document.createElement("a");
+          link.href = dataURL;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+        document.getElementById("preview-overlay").style.display = "none";
+      }
+
+      // --- Cabinet Export Logic -------------------------------------------------
+
+      const cabinetViews = ["front", "back", "left", "right", "top", "bottom"];
+      let currentCabinetViewIndex = 0;
+      let isCabinetExport = false;
+
+      function getCabinetShearMatrix() {
+        const scale = 0.5;
+        // This angle produces the "up and to the right" tilt.
+        // The matrix then negates it to get the projection the user liked for the front view.
+        const angle = Math.PI / 4;
+        const c = Math.cos(angle) * scale;
+        const s = Math.sin(angle) * scale;
+        const shearMatrix = new THREE.Matrix4();
+
+        // This matrix configuration (x'=x-c*z, y'=y-s*z) produces the specific projection
+        // the user approved for the 'front' view. We will now use this consistently.
+        shearMatrix.set(1, 0, -c, 0, 0, 1, -s, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+        return shearMatrix;
+      }
+
+      function getRotationForView(view) {
+        const rotationMatrix = new THREE.Matrix4();
+        switch (view) {
+          case "front":
+            // No rotation needed, this is the base view
+            break;
+          case "back":
+            rotationMatrix.makeRotationY(Math.PI); // Rotate 180 degrees around Y
+            break;
+          case "top":
+            rotationMatrix.makeRotationX(Math.PI / 2); // Rotate 90 degrees around X to bring top to front
+            break;
+          case "bottom":
+            rotationMatrix.makeRotationX(-Math.PI / 2); // Rotate -90 degrees around X to bring bottom to front
+            break;
+          case "left":
+            rotationMatrix.makeRotationY(Math.PI / 2); // Rotate 90 degrees around Y to bring left to front
+            break;
+          case "right":
+            rotationMatrix.makeRotationY(-Math.PI / 2); // Rotate -90 degrees around Y to bring right to front
+            break;
+        }
+        return rotationMatrix;
+      }
+
+      async function exportCabinet() {
+        updateSettingsFromDOM();
+        isCabinetExport = true;
+        const exportButton = document.getElementById("export-cabinet");
+        const originalText = exportButton.textContent;
+        exportButton.disabled = true;
+        exportButton.textContent =
+          currentLanguage === "vi" ? "Đang tạo..." : "Building...";
+
+        const view = cabinetViews[currentCabinetViewIndex];
+
+        // 1. Create a temporary scene and define the final transformation
+        const tempScene = new THREE.Scene();
+        const shearMatrix = getCabinetShearMatrix();
+        const rotationMatrix = getRotationForView(view);
+        const transform = new THREE.Matrix4().multiplyMatrices(
+          shearMatrix,
+          rotationMatrix,
+        );
+
+        app.scene.updateMatrixWorld(true); // Ensure world matrices are up-to-date
+
+        app.cubeGroup.children.forEach((child) => {
+          if (child.isMesh) {
+            const transformedGeom = child.geometry.clone();
+            transformedGeom.applyMatrix4(child.matrixWorld);
+            transformedGeom.applyMatrix4(transform);
+
+            const materials = Array.isArray(child.material)
+              ? child.material.map((m) => m.clone())
+              : child.material.clone();
+
+            const transformedCube = new THREE.Mesh(transformedGeom, materials);
+            tempScene.add(transformedCube);
+          } else if (child.userData.isEdges && settings.edgeVisible) {
+            // This is a group of edge tubes and spheres
+            child.children.forEach((edgeComponent) => {
+              const transformedGeom = edgeComponent.geometry.clone();
+
+              // Apply the component's full world transform, then the cabinet projection
+              transformedGeom.applyMatrix4(edgeComponent.matrixWorld);
+              transformedGeom.applyMatrix4(transform);
+
+              const componentMaterial = edgeComponent.material.clone();
+              const transformedComponent = new THREE.Mesh(
+                transformedGeom,
+                componentMaterial,
+              );
+              tempScene.add(transformedComponent);
+            });
+          }
+        });
+
+        // 2. Setup an orthographic camera to fit the transformed objects
+        const bbox = new THREE.Box3().setFromObject(tempScene);
+        const center = bbox.getCenter(new THREE.Vector3());
+        const size = bbox.getSize(new THREE.Vector3());
+
+        const padding = 1.1; // 10% padding
+        const camAspect = 4 / 3;
+        const objAspect = size.x / size.y;
+
+        let camWidth, camHeight;
+
+        if (objAspect > camAspect) {
+          // Object is wider than the camera, so width is the limiting dimension
+          camWidth = size.x * padding;
+          camHeight = camWidth / camAspect;
+        } else {
+          // Object is taller than the camera, so height is the limiting dimension
+          camHeight = size.y * padding;
+          camWidth = camHeight * camAspect;
+        }
+
+        const orthoCam = new THREE.OrthographicCamera(
+          center.x - camWidth / 2,
+          center.x + camWidth / 2,
+          center.y + camHeight / 2,
+          center.y - camHeight / 2,
+          0.1,
+          1000,
+        );
+        orthoCam.position.z = 100;
+
+        // 3. Render the temporary scene
+        const EXPORT_WIDTH = 4000;
+        const EXPORT_HEIGHT = 3000;
+        const tempRenderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: true,
+        });
+        tempRenderer.setSize(EXPORT_WIDTH, EXPORT_HEIGHT);
+
+        tempRenderer.setClearColor(
+          new THREE.Color(settings.bgColor),
+          settings.exportSolidBg ? 1 : 0,
+        );
+
+        tempRenderer.render(tempScene, orthoCam);
+
+        // 4. Draw to final canvas (handling background)
+        const finalCanvas = document.createElement("canvas");
+        finalCanvas.width = EXPORT_WIDTH;
+        finalCanvas.height = EXPORT_HEIGHT;
+        const finalCtx = finalCanvas.getContext("2d");
+
+        if (settings.exportSolidBg) {
+          const cornerRadius = 80; // ~2% of width
+          finalCtx.fillStyle = settings.bgColor;
+          finalCtx.beginPath();
+
+          // Apple-style curly corners using bezier curves for smoother curves
+          const curveControl = cornerRadius * 0.55228475; // Control point for perfect quarter circle
+
+          // Top-left corner
+          finalCtx.moveTo(cornerRadius, 0);
+          finalCtx.lineTo(finalCanvas.width - cornerRadius, 0);
+
+          // Top-right corner with bezier curve
+          finalCtx.bezierCurveTo(
+            finalCanvas.width - cornerRadius + curveControl,
+            0,
+            finalCanvas.width,
+            cornerRadius - curveControl,
+            finalCanvas.width,
+            cornerRadius,
+          );
+          finalCtx.lineTo(finalCanvas.width, finalCanvas.height - cornerRadius);
+
+          // Bottom-right corner with bezier curve
+          finalCtx.bezierCurveTo(
+            finalCanvas.width,
+            finalCanvas.height - cornerRadius + curveControl,
+            finalCanvas.width - cornerRadius + curveControl,
+            finalCanvas.height,
+            finalCanvas.width - cornerRadius,
+            finalCanvas.height,
+          );
+          finalCtx.lineTo(cornerRadius, finalCanvas.height);
+
+          // Bottom-left corner with bezier curve
+          finalCtx.bezierCurveTo(
+            cornerRadius - curveControl,
+            finalCanvas.height,
+            0,
+            finalCanvas.height - cornerRadius + curveControl,
+            0,
+            finalCanvas.height - cornerRadius,
+          );
+          finalCtx.lineTo(0, cornerRadius);
+
+          // Top-left corner with bezier curve
+          finalCtx.bezierCurveTo(
+            0,
+            cornerRadius - curveControl,
+            cornerRadius - curveControl,
+            0,
+            cornerRadius,
+            0,
+          );
+
+          finalCtx.closePath();
+          finalCtx.fill();
+        }
+
+        finalCtx.drawImage(tempRenderer.domElement, 0, 0);
+
+        // Draw seed if requested
+        if (exportSettings.showSeed) {
+          const seed = document.getElementById("seed-input").value;
+          drawSeedOnCanvas(finalCtx, seed);
+        }
+
+        // 5. Show preview and setup controls
+        const finalImageDataURL = finalCanvas.toDataURL("image/png");
+        document.getElementById("preview-image").src = finalImageDataURL;
+        document.getElementById("preview-info").textContent = `View: ${view}`;
+        document.getElementById("camera-prev").style.display = "block";
+        document.getElementById("camera-next").style.display = "block";
+        document.getElementById("preview-overlay").style.display = "flex";
+
+        // 6. Clean up Three.js objects
+        tempRenderer.dispose();
+        tempRenderer.forceContextLoss();
+        tempScene.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (object.material) {
+            if (Array.isArray(object.material)) {
+              object.material.forEach((material) => material.dispose());
+            } else {
+              object.material.dispose();
+            }
+          }
+        });
+
+        // 7. Restore button state
+        exportButton.disabled = false;
+        exportButton.textContent = originalText;
+      }
+
+      // ============================================================
+      //  SEED ID SYSTEM for Random_Cubes_Puzzle.html
+      // ============================================================
+
+      // ============================================================
+      //  COMPACT SHAPE SEED SYSTEM for Random_Cubes_Puzzle.html
+      // ============================================================
+
+      // --- Alphabet: 89 safe printable ASCII chars (no " ' ` \ /) ---
+      const SEED_ALPHA =
+        "!#$%&()*+,-.0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz[]^_{|}~";
+      const SEED_BASE = 89; // SEED_ALPHA.length
+
+      // BigInt base-89 encode/decode
+      function b89Enc(bn) {
+        if (typeof bn === "number") bn = BigInt(bn);
+        if (bn === 0n) return SEED_ALPHA[0];
+        const B = BigInt(SEED_BASE);
+        let s = "",
+          x = bn;
+        while (x > 0n) {
+          s = SEED_ALPHA[Number(x % B)] + s;
+          x = x / B;
+        }
+        return s;
+      }
+      function b89Dec(s) {
+        const B = BigInt(SEED_BASE);
+        let n = 0n;
+        for (const c of s) {
+          const idx = SEED_ALPHA.indexOf(c);
+          if (idx === -1) throw new Error(`Unknown character in seed: "${c}"`);
+          n = n * B + BigInt(idx);
+        }
+        return n;
+      }
+
+      // --- The 6 face directions (index matches THREE.js cube face order) ---
+      const SEED_DIRS = [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ];
+
+      const SEED_AXIS_PERMS = [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+      ];
+
+      function getPermutationParity(perm) {
+        let inversions = 0;
+        for (let i = 0; i < perm.length; i++) {
+          for (let j = i + 1; j < perm.length; j++) {
+            if (perm[i] > perm[j]) inversions++;
+          }
+        }
+        return inversions % 2 === 0 ? 1 : -1;
+      }
+
+      function buildSeedTransforms(includeReflections = true) {
+        const transforms = [];
+        for (const perm of SEED_AXIS_PERMS) {
+          const permParity = getPermutationParity(perm);
+          for (const sx of [-1, 1]) {
+            for (const sy of [-1, 1]) {
+              for (const sz of [-1, 1]) {
+                const det = permParity * sx * sy * sz;
+                if (!includeReflections && det !== 1) continue;
+                transforms.push([perm[0], sx, perm[1], sy, perm[2], sz]);
+              }
+            }
+          }
+        }
+        return transforms;
+      }
+
+      // Keep orientation like old behavior: only translation is normalized.
+      // Mirrored/rotated variants remain different seeds.
+      const SEED_TRANSFORMS = [[0, 1, 1, 1, 2, 1]];
+      const SEED_COMPACT_PREFIX = '"';
+      const SEED_COMPACT_LEGACY_PREFIX = "'";
+      const SEED_LEGACY_TRANSFORMS = buildSeedTransforms(true);
+      const SEED_COMPACT_MAX_N = 5;
+      const SEED_COMPACT_CACHE = new Map();
+      const SEED_COMPACT_LEGACY_CACHE = new Map();
+      let SEED_COMPACT_INDEX_TABLE = null;
+
+      function applySeedTransform(point, transform) {
+        const [ax, sx, ay, sy, az, sz] = transform;
+        return [sx * point[ax], sy * point[ay], sz * point[az]];
+      }
+
+      function normalizeSeedPositions(positions) {
+        let minX = Infinity;
+        let minY = Infinity;
+        let minZ = Infinity;
+        for (const [x, y, z] of positions) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (z < minZ) minZ = z;
+        }
+        return positions.map(([x, y, z]) => [x - minX, y - minY, z - minZ]);
+      }
+
+      function buildSeedShapeKey(positions) {
+        return positions
+          .map((p) => p.join(","))
+          .sort()
+          .join(";");
+      }
+
+      function parseSeedShapeKey(shapeKey) {
+        if (!shapeKey) return [];
+        return shapeKey.split(";").map((cell) => cell.split(",").map(Number));
+      }
+
+      function getCanonicalShapeKeyByTransforms(positions, transforms) {
+        const normalized = normalizeSeedPositions(positions);
+        const seenForms = new Set();
+        let bestKey = null;
+
+        for (const transform of transforms) {
+          const transformed = normalizeSeedPositions(
+            normalized.map((p) => applySeedTransform(p, transform)),
+          );
+          const key = buildSeedShapeKey(transformed);
+          if (seenForms.has(key)) continue;
+          seenForms.add(key);
+          if (bestKey === null || key < bestKey) bestKey = key;
+        }
+        return bestKey;
+      }
+
+      function getCanonicalShapeKey(positions) {
+        return getCanonicalShapeKeyByTransforms(positions, SEED_TRANSFORMS);
+      }
+
+      function getLegacyCanonicalShapeKey(positions) {
+        return getCanonicalShapeKeyByTransforms(
+          positions,
+          SEED_LEGACY_TRANSFORMS,
+        );
+      }
+
+      function buildCompactShapeCatalog(n) {
+        let canonicalKeys = ["0,0,0"];
+        for (let size = 1; size < n; size++) {
+          const nextKeys = new Set();
+          for (const shapeKey of canonicalKeys) {
+            const positions = parseSeedShapeKey(shapeKey);
+            const occupied = new Set(positions.map((p) => p.join(",")));
+
+            for (const [x, y, z] of positions) {
+              for (const [dx, dy, dz] of SEED_DIRS) {
+                const neighborKey = `${x + dx},${y + dy},${z + dz}`;
+                if (occupied.has(neighborKey)) continue;
+                const candidate = positions.concat([[x + dx, y + dy, z + dz]]);
+                nextKeys.add(getCanonicalShapeKey(candidate));
+              }
+            }
+          }
+          canonicalKeys = Array.from(nextKeys).sort();
+        }
+
+        const forms = canonicalKeys.map(parseSeedShapeKey);
+        const byKey = new Map();
+        canonicalKeys.forEach((key, index) => byKey.set(key, index));
+        return { forms, byKey };
+      }
+
+      function getCompactShapeCatalog(n) {
+        if (n < 1 || n > SEED_COMPACT_MAX_N) return null;
+        if (SEED_COMPACT_CACHE.has(n)) return SEED_COMPACT_CACHE.get(n);
+        const catalog = buildCompactShapeCatalog(n);
+        SEED_COMPACT_CACHE.set(n, catalog);
+        return catalog;
+      }
+
+      function buildLegacyCompactShapeCatalog(n) {
+        let canonicalKeys = ["0,0,0"];
+        for (let size = 1; size < n; size++) {
+          const nextKeys = new Set();
+          for (const shapeKey of canonicalKeys) {
+            const positions = parseSeedShapeKey(shapeKey);
+            const occupied = new Set(positions.map((p) => p.join(",")));
+
+            for (const [x, y, z] of positions) {
+              for (const [dx, dy, dz] of SEED_DIRS) {
+                const neighborKey = `${x + dx},${y + dy},${z + dz}`;
+                if (occupied.has(neighborKey)) continue;
+                const candidate = positions.concat([[x + dx, y + dy, z + dz]]);
+                nextKeys.add(getLegacyCanonicalShapeKey(candidate));
+              }
+            }
+          }
+          canonicalKeys = Array.from(nextKeys).sort();
+        }
+
+        return canonicalKeys.map(parseSeedShapeKey);
+      }
+
+      function getLegacyCompactShapeCatalog(n) {
+        if (n < 1 || n > SEED_COMPACT_MAX_N) return null;
+        if (SEED_COMPACT_LEGACY_CACHE.has(n)) {
+          return SEED_COMPACT_LEGACY_CACHE.get(n);
+        }
+        const forms = buildLegacyCompactShapeCatalog(n);
+        SEED_COMPACT_LEGACY_CACHE.set(n, forms);
+        return forms;
+      }
+
+      function buildCompactIndexTable() {
+        const offsetByN = new Array(SEED_COMPACT_MAX_N + 2).fill(0);
+        const catalogByN = new Map();
+        let totalForms = 0;
+
+        for (let n = 1; n <= SEED_COMPACT_MAX_N; n++) {
+          offsetByN[n] = totalForms;
+          const catalog = getCompactShapeCatalog(n);
+          catalogByN.set(n, catalog);
+          totalForms += catalog.forms.length;
+        }
+        offsetByN[SEED_COMPACT_MAX_N + 1] = totalForms;
+
+        return { offsetByN, catalogByN, totalForms };
+      }
+
+      function getCompactIndexTable() {
+        if (!SEED_COMPACT_INDEX_TABLE) {
+          SEED_COMPACT_INDEX_TABLE = buildCompactIndexTable();
+        }
+        return SEED_COMPACT_INDEX_TABLE;
+      }
+
+      function encodeSeedValueFromRoot(positions, rootIndex) {
+        const n = positions.length;
+        const posMap = new Map();
+        positions.forEach((p, i) => posMap.set(p.join(","), i));
+
+        const visited = new Array(n).fill(false);
+        const bfsSlot = new Array(n).fill(-1);
+        const queue = [rootIndex];
+        let head = 0;
+        visited[rootIndex] = true;
+        bfsSlot[rootIndex] = 0;
+        const steps = [];
+
+        while (head < queue.length) {
+          const cur = queue[head++];
+          const [cx, cy, cz] = positions[cur];
+          for (let f = 0; f < 6; f++) {
+            const [dx, dy, dz] = SEED_DIRS[f];
+            const key = `${cx + dx},${cy + dy},${cz + dz}`;
+            const ni = posMap.get(key);
+            if (ni !== undefined && !visited[ni]) {
+              visited[ni] = true;
+              bfsSlot[ni] = steps.length + 1;
+              steps.push([bfsSlot[cur], f]);
+              queue.push(ni);
+            }
+          }
+        }
+
+        if (steps.length !== n - 1) {
+          throw new Error("Shape is not fully connected");
+        }
+
+        let value = 0n;
+        let multiplier = 1n;
+        for (let k = 0; k < steps.length; k++) {
+          const [parentSlot, faceIdx] = steps[k];
+          value += (BigInt(parentSlot) * 6n + BigInt(faceIdx)) * multiplier;
+          multiplier *= BigInt(k + 1) * 6n;
+        }
+        return value;
+      }
+
+      function getCanonicalSeedValue(positions) {
+        const normalized = normalizeSeedPositions(positions);
+        const seenForms = new Set();
+        let bestValue = null;
+
+        for (const transform of SEED_TRANSFORMS) {
+          const transformed = normalizeSeedPositions(
+            normalized.map((p) => applySeedTransform(p, transform)),
+          );
+          const formKey = buildSeedShapeKey(transformed);
+          if (seenForms.has(formKey)) continue;
+          seenForms.add(formKey);
+
+          for (let rootIndex = 0; rootIndex < transformed.length; rootIndex++) {
+            const candidate = encodeSeedValueFromRoot(transformed, rootIndex);
+            if (bestValue === null || candidate < bestValue) {
+              bestValue = candidate;
+            }
+          }
+        }
+
+        if (bestValue === null) throw new Error("Could not encode seed shape");
+        return bestValue;
+      }
+
+      // =============================================================
+      //  ENCODE: cube positions → seed string
+      // =============================================================
+      function encodeSeedShape(positions) {
+        const n = positions.length;
+        if (n === 0) return "";
+        if (n === 1) return encodeCount(n);
+
+        const canonicalValue = getCanonicalSeedValue(positions);
+        const fallbackSeed = encodeCount(n) + b89Enc(canonicalValue);
+
+        const compactCatalog = getCompactShapeCatalog(n);
+        if (!compactCatalog) return fallbackSeed;
+
+        const canonicalShapeKey = getCanonicalShapeKey(positions);
+        const compactIndex = compactCatalog.byKey.get(canonicalShapeKey);
+        if (compactIndex === undefined) return fallbackSeed;
+        const compactIndexTable = getCompactIndexTable();
+        const globalCompactIndex = compactIndexTable.offsetByN[n] + compactIndex;
+
+        const compactSeed = SEED_COMPACT_PREFIX + b89Enc(globalCompactIndex);
+        return compactSeed.length < fallbackSeed.length
+          ? compactSeed
+          : fallbackSeed;
+      }
+
+      // =============================================================
+      //  DECODE: seed string → array of [x,y,z] positions
+      // =============================================================
+      function decodeSeedShape(seed) {
+        if (!seed || !seed.trim()) throw new Error("Empty seed");
+
+        if (seed[0] === SEED_COMPACT_PREFIX) {
+          const compactBody = seed.slice(1);
+          if (!compactBody) throw new Error("Empty compact seed payload");
+
+          const compactIndexBig = b89Dec(compactBody);
+          const globalCompactIndex = Number(compactIndexBig);
+          if (!Number.isSafeInteger(globalCompactIndex)) {
+            throw new Error("Compact seed index is out of range");
+          }
+
+          const compactIndexTable = getCompactIndexTable();
+          if (
+            globalCompactIndex < 0 ||
+            globalCompactIndex >= compactIndexTable.totalForms
+          ) {
+            throw new Error("Compact seed index out of range");
+          }
+
+          let n = 1;
+          while (
+            n <= SEED_COMPACT_MAX_N &&
+            globalCompactIndex >= compactIndexTable.offsetByN[n + 1]
+          ) {
+            n++;
+          }
+          if (n > SEED_COMPACT_MAX_N) {
+            throw new Error("Compact seed index out of range");
+          }
+
+          const compactIndex =
+            globalCompactIndex - compactIndexTable.offsetByN[n];
+          const compactCatalog = compactIndexTable.catalogByN.get(n);
+          const form = compactCatalog.forms[compactIndex];
+          if (!form) throw new Error("Compact seed index out of range");
+          return form.map(([x, y, z]) => [x, y, z]);
+        }
+
+        // Legacy compact format: ' + count + local-index
+        if (seed[0] === SEED_COMPACT_LEGACY_PREFIX) {
+          const compactBody = seed.slice(1);
+          const { n, skip } = decodeCount(compactBody);
+          const compactIndexSeed = compactBody.slice(skip);
+          if (!compactIndexSeed) throw new Error("Empty compact seed payload");
+
+          const legacyForms = getLegacyCompactShapeCatalog(n);
+          if (!legacyForms) {
+            throw new Error(
+              `Compact seed supports up to ${SEED_COMPACT_MAX_N} cubes`,
+            );
+          }
+
+          const compactIndexBig = b89Dec(compactIndexSeed);
+          const compactIndex = Number(compactIndexBig);
+          if (!Number.isSafeInteger(compactIndex)) {
+            throw new Error("Compact seed index is out of range");
+          }
+
+          const form = legacyForms[compactIndex];
+          if (!form) throw new Error("Compact seed index out of range");
+          return form.map(([x, y, z]) => [x, y, z]);
+        }
+
+        const { n, skip } = decodeCount(seed);
+        if (n === 0) return [];
+        if (n === 1) return [[0, 0, 0]];
+
+        let value = b89Dec(seed.slice(skip));
+
+        const steps = [];
+        for (let k = 0; k < n - 1; k++) {
+          const radix = BigInt(k + 1) * 6n;
+          const digit = Number(value % radix);
+          steps.push([Math.floor(digit / 6), digit % 6]);
+          value = value / radix;
+        }
+
+        const placed = [[0, 0, 0]];
+        const occupied = new Set(["0,0,0"]); // Keep track of occupied spots
+
+        for (const [parentSlot, faceIdx] of steps) {
+          if (parentSlot >= placed.length) {
+            throw new Error("Invalid seed: parent slot out of bounds.");
+          }
+          const [px, py, pz] = placed[parentSlot];
+          const [dx, dy, dz] = SEED_DIRS[faceIdx];
+          const newPos = [px + dx, py + dy, pz + dz];
+          const newPosKey = newPos.join(",");
+
+          if (occupied.has(newPosKey)) {
+            throw new Error("Invalid seed: creates overlapping cubes.");
+          }
+
+          placed.push(newPos);
+          occupied.add(newPosKey);
+        }
+        return placed;
+      }
+
+      // --- Count encoding ---
+      function encodeCount(n) {
+        if (n <= SEED_BASE) return SEED_ALPHA[n - 1];
+        return "/" + SEED_ALPHA[n - SEED_BASE - 1];
+      }
+      function decodeCount(seed) {
+        if (seed.length === 0) return { n: 0, skip: 0 };
+        if (seed[0] === "/")
+          return { n: SEED_ALPHA.indexOf(seed[1]) + SEED_BASE + 1, skip: 2 };
+        const n = SEED_ALPHA.indexOf(seed[0]) + 1;
+        if (n === 0) throw new Error("Invalid count character");
+        return { n, skip: 1 };
+      }
+
+      // =============================================================
+      //  APPLY: restore a decoded position list into the scene
+      // =============================================================
+      function applyDecodedShape(positions) {
+        const n = positions.length;
+
+        leaveMoveState();
+        clearCubes();
+        settings.cubeCount = n;
+        document.getElementById("cube-count").textContent = n;
+
+        const cubeMaterials = createCubeMaterials(); // Create materials once
+
+        positions.forEach(([x, y, z]) => {
+          // Create cube with default orientation, as rotation is not stored in this seed type
+          createCubeAndEdges(new THREE.Vector3(x, y, z), cubeMaterials);
+        });
+
+        // Apply current visual settings
+        updateAllCubeMaterials();
+        updateBackground();
+        fitCameraToCubes();
+        updateAndRender();
+      }
+
+      function loadInitialShape() {
+        const hashSeed = location.hash.slice(1).trim();
+        let decodedHashSeed = "";
+        if (hashSeed) {
+          try {
+            decodedHashSeed = decodeURIComponent(hashSeed);
+          } catch {
+            decodedHashSeed = hashSeed;
+          }
+        }
+        const initialSeed = decodedHashSeed;
+
+        if (initialSeed) {
+          try {
+            const positions = decodeSeedShape(initialSeed);
+            applyDecodedShape(positions);
+            return;
+          } catch (e) {
+            console.warn("Could not restore saved seed:", e.message);
+          }
+        }
+
+        settings.cubeCount = 5;
+        generateConnectedCubes(5);
+      }
+
+      // =============================================================
+      //  UI: MODIFIED FOR USER REQUEST
+      // =============================================================
+      function initCustomSeedSystem() {
+        const seedInput = document.getElementById("seed-input");
+        const copyBtn = document.getElementById("copy-seed-btn");
+
+        // Allow user to type/paste into the seed input
+        seedInput.readOnly = false;
+
+        const tryLoadSeed = (seedValue) => {
+          try {
+            const positions = decodeSeedShape(seedValue.trim());
+            applyDecodedShape(positions);
+            seedInput.style.borderColor = "var(--accent-color)"; // Restore success/focused color
+            return true;
+          } catch (err) {
+            seedInput.style.borderColor = "#d9534f"; // red for error
+            return false;
+          }
+        };
+
+        // 1. Update scene when user types/pastes a seed
+        seedInput.addEventListener("input", (e) => {
+          tryLoadSeed(e.target.value);
+        });
+
+        // 2. Also load on Enter key to feel more responsive
+        seedInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            // Attempt to load and if successful, unfocus the input
+            if (tryLoadSeed(e.target.value)) {
+              seedInput.blur();
+            }
+          }
+        });
+
+        // Select all text on focus for easy replacement
+        seedInput.addEventListener("focus", () => {
+          seedInput.select();
+        });
+
+        // 3. Copy seed to clipboard
+        copyBtn.addEventListener("click", () => {
+          const cubes = app.cubeGroup.children.filter((c) => c.isMesh);
+          const positions = cubes.map((c) => [
+            Math.round(c.position.x),
+            Math.round(c.position.y),
+            Math.round(c.position.z),
+          ]);
+          if (positions.length === 0) return;
+
+          const seed = encodeSeedShape(positions);
+          seedInput.value = seed; // Ensure input is up-to-date
+          seedInput.select();
+          navigator.clipboard
+            .writeText(seed)
+            .then(() => {
+              showToast("Copied to clipboard!");
+            })
+            .catch(() => {
+              showToast("Failed to copy.", true);
+            });
+        });
+
+      }
+
+      function showToast(message, isError = false) {
+        const toast = document.getElementById("toast-notification");
+        toast.textContent = message;
+        toast.style.backgroundColor = isError
+          ? "#d9534f"
+          : "var(--accent-color)";
+        toast.classList.add("show");
+        setTimeout(() => {
+          toast.classList.remove("show");
+        }, 2000);
+      }
+
+      /**
+       * Encapsulates rendering and updating the seed input field.
+       */
+      function updateAndRender() {
+        const cubes = app.cubeGroup.children.filter((c) => c.isMesh);
+        syncCubeCountFromScene();
+        const positions = cubes.map((c) => [
+          Math.round(c.position.x),
+          Math.round(c.position.y),
+          Math.round(c.position.z),
+        ]);
+        const seed = encodeSeedShape(positions);
+
+        const seedInput = document.getElementById("seed-input");
+        document.getElementById("on-screen-seed").textContent = seed; // Update on-screen display
+
+        // Only update if the input is not currently focused, to avoid disrupting user typing
+        if (document.activeElement !== seedInput) {
+          seedInput.value = seed;
+          if (seedInput.style.borderColor === "rgb(217, 83, 79)") {
+            // if it was red
+            seedInput.style.borderColor = "transparent"; // Reset validation border
+          }
+        }
+        // Update URL hash without adding to history
+        if (seed) {
+          history.replaceState(null, "", "#" + encodeURIComponent(seed));
+        } else {
+          history.replaceState(null, "", " ");
+        }
+        requestRender();
+      }
+
+      // --- View Controls --------------------------------------------------------
+
+      function setupViewControls() {
+        const views = [
+          { id: "view-top", label: "T", dir: new THREE.Vector3(0, 1, 0) }, // Bottom coordinate
+          { id: "view-front", label: "F", dir: new THREE.Vector3(0, 0, 1) }, // Left coordinate (swapped with back)
+          { id: "view-right", label: "R", dir: new THREE.Vector3(1, 0, 0) }, // Front coordinate (swapped with left)
+          { id: "view-bottom", label: "D", dir: new THREE.Vector3(0, -1, 0) }, // Top coordinate
+          { id: "view-back", label: "B", dir: new THREE.Vector3(0, 0, -1) }, // Right coordinate (swapped with front)
+          { id: "view-left", label: "L", dir: new THREE.Vector3(-1, 0, 0) }, // Back coordinate (swapped with right)
+        ];
+
+        // Create the container if it doesn't exist
+        let container = document.getElementById("view-controls");
+        if (!container) {
+          container = document.createElement("div");
+          container.id = "view-controls";
+          container.style.position = "fixed";
+          container.style.bottom = "20px";
+          container.style.right = "20px";
+          container.style.display = "grid";
+          container.style.gridTemplateColumns = "repeat(3, 1fr)";
+          container.style.gridTemplateRows = "repeat(2, 1fr)";
+          container.style.gap = "8px";
+          container.style.zIndex = "200";
+          container.style.pointerEvents = "none";
+          document.body.appendChild(container);
+        }
+
+        views.forEach((view) => {
+          const btn = document.createElement("button");
+          btn.className = "view-btn";
+          btn.id = view.id;
+          btn.textContent = view.label;
+          btn.title = `View: ${view.label}`;
+          btn.addEventListener("click", () => {
+            setCameraToView(view.dir, view.label);
+          });
+          container.appendChild(btn);
+        });
+      }
+
+      function cancelViewTransition() {
+        if (app.viewTransitionRaf) {
+          cancelAnimationFrame(app.viewTransitionRaf);
+          app.viewTransitionRaf = null;
+        }
+        if (app.isViewTransitioning) {
+          app.isViewTransitioning = false;
+          app.controls.enabled = true;
+        }
+      }
+
+      function getViewUpVector(direction, label) {
+        const up =
+          direction.y !== 0
+            ? new THREE.Vector3(0, 0, 1)
+            : new THREE.Vector3(0, 1, 0);
+
+        // Keep the same orientation mapping used previously.
+        if (label === "T" || label === "D") {
+          const rotY = new THREE.Matrix4().makeRotationY(Math.PI);
+          up.applyMatrix4(rotY);
+        }
+        if (label === "D") {
+          const rotX = new THREE.Matrix4().makeRotationX(Math.PI);
+          up.applyMatrix4(rotX);
+        }
+        return up.normalize();
+      }
+
+      function normalizeUpForDir(upVec, dirVec) {
+        const up = upVec.clone();
+        const dir = dirVec.clone().normalize();
+        up.addScaledVector(dir, -up.dot(dir));
+        if (up.lengthSq() < 1e-8) {
+          const fallback = Math.abs(dir.y) < 0.95
+            ? new THREE.Vector3(0, 1, 0)
+            : new THREE.Vector3(1, 0, 0);
+          up.copy(fallback).addScaledVector(dir, -fallback.dot(dir));
+        }
+        return up.normalize();
+      }
+
+      function buildCameraQuaternionFromDirUp(dirVec, upVec) {
+        const z = dirVec.clone().normalize(); // camera backward axis
+        const y = normalizeUpForDir(upVec, z);
+        const x = new THREE.Vector3().crossVectors(y, z).normalize();
+        const yFixed = new THREE.Vector3().crossVectors(z, x).normalize();
+        const basis = new THREE.Matrix4().makeBasis(x, yFixed, z);
+        return new THREE.Quaternion().setFromRotationMatrix(basis);
+      }
+
+      function animateCameraToState(
+        targetPosition,
+        targetLookAt,
+        targetUp,
+        targetFrustumSize,
+      ) {
+        cancelViewTransition();
+
+        const startPosition = app.camera.position.clone();
+        const startTarget = app.controls.target.clone();
+        const startUp = app.camera.up.clone().normalize();
+        const startFrustumSize = app.camera.top - app.camera.bottom;
+        const startOffset = startPosition.clone().sub(startTarget);
+        const endOffset = targetPosition.clone().sub(targetLookAt);
+        const startDir =
+          startOffset.lengthSq() > 1e-8
+            ? startOffset.clone().normalize()
+            : new THREE.Vector3(0, 0, 1);
+        const endDir =
+          endOffset.lengthSq() > 1e-8
+            ? endOffset.clone().normalize()
+            : startDir.clone();
+        const qStart = buildCameraQuaternionFromDirUp(startDir, startUp);
+        const qEnd = buildCameraQuaternionFromDirUp(endDir, targetUp);
+        const qCur = new THREE.Quaternion();
+        const aspect = window.innerWidth / window.innerHeight;
+        const durationMs = VIEW_TRANSITION_DURATION_MS;
+        const startTime = performance.now();
+
+        app.isViewTransitioning = true;
+        app.controls.enabled = false;
+
+        // Linear timing: bigger duration value always feels slower/predictable.
+        const easeLinear = (t) => t;
+
+        const tick = (now) => {
+          const t = Math.min((now - startTime) / durationMs, 1);
+          const e = easeLinear(t);
+
+          app.controls.target.lerpVectors(startTarget, targetLookAt, e);
+          const curTarget = app.controls.target;
+
+          // Move camera along an orbital arc instead of a straight line.
+          // This avoids snap-like behavior for opposite (180-degree) view switches.
+          const startLen = startOffset.length();
+          const endLen = endOffset.length();
+          const curLen = THREE.MathUtils.lerp(startLen, endLen, e);
+
+          qCur.slerpQuaternions(qStart, qEnd, e);
+          const curDir = new THREE.Vector3(0, 0, 1)
+            .applyQuaternion(qCur)
+            .normalize();
+          const curUp = new THREE.Vector3(0, 1, 0)
+            .applyQuaternion(qCur)
+            .normalize();
+
+          app.camera.position.copy(curTarget).add(curDir.multiplyScalar(curLen));
+          app.camera.up.copy(curUp);
+
+          const frustumSize = THREE.MathUtils.lerp(
+            startFrustumSize,
+            targetFrustumSize,
+            e,
+          );
+          app.camera.left = (-frustumSize * aspect) / 2;
+          app.camera.right = (frustumSize * aspect) / 2;
+          app.camera.top = frustumSize / 2;
+          app.camera.bottom = -frustumSize / 2;
+          app.camera.updateProjectionMatrix();
+
+          app.controls.update();
+          requestRender();
+
+          if (t < 1) {
+            app.viewTransitionRaf = requestAnimationFrame(tick);
+            return;
+          }
+
+          app.camera.position.copy(targetPosition);
+          app.controls.target.copy(targetLookAt);
+          app.camera.up.copy(targetUp);
+          app.camera.left = (-targetFrustumSize * aspect) / 2;
+          app.camera.right = (targetFrustumSize * aspect) / 2;
+          app.camera.top = targetFrustumSize / 2;
+          app.camera.bottom = -targetFrustumSize / 2;
+          app.camera.updateProjectionMatrix();
+          app.controls.update();
+
+          app.viewTransitionRaf = null;
+          app.isViewTransitioning = false;
+          app.controls.enabled = true;
+          updateAndRender();
+        };
+
+        app.viewTransitionRaf = requestAnimationFrame(tick);
+      }
+
+      function setCameraToView(direction, label) {
+        // Calculate the target center of the shape
+        const cubes = app.cubeGroup.children.filter((c) => c.isMesh);
+        if (cubes.length === 0) return;
+
+        const bbox = new THREE.Box3();
+        cubes.forEach((cube) => bbox.expandByObject(cube));
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+
+        // Calculate camera position based on direction
+        // Use a fixed orthographic offset from the shape center.
+        const distance = 8;
+        const cameraPos = new THREE.Vector3()
+          .copy(direction)
+          .multiplyScalar(distance)
+          .add(center);
+        const targetUp = getViewUpVector(direction, label);
+        const targetFrustumSize = getFitFrustumSizeFromBbox(bbox);
+        animateCameraToState(cameraPos, center, targetUp, targetFrustumSize);
+      }
+
+      // --- View Button Color Management -----------------------------------------
+
+      function updateViewButtonColors() {
+        // Update CSS custom properties for view button colors
+        document.documentElement.style.setProperty(
+          "--color-a",
+          settings.colorA_enabled ? settings.colorA : "#cccccc",
+        );
+        document.documentElement.style.setProperty(
+          "--color-b",
+          settings.colorB_enabled ? settings.colorB : "#cccccc",
+        );
+        document.documentElement.style.setProperty(
+          "--color-c",
+          settings.colorC_enabled ? settings.colorC : "#cccccc",
+        );
+
+        // Update button data attributes for CSS selectors
+        const buttons = document.querySelectorAll(".view-btn");
+        buttons.forEach((btn) => {
+          const id = btn.id;
+          if (id.includes("front") || id.includes("back")) {
+            btn.setAttribute("data-view", "front");
+          } else if (id.includes("left") || id.includes("right")) {
+            btn.setAttribute("data-view", "left");
+          } else if (id.includes("top") || id.includes("bottom")) {
+            btn.setAttribute("data-view", "top");
+          }
+        });
+      }
+
+      window.settings = settings;
+      window.updateAllCubeMaterials = updateAllCubeMaterials;
+      window.saveSettingsToLocalStorage = saveSettingsToLocalStorage;
+      window.showToast = showToast;
+      window.SEED_ALPHA = SEED_ALPHA;
+      window.b89Enc = b89Enc;
+      window.b89Dec = b89Dec;
+
+      // --- Init ---
+      init();
+
+      // --- Color Cycling System ---
+      const COLOR_SETS = [
+        {
+          name: "Default",
+          colorA: "#ff8800", // Orange
+          colorB: "#ff0000", // Red
+          colorC: "#0000ff", // Blue
+        },
+        {
+          name: "Orange Variations",
+          colorA: "#ffd8a8", // Light Orange (shine)
+          colorB: "#ff8800", // Orange (normal)
+          colorC: "#cc5500", // Dark Orange (shade)
+        },
+        {
+          name: "Red Variations",
+          colorA: "#ff9999", // Light Red (shine)
+          colorB: "#ff0000", // Red (normal)
+          colorC: "#990000", // Dark Red (shade)
+        },
+        {
+          name: "Blue Variations",
+          colorA: "#99ccff", // Light Blue (shine)
+          colorB: "#0000ff", // Blue (normal)
+          colorC: "#000099", // Dark Blue (shade)
+        },
+        {
+          name: "Green Variations",
+          colorA: "#b3ffb3", // Light Green (shine)
+          colorB: "#00ff00", // Green (normal)
+          colorC: "#006600", // Dark Green (shade)
+        },
+        {
+          name: "Purple Variations",
+          colorA: "#e6ccff", // Light Purple (shine)
+          colorB: "#8000ff", // Purple (normal)
+          colorC: "#4b0082", // Dark Purple (shade)
+        },
+      ];
+
+      function getCurrentColorSetIndex() {
+        const saved = localStorage.getItem("funnyCubesColorSetIndex");
+        return saved ? parseInt(saved, 10) : 0;
+      }
+
+      function setCurrentColorSetIndex(index) {
+        localStorage.setItem("funnyCubesColorSetIndex", index.toString());
+      }
+
+      function cycleToNextColorSet() {
+        const currentIndex = getCurrentColorSetIndex();
+        const nextIndex = (currentIndex + 1) % COLOR_SETS.length;
+        setCurrentColorSetIndex(nextIndex);
+        return nextIndex;
+      }
+
+      // --- Color Reset Functionality ---
+      function resetColorsToDefault() {
+        const nextIndex = cycleToNextColorSet();
+        const nextSet = COLOR_SETS[nextIndex];
+
+        // Reset settings to next color set values
+        settings.colorA = nextSet.colorA;
+        settings.colorB = nextSet.colorB;
+        settings.colorC = nextSet.colorC;
+        settings.colorA_enabled = true;
+        settings.colorB_enabled = true;
+        settings.colorC_enabled = true;
+
+        // Update DOM elements to reflect new colors
+        document.getElementById("color-picker-a").value = settings.colorA;
+        document.getElementById("color-picker-b").value = settings.colorB;
+        document.getElementById("color-picker-c").value = settings.colorC;
+        document.getElementById("color-a-toggle").checked =
+          settings.colorA_enabled;
+        document.getElementById("color-b-toggle").checked =
+          settings.colorB_enabled;
+        document.getElementById("color-c-toggle").checked =
+          settings.colorC_enabled;
+
+        // Apply changes to scene
+        updateAllCubeMaterials();
+        saveSettingsToLocalStorage();
+
+        // Show feedback with current set name
+        showToast(`Colors set to: ${nextSet.name}`);
+      }
+
+      function resetBackgroundColorToDefault() {
+        // Reset background color to default
+        settings.bgColor = "#ffffff";
+
+        // Update DOM element to reflect default
+        document.getElementById("bg-color-picker").value = settings.bgColor;
+
+        // Apply changes to scene
+        updateBackground();
+        saveSettingsToLocalStorage();
+
+        // Show feedback
+        showToast("Background color reset to default!");
+      }
+    </script>
+  </body>
+</html>

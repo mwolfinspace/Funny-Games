@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sudoku Color 4x4</title>
+<style>
+  :root{
+    --tile-size: 72px;
+    --gap: 8px;
+    --subbox-gap: 20px; /* Increased gap for better line visibility */
+    --board-bg: #f5f7fa;
+    --accent: #333;
+    --locked-border: 3px solid rgba(0,0,0,0.12);
+    --palette-size: 60px;
+    --outer-border: #cfd8e3;
+    --red-separator: #000000; /* Distinct red color for separator */
+    --separator-thickness: 4px; /* Thickness of the red lines */
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;color:var(--accent);background:#f0f4f8;display:flex;align-items:center;justify-content:center;padding:18px;}
+  .wrap{max-width:980px;width:100%;display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;}
+  header{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  h1{font-size:20px;margin:0;}
+  .board-panel{background:var(--board-bg);padding:18px;border-radius:12px;box-shadow:0 6px 18px rgba(20,30,50,0.06);}
+
+  /* Frame around the board so kids see a clear outer border */
+  .board-frame{display:flex;align-items:center;justify-content:center;padding:10px;border-radius:14px;border:3px solid var(--outer-border);background:linear-gradient(180deg,#fbfdff,#eef5ff);}
+
+  .board{
+    display:grid;
+    grid-template-columns: repeat(2, auto);
+    gap: var(--subbox-gap);
+    margin: 0;
+    position: relative; /* Needed for absolute positioning of separator lines */
+  }
+  /* --- ADDED: Red separator lines --- */
+  .board::before, .board::after {
+    content: "";
+    position: absolute;
+    background: var(--red-separator);
+    z-index: 1; /* Ensure lines are above the grid but below cells */
+    border-radius: 2px; /* Slightly rounded ends for aesthetics */
+  }
+  /* Horizontal line */
+  .board::before {
+    top: calc(50% - var(--separator-thickness) / 2);
+    left: 0;
+    right: 0;
+    height: var(--separator-thickness);
+  }
+  /* Vertical line */
+  .board::after {
+    left: calc(50.8% - var(--separator-thickness) / 2);
+    top: 0;
+    bottom: 0;
+    width: var(--separator-thickness);
+  }
+  /* --- END ADDED --- */
+
+  .subgrid {
+    display: grid;
+    grid-template-columns: repeat(2, var(--tile-size));
+    gap: var(--gap);
+  }
+
+  .cell{
+    width:var(--tile-size);
+    height:var(--tile-size);
+    background:linear-gradient(180deg,#ffffff,#f3f6fa);
+    border-radius:10px;
+    border:2px solid rgba(0,0,0,0.06);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:#fff;font-size:14px;cursor:pointer;
+    user-select:none;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .cell.locked{cursor:default;border:var(--locked-border);box-shadow:inset 0 2px 0 rgba(255,255,255,0.6);}
+  .cell.drag-over{transform:scale(1.04);box-shadow:0 6px 16px rgba(0,0,0,0.06);}
+
+  .controls{display:flex;flex-direction:column;gap:12px;padding:12px;}
+  .palette{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center;padding:6px;background:#fff;border-radius:8px;border:1px solid rgba(0,0,0,0.04);}
+  .color-tile{width:var(--palette-size);height:var(--palette-size);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;cursor:grab;box-shadow:0 8px 18px rgba(24,36,64,0.06);user-select:none;transition: transform 0.15s ease, opacity 0.15s ease;}
+  .color-tile:active{cursor:grabbing;}
+  .color-tile.dragging {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  .palette .selected{outline:4px solid rgba(0,0,0,0.08);transform:translateY(-3px);}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:#fff;border:1px solid rgba(0,0,0,0.06);cursor:pointer;box-shadow:0 6px 14px rgba(20,30,50,0.04);}
+  .btn.primary{background:linear-gradient(180deg,#3666ff,#2749d9);color:#fff;border:none;box-shadow:0 8px 20px rgba(39,73,217,0.18);}
+  .small{font-size:13px;padding:8px 10px;border-radius:8px;}
+  .meta{font-size:13px;color:#556;line-height:1.3;}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;}
+  .hint{font-size:13px;color:#3b3b3b;padding:8px 10px;background:#fff;border-radius:8px;border:1px dashed rgba(0,0,0,0.04);}
+  .erase{background:#fff0f0;border:1px solid rgba(255,0,0,0.08)}
+  .status{margin-top:6px;text-align:center;font-weight:600;color:#2a2a2a;}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:center;justify-content:center;z-index:50;}
+  .modal{background:#fff;padding:24px;border-radius:12px;max-width:420px;width:94%;box-shadow:0 20px 40px rgba(10,20,40,0.2);text-align:center;}
+  .modal h2{margin:0 0 8px;font-size:20px;}
+  .modal p{margin:6px 0 16px;color:#4a4a4a;}
+  .credits{font-size:12px;color:#666;margin-top:8px;text-align:center;}
+  footer.smallprint{grid-column:1 / -1;margin-top:8px;color:#666;font-size:12px;text-align:center;}
+
+  /* color definitions */
+  .col-1{background:linear-gradient(180deg,#ff6b6b,#d64545);} /* red */
+  .col-2{background:linear-gradient(180deg,#4aa3ff,#2673d1);} /* blue */
+  .col-3{background:linear-gradient(180deg,#63d66a,#0aa048);} /* green */
+  .col-4{background:linear-gradient(180deg,#ffb54d,#ff8a00);} /* orange */
+
+  .label{font-size:12px;color:#666}
+  @media (max-width:880px){ .wrap{grid-template-columns:1fr; } .board{margin:8px auto;} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Sudoku Color 4x4</h1>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label for="levelSelect" class="label">Level:</label>
+        <select id="levelSelect" class="small" aria-label="Select difficulty">
+          <option value="easy">Easy (fill 6 cells)</option>
+          <option value="medium">Medium (fill 8 cells)</option>
+          <option value="hard">Hard (fill 10 cells)</option>
+        </select>
+        <button id="newGame" class="btn primary">New Game</button>
+        <button id="checkBtn" class="btn small">Check</button>
+      </div>
+    </header>
+
+    <section class="board-panel" aria-label="game board">
+      <div class="meta">Drag a color tile from the palette to any empty cell. Each color appears once in every row, column, and 2×2 box.</div>
+      <div class="board-frame">
+        <div class="board" id="board" role="grid" aria-label="4 by 4 board"></div>
+      </div>
+      <div class="status" id="statusText">Level: Easy — Teacher can drop colors for students.</div>
+    </section>
+
+    <aside class="controls" aria-label="controls">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="label">Palette</div>
+          <div style="display:flex;gap:8px">
+            <button id="eraseBtn" class="btn small erase" title="Erase selected cell">Eraser</button>
+            <button id="solveBtn" class="btn small" title="Fill solution (teacher only)">Reveal</button>
+          </div>
+        </div>
+
+        <div class="palette" id="palette" aria-label="color palette">
+          <div class="color-tile col-1" draggable="true" data-color="1" id="tile1" title="Red">Red</div>
+          <div class="color-tile col-2" draggable="true" data-color="2" id="tile2" title="Blue">Blue</div>
+          <div class="color-tile col-3" draggable="true" data-color="3" id="tile3" title="Green">Green</div>
+          <div class="color-tile col-4" draggable="true" data-color="4" id="tile4" title="Orange">Orange</div>
+        </div>
+        <div class="hint">Tip: You can also click a color tile to select it and then click a cell to place it.</div>
+      </div>
+
+      <div class="credits">Designed for classroom drag & drop practice. Colors map: 1=Red,2=Blue,3=Green,4=Orange.</div>
+    </aside>
+
+    <div class="modal-backdrop" id="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+        <h2 id="mTitle">🎉 Great job!</h2>
+        <p id="mText">You completed the board correctly — big congrats to you and your student!</p>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button id="closeModal" class="btn primary">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="smallprint">Built for teachers & kids — drag, drop, learn.</footer>
+  </div>
+
+<script>
+(() => {
+  // color map
+  const COLORS = {1:'col-1',2:'col-2',3:'col-3',4:'col-4'};
+  // Predefined full solutions. We'll pick one and then choose which cells to reveal per level.
+  const SOLUTIONS = [
+    [
+      [1,2,3,4],
+      [3,4,1,2],
+      [2,1,4,3],
+      [4,3,2,1]
+    ],
+    [
+      [2,1,4,3],
+      [3,4,1,2],
+      [1,2,3,4],
+      [4,3,2,1]
+    ],
+    [
+      [4,3,2,1],
+      [1,2,3,4],
+      [3,4,1,2],
+      [2,1,4,3]
+    ],
+    [
+      [1,3,4,2],
+      [4,2,1,3],
+      [2,4,3,1],
+      [3,1,2,4]
+    ]
+  ];
+
+  // Difficulty mapping: how many EMPTY cells the player must fill
+  const DIFFICULTY = {
+    easy: 6,   // player fills 6 cells -> givens = 10
+    medium: 8, // player fills 8 cells -> givens = 8
+    hard: 10   // player fills 10 cells -> givens = 6
+  };
+
+  // DOM refs
+  const boardEl = document.getElementById('board');
+  const paletteEl = document.getElementById('palette');
+  const newGameBtn = document.getElementById('newGame');
+  const checkBtn = document.getElementById('checkBtn');
+  const eraseBtn = document.getElementById('eraseBtn');
+  const solveBtn = document.getElementById('solveBtn');
+  const modal = document.getElementById('modal');
+  const closeModal = document.getElementById('closeModal');
+  const statusText = document.getElementById('statusText');
+  const levelSelect = document.getElementById('levelSelect');
+
+  let currentSolution = null;
+  let boardState = []; // holds numbers or null
+  let locked = []; // boolean locked cells
+  let selectedColor = null; // palette selection for click-mode
+  let selectedCell = null; // selected cell DOM for teacher click
+
+  function makeBoardDOM(){
+    boardEl.innerHTML = '';
+    const subgrids = [];
+    for (let i = 0; i < 4; i++) {
+        const subgrid = document.createElement('div');
+        subgrid.className = 'subgrid';
+        boardEl.appendChild(subgrid);
+        subgrids.push(subgrid);
+    }
+
+    for(let r=0; r<4; r++){
+      for(let c=0; c<4; c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('role','gridcell');
+        cell.setAttribute('data-r', r);
+        cell.setAttribute('data-c', c);
+        cell.dataset.color = '';
+        cell.addEventListener('dragover', onDragOver);
+        cell.addEventListener('dragenter', onDragEnter);
+        cell.addEventListener('dragleave', onDragLeave);
+        cell.addEventListener('drop', onDrop);
+        cell.addEventListener('click', onCellClick);
+        cell.addEventListener('contextmenu', (e) => { e.preventDefault(); clearCell(cell); });
+        
+        const subgridIndex = Math.floor(r / 2) * 2 + Math.floor(c / 2);
+        subgrids[subgridIndex].appendChild(cell);
+      }
+    }
+  }
+
+  // helpers
+  function randomInt(max){ return Math.floor(Math.random()*max); }
+
+  function startNewGame(){
+    const level = levelSelect.value || 'easy';
+    const toFill = DIFFICULTY[level];
+    const givensCount = 16 - toFill; // number of prefilled cells
+
+    currentSolution = JSON.parse(JSON.stringify(SOLUTIONS[randomInt(SOLUTIONS.length)]));
+
+    const allPositions = [];
+    for(let r=0;r<4;r++) for(let c=0;c<4;c++) allPositions.push([r,c]);
+
+    shuffleArray(allPositions);
+    const givens = allPositions.slice(0, givensCount);
+
+    boardState = Array.from({length:4},()=>Array(4).fill(null));
+    locked = Array.from({length:4},()=>Array(4).fill(false));
+
+    for(const [r,c] of givens){
+      boardState[r][c] = currentSolution[r][c];
+      locked[r][c] = true;
+    }
+
+    renderBoard();
+    updateStatus();
+  }
+
+  function shuffleArray(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
+  function renderBoard(){
+    const cells = boardEl.querySelectorAll('.cell');
+    cells.forEach(cell => {
+      const r = parseInt(cell.dataset.r,10);
+      const c = parseInt(cell.dataset.c,10);
+      const val = boardState[r][c];
+      cell.classList.remove(...Object.values(COLORS));
+      if(val){
+        cell.classList.add(COLORS[val]);
+        cell.textContent = '';
+      } else {
+        cell.style.background = '';
+        cell.textContent = '';
+      }
+      if(locked[r][c]){
+        cell.classList.add('locked');
+        cell.setAttribute('aria-readonly','true');
+      } else {
+        cell.classList.remove('locked');
+        cell.removeAttribute('aria-readonly');
+      }
+    });
+  }
+
+  // drag handlers from palette
+  function onPaletteDragStart(e){
+    const color = e.target.dataset.color;
+    if(!color) return;
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', color);
+    const drag = document.createElement('div');
+    drag.style.width='48px';drag.style.height='48px';drag.style.borderRadius='8px';
+    drag.style.background = window.getComputedStyle(e.target).backgroundImage;
+    document.body.appendChild(drag);
+    e.dataTransfer.setDragImage(drag,24,24);
+    setTimeout(()=>document.body.removeChild(drag),0);
+  }
+  function onDragOver(e){ e.preventDefault(); }
+  function onDragEnter(e){ e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+  function onDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+  function onDrop(e){
+    e.preventDefault();
+    const colStr = e.dataTransfer.getData('text/plain');
+    e.currentTarget.classList.remove('drag-over');
+    if(!colStr) return;
+    const colorNum = parseInt(colStr,10);
+    placeColorInCell(e.currentTarget, colorNum);
+  }
+
+  function placeColorInCell(cell, colorNum){
+    const r = parseInt(cell.dataset.r,10);
+    const c = parseInt(cell.dataset.c,10);
+    if(locked[r][c]) return;
+    boardState[r][c] = colorNum;
+    renderBoard();
+    updateStatus();
+    checkAutoComplete();
+  }
+
+  function clearCell(cell){
+    const r = parseInt(cell.dataset.r,10);
+    const c = parseInt(cell.dataset.c,10);
+    if(locked[r][c]) return;
+    boardState[r][c] = null;
+    renderBoard();
+    updateStatus();
+  }
+
+  function onPaletteClick(e){
+    const color = e.currentTarget.dataset.color;
+    if(!color) return;
+    if(selectedColor === color){
+      selectedColor = null;
+      e.currentTarget.classList.remove('selected');
+      statusText.textContent = 'Selection cleared. Use drag or click again to select a color.';
+    } else {
+      selectedColor = color;
+      paletteEl.querySelectorAll('.color-tile').forEach(t=>t.classList.toggle('selected', t.dataset.color===color));
+      statusText.textContent = 'Selected ' + e.currentTarget.title + '. Click on a cell to place it.';
+    }
+  }
+
+  function onCellClick(e){
+    const cell = e.currentTarget;
+    if(selectedColor){
+      placeColorInCell(cell, parseInt(selectedColor,10));
+      return;
+    }
+    boardEl.querySelectorAll('.cell').forEach(c=>c.classList.remove('cell-selected'));
+    cell.classList.add('cell-selected');
+    selectedCell = cell;
+  }
+
+  function checkBoard(showModalIfCorrect=true){
+    if(!currentSolution) return {ok:false, reason:'no-solution'};
+    for(let r=0;r<4;r++){
+      for(let c=0;c<4;c++){
+        if(boardState[r][c] === null) return {ok:false, reason: 'incomplete'};
+        if(boardState[r][c] !== currentSolution[r][c]) return {ok:false, reason: 'wrong'};
+      }
+    }
+    if(showModalIfCorrect) showWinModal();
+    return {ok:true};
+  }
+
+  function checkAutoComplete(){
+    const res = checkBoard(false);
+    if(res.ok) showWinModal();
+  }
+
+  function showWinModal(){
+    modal.style.display = 'flex';
+    document.getElementById('mText').textContent = 'You and your student solved it! ðŸŽ‰';
+  }
+
+  function hideModal(){
+    modal.style.display = 'none';
+  }
+
+  function revealSolution(){
+    if(!currentSolution) return;
+    for(let r=0;r<4;r++) for(let c=0;c<4;c++) boardState[r][c] = currentSolution[r][c];
+    renderBoard();
+    showWinModal();
+  }
+
+  function updateStatus(){
+    const level = levelSelect.value || 'easy';
+    const toFill = DIFFICULTY[level];
+    let remaining = 0;
+    for(let r=0;r<4;r++) for(let c=0;c<4;c++) if(!boardState[r][c]) remaining++;
+    statusText.textContent = `Level: ${level.charAt(0).toUpperCase()+level.slice(1)} — to fill: ${Math.max(0, remaining)} cell(s).`;
+  }
+
+  function onCheckButton(){
+    const res = checkBoard(false);
+    if(res.ok){
+      showWinModal();
+    } else {
+      if(res.reason === 'incomplete'){
+        alert('Not finished yet — some cells are still empty. Keep going!');
+      } else {
+        alert('Some placements are incorrect. Try checking rows, columns, and boxes.');
+      }
+    }
+  }
+
+  function init(){
+    makeBoardDOM();
+    paletteEl.querySelectorAll('.color-tile').forEach(t=>{
+      t.addEventListener('dragstart', onPaletteDragStart);
+      t.addEventListener('click', onPaletteClick);
+      t.addEventListener('dragend', () => t.classList.remove('dragging'));
+    });
+
+    newGameBtn.addEventListener('click', startNewGame);
+    checkBtn.addEventListener('click', onCheckButton);
+    eraseBtn.addEventListener('click', () => {
+      if(selectedCell){
+        clearCell(selectedCell);
+        selectedCell = null;
+      } else {
+        alert('Click a non-locked cell on the board to erase it (or right-click any cell).');
+      }
+    });
+    solveBtn.addEventListener('click', () => {
+      const ok = confirm('Reveal the full solution? This will fill all cells.');
+      if(ok) revealSolution();
+    });
+
+    closeModal.addEventListener('click', hideModal);
+    modal.addEventListener('click', (e)=>{ if(e.target === modal) hideModal(); });
+
+    startNewGame();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

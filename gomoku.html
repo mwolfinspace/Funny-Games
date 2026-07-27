@@ -1,0 +1,3262 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gomoku - Light & Fun</title>
+    <style>
+      :root {
+        --bg-1: #f2f7ff;
+        --bg-2: #e9f2ff;
+        --ink: #16202a;
+        --muted: #5c6b7a;
+        --grid: rgba(20, 30, 45, 0.12);
+        --grid-strong: rgba(20, 30, 45, 0.28);
+        --acrylic-bg: rgba(255, 255, 255, 0.78);
+        --acrylic-border: rgba(255, 255, 255, 0.4);
+        --win-shadow: 0 10px 30px rgba(20, 30, 45, 0.18);
+        --accent: #2b7fff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: "Bahnschrift", "Trebuchet MS", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(
+          1200px 700px at 20% 10%,
+          #ffffff 0%,
+          var(--bg-1) 45%,
+          var(--bg-2) 100%
+        );
+      }
+
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        touch-action: none;
+        cursor: cell;
+      }
+
+      .panel {
+        background: var(--acrylic-bg);
+        border: 1px solid var(--acrylic-border);
+        backdrop-filter: blur(16px) saturate(180%);
+        -webkit-backdrop-filter: blur(16px) saturate(180%);
+        box-shadow: var(--win-shadow);
+        border-radius: 16px;
+      }
+
+      #hud {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        padding: 12px 14px;
+        min-width: 220px;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        z-index: 5;
+        white-space: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #hud .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      #scoreBoard {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        font-weight: 700;
+      }
+
+      .score-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .score-mark {
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .score-mark svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+      }
+
+      .score-value {
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      #bottomPanel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        width: 100vw;
+        transform: none;
+        padding: 10px 12px;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 12px;
+        z-index: 6;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+      }
+
+      #bottomPanel > * {
+        flex: 0 0 auto;
+      }
+
+      #menuControls {
+        display: flex;
+        gap: 8px;
+        margin-left: auto;
+      }
+
+      #controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: nowrap;
+        align-items: center;
+      }
+
+      button,
+      .chip,
+      select,
+      label.switch {
+        font-family: inherit;
+      }
+
+      button {
+        border: none;
+        background: #ffffff;
+        color: var(--ink);
+        padding: 8px 12px;
+        border-radius: 10px;
+        box-shadow: 0 6px 14px rgba(20, 30, 45, 0.12);
+        cursor: pointer;
+        transition:
+          transform 0.1s ease,
+          box-shadow 0.2s ease;
+      }
+
+      button .btn-icon {
+        margin-right: 6px;
+        font-size: 14px;
+        line-height: 1;
+        display: inline-block;
+        transform: translateY(1px);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .tiny-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 999px;
+      }
+
+      #turnQueue {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: nowrap;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        font-size: 13px;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .chip svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .chip .emoji {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .chip.active {
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 8px 20px rgba(20, 30, 45, 0.2);
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+
+      .chip .dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(43, 127, 255, 0.25);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(43, 127, 255, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(43, 127, 255, 0);
+        }
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(226, 236, 255, 0.72);
+        backdrop-filter: blur(18px) saturate(180%);
+        z-index: 10;
+        padding: 20px;
+        transition:
+          opacity 0.3s,
+          visibility 0.3s;
+      }
+
+      #resultOverlay {
+        background: transparent;
+        backdrop-filter: none;
+        pointer-events: none;
+        place-items: start center;
+        padding-top: 18px;
+      }
+
+      .overlay.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .welcome-box {
+        background: var(--acrylic-bg);
+        border: 1px solid var(--acrylic-border);
+        box-shadow: var(--win-shadow);
+        border-radius: 20px;
+        padding: 20px 22px;
+        width: min(1180px, 96vw);
+        max-height: 88vh;
+        overflow-y: auto;
+        text-align: center;
+      }
+
+      .welcome-box h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+        letter-spacing: 0.02em;
+      }
+
+      .welcome-subtitle {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 8px 0 8px;
+      }
+
+      .welcome-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        align-items: start;
+        text-align: left;
+        margin-top: 6px;
+      }
+
+      .welcome-col {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+      }
+
+      .welcome-col .welcome-subtitle {
+        margin: 0;
+        text-align: left;
+      }
+
+      .welcome-col .row,
+      .welcome-col .mode-row {
+        justify-content: flex-start;
+      }
+
+      .welcome-start {
+        align-content: center;
+        justify-items: start;
+        gap: 12px;
+      }
+
+      .welcome-start button {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .lan-panel {
+        width: 100%;
+        display: grid;
+        gap: 8px;
+      }
+
+      .lan-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.2);
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.7);
+      }
+
+      .status-dot.idle {
+        background: #94a3b8;
+      }
+      .status-dot.connecting {
+        background: #f59e0b;
+      }
+      .status-dot.ok {
+        background: #22c55e;
+      }
+      .status-dot.error {
+        background: #ef4444;
+      }
+
+      .lan-status-text {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .lan-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      .lan-input {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        background: #ffffff;
+        font-family: inherit;
+        font-size: 13px;
+      }
+
+      .lan-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .lan-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .mode-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-bottom: 10px;
+      }
+
+      .mode-card {
+        flex: 1 1 140px;
+        min-width: 140px;
+        padding: 12px 12px;
+        border-radius: 16px;
+        border: 2px solid transparent;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        background: rgba(240, 244, 255, 0.85);
+        color: #4b5563;
+        transition: all 0.18s;
+        line-height: 1.5;
+        text-align: center;
+      }
+
+      .mode-card .mode-icon {
+        font-size: 20px;
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .mode-card .mode-desc {
+        font-weight: 500;
+        font-size: 10px;
+        color: var(--muted);
+      }
+
+      .mode-card:hover {
+        background: rgba(220, 232, 255, 0.95);
+        transform: translateY(-2px);
+      }
+
+      .mode-card.selected {
+        background: linear-gradient(
+          135deg,
+          rgba(79, 142, 247, 0.22),
+          rgba(124, 111, 247, 0.18)
+        );
+        border-color: var(--accent);
+        color: var(--ink);
+      }
+
+      .start-actions {
+        margin-top: 8px;
+        padding-bottom: 6px;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .card {
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+
+      .player-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: space-between;
+      }
+
+      .player-head .left {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .slot-marker {
+        min-width: 12px;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .ready-badge {
+        font-size: 11px;
+        color: var(--muted);
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.06);
+        border: 1px solid transparent;
+      }
+
+      .ready-badge.ready {
+        color: #0f5132;
+        background: rgba(34, 197, 94, 0.18);
+        border-color: rgba(34, 197, 94, 0.45);
+      }
+
+      .player-config.is-local {
+        box-shadow: 0 0 0 2px rgba(43, 127, 255, 0.35);
+      }
+
+      .player-config.is-local .player-name {
+        color: var(--accent);
+        text-shadow: 0 0 8px rgba(43, 127, 255, 0.35);
+      }
+
+      .player-config {
+        display: grid;
+        gap: 6px;
+      }
+
+      .mark-preview {
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .pick-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .pick-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(255, 255, 255, 0.9);
+        display: grid;
+        place-items: center;
+        padding: 0;
+        line-height: 0;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(20, 30, 45, 0.12);
+        transition:
+          transform 0.1s ease,
+          box-shadow 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .pick-icon {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        place-items: center;
+      }
+
+      .pick-btn svg {
+        width: 24px;
+        height: 24px;
+        display: block;
+      }
+
+      .pick-btn .emoji {
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .pick-btn.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(43, 127, 255, 0.25);
+        transform: translateY(-1px);
+      }
+
+      .pick-btn.disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .color-options {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .color-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(20, 30, 45, 0.15);
+        transition: transform 0.1s ease;
+      }
+
+      .color-btn.selected {
+        border-color: rgba(0, 0, 0, 0.35);
+        transform: scale(1.08);
+      }
+      .color-btn.disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      select {
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        background: #ffffff;
+      }
+
+      .switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .switch input {
+        width: 42px;
+        height: 22px;
+        appearance: none;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 999px;
+        position: relative;
+        outline: none;
+        transition: background 0.2s ease;
+      }
+
+      .switch input::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #ffffff;
+        transition: transform 0.2s ease;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18);
+      }
+
+      .switch input:checked {
+        background: rgba(43, 127, 255, 0.6);
+      }
+
+      .switch input:checked::after {
+        transform: translateX(20px);
+      }
+
+      #resultCard {
+        width: min(520px, 92vw);
+        padding: 18px;
+        text-align: center;
+        display: grid;
+        gap: 10px;
+        pointer-events: auto;
+      }
+
+      #resultTitle {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      #resultDetail {
+        color: var(--muted);
+      }
+
+      #turnCard {
+        position: fixed;
+        left: 16px;
+        bottom: 80px;
+        padding: 14px 16px;
+        min-width: 160px;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        z-index: 6;
+        border-radius: 18px;
+        background: var(--acrylic-bg);
+        border: 1px solid var(--acrylic-border);
+        backdrop-filter: blur(18px) saturate(180%);
+        box-shadow: 0 8px 16px rgba(20, 30, 45, 0.12);
+      }
+
+      #turnCard .turn-title {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      #turnIcon svg {
+        width: 80px;
+        height: 80px;
+      }
+
+      #turnEmoji {
+        font-size: 64px;
+        line-height: 1;
+      }
+
+      @media (max-width: 700px) {
+        #controls {
+          justify-content: center;
+        }
+      }
+
+      @media (max-width: 1020px) {
+        .welcome-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .welcome-start {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .welcome-grid {
+          grid-template-columns: 1fr;
+        }
+        .welcome-start {
+          justify-items: stretch;
+        }
+      }
+
+      @media (max-height: 720px) {
+        .welcome-box {
+          padding: 16px 18px;
+          max-height: 84vh;
+        }
+        .mode-row {
+          margin-bottom: 8px;
+        }
+        .mode-card {
+          min-width: 130px;
+          padding: 10px;
+          font-size: 13px;
+        }
+        .mode-card .mode-icon {
+          font-size: 18px;
+        }
+        .welcome-subtitle {
+          margin: 6px 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="board"></canvas>
+
+    <div id="hud" class="panel">
+      <div id="modeLabel">Mode: First 5 Wins</div>
+      <div id="turnLabel">Turn: Player 1</div>
+      <div id="scoreBoard"></div>
+      <div class="hint">
+        Tap a cell to place. Board auto-fits after each move.
+      </div>
+    </div>
+
+    <div id="turnCard" class="panel">
+      <div class="turn-title">This Turn</div>
+      <div id="turnIcon">
+        <svg id="turnSvg" viewBox="0 0 100 100" aria-hidden="true"></svg>
+        <div id="turnEmoji" style="display: none">😀</div>
+      </div>
+    </div>
+
+    <div id="bottomPanel" class="panel">
+      <div id="controls">
+        <button id="undoBtn" title="Undo">
+          <span class="btn-icon">↩️</span>Undo
+        </button>
+        <button id="redoBtn" title="Redo">
+          <span class="btn-icon">↪️</span>Redo
+        </button>
+        <label class="switch" title="Auto fit after each move">
+          <input id="autoFit" type="checkbox" />
+          Auto-Fit
+        </label>
+        <button id="aiLevelBtn" title="AI Level">
+          <span class="btn-icon">🤖</span>AI L1
+        </button>
+      </div>
+      <div id="turnQueue"></div>
+      <div id="menuControls">
+        <button id="resetBtn"><span class="btn-icon">🔄</span>Reset</button>
+        <button id="menuBtn"><span class="btn-icon">☰</span>Menu</button>
+        <button id="homeBtn"><span class="btn-icon">🏠</span>Home</button>
+      </div>
+    </div>
+
+    <div id="welcomeScreen" class="overlay">
+      <div class="welcome-box">
+        <h1>Gomoku</h1>
+        <div class="welcome-grid">
+          <div class="welcome-col">
+            <div class="welcome-subtitle">Select a Mode</div>
+            <div class="mode-row" id="modeRow">
+              <button class="mode-card selected" data-mode="first5">
+                <span class="mode-icon">⚡️ M1</span>
+                First 5 Wins
+                <div class="mode-desc">Fast classic victory.</div>
+              </button>
+              <button class="mode-card" data-mode="score">
+                <span class="mode-icon">🏆 M2</span>
+                Score Mode
+                <div class="mode-desc">Keep playing, rack points.</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="welcome-col">
+            <div class="welcome-subtitle">Players</div>
+            <div class="mode-row" id="playerRow">
+              <button class="mode-card selected" data-players="2">
+                <span class="mode-icon">🙂 P2</span>
+                2 Players
+                <div class="mode-desc">Head-to-head.</div>
+              </button>
+              <button class="mode-card" data-players="3">
+                <span class="mode-icon">😃 P3</span>
+                3 Players
+                <div class="mode-desc">Round-robin fun.</div>
+              </button>
+              <button class="mode-card" data-players="4">
+                <span class="mode-icon">🤝 P4</span>
+                4 Players
+                <div class="mode-desc">Chaos or teams.</div>
+              </button>
+            </div>
+            <div class="row">
+              <label class="switch" id="aiRow">
+                <input id="aiToggle" type="checkbox" />
+                Play vs AI (Player 2)
+              </label>
+              <label class="switch" id="emojiRow">
+                <input id="emojiToggle" type="checkbox" />
+                Use Emoji Marks
+              </label>
+              <button id="emojiRandomBtn" type="button" class="tiny-btn">
+                <span class="btn-icon">🎲</span>Random 4
+              </button>
+              <label class="switch" id="teamRow">
+                <input id="teamToggle" type="checkbox" />
+                2 vs 2 Teams
+              </label>
+            </div>
+          </div>
+
+          <div class="welcome-col">
+            <div class="welcome-subtitle">Player Styles</div>
+            <div class="card">
+              <div
+                id="playerSettings"
+                class="row"
+                style="justify-content: center; margin-top: 6px"
+              ></div>
+            </div>
+          </div>
+
+          <div class="welcome-col welcome-start">
+            <div class="welcome-subtitle">Start</div>
+            <button id="startBtn">
+              <span class="btn-icon">▶️</span>Start Game
+            </button>
+            <div class="lan-panel card">
+              <div class="lan-header">
+                <span id="lanStatusDot" class="status-dot idle"></span>
+                <span>LAN Connect</span>
+                <span id="lanStatusText" class="lan-status-text">Idle</span>
+              </div>
+              <label class="lan-label" for="lanServer">Signal Server</label>
+              <input
+                id="lanServer"
+                class="lan-input"
+                type="text"
+                placeholder="ws://192.168.1.10:8080"
+              />
+              <label class="lan-label" for="lanRoom">Room Code</label>
+              <input
+                id="lanRoom"
+                class="lan-input"
+                type="text"
+                placeholder="ROOM"
+                maxlength="8"
+              />
+              <div class="lan-actions">
+                <button id="lanHostBtn" type="button" class="tiny-btn">
+                  <span class="btn-icon">📡</span>Host
+                </button>
+                <button id="lanJoinBtn" type="button" class="tiny-btn">
+                  <span class="btn-icon">🔗</span>Join
+                </button>
+                <button id="lanTestBtn" type="button" class="tiny-btn">
+                  <span class="btn-icon">🧪</span>Test
+                </button>
+                <button id="lanReadyBtn" type="button" class="tiny-btn">
+                  <span class="btn-icon">✅</span>Ready
+                </button>
+                <button id="lanCopyBtn" type="button" class="tiny-btn">
+                  <span class="btn-icon">📋</span>Copy Invite
+                </button>
+              </div>
+              <div class="lan-info">
+                <span class="lan-label">Detected Host</span>
+                <span id="lanHostHint" class="lan-status-text">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultOverlay" class="overlay hidden">
+      <div id="resultCard" class="panel">
+        <div id="resultTitle">Player 1 Wins!</div>
+        <div id="resultDetail">5 in a row</div>
+        <div class="row" style="justify-content: center; gap: 10px">
+          <button id="playAgainBtn">
+            <span class="btn-icon">▶️</span>Play Again
+          </button>
+          <button id="menuAgainBtn">
+            <span class="btn-icon">☰</span>Menu
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("board");
+      const ctx = canvas.getContext("2d");
+      const modeLabel = document.getElementById("modeLabel");
+      const turnLabel = document.getElementById("turnLabel");
+      const scoreBoard = document.getElementById("scoreBoard");
+      const turnQueue = document.getElementById("turnQueue");
+
+      const undoBtn = document.getElementById("undoBtn");
+      const redoBtn = document.getElementById("redoBtn");
+      const autoFit = document.getElementById("autoFit");
+      const aiLevelBtn = document.getElementById("aiLevelBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const newBtn = document.getElementById("newBtn");
+      const menuBtn = document.getElementById("menuBtn");
+      const homeBtn = document.getElementById("homeBtn");
+
+      const menuOverlay = document.getElementById("welcomeScreen");
+      const startBtn = document.getElementById("startBtn");
+      const modeRow = document.getElementById("modeRow");
+      const playerRow = document.getElementById("playerRow");
+      const aiToggle = document.getElementById("aiToggle");
+      const aiRow = document.getElementById("aiRow");
+      const emojiToggle = document.getElementById("emojiToggle");
+      const emojiRow = document.getElementById("emojiRow");
+      const emojiRandomBtn = document.getElementById("emojiRandomBtn");
+      const teamToggle = document.getElementById("teamToggle");
+      const teamRow = document.getElementById("teamRow");
+      const playerSettings = document.getElementById("playerSettings");
+      const lanServerInput = document.getElementById("lanServer");
+      const lanRoomInput = document.getElementById("lanRoom");
+      const lanHostBtn = document.getElementById("lanHostBtn");
+      const lanJoinBtn = document.getElementById("lanJoinBtn");
+      const lanTestBtn = document.getElementById("lanTestBtn");
+      const lanReadyBtn = document.getElementById("lanReadyBtn");
+      const lanCopyBtn = document.getElementById("lanCopyBtn");
+      const lanStatusDot = document.getElementById("lanStatusDot");
+      const lanStatusText = document.getElementById("lanStatusText");
+      const lanHostHint = document.getElementById("lanHostHint");
+
+      const resultOverlay = document.getElementById("resultOverlay");
+      const resultTitle = document.getElementById("resultTitle");
+      const resultDetail = document.getElementById("resultDetail");
+      const playAgainBtn = document.getElementById("playAgainBtn");
+      const menuAgainBtn = document.getElementById("menuAgainBtn");
+      const turnSvg = document.getElementById("turnSvg");
+      const turnEmoji = document.getElementById("turnEmoji");
+
+      let sfxCtx = null;
+
+      const CELL = 40;
+      const MAX_ZOOM = 3.0;
+      const MIN_ZOOM = 0.4;
+      const ALLOW_PAN = false;
+      const ALLOW_ZOOM = false;
+      const STORAGE_KEY = "gomoku.save.v1";
+
+      const colorOptions = [
+        { name: "Azure", value: "#2b7fff" },
+        { name: "Coral", value: "#ff6b6b" },
+        { name: "Mint", value: "#2ec4b6" },
+        { name: "Amber", value: "#ffb703" },
+        { name: "Grape", value: "#8f6bff" },
+        { name: "Rose", value: "#ff4d8d" },
+      ];
+
+      const shapeOptions = [
+        { name: "X", kind: "path", path: "M20 20L80 80M80 20L20 80" },
+        { name: "O", kind: "circle", r: 36 },
+        { name: "Triangle", kind: "path", path: "M50 12L92 88H8Z" },
+        {
+          name: "Star",
+          kind: "path",
+          path: "M50 8L62 38H94L68 58L78 90L50 70L22 90L32 58L6 38H38Z",
+        },
+      ];
+
+      const emojiPool = [
+        "😀",
+        "😍",
+        "😎",
+        "🔥",
+        "🐼",
+        "🐸",
+        "🦊",
+        "🐯",
+        "🦄",
+        "🐙",
+        "🍀",
+        "🌈",
+        "⭐",
+        "💎",
+        "🍩",
+        "🎮",
+        "🚀",
+        "👾",
+        "🤖",
+        "😺",
+        "🐵",
+        "🐧",
+        "🦁",
+        "🌟",
+      ];
+      let emojiSet = ["😀", "😍", "😎", "🔥"];
+
+      const state = {
+        board: new Map(),
+        moves: [],
+        historyIndex: -1,
+        players: [],
+        current: 0,
+        mode: "first5",
+        teamMode: false,
+        aiEnabled: false,
+        aiIndex: 1,
+        aiLevel: 1,
+        emojiEnabled: false,
+        scores: [],
+        scoredSegments: new Set(),
+        gameOver: false,
+        winningLine: null,
+      };
+
+      const net = {
+        enabled: false,
+        connected: false,
+        role: null,
+        room: "",
+        serverUrl: "",
+        ws: null,
+        pc: null,
+        dc: null,
+        pendingCandidates: [],
+        playerIndex: 0,
+        readyLocal: false,
+        readyRemote: false,
+        syncingMenu: false,
+      };
+
+      let selectedPlayers = 2;
+      let selectedMode = "first5";
+      let selectedEmoji = false;
+      let aiLevel = 1;
+      let isRestoring = false;
+
+      const camera = {
+        x: 0,
+        y: 0,
+        zoom: 1,
+      };
+
+      let dpr = window.devicePixelRatio || 1;
+      let viewW = window.innerWidth;
+      let viewH = window.innerHeight;
+      let needsRender = true;
+      let animationId = null;
+      let confetti = [];
+      let cameraTween = null;
+      let aiPending = false;
+      let userAdjustedCamera = false;
+
+      const pointers = new Map();
+      let isDragging = false;
+      let lastPan = { x: 0, y: 0 };
+      let pinchStart = null;
+      let tapCandidate = null;
+      let hoverCell = null;
+
+      autoFit.checked = true;
+      autoFit.disabled = true;
+      if (lanServerInput) lanServerInput.value = defaultLanServerUrl();
+      if (lanRoomInput) lanRoomInput.value = generateRoomCode();
+      if (lanHostHint) {
+        lanHostHint.textContent = window.location.hostname || "unknown";
+      }
+      applyInviteParams();
+
+      function getViewportSize() {
+        if (window.visualViewport) {
+          return {
+            w: window.visualViewport.width,
+            h: window.visualViewport.height,
+          };
+        }
+        return {
+          w: document.documentElement.clientWidth,
+          h: document.documentElement.clientHeight,
+        };
+      }
+
+      function resize() {
+        dpr = window.devicePixelRatio || 1;
+        const vp = getViewportSize();
+        viewW = vp.w;
+        viewH = vp.h;
+        canvas.style.width = `${viewW}px`;
+        canvas.style.height = `${viewH}px`;
+        canvas.width = Math.floor(viewW * dpr);
+        canvas.height = Math.floor(viewH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        setDefaultCamera();
+        requestRender();
+      }
+
+      window.addEventListener("resize", resize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", resize);
+        window.visualViewport.addEventListener("scroll", resize);
+      }
+      resize();
+
+      function requestRender() {
+        needsRender = true;
+        if (!animationId) {
+          animationId = requestAnimationFrame(render);
+        }
+      }
+
+      function worldToScreen(wx, wy) {
+        return {
+          x: (wx - camera.x) * camera.zoom + viewW / 2,
+          y: (wy - camera.y) * camera.zoom + viewH / 2,
+        };
+      }
+
+      function screenToWorld(sx, sy) {
+        return {
+          x: (sx - viewW / 2) / camera.zoom + camera.x,
+          y: (sy - viewH / 2) / camera.zoom + camera.y,
+        };
+      }
+
+      function getCanvasPoint(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const vpOffsetLeft = window.visualViewport
+          ? window.visualViewport.offsetLeft
+          : 0;
+        const vpOffsetTop = window.visualViewport
+          ? window.visualViewport.offsetTop
+          : 0;
+        return {
+          x: clientX - rect.left + vpOffsetLeft,
+          y: clientY - rect.top + vpOffsetTop,
+        };
+      }
+
+      function worldToCell(wx, wy) {
+        return {
+          x: Math.round(wx / CELL),
+          y: Math.round(wy / CELL),
+        };
+      }
+
+      function cellKey(x, y) {
+        return `${x},${y}`;
+      }
+
+      function clampZoom(z) {
+        return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+      }
+
+      function setDefaultCamera() {
+        if (state.moves.length > 0 || userAdjustedCamera) return;
+        camera.x = 0;
+        camera.y = 0;
+        camera.zoom = clampZoom(viewH / (CELL * 10));
+      }
+
+      function getShapeByName(name) {
+        return (
+          shapeOptions.find((shape) => shape.name === name) || shapeOptions[0]
+        );
+      }
+
+      function displayName(player, index) {
+        if (
+          player &&
+          typeof player.name === "string" &&
+          /^Player\s+\d+$/i.test(player.name.trim())
+        ) {
+          return `P${index + 1}`;
+        }
+        return player && player.name ? player.name : `P${index + 1}`;
+      }
+
+      function setAiLevel(level) {
+        const safe = Number(level) || 1;
+        aiLevel = ((((safe - 1) % 5) + 5) % 5) + 1;
+        if (aiLevelBtn) {
+          aiLevelBtn.innerHTML = `<span class="btn-icon">🤖</span>AI L${aiLevel}`;
+        }
+      }
+
+      function generateRoomCode() {
+        return Math.random().toString(36).slice(2, 6).toUpperCase();
+      }
+
+      function defaultLanServerUrl() {
+        const host = window.location.hostname || "localhost";
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        return `${proto}://${host}:8080`;
+      }
+
+      function isLocalhostHost(host) {
+        return host === "localhost" || host === "127.0.0.1" || host === "::1";
+      }
+
+      function applyInviteParams() {
+        if (!window.location.search) return;
+        const params = new URLSearchParams(window.location.search);
+        const room = params.get("room");
+        const server = params.get("server");
+        if (server && lanServerInput) {
+          lanServerInput.value = server;
+        }
+        if (room && lanRoomInput) {
+          lanRoomInput.value = room.toUpperCase();
+        }
+      }
+
+      function setLanStatus(state, text) {
+        if (!lanStatusDot || !lanStatusText) return;
+        lanStatusDot.classList.remove("idle", "connecting", "ok", "error");
+        lanStatusDot.classList.add(state);
+        lanStatusText.textContent = text;
+      }
+
+      function setLanButtonsEnabled(enabled) {
+        if (lanHostBtn) lanHostBtn.disabled = !enabled;
+        if (lanJoinBtn) lanJoinBtn.disabled = !enabled;
+        if (lanTestBtn) lanTestBtn.disabled = !enabled;
+        if (lanReadyBtn) lanReadyBtn.disabled = enabled || !net.connected;
+        if (lanCopyBtn) lanCopyBtn.disabled = false;
+      }
+
+      function cleanupLan() {
+        net.enabled = false;
+        net.connected = false;
+        net.role = null;
+        net.room = "";
+        net.serverUrl = "";
+        net.readyLocal = false;
+        net.readyRemote = false;
+        net.syncingMenu = false;
+        if (net.dc) {
+          try {
+            net.dc.close();
+          } catch (err) {}
+        }
+        if (net.pc) {
+          try {
+            net.pc.close();
+          } catch (err) {}
+        }
+        if (net.ws) {
+          try {
+            net.ws.close();
+          } catch (err) {}
+        }
+        net.dc = null;
+        net.pc = null;
+        net.ws = null;
+        net.pendingCandidates = [];
+        setLanButtonsEnabled(true);
+        updateLobbyIndicators();
+        updateUndoRedoButtons();
+      }
+
+      function updateLobbyIndicators() {
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        configs.forEach((cfg, idx) => {
+          const marker = cfg.querySelector(".slot-marker");
+          const badge = cfg.querySelector(".ready-badge");
+          const name = cfg.querySelector(".player-name");
+          if (net.enabled && net.connected) {
+            const isLocal = idx === net.playerIndex;
+            if (marker) marker.textContent = isLocal ? "➤" : "";
+            cfg.classList.toggle("is-local", isLocal);
+            if (name)
+              name.textContent = `P${idx + 1}${isLocal ? " (You)" : ""}`;
+            const ready = isLocal ? net.readyLocal : net.readyRemote;
+            if (badge) {
+              badge.classList.toggle("ready", ready);
+              badge.textContent = ready ? "Ready ✓" : "Not Ready";
+            }
+          } else {
+            if (marker) marker.textContent = "";
+            cfg.classList.remove("is-local");
+            if (name) name.textContent = `P${idx + 1}`;
+            if (badge) {
+              badge.classList.remove("ready");
+              badge.textContent = "";
+            }
+          }
+        });
+
+        if (net.enabled && net.connected) {
+          const canStart =
+            net.role === "host" && net.readyLocal && net.readyRemote;
+          startBtn.disabled = !canStart;
+          startBtn.innerHTML = canStart
+            ? `<span class="btn-icon">▶️</span>Start Game`
+            : `<span class="btn-icon">⏳</span>Waiting`;
+        } else {
+          startBtn.disabled = false;
+          startBtn.innerHTML = `<span class="btn-icon">▶️</span>Start Game`;
+        }
+
+        if (lanReadyBtn) {
+          lanReadyBtn.innerHTML = net.readyLocal
+            ? `<span class="btn-icon">✅</span>Ready`
+            : `<span class="btn-icon">☑️</span>Ready`;
+          lanReadyBtn.disabled = !net.connected;
+        }
+      }
+
+      function handleMenuChange() {
+        if (net.enabled && net.connected && !net.syncingMenu) {
+          if (net.readyLocal) {
+            net.readyLocal = false;
+            sendNet({ type: "ready", ready: false });
+          }
+          sendNet({ type: "menu", menu: buildMenuConfigFromUI() });
+          updateLobbyIndicators();
+        }
+        saveState();
+      }
+
+      function sendSignal(payload) {
+        if (net.ws && net.ws.readyState === WebSocket.OPEN) {
+          net.ws.send(JSON.stringify(payload));
+        }
+      }
+
+      function sendNet(payload) {
+        if (net.dc && net.dc.readyState === "open") {
+          net.dc.send(JSON.stringify(payload));
+        }
+      }
+
+      function setupDataChannel() {
+        if (!net.dc) return;
+        net.dc.onopen = () => {
+          net.enabled = true;
+          net.connected = true;
+          net.playerIndex = net.role === "host" ? 0 : 1;
+          setLanStatus("ok", "Connected");
+          if (selectedPlayers !== 2) {
+            setPlayerSelection(2);
+          }
+          updateLobbyIndicators();
+          updateUndoRedoButtons();
+          if (net.role === "host") {
+            sendNet({ type: "menu", menu: buildMenuConfigFromUI() });
+          }
+        };
+        net.dc.onclose = () => {
+          setLanStatus("idle", "Disconnected");
+          cleanupLan();
+        };
+        net.dc.onmessage = (event) => {
+          let msg = null;
+          try {
+            msg = JSON.parse(event.data);
+          } catch (err) {
+            return;
+          }
+          if (!msg) return;
+          if (msg.type === "menu") {
+            net.syncingMenu = true;
+            if (msg.menu) applyMenuConfig(msg.menu);
+            net.syncingMenu = false;
+            updateLobbyIndicators();
+          } else if (msg.type === "ready") {
+            net.readyRemote = !!msg.ready;
+            if (msg.menu) {
+              net.syncingMenu = true;
+              applyMenuConfig(msg.menu);
+              net.syncingMenu = false;
+            }
+            updateLobbyIndicators();
+          } else if (msg.type === "start") {
+            if (msg.menu) applyMenuConfig(msg.menu);
+            if (msg.game) applyGameState(msg.game);
+            menuOverlay.classList.add("hidden");
+            resultOverlay.classList.add("hidden");
+          } else if (msg.type === "move") {
+            placeMove({ x: msg.x, y: msg.y }, true);
+          }
+        };
+      }
+
+      function createPeerConnection(isHost) {
+        net.pc = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        });
+
+        net.pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            sendSignal({ type: "candidate", candidate: event.candidate });
+          }
+        };
+
+        if (isHost) {
+          net.dc = net.pc.createDataChannel("gomoku");
+          setupDataChannel();
+        } else {
+          net.pc.ondatachannel = (event) => {
+            net.dc = event.channel;
+            setupDataChannel();
+          };
+        }
+
+        if (net.pendingCandidates.length) {
+          net.pendingCandidates.forEach((c) =>
+            net.pc.addIceCandidate(c).catch(() => {}),
+          );
+          net.pendingCandidates = [];
+        }
+      }
+
+      function handleSignalMessage(data) {
+        if (!data || !data.type) return;
+        if (data.type === "hosted") {
+          setLanStatus("connecting", "Waiting for player...");
+        } else if (data.type === "joined") {
+          setLanStatus("connecting", "Joining room...");
+        } else if (data.type === "join" && net.role === "host") {
+          createPeerConnection(true);
+          net.pc
+            .createOffer()
+            .then((offer) => {
+              return net.pc.setLocalDescription(offer).then(() => {
+                sendSignal({ type: "offer", sdp: offer });
+              });
+            })
+            .catch(() => {
+              setLanStatus("error", "Offer failed");
+              cleanupLan();
+            });
+        } else if (data.type === "offer" && net.role === "guest") {
+          createPeerConnection(false);
+          net.pc
+            .setRemoteDescription(new RTCSessionDescription(data.sdp))
+            .then(() => {
+              return net.pc.createAnswer();
+            })
+            .then((answer) => {
+              return net.pc.setLocalDescription(answer).then(() => {
+                sendSignal({ type: "answer", sdp: answer });
+              });
+            })
+            .catch(() => {
+              setLanStatus("error", "Answer failed");
+              cleanupLan();
+            });
+        } else if (data.type === "answer" && net.role === "host") {
+          net.pc
+            .setRemoteDescription(new RTCSessionDescription(data.sdp))
+            .catch(() => {});
+        } else if (data.type === "candidate") {
+          const cand = new RTCIceCandidate(data.candidate);
+          if (net.pc) {
+            net.pc.addIceCandidate(cand).catch(() => {});
+          } else {
+            net.pendingCandidates.push(cand);
+          }
+        } else if (data.type === "error") {
+          setLanStatus("error", data.message || "Signaling error");
+          cleanupLan();
+        }
+      }
+
+      function startLan(role) {
+        const serverUrl = (lanServerInput.value || "").trim();
+        if (!serverUrl) {
+          setLanStatus("error", "Enter server URL");
+          return;
+        }
+        let room = (lanRoomInput.value || "").trim().toUpperCase();
+        if (!room) {
+          room = generateRoomCode();
+          lanRoomInput.value = room;
+        }
+
+        cleanupLan();
+        net.role = role === "host" ? "host" : "guest";
+        net.room = room;
+        net.serverUrl = serverUrl;
+        setLanStatus(
+          "connecting",
+          role === "host" ? "Hosting..." : "Joining...",
+        );
+        setLanButtonsEnabled(false);
+
+        try {
+          net.ws = new WebSocket(serverUrl);
+        } catch (err) {
+          setLanStatus("error", "Bad server URL");
+          setLanButtonsEnabled(true);
+          return;
+        }
+
+        net.ws.onopen = () => {
+          sendSignal({ type: role === "host" ? "host" : "join", room });
+        };
+        net.ws.onmessage = (event) => {
+          let data = null;
+          try {
+            data = JSON.parse(event.data);
+          } catch (err) {
+            return;
+          }
+          handleSignalMessage(data);
+        };
+        net.ws.onerror = () => {
+          setLanStatus("error", "Signal error");
+          cleanupLan();
+        };
+        net.ws.onclose = () => {
+          if (!net.connected) {
+            setLanStatus("idle", "Disconnected");
+            cleanupLan();
+          }
+        };
+      }
+
+      function testLan() {
+        const serverUrl = (lanServerInput.value || "").trim();
+        if (!serverUrl) {
+          setLanStatus("error", "Enter server URL");
+          return;
+        }
+        setLanStatus("connecting", "Testing...");
+        let ws;
+        try {
+          ws = new WebSocket(serverUrl);
+        } catch (err) {
+          setLanStatus("error", "Bad server URL");
+          return;
+        }
+        const timer = setTimeout(() => {
+          try {
+            ws.close();
+          } catch (err) {}
+          setLanStatus("error", "No response");
+        }, 2500);
+        ws.onopen = () => {
+          clearTimeout(timer);
+          setLanStatus("ok", "Signal OK");
+          setTimeout(() => setLanStatus("idle", "Idle"), 1200);
+          ws.close();
+        };
+        ws.onerror = () => {
+          clearTimeout(timer);
+          setLanStatus("error", "Signal error");
+        };
+      }
+
+      function buildInviteLink() {
+        let room = (lanRoomInput.value || "").trim().toUpperCase();
+        if (!room) {
+          room = generateRoomCode();
+          lanRoomInput.value = room;
+        }
+        let serverUrl = (lanServerInput.value || "").trim();
+        if (!serverUrl) return null;
+        let host = "";
+        try {
+          const u = new URL(serverUrl);
+          host = u.hostname;
+        } catch (err) {
+          return null;
+        }
+        if (isLocalhostHost(host)) {
+          setLanStatus("error", "Use LAN IP");
+          return null;
+        }
+        if (
+          window.location.protocol !== "http:" &&
+          window.location.protocol !== "https:"
+        ) {
+          setLanStatus("error", "Open via Live Server");
+          return null;
+        }
+        if (isLocalhostHost(window.location.hostname)) {
+          setLanStatus("error", "Open page by LAN IP");
+          return null;
+        }
+        const base = `${window.location.origin}${window.location.pathname}`;
+        const link = `${base}?room=${encodeURIComponent(room)}&server=${encodeURIComponent(serverUrl)}`;
+        return link;
+      }
+
+      function buildMenuConfigFromUI() {
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        const playerConfigs = configs.map((cfg) => ({
+          color: cfg.dataset.color || null,
+          mark: cfg.dataset.mark || null,
+        }));
+        return {
+          selectedPlayers,
+          selectedMode,
+          selectedEmoji,
+          aiLevel,
+          teamEnabled: teamToggle.checked,
+          aiEnabled: aiToggle.checked,
+          emojiSet: [...emojiSet],
+          playerConfigs,
+        };
+      }
+
+      function applyMenuConfig(cfg) {
+        if (!cfg) return;
+        const mode = cfg.selectedMode || "first5";
+        const players = Number(cfg.selectedPlayers) || 2;
+        const emojiOn = !!cfg.selectedEmoji;
+        const level = Number(cfg.aiLevel) || 1;
+
+        selectedMode = mode;
+        selectedPlayers = players;
+        selectedEmoji = emojiOn;
+        setAiLevel(level);
+        emojiToggle.checked = selectedEmoji;
+
+        if (Array.isArray(cfg.emojiSet) && cfg.emojiSet.length === 4) {
+          emojiSet = cfg.emojiSet.slice(0, 4);
+        }
+
+        setModeSelection(selectedMode);
+        setPlayerSelection(selectedPlayers);
+
+        aiToggle.checked = selectedPlayers === 2 ? !!cfg.aiEnabled : false;
+        teamToggle.checked = selectedPlayers === 4 ? !!cfg.teamEnabled : false;
+
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        if (Array.isArray(cfg.playerConfigs)) {
+          configs.forEach((cfgEl, idx) => {
+            const saved = cfg.playerConfigs[idx];
+            if (saved && saved.color) cfgEl.dataset.color = saved.color;
+            if (saved && saved.mark) cfgEl.dataset.mark = saved.mark;
+          });
+        }
+        resolveColorConflicts();
+        updateLobbyIndicators();
+      }
+
+      function buildGameState() {
+        const inGame = menuOverlay.classList.contains("hidden");
+        if (!inGame) return { inGame: false };
+        return {
+          inGame: true,
+          state: {
+            moves: state.moves,
+            historyIndex: state.historyIndex,
+            players: state.players,
+            mode: state.mode,
+            teamMode: state.teamMode,
+            aiEnabled: state.aiEnabled,
+            aiIndex: state.aiIndex,
+            aiLevel: state.aiLevel,
+            emojiEnabled: state.emojiEnabled,
+            emojiSet: [...emojiSet],
+          },
+        };
+      }
+
+      function applyGameState(savedGame) {
+        if (!savedGame || !savedGame.inGame) return false;
+        const g = savedGame.state;
+        if (!g || !Array.isArray(g.moves)) return false;
+
+        if (Array.isArray(g.emojiSet) && g.emojiSet.length === 4) {
+          emojiSet = g.emojiSet.slice(0, 4);
+        }
+
+        state.players =
+          Array.isArray(g.players) && g.players.length
+            ? g.players
+            : state.players;
+        state.mode = g.mode || "first5";
+        state.teamMode = !!g.teamMode;
+        state.aiEnabled = !!g.aiEnabled;
+        state.aiIndex = state.aiEnabled
+          ? typeof g.aiIndex === "number"
+            ? g.aiIndex
+            : 1
+          : -1;
+        state.aiLevel = Number(g.aiLevel) || 1;
+        setAiLevel(state.aiLevel);
+        state.emojiEnabled = !!g.emojiEnabled;
+
+        state.moves = g.moves;
+        state.historyIndex =
+          typeof g.historyIndex === "number"
+            ? Math.min(g.historyIndex, g.moves.length - 1)
+            : g.moves.length - 1;
+
+        rebuildFromHistory();
+        fitToStones(false);
+        updateLobbyIndicators();
+        return true;
+      }
+
+      function saveState() {
+        if (isRestoring) return;
+        const payload = {
+          version: 1,
+          updatedAt: Date.now(),
+          menu: buildMenuConfigFromUI(),
+          game: buildGameState(),
+        };
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (err) {}
+      }
+
+      function loadState() {
+        let payload = null;
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) payload = JSON.parse(raw);
+        } catch (err) {}
+        if (!payload) return;
+
+        isRestoring = true;
+        if (payload.menu) applyMenuConfig(payload.menu);
+        const restoredGame = applyGameState(payload.game);
+        if (restoredGame) {
+          menuOverlay.classList.add("hidden");
+          resultOverlay.classList.add("hidden");
+          maybeTriggerAI();
+        }
+        isRestoring = false;
+        updateLobbyIndicators();
+      }
+
+      function drawGrid() {
+        const left = camera.x - viewW / 2 / camera.zoom;
+        const right = camera.x + viewW / 2 / camera.zoom;
+        const top = camera.y - viewH / 2 / camera.zoom;
+        const bottom = camera.y + viewH / 2 / camera.zoom;
+
+        const startX = Math.floor(left / CELL) - 2;
+        const endX = Math.ceil(right / CELL) + 2;
+        const startY = Math.floor(top / CELL) - 2;
+        const endY = Math.ceil(bottom / CELL) + 2;
+
+        ctx.lineWidth = 1;
+        for (let x = startX; x <= endX; x++) {
+          const wx = (x + 0.5) * CELL;
+          const p1 = worldToScreen(wx, top);
+          const p2 = worldToScreen(wx, bottom);
+          ctx.strokeStyle = "rgba(20,30,45,0.12)";
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+
+        for (let y = startY; y <= endY; y++) {
+          const wy = (y + 0.5) * CELL;
+          const p1 = worldToScreen(left, wy);
+          const p2 = worldToScreen(right, wy);
+          ctx.strokeStyle = "rgba(20,30,45,0.12)";
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+
+      function drawCellHighlight(gx, gy, color, alpha = 0.12) {
+        const wx = gx * CELL;
+        const wy = gy * CELL;
+        const pos = worldToScreen(wx, wy);
+        const size = CELL * camera.zoom;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.fillRect(pos.x - size / 2, pos.y - size / 2, size, size);
+        ctx.restore();
+      }
+
+      function drawMark(gx, gy, player, alpha = 1) {
+        const wx = gx * CELL;
+        const wy = gy * CELL;
+        const pos = worldToScreen(wx, wy);
+        const size = CELL * 0.72 * camera.zoom;
+        const half = size / 2;
+        const line = Math.max(2, CELL * 0.07 * Math.max(0.6, camera.zoom));
+
+        if (state.emojiEnabled) {
+          const img = getEmojiImage(player.emoji || "😀");
+          if (img && img.complete) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(img, pos.x - half, pos.y - half, size, size);
+            ctx.restore();
+          } else {
+            // Fallback: draw a colored square with the emoji text
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = player.color;
+            ctx.fillRect(pos.x - half, pos.y - half, size, size);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = `${Math.floor(size * 0.7)}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(player.emoji || "😀", pos.x, pos.y);
+            ctx.restore();
+          }
+          return;
+        }
+
+        const shape = getShapeByName(player.shapeName || shapeOptions[0].name);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = player.color;
+        ctx.lineWidth = line;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        if (shape.kind === "circle") {
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, (shape.r || 36) * (size / 100), 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          const path = new Path2D(shape.path);
+          ctx.translate(pos.x, pos.y);
+          const scale = size / 100;
+          ctx.scale(scale, scale);
+          ctx.translate(-50, -50);
+
+          // To counteract the context scaling on the line width, we set the
+          // lineWidth to the desired on-screen width divided by the scale.
+          ctx.lineWidth = line / scale;
+
+          ctx.stroke(path);
+        }
+        ctx.restore();
+      }
+
+      function drawWinningLine() {
+        if (!state.winningLine) return;
+        const { start, end } = state.winningLine;
+        const p1 = worldToScreen(start.x * CELL, start.y * CELL);
+        const p2 = worldToScreen(end.x * CELL, end.y * CELL);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 215, 0, 0.9)";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawScoredSegments() {
+        if (state.scoredSegments.size === 0) return;
+
+        for (const segId of state.scoredSegments) {
+          const [x, y, dx, dy] = segId.split(",").map(Number);
+
+          // Draw a subtle highlight line for the scored segment
+          const p1 = worldToScreen(x * CELL, y * CELL);
+          const p2 = worldToScreen((x + 4 * dx) * CELL, (y + 4 * dy) * CELL);
+
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 215, 0, 0.35)";
+          ctx.lineWidth = 3;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+          ctx.restore();
+
+          // Draw small dots on each scored cell
+          for (let i = 0; i < 5; i++) {
+            const cellX = x + i * dx;
+            const cellY = y + i * dy;
+            const pos = worldToScreen(cellX * CELL, cellY * CELL);
+            const size = Math.max(2, CELL * 0.15 * camera.zoom);
+
+            ctx.save();
+            ctx.fillStyle = "rgba(255, 215, 0, 0.6)";
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+
+      function drawConfetti(dt) {
+        if (confetti.length === 0) return;
+        const gravity = 680;
+        confetti = confetti.filter((p) => {
+          p.life -= dt;
+          p.vy += gravity * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          const alpha = Math.max(0, p.life / p.maxLife);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, p.size, p.size);
+          ctx.restore();
+          return p.life > 0;
+        });
+      }
+
+      function render() {
+        animationId = null;
+        if (!needsRender && confetti.length === 0 && !cameraTween) return;
+
+        if (cameraTween) {
+          const now = performance.now();
+          const t = Math.min(
+            1,
+            (now - cameraTween.start) / cameraTween.duration,
+          );
+          const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          camera.x =
+            cameraTween.from.x +
+            (cameraTween.to.x - cameraTween.from.x) * eased;
+          camera.y =
+            cameraTween.from.y +
+            (cameraTween.to.y - cameraTween.from.y) * eased;
+          camera.zoom =
+            cameraTween.from.zoom +
+            (cameraTween.to.zoom - cameraTween.from.zoom) * eased;
+          if (t >= 1) cameraTween = null;
+        }
+
+        ctx.clearRect(0, 0, viewW, viewH);
+
+        drawGrid();
+
+        for (const [key, playerIndex] of state.board.entries()) {
+          const [gx, gy] = key.split(",").map(Number);
+          const player = state.players[playerIndex];
+          drawCellHighlight(gx, gy, player.color, 0.06);
+          drawMark(gx, gy, player, 1);
+        }
+
+        if (hoverCell && !state.gameOver) {
+          const key = cellKey(hoverCell.x, hoverCell.y);
+          if (!state.board.has(key)) {
+            const player = state.players[state.current];
+            drawCellHighlight(hoverCell.x, hoverCell.y, player.color, 0.12);
+            drawMark(hoverCell.x, hoverCell.y, player, 0.5);
+          }
+        }
+
+        drawScoredSegments();
+        drawWinningLine();
+
+        const now = performance.now();
+        const dt = (render.lastTime ? now - render.lastTime : 16) / 1000;
+        render.lastTime = now;
+        drawConfetti(dt);
+
+        needsRender = false;
+        if (confetti.length > 0 || cameraTween) {
+          requestRender();
+        }
+      }
+
+      function playClick() {
+        try {
+          if (!sfxCtx)
+            sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = sfxCtx.createOscillator();
+          const gain = sfxCtx.createGain();
+          osc.type = "triangle";
+          osc.frequency.value = 640;
+          gain.gain.value = 0.05;
+          osc.connect(gain).connect(sfxCtx.destination);
+          osc.start();
+          osc.stop(sfxCtx.currentTime + 0.05);
+        } catch (err) {}
+      }
+
+      function playWinSound() {
+        try {
+          if (!sfxCtx)
+            sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = sfxCtx.currentTime;
+          const gain = sfxCtx.createGain();
+          gain.gain.value = 0.06;
+          gain.connect(sfxCtx.destination);
+          [523.25, 659.25, 783.99].forEach((freq, i) => {
+            const osc = sfxCtx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            osc.start(now + i * 0.08);
+            osc.stop(now + i * 0.08 + 0.22);
+          });
+        } catch (err) {}
+      }
+
+      function playScoreSound() {
+        try {
+          if (!sfxCtx)
+            sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = sfxCtx.currentTime;
+          const osc = sfxCtx.createOscillator();
+          const gain = sfxCtx.createGain();
+          osc.type = "square";
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(780, now + 0.18);
+          gain.gain.setValueAtTime(0.06, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+          osc.connect(gain).connect(sfxCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.24);
+        } catch (err) {}
+      }
+
+      function colorToRgba(hex, alpha) {
+        if (!hex) return `rgba(0,0,0,${alpha})`;
+        let clean = hex.replace("#", "").trim();
+        if (clean.length === 3) {
+          clean = clean
+            .split("")
+            .map((ch) => ch + ch)
+            .join("");
+        }
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      const emojiCache = new Map();
+      function getEmojiImage(emoji) {
+        if (!emoji) return null;
+        if (emojiCache.has(emoji)) return emojiCache.get(emoji);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="96">${emoji}</text></svg>`;
+        const img = new Image();
+        img.src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+        emojiCache.set(emoji, img);
+        return img;
+      }
+
+      function updateHud() {
+        const player = state.players[state.current];
+        const baseName = displayName(player, state.current);
+        const playerName =
+          state.aiEnabled && state.current === state.aiIndex
+            ? `${baseName} (AI)`
+            : baseName;
+        modeLabel.textContent =
+          state.mode === "first5" ? "Mode: First 5 Wins" : "Mode: Score Mode";
+        turnLabel.textContent = state.gameOver
+          ? "Match Over"
+          : `Turn: ${playerName}`;
+
+        if (state.mode === "score") {
+          const scoreLines = state.players.map((p, i) => {
+            const score = state.scores[i] || 0;
+            const name = displayName(p, i);
+            const shape = getShapeByName(p.shapeName || shapeOptions[0].name);
+            const markHtml = state.emojiEnabled
+              ? `<span class="score-mark">${p.emoji || "😀"}</span>`
+              : shape.kind === "circle"
+                ? `<span class="score-mark"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${shape.r || 36}" fill="none" stroke="${p.color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></circle></svg></span>`
+                : `<span class="score-mark"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="${shape.path}" fill="none" stroke="${p.color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>`;
+            return `
+            <div class="score-item" style="background:${colorToRgba(p.color, 0.12)}; border-color:${colorToRgba(p.color, 0.3)};">
+              ${markHtml}
+              <span>${name}</span>
+              <span class="score-value" style="color:${p.color};">${score}</span>
+            </div>
+          `;
+          });
+          scoreBoard.innerHTML = scoreLines.join("");
+        } else {
+          scoreBoard.textContent = `Moves: ${state.historyIndex + 1}`;
+        }
+        updateTurnCard();
+      }
+
+      function updateTurnQueue() {
+        turnQueue.innerHTML = "";
+        state.players.forEach((p, i) => {
+          const chip = document.createElement("div");
+          chip.className =
+            "chip" + (i === state.current && !state.gameOver ? " active" : "");
+          const baseName = displayName(p, i);
+          const name =
+            state.aiEnabled && i === state.aiIndex
+              ? `${baseName} (AI)`
+              : baseName;
+          const shape = getShapeByName(p.shapeName || shapeOptions[0].name);
+          const markHtml = state.emojiEnabled
+            ? `<span class="emoji">${p.emoji || "😀"}</span>`
+            : shape.kind === "circle"
+              ? `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><circle cx="50" cy="50" r="${shape.r || 36}" fill="none" stroke="${p.color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></circle></svg>`
+              : `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="${shape.path}" fill="none" stroke="${p.color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>`;
+          chip.innerHTML = `<span class="dot" style="background:${p.color}"></span><span>${name}</span>${markHtml}`;
+          if (i === state.current && !state.gameOver) {
+            chip.style.background = colorToRgba(p.color, 0.16);
+            chip.style.borderColor = colorToRgba(p.color, 0.35);
+          }
+          turnQueue.appendChild(chip);
+        });
+      }
+
+      function updateTurnCard() {
+        const player = state.players[state.current];
+        if (!player) return;
+        if (state.emojiEnabled) {
+          turnSvg.style.display = "none";
+          turnEmoji.style.display = "block";
+          turnEmoji.textContent = player.emoji || "😀";
+        } else {
+          turnSvg.style.display = "block";
+          turnEmoji.style.display = "none";
+          const shape = getShapeByName(
+            player.shapeName || shapeOptions[0].name,
+          );
+          if (shape.kind === "circle") {
+            turnSvg.innerHTML = `<circle cx="50" cy="50" r="${shape.r || 36}" fill="none" stroke="${player.color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></circle>`;
+          } else {
+            turnSvg.innerHTML = `<path d="${shape.path}" fill="none" stroke="${player.color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>`;
+          }
+        }
+      }
+
+      function updateUndoRedoButtons() {
+        const netLock = net.enabled && net.connected;
+        undoBtn.disabled = netLock || state.historyIndex < 0 || state.gameOver;
+        redoBtn.disabled =
+          netLock ||
+          state.historyIndex >= state.moves.length - 1 ||
+          state.gameOver;
+        resetBtn.disabled = netLock;
+      }
+
+      function clearBoard() {
+        state.board.clear();
+        state.scores = state.players.map(() => 0);
+        state.scoredSegments.clear();
+        state.moves = [];
+        state.historyIndex = -1;
+        state.current = 0;
+        state.gameOver = false;
+        state.winningLine = null;
+        aiPending = false;
+        userAdjustedCamera = false;
+        hoverCell = null;
+        setDefaultCamera();
+        requestRender();
+        saveState();
+      }
+
+      function getLineSpan(x, y, dx, dy, playerIndex) {
+        let back = 0;
+        while (
+          state.board.has(cellKey(x - (back + 1) * dx, y - (back + 1) * dy)) &&
+          state.board.get(cellKey(x - (back + 1) * dx, y - (back + 1) * dy)) ===
+            playerIndex
+        ) {
+          back++;
+        }
+        let forward = 0;
+        while (
+          state.board.has(
+            cellKey(x + (forward + 1) * dx, y + (forward + 1) * dy),
+          ) &&
+          state.board.get(
+            cellKey(x + (forward + 1) * dx, y + (forward + 1) * dy),
+          ) === playerIndex
+        ) {
+          forward++;
+        }
+        const length = back + forward + 1;
+        return {
+          length,
+          start: { x: x - back * dx, y: y - back * dy },
+          end: { x: x + forward * dx, y: y + forward * dy },
+          offset: back,
+        };
+      }
+
+      function addScoreSegments(x, y, playerIndex) {
+        const directions = [
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: 1, dy: 1 },
+          { dx: 1, dy: -1 },
+        ];
+
+        let gained = 0;
+        for (const dir of directions) {
+          const span = getLineSpan(x, y, dir.dx, dir.dy, playerIndex);
+          if (span.length < 5) continue;
+
+          const minStart = Math.max(0, span.offset - 4);
+          const maxStart = Math.min(span.offset, span.length - 5);
+
+          for (let s = minStart; s <= maxStart; s++) {
+            const segStart = {
+              x: span.start.x + s * dir.dx,
+              y: span.start.y + s * dir.dy,
+            };
+            const segId = `${segStart.x},${segStart.y},${dir.dx},${dir.dy}`;
+
+            // Check if any cell in this segment is already part of a scored segment
+            let overlapsExisting = false;
+            for (let i = 0; i < 5; i++) {
+              const cellX = segStart.x + i * dir.dx;
+              const cellY = segStart.y + i * dir.dy;
+              const cellKey = `${cellX},${cellY}`;
+
+              // Check all existing scored segments for overlap
+              for (const existingSegId of state.scoredSegments) {
+                const [ex, ey, edx, edy] = existingSegId.split(",").map(Number);
+                for (let j = 0; j < 5; j++) {
+                  const exCell = ex + j * edx;
+                  const eyCell = ey + j * edy;
+                  if (exCell === cellX && eyCell === cellY) {
+                    overlapsExisting = true;
+                    break;
+                  }
+                }
+                if (overlapsExisting) break;
+              }
+              if (overlapsExisting) break;
+            }
+
+            if (!overlapsExisting && !state.scoredSegments.has(segId)) {
+              state.scoredSegments.add(segId);
+              gained++;
+            }
+          }
+        }
+
+        if (gained > 0) {
+          state.scores[playerIndex] += gained;
+          playScoreSound();
+        }
+      }
+
+      function checkWin(x, y, playerIndex) {
+        const directions = [
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: 1, dy: 1 },
+          { dx: 1, dy: -1 },
+        ];
+
+        for (const dir of directions) {
+          const span = getLineSpan(x, y, dir.dx, dir.dy, playerIndex);
+          if (span.length >= 5) {
+            state.winningLine = { start: span.start, end: span.end };
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function placeMove(cell, fromNet = false) {
+        if (state.gameOver) return;
+        if (net.enabled && net.connected) {
+          const localIndex = net.playerIndex;
+          const remoteIndex = localIndex === 0 ? 1 : 0;
+          if (!fromNet && state.current !== localIndex) return;
+          if (fromNet && state.current !== remoteIndex) return;
+        }
+        const key = cellKey(cell.x, cell.y);
+        if (state.board.has(key)) return;
+
+        const playerIndex = state.current;
+        state.board.set(key, playerIndex);
+
+        if (state.historyIndex < state.moves.length - 1) {
+          state.moves = state.moves.slice(0, state.historyIndex + 1);
+        }
+
+        state.moves.push({ x: cell.x, y: cell.y, player: playerIndex });
+        state.historyIndex++;
+
+        if (state.mode === "score") {
+          addScoreSegments(cell.x, cell.y, playerIndex);
+        } else if (checkWin(cell.x, cell.y, playerIndex)) {
+          finishGame(playerIndex);
+        }
+
+        if (!state.gameOver) {
+          state.current = (state.current + 1) % state.players.length;
+        }
+
+        maybeTriggerAI();
+
+        if (autoFit.checked) {
+          fitToStones(true);
+        }
+
+        playClick();
+        updateHud();
+        updateTurnQueue();
+        updateUndoRedoButtons();
+        requestRender();
+        if (net.enabled && net.connected && !fromNet) {
+          sendNet({ type: "move", x: cell.x, y: cell.y });
+        }
+        saveState();
+      }
+
+      function rebuildFromHistory() {
+        state.board.clear();
+        state.scores = state.players.map(() => 0);
+        state.scoredSegments.clear();
+        state.gameOver = false;
+        state.winningLine = null;
+
+        for (let i = 0; i <= state.historyIndex; i++) {
+          const move = state.moves[i];
+          state.board.set(cellKey(move.x, move.y), move.player);
+          if (state.mode === "score") {
+            addScoreSegments(move.x, move.y, move.player);
+          } else if (!state.gameOver && checkWin(move.x, move.y, move.player)) {
+            state.gameOver = true;
+            state.winningLine = state.winningLine;
+          }
+        }
+
+        if (state.historyIndex >= 0) {
+          const lastPlayer = state.moves[state.historyIndex].player;
+          state.current = (lastPlayer + 1) % state.players.length;
+        } else {
+          state.current = 0;
+        }
+
+        updateHud();
+        updateTurnQueue();
+        updateUndoRedoButtons();
+        requestRender();
+        saveState();
+      }
+
+      function finishGame(winnerIndex) {
+        state.gameOver = true;
+        updateUndoRedoButtons();
+        const winner = state.players[winnerIndex];
+        let title = `${displayName(winner, winnerIndex)} Wins!`;
+        let detail = "5 in a row.";
+
+        if (state.teamMode && state.players.length === 4) {
+          const team = winnerIndex % 2 === 0 ? "Team A" : "Team B";
+          const teamPlayers = state.players
+            .map((p, i) => ({ p, i }))
+            .filter((item) => (item.i % 2 === 0) === (winnerIndex % 2 === 0))
+            .map((item) => item.p.name)
+            .join(" & ");
+          title = `${team} Wins!`;
+          detail = `${teamPlayers} made the line.`;
+        }
+
+        resultTitle.textContent = title;
+        resultDetail.textContent = detail;
+        resultOverlay.classList.remove("hidden");
+        playWinSound();
+        spawnConfetti();
+      }
+
+      function getMoveScore(x, y, playerIndex) {
+        const directions = [
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: 1, dy: 1 },
+          { dx: 1, dy: -1 },
+        ];
+        let score = 0;
+        let fours = 0, openThrees = 0;
+
+        for (const dir of directions) {
+          const span = getLineSpan(x, y, dir.dx, dir.dy, playerIndex);
+          const len = span.length;
+          if (len >= 5) return 10000000;
+
+          const b1 = cellKey(span.start.x - dir.dx, span.start.y - dir.dy);
+          const b2 = cellKey(span.end.x + dir.dx, span.end.y + dir.dy);
+          const f1 = !state.board.has(b1);
+          const f2 = !state.board.has(b2);
+
+          if (len === 4) {
+            if (f1 && f2) score += 1000000; // Live 4
+            else if (f1 || f2) { score += 100000; fours++; }
+          } else if (len === 3) {
+            if (f1 && f2) { score += 50000; openThrees++; }
+            else if (f1 || f2) score += 5000;
+          } else if (len === 2) {
+            if (f1 && f2) score += 1000;
+          }
+        }
+        if (fours >= 2 || (fours >= 1 && openThrees >= 1)) score += 800000;
+        if (openThrees >= 2) score += 400000;
+        return score;
+      }
+
+      function getAIMove() {
+        if (state.moves.length === 0) {
+          return { x: 0, y: 0 };
+        }
+        const level = state.aiLevel || aiLevel || 1;
+        const history = state.moves.slice(0, state.historyIndex + 1);
+        const candidates = new Map();
+        const radius = level <= 2 ? 2 : level === 3 ? 4 : 5;
+
+        for (const move of history) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+              const x = move.x + dx;
+              const y = move.y + dy;
+              const key = cellKey(x, y);
+              if (state.board.has(key)) continue;
+              candidates.set(key, { x, y });
+            }
+          }
+        }
+
+        const scored = [];
+        const neighborDirs = [
+          { dx: -1, dy: -1 },
+          { dx: 0, dy: -1 },
+          { dx: 1, dy: -1 },
+          { dx: -1, dy: 0 },
+          { dx: 1, dy: 0 },
+          { dx: -1, dy: 1 },
+          { dx: 0, dy: 1 },
+          { dx: 1, dy: 1 },
+        ];
+
+        function countDir(x, y, dx, dy, playerIndex) {
+          let count = 0;
+          let nx = x + dx;
+          let ny = y + dy;
+          while (
+            state.board.has(cellKey(nx, ny)) &&
+            state.board.get(cellKey(nx, ny)) === playerIndex
+          ) {
+            count++;
+            nx += dx;
+            ny += dy;
+          }
+          return count;
+        }
+
+        function maxLinePotential(x, y, playerIndex) {
+          const dirs = [
+            { dx: 1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: 1, dy: 1 },
+            { dx: 1, dy: -1 },
+          ];
+          let best = 1;
+          for (const dir of dirs) {
+            const total =
+              countDir(x, y, dir.dx, dir.dy, playerIndex) +
+              countDir(x, y, -dir.dx, -dir.dy, playerIndex) +
+              1;
+            best = Math.max(best, total);
+          }
+          return best;
+        }
+
+        function evaluatePosition(x, y, playerIndex) {
+          const dirs = [
+            { dx: 1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: 1, dy: 1 },
+            { dx: 1, dy: -1 },
+          ];
+          let score = 0;
+          for (const dir of dirs) {
+            const span = getLineSpan(x, y, dir.dx, dir.dy, playerIndex);
+            const length = span.length;
+            if (length >= 5) return 100000; // Win
+            if (length === 4) {
+              // Check if open four
+              const openStart = !state.board.has(
+                cellKey(span.start.x - dir.dx, span.start.y - dir.dy),
+              );
+              const openEnd = !state.board.has(
+                cellKey(span.end.x + dir.dx, span.end.y + dir.dy),
+              );
+              if (openStart && openEnd) return 10000; // Open four
+              if (openStart || openEnd) score += 5000; // Half-open four
+            } else if (length === 3) {
+              const openStart = !state.board.has(
+                cellKey(span.start.x - dir.dx, span.start.y - dir.dy),
+              );
+              const openEnd = !state.board.has(
+                cellKey(span.end.x + dir.dx, span.end.y + dir.dy),
+              );
+              if (openStart && openEnd)
+                score += 1000; // Open three
+              else if (openStart || openEnd) score += 100; // Half-open three
+            } else if (length === 2) {
+              const openStart = !state.board.has(
+                cellKey(span.start.x - dir.dx, span.start.y - dir.dy),
+              );
+              const openEnd = !state.board.has(
+                cellKey(span.end.x + dir.dx, span.end.y + dir.dy),
+              );
+              if (openStart && openEnd) score += 10; // Open two
+            }
+          }
+          return score;
+        }
+
+        if (level === 1) {
+          const list = Array.from(candidates.values());
+          return (
+            list[Math.floor(Math.random() * list.length)] || { x: 0, y: 0 }
+          );
+        }
+
+        const aiIndex = state.aiIndex;
+        const oppIndex = aiIndex === 0 ? 1 : 0;
+
+        const items = Array.from(candidates.values());
+
+        if (level === 5) {
+          let bestMove = null;
+          let bestVal = -Infinity;
+          
+          items.forEach(m => {
+            m.aiS = getMoveScore(m.x, m.y, aiIndex);
+            m.oppS = getMoveScore(m.x, m.y, oppIndex);
+            m.preScore = m.aiS + m.oppS * 1.4;
+          });
+          items.sort((a, b) => b.preScore - a.preScore);
+
+          for (const m of items.slice(0, 15)) {
+            const key = cellKey(m.x, m.y);
+            if (m.aiS >= 1000000) return m;
+            
+            state.board.set(key, aiIndex);
+            let worstResponse = 0;
+            for (const r of items.slice(0, 10)) {
+              if (cellKey(r.x, r.y) === key) continue;
+              const rScore = getMoveScore(r.x, r.y, oppIndex);
+              if (rScore > worstResponse) worstResponse = rScore;
+            }
+            state.board.delete(key);
+            
+            const val = m.preScore - worstResponse * 0.9;
+            if (val > bestVal) {
+              bestVal = val;
+              bestMove = m;
+            }
+          }
+          return bestMove || items[0];
+        }
+
+        for (const item of items) {
+          let neighbors = 0;
+          for (const dir of neighborDirs) {
+            if (state.board.has(cellKey(item.x + dir.dx, item.y + dir.dy))) {
+              neighbors++;
+            }
+          }
+          let score = neighbors;
+
+          if (level >= 3) {
+            const aiSpan = maxLinePotential(item.x, item.y, aiIndex);
+            score += aiSpan * (level >= 5 ? 4 : 3);
+          }
+          if (level >= 4) {
+            const oppSpan = maxLinePotential(item.x, item.y, oppIndex);
+            score += oppSpan * (level >= 5 ? 4 : 3);
+          }
+
+          if (level === 5) {
+            // Level 5: Advanced evaluation
+            const aiScore = evaluatePosition(item.x, item.y, aiIndex);
+            const oppScore = evaluatePosition(item.x, item.y, oppIndex);
+            score += aiScore * 3 + oppScore * 4; // Block opponent more aggressively
+          }
+
+          scored.push({ ...item, score });
+        }
+
+        scored.sort((a, b) => b.score - a.score);
+        const bestScore = scored.length ? scored[0].score : 0;
+        const top = scored.filter((s) => s.score === bestScore);
+        if (top.length) {
+          return top[Math.floor(Math.random() * top.length)];
+        }
+
+        return {
+          x: history[history.length - 1].x,
+          y: history[history.length - 1].y,
+        };
+      }
+
+      function maybeTriggerAI() {
+        if (net.enabled) return;
+        if (!state.aiEnabled) return;
+        if (state.gameOver) return;
+        if (state.current !== state.aiIndex) return;
+        if (!menuOverlay.classList.contains("hidden")) return;
+        if (!resultOverlay.classList.contains("hidden")) return;
+        if (aiPending) return;
+        aiPending = true;
+        setTimeout(() => {
+          aiPending = false;
+          const move = getAIMove();
+          placeMove(move);
+        }, 320);
+      }
+
+      function spawnConfetti() {
+        const colors = ["#2b7fff", "#ff6b6b", "#2ec4b6", "#ffb703", "#8f6bff"];
+        confetti = [];
+        const originX = viewW / 2;
+        const originY = viewH / 2;
+        for (let i = 0; i < 140; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 120 + Math.random() * 240;
+          confetti.push({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 220,
+            life: 1.4 + Math.random() * 1.2,
+            maxLife: 2.6,
+            size: 4 + Math.random() * 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+          });
+        }
+        requestRender();
+      }
+
+      function fitToStones(animate = false) {
+        if (state.moves.length === 0) {
+          camera.x = 0;
+          camera.y = 0;
+          camera.zoom = clampZoom(viewH / (CELL * 10));
+          requestRender();
+          return;
+        }
+
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (const move of state.moves.slice(0, state.historyIndex + 1)) {
+          minX = Math.min(minX, move.x * CELL);
+          maxX = Math.max(maxX, move.x * CELL);
+          minY = Math.min(minY, move.y * CELL);
+          maxY = Math.max(maxY, move.y * CELL);
+        }
+
+        const paddingX = CELL * 1.9;
+        const paddingY = CELL * 2.4;
+        minX -= paddingX;
+        maxX += paddingX;
+        minY -= paddingY;
+        maxY += paddingY;
+
+        const targetZoom = clampZoom(
+          Math.min(viewW / (maxX - minX), viewH / (maxY - minY)) * 0.9,
+        );
+        const target = {
+          x: (minX + maxX) / 2,
+          y: (minY + maxY) / 2,
+          zoom: targetZoom,
+        };
+
+        const deltaPos = Math.hypot(target.x - camera.x, target.y - camera.y);
+        const deltaZoom = Math.abs(target.zoom - camera.zoom);
+        const shouldTween = animate && (deltaPos > 0.5 || deltaZoom > 0.004);
+
+        if (shouldTween) {
+          cameraTween = {
+            start: performance.now(),
+            duration: 520,
+            from: { x: camera.x, y: camera.y, zoom: camera.zoom },
+            to: target,
+          };
+          requestRender();
+        } else {
+          camera.x = target.x;
+          camera.y = target.y;
+          camera.zoom = target.zoom;
+          requestRender();
+        }
+      }
+
+      function handlePointerDown(e) {
+        canvas.setPointerCapture(e.pointerId);
+        const pt = getCanvasPoint(e.clientX, e.clientY);
+        pointers.set(e.pointerId, { x: pt.x, y: pt.y });
+
+        if (pointers.size === 1) {
+          tapCandidate = { x: pt.x, y: pt.y, time: performance.now() };
+          if (ALLOW_PAN) {
+            isDragging = true;
+            lastPan = { x: pt.x, y: pt.y };
+          }
+        } else if (pointers.size === 2 && ALLOW_ZOOM) {
+          const pts = Array.from(pointers.values());
+          const dx = pts[0].x - pts[1].x;
+          const dy = pts[0].y - pts[1].y;
+          pinchStart = {
+            dist: Math.hypot(dx, dy),
+            zoom: camera.zoom,
+            center: {
+              x: (pts[0].x + pts[1].x) / 2,
+              y: (pts[0].y + pts[1].y) / 2,
+            },
+          };
+          tapCandidate = null;
+        }
+      }
+
+      function handlePointerMove(e) {
+        if (!pointers.has(e.pointerId)) return;
+        const pt = getCanvasPoint(e.clientX, e.clientY);
+        pointers.set(e.pointerId, { x: pt.x, y: pt.y });
+
+        if (ALLOW_ZOOM && pointers.size === 2 && pinchStart) {
+          const pts = Array.from(pointers.values());
+          const dx = pts[0].x - pts[1].x;
+          const dy = pts[0].y - pts[1].y;
+          const newDist = Math.hypot(dx, dy);
+          const scale = newDist / pinchStart.dist;
+          const nextZoom = clampZoom(pinchStart.zoom * scale);
+
+          const before = screenToWorld(
+            pinchStart.center.x,
+            pinchStart.center.y,
+          );
+          camera.zoom = nextZoom;
+          userAdjustedCamera = true;
+          const after = screenToWorld(pinchStart.center.x, pinchStart.center.y);
+          camera.x += before.x - after.x;
+          camera.y += before.y - after.y;
+          requestRender();
+          return;
+        }
+
+        if (ALLOW_PAN && isDragging && pointers.size === 1) {
+          const dx = pt.x - lastPan.x;
+          const dy = pt.y - lastPan.y;
+          if (tapCandidate && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+            tapCandidate.moved = true;
+          }
+          camera.x -= dx / camera.zoom;
+          camera.y -= dy / camera.zoom;
+          userAdjustedCamera = true;
+          lastPan = { x: pt.x, y: pt.y };
+          requestRender();
+        }
+
+        if (e.pointerType === "mouse") {
+          const world = screenToWorld(pt.x, pt.y);
+          hoverCell = worldToCell(world.x, world.y);
+          requestRender();
+        }
+      }
+
+      function handlePointerUp(e) {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) pinchStart = null;
+
+        if (tapCandidate && !tapCandidate.moved && !state.gameOver) {
+          const pt = getCanvasPoint(e.clientX, e.clientY);
+          const world = screenToWorld(pt.x, pt.y);
+          const cell = worldToCell(world.x, world.y);
+          placeMove(cell);
+        }
+
+        if (pointers.size === 0) {
+          isDragging = false;
+          tapCandidate = null;
+        }
+      }
+
+      canvas.addEventListener("pointerdown", handlePointerDown);
+      canvas.addEventListener("pointermove", handlePointerMove);
+      canvas.addEventListener("pointerup", handlePointerUp);
+      canvas.addEventListener("pointercancel", handlePointerUp);
+
+      canvas.addEventListener(
+        "wheel",
+        (e) => {
+          if (!ALLOW_ZOOM) return;
+          e.preventDefault();
+          const pt = getCanvasPoint(e.clientX, e.clientY);
+          const zoomAmount = -e.deltaY * 0.0015;
+          const nextZoom = clampZoom(camera.zoom * (1 + zoomAmount));
+          const before = screenToWorld(pt.x, pt.y);
+          camera.zoom = nextZoom;
+          userAdjustedCamera = true;
+          const after = screenToWorld(pt.x, pt.y);
+          camera.x += before.x - after.x;
+          camera.y += before.y - after.y;
+          requestRender();
+        },
+        { passive: false },
+      );
+
+      undoBtn.addEventListener("click", () => {
+        if (state.historyIndex >= 0 && !state.gameOver) {
+          state.historyIndex--;
+          rebuildFromHistory();
+        }
+      });
+
+      redoBtn.addEventListener("click", () => {
+        if (state.historyIndex < state.moves.length - 1 && !state.gameOver) {
+          state.historyIndex++;
+          rebuildFromHistory();
+        }
+      });
+
+      resetBtn.addEventListener("click", () => {
+        resultOverlay.classList.add("hidden");
+        startGameFromMenu(false);
+      });
+
+      newBtn?.addEventListener("click", () => {
+        resultOverlay.classList.add("hidden");
+        startGameFromMenu(false);
+      });
+
+      menuBtn.addEventListener("click", () => {
+        menuOverlay.classList.remove("hidden");
+        resultOverlay.classList.add("hidden");
+      });
+
+      homeBtn.addEventListener("click", () => {
+        window.location.href = "index.html";
+      });
+
+      playAgainBtn.addEventListener("click", () => {
+        resultOverlay.classList.add("hidden");
+        startGameFromMenu(false);
+      });
+
+      menuAgainBtn.addEventListener("click", () => {
+        menuOverlay.classList.remove("hidden");
+        resultOverlay.classList.add("hidden");
+      });
+
+      function syncCardSelection(container, value, attr) {
+        container.querySelectorAll(".mode-card").forEach((card) => {
+          const cardValue = card.getAttribute(attr);
+          if (cardValue === String(value)) {
+            card.classList.add("selected");
+          } else {
+            card.classList.remove("selected");
+          }
+        });
+      }
+
+      function setModeSelection(mode) {
+        selectedMode = mode;
+        syncCardSelection(modeRow, mode, "data-mode");
+      }
+
+      function setPlayerSelection(count) {
+        selectedPlayers = count;
+        syncCardSelection(playerRow, count, "data-players");
+        renderPlayerSettings();
+      }
+
+      function renderPlayerSettings() {
+        const count = selectedPlayers;
+        teamRow.style.display = count === 4 ? "inline-flex" : "none";
+        if (count !== 4) teamToggle.checked = false;
+        aiRow.style.display = count === 2 ? "inline-flex" : "none";
+        if (count !== 2) aiToggle.checked = false;
+        emojiRow.style.display = count >= 2 ? "inline-flex" : "none";
+
+        playerSettings.innerHTML = "";
+        for (let i = 0; i < count; i++) {
+          const config = document.createElement("div");
+          config.className = "player-config";
+          config.dataset.index = i;
+          config.innerHTML = `
+          <div class="player-head">
+            <div class="left">
+              <span class="slot-marker"></span>
+              <strong class="player-name">P${i + 1}</strong>
+            </div>
+            <span class="ready-badge"></span>
+          </div>
+          <div class="color-options"></div>
+          <div class="mark-preview">
+            <span>${selectedEmoji ? "Pick Emoji" : "Pick Shape"}</span>
+            <div class="pick-row"></div>
+          </div>
+        `;
+          playerSettings.appendChild(config);
+        }
+
+        resolveColorConflicts();
+        renderMarkButtons();
+        updateLobbyIndicators();
+      }
+
+      function resolveColorConflicts() {
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        const chosen = configs.map((cfg, idx) => {
+          if (!cfg.dataset.color) {
+            cfg.dataset.color = colorOptions[idx % colorOptions.length].value;
+          }
+          return cfg.dataset.color;
+        });
+
+        configs.forEach((cfg) => {
+          const colorRow = cfg.querySelector(".color-options");
+          colorRow.innerHTML = "";
+          colorOptions.forEach((option) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "color-btn";
+            btn.style.background = option.value;
+            const usedByOther =
+              chosen.includes(option.value) &&
+              cfg.dataset.color !== option.value;
+            if (usedByOther) btn.classList.add("disabled");
+            if (cfg.dataset.color === option.value)
+              btn.classList.add("selected");
+            btn.addEventListener("click", () => {
+              if (usedByOther) return;
+              cfg.dataset.color = option.value;
+              resolveColorConflicts();
+              handleMenuChange();
+            });
+            colorRow.appendChild(btn);
+          });
+        });
+        renderMarkButtons();
+      }
+
+      function renderMarkButtons() {
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        const chosen = configs.map((cfg, idx) => {
+          if (!cfg.dataset.mark) {
+            cfg.dataset.mark = selectedEmoji
+              ? emojiSet[idx % emojiSet.length]
+              : shapeOptions[idx % shapeOptions.length].name;
+          }
+          return cfg.dataset.mark;
+        });
+        const ownerColor = new Map();
+        configs.forEach((cfg) => {
+          if (cfg.dataset.mark && cfg.dataset.color) {
+            ownerColor.set(cfg.dataset.mark, cfg.dataset.color);
+          }
+        });
+
+        configs.forEach((cfg) => {
+          const pickRow = cfg.querySelector(".pick-row");
+          if (!pickRow) return;
+          pickRow.innerHTML = "";
+          const options = selectedEmoji
+            ? emojiSet
+            : shapeOptions.map((shape) => shape.name);
+
+          options.forEach((optionValue) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "pick-btn";
+            const usedByOther =
+              chosen.includes(optionValue) && cfg.dataset.mark !== optionValue;
+            if (usedByOther) btn.classList.add("disabled");
+            if (cfg.dataset.mark === optionValue) btn.classList.add("selected");
+
+            if (selectedEmoji) {
+              btn.innerHTML = `<span class="pick-icon"><span class="emoji">${optionValue}</span></span>`;
+            } else {
+              const shape = getShapeByName(optionValue);
+              const stroke = usedByOther
+                ? ownerColor.get(optionValue) ||
+                  cfg.dataset.color ||
+                  colorOptions[0].value
+                : cfg.dataset.color || colorOptions[0].value;
+              const svgMark =
+                shape.kind === "circle"
+                  ? `<circle cx="50" cy="50" r="${shape.r || 36}" fill="none" stroke="${stroke}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></circle>`
+                  : `<path d="${shape.path}" fill="none" stroke="${stroke}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>`;
+              btn.innerHTML = `<span class="pick-icon"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${svgMark}</svg></span>`;
+            }
+
+            btn.addEventListener("click", () => {
+              if (usedByOther) return;
+              cfg.dataset.mark = optionValue;
+              renderMarkButtons();
+              handleMenuChange();
+            });
+            pickRow.appendChild(btn);
+          });
+        });
+      }
+
+      function randomizeEmojiSet() {
+        const pool = [...emojiPool];
+        const next = [];
+        while (next.length < 4 && pool.length > 0) {
+          const idx = Math.floor(Math.random() * pool.length);
+          next.push(pool.splice(idx, 1)[0]);
+        }
+        emojiSet = next.length === 4 ? next : ["😀", "😍", "😎", "🔥"];
+
+        if (selectedEmoji) {
+          const configs = Array.from(
+            playerSettings.querySelectorAll(".player-config"),
+          );
+          configs.forEach((cfg, idx) => {
+            cfg.dataset.mark = emojiSet[idx % emojiSet.length];
+          });
+        }
+        renderMarkButtons();
+      }
+
+      emojiToggle.addEventListener("change", () => {
+        selectedEmoji = emojiToggle.checked;
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        configs.forEach((cfg, idx) => {
+          cfg.dataset.mark = selectedEmoji
+            ? emojiSet[idx % emojiSet.length]
+            : shapeOptions[idx % shapeOptions.length].name;
+        });
+        renderPlayerSettings();
+        handleMenuChange();
+      });
+
+      emojiRandomBtn.addEventListener("click", () => {
+        randomizeEmojiSet();
+        handleMenuChange();
+      });
+
+      modeRow.querySelectorAll(".mode-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const mode = card.getAttribute("data-mode");
+          setModeSelection(mode);
+          handleMenuChange();
+        });
+      });
+
+      playerRow.querySelectorAll(".mode-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const count = parseInt(card.getAttribute("data-players"), 10);
+          setPlayerSelection(count);
+          handleMenuChange();
+        });
+      });
+
+      setModeSelection(selectedMode);
+      setPlayerSelection(selectedPlayers);
+
+      function startGameFromMenu(fromLan = false) {
+        let count = selectedPlayers;
+        const mode = selectedMode;
+        const lanMode = fromLan || net.enabled;
+
+        if (lanMode) {
+          count = 2;
+          selectedPlayers = 2;
+          aiToggle.checked = false;
+          teamToggle.checked = false;
+          setPlayerSelection(2);
+        }
+
+        const teamMode = !lanMode && teamToggle.checked && count === 4;
+        const aiEnabled = !lanMode && aiToggle.checked && count === 2;
+
+        const configs = Array.from(
+          playerSettings.querySelectorAll(".player-config"),
+        );
+        const players = configs.slice(0, count).map((cfg, idx) => {
+          const color =
+            cfg.dataset.color || colorOptions[idx % colorOptions.length].value;
+          const shapeName = selectedEmoji
+            ? shapeOptions[idx % shapeOptions.length].name
+            : cfg.dataset.mark || shapeOptions[idx % shapeOptions.length].name;
+          return {
+            name: `Player ${idx + 1}`,
+            color,
+            shapeName,
+            emoji: selectedEmoji
+              ? cfg.dataset.mark || emojiSet[idx % emojiSet.length]
+              : emojiSet[idx % emojiSet.length],
+          };
+        });
+
+        state.players = players;
+        state.mode = mode;
+        state.teamMode = teamMode;
+        state.aiEnabled = aiEnabled;
+        state.aiIndex = aiEnabled ? 1 : -1;
+        state.aiLevel = aiLevel;
+        state.emojiEnabled = selectedEmoji;
+
+        clearBoard();
+        updateHud();
+        updateTurnQueue();
+        updateUndoRedoButtons();
+        fitToStones(false);
+        menuOverlay.classList.add("hidden");
+        resultOverlay.classList.add("hidden");
+        maybeTriggerAI();
+        saveState();
+      }
+
+      startBtn.addEventListener("click", () => {
+        if (net.enabled && net.connected) {
+          if (net.role !== "host") return;
+          if (!net.readyLocal || !net.readyRemote) return;
+        }
+        startGameFromMenu(false);
+        if (net.enabled && net.connected && net.role === "host") {
+          sendNet({
+            type: "start",
+            menu: buildMenuConfigFromUI(),
+            game: buildGameState(),
+          });
+        }
+      });
+
+      aiToggle.addEventListener("change", () => handleMenuChange());
+      teamToggle.addEventListener("change", () => handleMenuChange());
+
+      aiLevelBtn.addEventListener("click", () => {
+        setAiLevel((aiLevel % 5) + 1);
+        if (state.aiEnabled) {
+          state.aiLevel = aiLevel;
+        }
+        saveState();
+      });
+
+      lanHostBtn.addEventListener("click", () => startLan("host"));
+      lanJoinBtn.addEventListener("click", () => startLan("join"));
+      lanTestBtn.addEventListener("click", () => testLan());
+      lanReadyBtn.addEventListener("click", () => {
+        if (!net.connected) return;
+        net.readyLocal = !net.readyLocal;
+        sendNet({
+          type: "ready",
+          ready: net.readyLocal,
+          menu: buildMenuConfigFromUI(),
+        });
+        updateLobbyIndicators();
+      });
+      lanCopyBtn.addEventListener("click", async () => {
+        const link = buildInviteLink();
+        if (!link) return;
+        try {
+          await navigator.clipboard.writeText(link);
+          setLanStatus("ok", "Invite copied");
+          setTimeout(() => setLanStatus("idle", "Idle"), 1500);
+        } catch (err) {
+          setLanStatus("error", "Copy failed");
+        }
+      });
+
+      function initDefaultPlayers() {
+        state.players = [
+          {
+            name: "Player 1",
+            color: colorOptions[0].value,
+            shapePath: shapeOptions[0].path,
+            emoji: emojiSet[0],
+          },
+          {
+            name: "Player 2",
+            color: colorOptions[1].value,
+            shapePath: shapeOptions[1].path,
+            emoji: emojiSet[1],
+          },
+        ];
+      }
+
+      initDefaultPlayers();
+      setAiLevel(aiLevel);
+      loadState();
+      updateHud();
+      updateTurnQueue();
+      updateUndoRedoButtons();
+      requestRender();
+    </script>
+  </body>
+</html>

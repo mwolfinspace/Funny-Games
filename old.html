@@ -1,0 +1,4451 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
+        />
+        <title>⚡ Laser Security — Slitherlink</title>
+        <style>
+            :root {
+                --bg: #f4f6fb;
+                --glass-bg: rgba(255, 255, 255, 0.75);
+                --glass-bd: rgba(0, 0, 0, 0.08);
+                --radius: 10px;
+                --radius-lg: 18px;
+                --accent: #d92f2f;
+                --accent2: #ff8800;
+                --edit-col: #6d5df6;
+                --line-color: #d92f2f;
+                --line-glow: rgba(217, 47, 47, 0.35);
+                --x-color: #b45050;
+                --sat-bg: rgba(40, 220, 100, 0.12);
+                --sat-glow: rgba(40, 220, 100, 0.3);
+                --err-bg: rgba(255, 50, 50, 0.12);
+                --text: #182030;
+                --muted: rgba(20, 25, 40, 0.45);
+                --dot-color: rgba(70, 100, 160, 0.45);
+                --cell-bg: rgba(0, 0, 0, 0.025);
+                --edge-hover: rgba(217, 47, 47, 0.12);
+                --success: #1ea85d;
+                --topbar-bg: rgba(240, 242, 248, 0.92);
+                --topbar-border: rgba(0, 0, 0, 0.08);
+                --topbar-shadow: 0 2px 24px rgba(0, 0, 0, 0.1);
+                --editorbar-bg: rgba(240, 242, 248, 0.94);
+                --editorbar-border: rgba(109, 93, 246, 0.3);
+                --statusbar-bg: rgba(240, 242, 248, 0.96);
+                --statusbar-border: rgba(0, 0, 0, 0.08);
+                --modal-bg: rgba(255, 255, 255, 0.97);
+                --modal-border: rgba(0, 0, 0, 0.12);
+                --toast-bg: rgba(255, 255, 255, 0.96);
+                --toast-border: rgba(0, 0, 0, 0.15);
+            }
+            body.dark {
+                --bg: #080c18;
+                --glass-bg: rgba(255, 255, 255, 0.05);
+                --glass-bd: rgba(255, 255, 255, 0.1);
+                --accent: #ff4444;
+                --accent2: #ff9900;
+                --line-color: #ff4444;
+                --line-glow: rgba(255, 68, 68, 0.7);
+                --x-color: #ff7878;
+                --sat-bg: rgba(60, 255, 120, 0.12);
+                --err-bg: rgba(255, 50, 50, 0.15);
+                --text: #dde5f4;
+                --muted: rgba(221, 229, 244, 0.4);
+                --dot-color: rgba(100, 150, 220, 0.45);
+                --cell-bg: rgba(255, 255, 255, 0.025);
+                --edge-hover: rgba(255, 68, 68, 0.25);
+                --success: #3eff90;
+                --topbar-bg: rgba(8, 12, 24, 0.92);
+                --topbar-border: rgba(255, 68, 68, 0.18);
+                --topbar-shadow:
+                    0 2px 24px rgba(0, 0, 0, 0.5),
+                    0 0 60px rgba(255, 68, 68, 0.04);
+                --editorbar-bg: rgba(8, 12, 24, 0.94);
+                --editorbar-border: rgba(139, 124, 248, 0.25);
+                --statusbar-bg: rgba(8, 12, 24, 0.96);
+                --statusbar-border: rgba(255, 68, 68, 0.12);
+                --modal-bg: rgba(12, 18, 36, 0.97);
+                --modal-border: rgba(255, 68, 68, 0.2);
+                --toast-bg: rgba(12, 18, 36, 0.96);
+                --toast-border: rgba(255, 68, 68, 0.3);
+            }
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            html,
+            body {
+                width: 100vw;
+                height: 100vh;
+                overflow: hidden;
+                background: var(--bg);
+                font-family: "Courier New", Courier, monospace;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                color: var(--text);
+            }
+
+            body::before {
+                content: "";
+                position: fixed;
+                inset: 0;
+                background-image:
+                    linear-gradient(
+                        rgba(79, 142, 247, 0.035) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        90deg,
+                        rgba(79, 142, 247, 0.035) 1px,
+                        transparent 1px
+                    );
+                background-size: 36px 36px;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            /* ── TOP BAR ── */
+            #topBar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 50px;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 0 10px;
+                background: var(--topbar-bg);
+                backdrop-filter: blur(20px) saturate(180%);
+                border-bottom: 1px solid var(--topbar-border);
+                box-shadow: var(--topbar-shadow);
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            #topBar::-webkit-scrollbar {
+                display: none;
+            }
+
+            .logo {
+                font-size: 13px;
+                font-weight: 900;
+                letter-spacing: 3px;
+                text-transform: uppercase;
+                background: linear-gradient(
+                    90deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                white-space: nowrap;
+                flex-shrink: 0;
+                padding-right: 2px;
+            }
+            .sep {
+                width: 1px;
+                height: 20px;
+                background: rgba(255, 68, 68, 0.2);
+                flex-shrink: 0;
+            }
+            .mode-pill {
+                padding: 2px 9px;
+                border-radius: 20px;
+                font-size: 9px;
+                font-weight: 900;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                flex-shrink: 0;
+                transition: all 0.2s;
+            }
+            .mode-pill.play {
+                background: rgba(255, 68, 68, 0.12);
+                color: var(--accent);
+                border: 1px solid rgba(255, 68, 68, 0.3);
+            }
+            .mode-pill.edit {
+                background: rgba(139, 124, 248, 0.18);
+                color: var(--edit-col);
+                border: 1px solid rgba(139, 124, 248, 0.4);
+            }
+
+            /* button group */
+            .cg {
+                display: flex;
+                align-items: center;
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-bd);
+                border-radius: var(--radius);
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+            .cb {
+                height: 30px;
+                min-width: 28px;
+                padding: 0 10px;
+                background: transparent;
+                border: none;
+                font-size: 11px;
+                font-weight: 700;
+                font-family: "Courier New", monospace;
+                color: var(--text);
+                cursor: pointer;
+                white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                transition:
+                    background 0.12s,
+                    color 0.12s,
+                    transform 0.08s;
+                flex-shrink: 0;
+            }
+            .cb + .cb {
+                border-left: 1px solid var(--glass-bd);
+            }
+            .cb:hover {
+                background: rgba(255, 255, 255, 0.08);
+            }
+            .cb:active {
+                transform: scale(0.9);
+            }
+            .cb.active {
+                background: rgba(255, 68, 68, 0.18);
+                color: var(--accent);
+            }
+
+            /* solo button */
+            .sb {
+                height: 30px;
+                padding: 0 11px;
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-bd);
+                border-radius: var(--radius);
+                font-size: 11px;
+                font-weight: 700;
+                font-family: "Courier New", monospace;
+                color: var(--text);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition: all 0.12s;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            .sb:hover {
+                background: rgba(255, 255, 255, 0.09);
+                transform: translateY(-1px);
+            }
+            .sb:active {
+                transform: scale(0.93);
+            }
+            .sb.warn {
+                color: var(--accent);
+                border-color: rgba(255, 68, 68, 0.3);
+            }
+            .sb.warn:hover {
+                background: rgba(255, 68, 68, 0.12);
+            }
+
+            #levelSel {
+                height: 30px;
+                padding: 0 8px;
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-bd);
+                border-radius: var(--radius);
+                font-size: 11px;
+                font-weight: 700;
+                font-family: "Courier New", monospace;
+                color: var(--text);
+                cursor: pointer;
+                flex-shrink: 0;
+                appearance: none;
+                -webkit-appearance: none;
+            }
+            #levelSel option {
+                background: #0d1120;
+                color: var(--text);
+            }
+
+            /* ── GAME AREA ── */
+            #gameArea {
+                position: fixed;
+                top: 50px;
+                left: 0;
+                right: 0;
+                bottom: 42px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1;
+                overflow: hidden;
+            }
+
+            /* ── PUZZLE GRID ── */
+            #puzzleGrid {
+                display: grid;
+                position: relative;
+            }
+
+            /* Grid elements */
+            .vertex {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--dot-color);
+                box-shadow: 0 0 5px rgba(100, 150, 220, 0.25);
+                place-self: center;
+            }
+
+            /* Edges */
+            .edge {
+                cursor: pointer;
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+            }
+            .edge::before {
+                content: "";
+                position: absolute;
+                border-radius: 3px;
+                transition:
+                    background 0.13s,
+                    box-shadow 0.13s;
+            }
+
+            /* Horizontal edge */
+            .edge.h {
+                width: calc(100% + 6px);
+                height: calc(100% + 8px);
+                margin: -4px -3px;
+            }
+            .edge.h::before {
+                left: 3px;
+                right: 3px;
+                height: 7px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            .edge.h:hover::before,
+            .edge.h.ghost::before {
+                background: var(--edge-hover);
+            }
+            .edge.h.active::before {
+                background: var(--line-color);
+                box-shadow:
+                    0 0 10px var(--line-glow),
+                    0 0 25px rgba(255, 68, 68, 0.35);
+                height: 7px;
+                left: 1px;
+                right: 1px;
+            }
+
+            /* Vertical edge */
+            .edge.v {
+                width: calc(100% + 8px);
+                height: calc(100% + 6px);
+                margin: -3px -4px;
+            }
+            .edge.v::before {
+                top: 3px;
+                bottom: 3px;
+                width: 7px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            .edge.v:hover::before,
+            .edge.v.ghost::before {
+                background: var(--edge-hover);
+            }
+            .edge.v.active::before {
+                background: var(--line-color);
+                box-shadow:
+                    0 0 10px var(--line-glow),
+                    0 0 25px rgba(255, 68, 68, 0.35);
+                width: 7px;
+                top: 1px;
+                bottom: 1px;
+            }
+
+            /* X mark */
+            .x-mark {
+                font-size: var(--x-fs, 12px);
+                font-weight: 900;
+                color: var(--x-color);
+                pointer-events: none;
+                position: relative;
+                z-index: 1;
+                line-height: 1;
+                font-family:
+                    "Cal Sans",
+                    "Inter",
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    "Helvetica Neue",
+                    sans-serif;
+            }
+
+            /* Cell */
+            .cell {
+                background: var(--cell-bg);
+                border-radius: 5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: var(--cell-fs, clamp(26px, 5.5vmin, 48px));
+                font-weight: 900;
+                color: var(--text);
+                transition:
+                    background 0.2s,
+                    box-shadow 0.2s,
+                    color 0.2s;
+                font-family:
+                    "Cal Sans",
+                    "Inter",
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    "Helvetica Neue",
+                    sans-serif;
+            }
+            .cell.satisfied {
+                background: var(--sat-bg);
+                box-shadow:
+                    inset 0 0 14px rgba(60, 255, 120, 0.08),
+                    0 0 10px rgba(60, 255, 120, 0.12);
+                color: var(--success);
+            }
+            .cell.error {
+                background: var(--err-bg);
+                box-shadow: inset 0 0 12px rgba(255, 50, 50, 0.12);
+                color: var(--accent);
+            }
+            .cell.edit-mode {
+                cursor: pointer;
+            }
+            .cell.edit-mode:hover {
+                background: rgba(139, 124, 248, 0.1);
+            }
+
+            .cell.treasure {
+                font-size: var(--cell-fs, clamp(20px, 5vmin, 40px));
+                filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.3));
+                cursor: default;
+            }
+            body.dark .cell.treasure {
+                filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5));
+            }
+
+            .cell.clue-0 {
+                color: #d9d9d9;
+            }
+            .cell.clue-1 {
+                color: #0f9ed5;
+            }
+            .cell.clue-2 {
+                color: #4ea72e;
+            }
+            .cell.clue-3 {
+                color: #e97132;
+            }
+
+            /* ── EDITOR BAR ── */
+            #editorBar {
+                display: none;
+                position: fixed;
+                bottom: 42px;
+                left: 0;
+                right: 0;
+                height: 42px;
+                z-index: 90;
+                background: var(--editorbar-bg);
+                border-top: 1px solid var(--editorbar-border);
+                backdrop-filter: blur(20px);
+                align-items: center;
+                gap: 10px;
+                padding: 0 14px;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            #editorBar.show {
+                display: flex;
+            }
+            #editorBar::-webkit-scrollbar {
+                display: none;
+            }
+            .editor-hint {
+                font-size: 10px;
+                opacity: 0.45;
+                letter-spacing: 0.5px;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            /* ── STATUS BAR ── */
+            #statusBar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 42px;
+                z-index: 100;
+                background: var(--statusbar-bg);
+                border-top: 1px solid var(--statusbar-border);
+                display: flex;
+                align-items: center;
+                padding: 0 14px;
+                gap: 18px;
+                font-size: 11px;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            #statusBar::-webkit-scrollbar {
+                display: none;
+            }
+            .sbi {
+                display: flex;
+                gap: 5px;
+                align-items: baseline;
+                flex-shrink: 0;
+            }
+            .sbi .l {
+                opacity: 0.38;
+                text-transform: uppercase;
+                font-size: 9px;
+                font-weight: 800;
+                letter-spacing: 1px;
+            }
+            .sbi .v {
+                font-weight: 700;
+            }
+            .sbi .hot {
+                color: var(--accent);
+            }
+            .sbi .ok {
+                color: var(--success);
+            }
+
+            #seedBox {
+                height: 32px;
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-bd);
+                border-radius: var(--radius);
+                padding: 0 8px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            #seedInput {
+                border: none;
+                background: transparent;
+                font-family: monospace;
+                font-size: 11px;
+                outline: none;
+                color: var(--text);
+                min-width: 50px;
+                flex: 1;
+            }
+            #seedInput::placeholder {
+                color: var(--muted);
+                opacity: 0.6;
+            }
+            #sbSeed {
+                margin-left: auto;
+                font-family: monospace;
+                cursor: pointer;
+                font-size: 11px;
+                opacity: 0.5;
+                white-space: nowrap;
+                flex-shrink: 0;
+                padding: 2px 8px;
+                border-radius: 6px;
+                transition:
+                    opacity 0.15s,
+                    background 0.15s;
+            }
+            #sbSeed:hover {
+                opacity: 1;
+                background: var(--glass-bg);
+            }
+
+            /* ── MODALS ── */
+            .modal-bg {
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                background: rgba(0, 0, 0, 0.65);
+                display: none;
+                align-items: center;
+                justify-content: center;
+            }
+            .modal-bg.open {
+                display: flex;
+            }
+            .modal-card {
+                width: 90%;
+                max-width: 360px;
+                padding: 28px 24px;
+                text-align: center;
+                border-radius: var(--radius-lg);
+                background: var(--modal-bg);
+                border: 1px solid var(--modal-border);
+                box-shadow:
+                    0 10px 50px rgba(0, 0, 0, 0.6),
+                    0 0 80px rgba(255, 68, 68, 0.06);
+                animation: popIn 0.38s cubic-bezier(0.17, 0.89, 0.32, 1.27);
+            }
+            @keyframes popIn {
+                from {
+                    transform: scale(0.82);
+                    opacity: 0;
+                }
+                to {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+            .m-emoji {
+                font-size: 52px;
+                margin-bottom: 10px;
+            }
+            .m-title {
+                font-size: 26px;
+                font-weight: 900;
+                letter-spacing: 3px;
+                text-transform: uppercase;
+                margin-bottom: 6px;
+            }
+            .m-sub {
+                font-size: 14px;
+                opacity: 0.45;
+                margin-bottom: 20px;
+                letter-spacing: 1px;
+            }
+            .win-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                margin: 16px 0 24px;
+            }
+            .ws {
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.07);
+                padding: 14px 8px;
+                border-radius: 9px;
+            }
+            .ws .wv {
+                font-size: 22px;
+                font-weight: 900;
+                color: var(--accent2);
+            }
+            .ws .wl {
+                font-size: 11px;
+                opacity: 0.4;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-top: 4px;
+            }
+            .m-btns {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                flex-wrap: wrap;
+                margin-top: 4px;
+            }
+            .mbtn {
+                height: 36px;
+                padding: 0 18px;
+                border-radius: 9px;
+                font-family: "Courier New", monospace;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                cursor: pointer;
+                border: 1px solid var(--glass-bd);
+                background: var(--glass-bg);
+                color: var(--text);
+                transition: all 0.13s;
+            }
+            .mbtn:hover {
+                background: rgba(255, 255, 255, 0.09);
+                transform: translateY(-1px);
+            }
+            .mbtn:active {
+                transform: scale(0.94);
+            }
+            .mbtn.pri {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                border: none;
+                color: #fff;
+                box-shadow: 0 4px 18px rgba(255, 68, 68, 0.4);
+            }
+            .mbtn.pri:hover {
+                box-shadow: 0 6px 26px rgba(255, 68, 68, 0.6);
+            }
+            .close-x {
+                position: absolute;
+                top: 12px;
+                right: 14px;
+                z-index: 100;
+                background: none;
+                border: none;
+                color: var(--muted);
+                font-size: 28px;
+                cursor: pointer;
+                padding: 8px;
+                line-height: 1;
+            }
+            .close-x:hover {
+                color: var(--text);
+            }
+
+            /* Export textarea */
+            #exportArea {
+                width: 100%;
+                margin: 10px 0;
+                padding: 10px;
+                background: rgba(0, 0, 0, 0.35);
+                border: 1px solid var(--glass-bd);
+                border-radius: 8px;
+                font-family: "Courier New", monospace;
+                font-size: 9px;
+                color: var(--accent2);
+                resize: none;
+                min-height: 90px;
+                text-align: left;
+                outline: none;
+                line-height: 1.5;
+            }
+
+            /* ── TOAST ── */
+            #toast {
+                position: fixed;
+                bottom: 58px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--toast-bg);
+                border: 1px solid var(--toast-border);
+                color: var(--text);
+                padding: 7px 18px;
+                border-radius: 20px;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                z-index: 300;
+                opacity: 0;
+                transition: opacity 0.25s;
+                white-space: nowrap;
+                pointer-events: none;
+            }
+            #toast.show {
+                opacity: 1;
+            }
+
+            /* ── LOADING ── */
+            #loadingScreen {
+                position: fixed;
+                inset: 0;
+                z-index: 500;
+                background: var(--bg);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 14px;
+            }
+            .load-logo {
+                font-size: 30px;
+                font-weight: 900;
+                letter-spacing: 8px;
+                text-transform: uppercase;
+                background: linear-gradient(
+                    90deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .load-sub {
+                font-size: 10px;
+                opacity: 0.35;
+                letter-spacing: 4px;
+            }
+            .load-bar {
+                width: 180px;
+                height: 2px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 2px;
+                overflow: hidden;
+            }
+            .load-prog {
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                animation: loadA 1s ease-out forwards;
+            }
+            @keyframes loadA {
+                from {
+                    width: 0;
+                }
+                to {
+                    width: 100%;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Loading -->
+        <div id="loadingScreen">
+            <div class="load-logo">⚡ LASER</div>
+            <div class="load-sub">SECURITY PUZZLE</div>
+            <div class="load-bar"><div class="load-prog"></div></div>
+        </div>
+
+        <!-- Top Bar -->
+        <div id="topBar">
+            <button class="sb" id="btnHome" title="Home">🏠 Home</button>
+            <span class="logo">⚡ Laser</span>
+            <div class="sep"></div>
+            <div class="cg" id="gridTypeGroup">
+                <button class="cb active" data-grid="triangle">▲</button>
+                <button class="cb" data-grid="square">■</button>
+                <button class="cb" data-grid="hexagon">⬡</button>
+            </div>
+            <div class="cg" id="sizeGroup">
+                <button class="cb" data-size="4">4</button>
+                <button class="cb" data-size="5">5</button>
+                <button class="cb" data-size="6">6</button>
+                <button class="cb active" data-size="7">7</button>
+                <button class="cb" data-size="8">8</button>
+                <button class="cb" data-size="9">9</button>
+                <button class="cb" data-size="10">10</button>
+                <button class="cb" data-size="11">11</button>
+                <button class="cb" data-size="12">12</button>
+                <button class="cb" data-size="13">13</button>
+                <button class="cb" data-size="14">14</button>
+            </div>
+            <button class="sb" id="btnNew">🔄 New</button>
+            <div id="seedBox">
+                <input type="text" id="seedInput" placeholder="Seed..." />
+            </div>
+            <button class="sb" id="btnReset">↺ Reset</button>
+            <button class="sb" id="btnUndo">⟲ Undo</button>
+            <button class="sb" id="btnEdit">✏ Edit</button>
+            <button class="sb" id="btnTheme">☀ Light</button>
+            <button class="sb" id="btnPNG">🖼 PNG</button>
+            <button class="sb warn" id="btnSolve">⚡ Solve</button>
+            <button class="sb warn" id="btnExportTop" style="display: none">
+                ⬇ Export
+            </button>
+        </div>
+
+        <!-- Game Area -->
+        <div id="gameArea">
+            <div id="puzzleGrid"></div>
+        </div>
+
+        <!-- Editor Bar -->
+        <div id="editorBar">
+            <span class="editor-hint">Click cells → cycle clues ∅ 0 1 2 3</span>
+            <button class="sb" id="btnClearAll">✕ Clear Clues</button>
+            <button class="sb" id="btnExportEdit">⬇ Export Code</button>
+            <button class="sb warn" id="btnExitEdit">✓ Done</button>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="statusBar">
+            <div class="sbi">
+                <span class="l">Time</span
+                ><span class="v" id="stTime">00:00</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Level</span
+                ><span class="v" id="stLevel">1</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Size</span><span class="v" id="stSize">—</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Lines</span
+                ><span class="v hot" id="stLines">0</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Satisfied</span
+                ><span class="v" id="stSat">0/0</span>
+            </div>
+            <span class="mode-pill play" id="modePill">PLAY</span>
+            <span id="sbSeed">—</span>
+        </div>
+
+        <!-- Win Modal -->
+        <div class="modal-bg" id="winModal">
+            <div class="modal-card" style="position: relative">
+                <button class="close-x" id="wClose">✕</button>
+                <div class="m-emoji">🎉</div>
+                <div class="m-title">Loop Secured!</div>
+                <div class="m-sub">Laser grid successfully closed</div>
+                <div class="win-stats">
+                    <div class="ws">
+                        <div class="wv" id="wTime">—</div>
+                        <div class="wl">Time</div>
+                    </div>
+                    <div class="ws">
+                        <div class="wv" id="wLines">—</div>
+                        <div class="wl">Lines</div>
+                    </div>
+                    <div class="ws">
+                        <div class="wv" id="wLvl">—</div>
+                        <div class="wl">Level</div>
+                    </div>
+                </div>
+                <div class="m-btns">
+                    <button class="mbtn" id="wRetry">↺ Retry</button>
+                    <button class="mbtn pri" id="wNext">Next ▶</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Modal -->
+        <div class="modal-bg" id="exportModal">
+            <div class="modal-card" style="position: relative">
+                <button class="close-x" id="expClose">✕</button>
+                <div class="m-emoji">📋</div>
+                <div class="m-title">Level Code</div>
+                <div class="m-sub">Save or share your custom puzzle</div>
+                <div
+                    style="
+                        display: flex;
+                        gap: 8px;
+                        align-items: center;
+                        margin: 8px 0;
+                        font-size: 11px;
+                        background: var(--glass-bg);
+                        border: 1px solid var(--glass-bd);
+                        border-radius: 8px;
+                        padding: 6px 10px;
+                    "
+                >
+                    <span style="opacity: 0.5; white-space: nowrap">Seed</span>
+                    <span
+                        id="exportSeed"
+                        style="
+                            font-family: monospace;
+                            font-weight: 700;
+                            word-break: break-all;
+                            flex: 1;
+                            text-align: left;
+                        "
+                    ></span>
+                    <button
+                        class="mbtn"
+                        id="btnCopySeed"
+                        style="
+                            height: 26px;
+                            padding: 0 8px;
+                            font-size: 10px;
+                            flex-shrink: 0;
+                        "
+                    >
+                        📋
+                    </button>
+                </div>
+                <textarea id="exportArea" readonly></textarea>
+                <div class="m-btns">
+                    <button class="mbtn pri" id="btnCopy">📋 Copy JSON</button>
+                    <button class="mbtn" id="btnCloseExp">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <style>
+            #previewModal .modal-card {
+                max-width: 95vw;
+                width: 760px;
+                padding: 16px;
+                display: flex;
+                flex-direction: row;
+                gap: 20px;
+                max-height: 90vh;
+            }
+            .preview-left {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+            }
+            .preview-right {
+                width: 190px;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+                text-align: left;
+                border-left: 1px solid var(--glass-bd);
+                padding-left: 16px;
+            }
+            #previewImg {
+                max-width: 100%;
+                max-height: 65vh;
+                object-fit: contain;
+                border-radius: 6px;
+                border: 1px solid var(--modal-border);
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            }
+            /* iOS Toggle */
+            .ios-toggle {
+                position: relative;
+                display: inline-block;
+                width: 36px;
+                height: 20px;
+                flex-shrink: 0;
+            }
+            .ios-toggle input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+            .ios-slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: var(--muted);
+                transition: 0.3s;
+                border-radius: 20px;
+            }
+            .ios-slider:before {
+                position: absolute;
+                content: "";
+                height: 16px;
+                width: 16px;
+                left: 2px;
+                bottom: 2px;
+                background-color: #fff;
+                transition: 0.3s;
+                border-radius: 50%;
+            }
+            .ios-toggle input:checked + .ios-slider {
+                background-color: var(--success);
+            }
+            .ios-toggle input:checked + .ios-slider:before {
+                transform: translateX(16px);
+            }
+
+            .ctrl-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--text);
+                font-family: monospace;
+            }
+            .cycle-btn {
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-bd);
+                color: var(--text);
+                padding: 4px 8px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-family: monospace;
+                font-size: 10px;
+                transition: 0.15s;
+            }
+            .cycle-btn:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
+            .cycle-btn:active {
+                transform: scale(0.95);
+            }
+
+            @media (max-width: 600px) {
+                #previewModal .modal-card {
+                    flex-direction: column;
+                    padding: 12px;
+                }
+                .preview-right {
+                    width: 100%;
+                    border-left: none;
+                    border-top: 1px solid var(--glass-bd);
+                    padding-left: 0;
+                    padding-top: 16px;
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                }
+                .preview-right .ctrl-row {
+                    width: 45%;
+                }
+                .preview-right .m-btns {
+                    width: 100%;
+                    flex-direction: row;
+                }
+                #previewImg {
+                    max-height: 45vh;
+                }
+            }
+        </style>
+        <div class="modal-bg" id="previewModal">
+            <div class="modal-card" style="position: relative">
+                <div class="preview-left">
+                    <div
+                        style="
+                            display: flex;
+                            align-items: flex-start;
+                            justify-content: space-between;
+                            margin-bottom: 4px;
+                        "
+                    >
+                        <div>
+                            <div class="m-emoji" style="font-size: 20px">
+                                🖼
+                            </div>
+                            <div class="m-title" style="font-size: 14px">
+                                Export Preview
+                            </div>
+                        </div>
+                        <button
+                            class="close-x"
+                            id="prevClose"
+                            style="
+                                position: static;
+                                font-size: 22px;
+                                padding: 4px 8px;
+                            "
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div
+                        style="
+                            text-align: center;
+                            margin: auto 0;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            overflow: hidden;
+                            padding: 4px;
+                        "
+                    >
+                        <img id="previewImg" />
+                    </div>
+                </div>
+                <div class="preview-right">
+                    <div class="ctrl-row">
+                        <span>Background</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="tglBg" checked />
+                            <span class="ios-slider"></span>
+                        </label>
+                    </div>
+                    <div class="ctrl-row">
+                        <span>Bg for '0'</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="tglBgZero" />
+                            <span class="ios-slider"></span>
+                        </label>
+                    </div>
+                    <div class="ctrl-row">
+                        <span>Show Seed</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="tglSeed" checked />
+                            <span class="ios-slider"></span>
+                        </label>
+                    </div>
+                    <div class="ctrl-row">
+                        <span>Seed Pos</span>
+                        <button class="cycle-btn" id="btnCycleSide">
+                            Side 0
+                        </button>
+                    </div>
+                    <div
+                        class="m-btns"
+                        style="margin-top: auto; padding-top: 8px"
+                    >
+                        <button
+                            class="mbtn pri"
+                            id="btnSavePNG"
+                            style="width: 100%"
+                        >
+                            💾 Save Image
+                        </button>
+                        <button
+                            class="mbtn"
+                            id="btnCancelPNG"
+                            style="width: 100%; margin-top: 8px"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div id="toast"></div>
+
+        <script>
+            /* =========================================
+   LEVELS DATA
+   null = no clue, 0-3 = clue value
+   ========================================= */
+            const LEVELS = [
+                {
+                    name: "First Contact",
+                    rows: 4,
+                    cols: 4,
+                    clues: [
+                        [null, 2, null, null],
+                        [2, null, 2, null],
+                        [null, 2, null, 2],
+                        [null, null, 2, null],
+                    ],
+                },
+                {
+                    name: "Border Patrol",
+                    rows: 5,
+                    cols: 5,
+                    clues: [
+                        [2, null, null, null, 2],
+                        [null, 1, null, 1, null],
+                        [null, null, 0, null, null],
+                        [null, 1, null, 1, null],
+                        [2, null, null, null, 2],
+                    ],
+                },
+                {
+                    name: "Symmetric Grid",
+                    rows: 5,
+                    cols: 5,
+                    clues: [
+                        [3, 2, null, 2, 3],
+                        [2, null, null, null, 2],
+                        [null, null, 0, null, null],
+                        [2, null, null, null, 2],
+                        [3, 2, null, 2, 3],
+                    ],
+                },
+                {
+                    name: "Zigzag",
+                    rows: 5,
+                    cols: 5,
+                    clues: [
+                        [null, 3, null, 1, null],
+                        [2, null, 2, null, 2],
+                        [null, 2, null, 2, null],
+                        [2, null, 2, null, 2],
+                        [null, 1, null, 3, null],
+                    ],
+                },
+                {
+                    name: "Diamond Ring",
+                    rows: 6,
+                    cols: 6,
+                    clues: [
+                        [null, null, 2, 2, null, null],
+                        [null, 2, null, null, 2, null],
+                        [2, null, 3, 3, null, 2],
+                        [2, null, 3, 3, null, 2],
+                        [null, 2, null, null, 2, null],
+                        [null, null, 2, 2, null, null],
+                    ],
+                },
+                {
+                    name: "Crossroads",
+                    rows: 6,
+                    cols: 6,
+                    clues: [
+                        [2, null, 1, 1, null, 2],
+                        [null, 2, null, null, 2, null],
+                        [1, null, 3, 3, null, 1],
+                        [1, null, 3, 3, null, 1],
+                        [null, 2, null, null, 2, null],
+                        [2, null, 1, 1, null, 2],
+                    ],
+                },
+                {
+                    name: "Labyrinth",
+                    rows: 7,
+                    cols: 7,
+                    clues: [
+                        [null, 2, null, null, null, 2, null],
+                        [2, null, 3, null, 3, null, 2],
+                        [null, 3, null, 2, null, 3, null],
+                        [null, null, 2, null, 2, null, null],
+                        [null, 3, null, 2, null, 3, null],
+                        [2, null, 3, null, 3, null, 2],
+                        [null, 2, null, null, null, 2, null],
+                    ],
+                },
+                {
+                    name: "Final Circuit",
+                    rows: 7,
+                    cols: 7,
+                    clues: [
+                        [3, 2, null, 1, null, 2, 3],
+                        [2, null, 2, null, 2, null, 2],
+                        [null, 2, null, 3, null, 2, null],
+                        [1, null, 3, null, 3, null, 1],
+                        [null, 2, null, 3, null, 2, null],
+                        [2, null, 2, null, 2, null, 2],
+                        [3, 2, null, 1, null, 2, 3],
+                    ],
+                },
+            ];
+
+            /* =========================================
+   RANDOM LEVEL GENERATION (TREASURE PATCH)
+   Centered start + treasure placement + SeedID parity
+   ========================================= */
+            const GRID_TYPE = {
+                SQUARE: "square",
+                TRIANGLE: "triangle",
+                HEXAGON: "hexagon",
+            };
+
+            const TREASURE_POOL = [
+                "🏆",
+                "💎",
+                "👑",
+                "🏺",
+                "♟️",
+                "🗿",
+                "🪙",
+                "📿",
+                "🗡️",
+                "⚖️",
+                "🪞",
+                "⚱️",
+            ];
+
+            function makeRng(seed) {
+                let s = (seed >>> 0) % 0x7fffffff;
+                if (s === 0) s = 1;
+                return () => {
+                    s = Math.imul(s, 16807) % 0x7fffffff;
+                    if (s < 0) s += 0x7fffffff;
+                    return (s - 1) / 0x7ffffffe;
+                };
+            }
+
+            function generateRandomLevel(rows, cols, seed) {
+                if (GS.gridType === GRID_TYPE.SQUARE)
+                    return generateSquareLevel(rows, cols, seed);
+                if (GS.gridType === GRID_TYPE.TRIANGLE)
+                    return generateTriangleLevel(rows, seed);
+                if (GS.gridType === GRID_TYPE.HEXAGON)
+                    return generateHexagonLevel(rows, seed);
+            }
+
+            function generateSquareLevel(rows, cols, seed) {
+                const rng = makeRng(seed);
+
+                const total = rows * cols;
+
+                function hasBadCell(interior) {
+                    for (let r = 0; r < rows; r++)
+                        for (let c = 0; c < cols; c++) {
+                            const isIn = interior.has(r * cols + c);
+                            let cnt = 0;
+                            if (r === 0) {
+                                if (isIn) cnt++;
+                            } else if (
+                                interior.has((r - 1) * cols + c) !== isIn
+                            )
+                                cnt++;
+                            if (r === rows - 1) {
+                                if (isIn) cnt++;
+                            } else if (
+                                interior.has((r + 1) * cols + c) !== isIn
+                            )
+                                cnt++;
+                            if (c === 0) {
+                                if (isIn) cnt++;
+                            } else if (
+                                interior.has(r * cols + (c - 1)) !== isIn
+                            )
+                                cnt++;
+                            if (c === cols - 1) {
+                                if (isIn) cnt++;
+                            } else if (
+                                interior.has(r * cols + (c + 1)) !== isIn
+                            )
+                                cnt++;
+                            if (cnt >= 4) return true;
+                        }
+                    return false;
+                }
+
+                const startR = Math.floor(rows / 2);
+                const startC = Math.floor(cols / 2);
+                let interior,
+                    genAttempts = 0;
+                do {
+                    interior = new Set();
+                    interior.add(startR * cols + startC);
+
+                    const targetSize =
+                        rows > 10
+                            ? Math.floor(total * 0.3)
+                            : rows > 7
+                              ? Math.floor(total * 0.35)
+                              : rows > 5
+                                ? Math.floor(total * 0.4)
+                                : Math.floor(total * 0.45);
+                    let attempts = 0;
+                    while (interior.size < targetSize && attempts < 2000) {
+                        const arr = Array.from(interior);
+                        const curr = arr[Math.floor(rng() * arr.length)];
+                        const r = Math.floor(curr / cols),
+                            c = curr % cols;
+                        const dirs = [
+                            [0, 1],
+                            [0, -1],
+                            [1, 0],
+                            [-1, 0],
+                        ];
+                        const d = dirs[Math.floor(rng() * 4)];
+                        const nr = r + d[0],
+                            nc = c + d[1];
+                        const nidx = nr * cols + nc;
+                        if (
+                            nr >= 0 &&
+                            nr < rows &&
+                            nc >= 0 &&
+                            nc < cols &&
+                            !interior.has(nidx)
+                        ) {
+                            let neighbors = 0;
+                            [
+                                [0, 1],
+                                [0, -1],
+                                [1, 0],
+                                [-1, 0],
+                            ].forEach(([dr, dc]) => {
+                                if (interior.has((nr + dr) * cols + (nc + dc)))
+                                    neighbors++;
+                            });
+                            if (neighbors < 2 || rng() > 0.8)
+                                interior.add(nidx);
+                        }
+                        attempts++;
+                    }
+                    genAttempts++;
+                } while (hasBadCell(interior) && genAttempts < 50);
+
+                // Assign Treasures (1-3 based on size)
+                const treasures = new Set();
+                const insideArr = Array.from(interior);
+                const tCount = rows > 8 ? 3 : rows > 5 ? 2 : 1;
+                for (let i = 0; i < tCount; i++) {
+                    const tIdx =
+                        insideArr[Math.floor(rng() * insideArr.length)];
+                    if (tIdx !== undefined) treasures.add(tIdx);
+                }
+
+                // Calculate Slitherlink Clues
+                const clues = [];
+                for (let r = 0; r < rows; r++) {
+                    const row = [];
+                    for (let c = 0; c < cols; c++) {
+                        const idx = r * cols + c;
+                        if (treasures.has(idx)) {
+                            row.push("T");
+                        } else {
+                            const isIn = interior.has(idx);
+                            let count = 0;
+                            if (r === 0) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has((r - 1) * cols + c) !== isIn
+                            )
+                                count++;
+                            if (r === rows - 1) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has((r + 1) * cols + c) !== isIn
+                            )
+                                count++;
+                            if (c === 0) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has(r * cols + (c - 1)) !== isIn
+                            )
+                                count++;
+                            if (c === cols - 1) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has(r * cols + (c + 1)) !== isIn
+                            )
+                                count++;
+                            row.push(count >= 4 ? null : count);
+                        }
+                    }
+                    clues.push(row);
+                }
+
+                let bits = "";
+                const invert = interior.size > total / 2;
+                for (let i = 0; i < total; i++)
+                    bits += (invert ? !interior.has(i) : interior.has(i))
+                        ? "1"
+                        : "0";
+                const encoded = BigInt("0b" + (bits || "0"))
+                    .toString(36)
+                    .toUpperCase();
+
+                return {
+                    clues,
+                    seed: `${invert ? "X" : "O"}${rows}x${cols}-${encoded}`,
+                    interior,
+                    treasures,
+                };
+            }
+
+            function generateTriangleLevel(N, seed) {
+                const rng = makeRng(seed);
+                const total = N * N;
+                const verts = [];
+                const vId = (r, c) => (r * (r + 1)) / 2 + c;
+                for (let r = 0; r <= N; r++)
+                    for (let c = 0; c <= r; c++)
+                        verts.push({
+                            x: c - r / 2,
+                            y: (r * Math.sqrt(3)) / 2,
+                            edges: [],
+                        });
+                const edges = [];
+                const eMap = {};
+                const addE = (type, r, c, v1, v2) => {
+                    const id = edges.length;
+                    edges.push({ v1, v2, cells: [], state: 0, type });
+                    verts[v1].edges.push(id);
+                    verts[v2].edges.push(id);
+                    eMap[`${type}-${r}-${c}`] = id;
+                    return id;
+                };
+                for (let r = 1; r <= N; r++)
+                    for (let c = 0; c < r; c++)
+                        addE("h", r, c, vId(r, c), vId(r, c + 1));
+                for (let r = 0; r < N; r++)
+                    for (let c = 0; c <= r; c++)
+                        addE("l", r, c, vId(r, c), vId(r + 1, c));
+                for (let r = 0; r < N; r++)
+                    for (let c = 0; c <= r; c++)
+                        addE("r", r, c, vId(r, c), vId(r + 1, c + 1));
+                const cells = [];
+                const addCell = (eids) => {
+                    const cid = cells.length;
+                    cells.push({ edges: eids, clue: null });
+                    eids.forEach((e) => edges[e].cells.push(cid));
+                };
+                for (let r = 0; r < N; r++)
+                    for (let c = 0; c <= r; c++)
+                        addCell([
+                            eMap[`l-${r}-${c}`],
+                            eMap[`r-${r}-${c}`],
+                            eMap[`h-${r + 1}-${c}`],
+                        ]);
+                for (let r = 0; r < N; r++)
+                    for (let c = 0; c < r; c++)
+                        addCell([
+                            eMap[`h-${r}-${c}`],
+                            eMap[`r-${r}-${c}`],
+                            eMap[`l-${r}-${c + 1}`],
+                        ]);
+                const interior = new Set();
+                const start = Math.floor(total / 2);
+                interior.add(start);
+                const target =
+                    N > 10
+                        ? Math.floor(total * 0.3)
+                        : N > 7
+                          ? Math.floor(total * 0.35)
+                          : N > 5
+                            ? Math.floor(total * 0.4)
+                            : Math.floor(total * 0.45);
+                let att = 0;
+                while (interior.size < target && att < 2000) {
+                    const arr = Array.from(interior);
+                    const cur = arr[Math.floor(rng() * arr.length)];
+                    const nbs = cells[cur].edges
+                        .map((e) => {
+                            const e2 = edges[e];
+                            if (e2.cells.length === 1) return null;
+                            return e2.cells[0] === cur
+                                ? e2.cells[1]
+                                : e2.cells[0];
+                        })
+                        .filter((x) => x !== null && !interior.has(x));
+                    if (nbs.length) {
+                        const pick = nbs[Math.floor(rng() * nbs.length)];
+                        interior.add(pick);
+                    }
+                    att++;
+                }
+                const treasures = new Set();
+                const inArr = Array.from(interior);
+                const tc = N > 8 ? 3 : N > 5 ? 2 : 1;
+                for (let i = 0; i < tc; i++) {
+                    const t = inArr[Math.floor(rng() * inArr.length)];
+                    if (t !== undefined) treasures.add(t);
+                }
+                for (let i = 0; i < cells.length; i++) {
+                    if (treasures.has(i)) {
+                        cells[i].clue = "T";
+                        continue;
+                    }
+                    const isIn = interior.has(i);
+                    let cnt = 0;
+                    for (const e of cells[i].edges) {
+                        const ed = edges[e];
+                        if (ed.cells.length === 1) {
+                            if (isIn) cnt++;
+                        } else {
+                            const o =
+                                ed.cells[0] === i ? ed.cells[1] : ed.cells[0];
+                            if (interior.has(o) !== isIn) cnt++;
+                        }
+                    }
+                    cells[i].clue = cnt >= 3 ? null : cnt;
+                }
+                let bits = "";
+                const invert = interior.size > total / 2;
+                for (let i = 0; i < total; i++)
+                    bits += (invert ? !interior.has(i) : interior.has(i))
+                        ? "1"
+                        : "0";
+                const enc = BigInt("0b" + (bits || "0"))
+                    .toString(36)
+                    .toUpperCase();
+                return {
+                    cells,
+                    edges,
+                    verts,
+                    clues: cells.map((c) => c.clue),
+                    seed: `T${N}-${enc}`,
+                    interior,
+                    treasures,
+                };
+            }
+
+            function generateHexagonLevel(N, seed) {
+                const rng = makeRng(seed);
+                const radius = 1;
+                const cells = [],
+                    edges = [],
+                    verts = [];
+                const vMap = new Map(),
+                    eMap = new Map();
+                const getV = (x, y) => {
+                    const k = `${Math.round(x * 1000)},${Math.round(y * 1000)}`;
+                    if (vMap.has(k)) return vMap.get(k);
+                    const id = verts.length;
+                    verts.push({ x, y, edges: [] });
+                    vMap.set(k, id);
+                    return id;
+                };
+                const getE = (v1, v2) => {
+                    const k = `${Math.min(v1, v2)},${Math.max(v1, v2)}`;
+                    if (eMap.has(k)) return eMap.get(k);
+                    const id = edges.length;
+                    edges.push({ v1, v2, cells: [], state: 0 });
+                    verts[v1].edges.push(id);
+                    verts[v2].edges.push(id);
+                    eMap.set(k, id);
+                    return id;
+                };
+                const coords = [];
+                for (let q = -N + 1; q < N; q++)
+                    for (let r = -N + 1; r < N; r++) {
+                        const s = -q - r;
+                        if (Math.max(Math.abs(q), Math.abs(r), Math.abs(s)) < N)
+                            coords.push({ q, r });
+                    }
+                coords.forEach(({ q, r }) => {
+                    const cx = radius * 1.5 * q;
+                    const cy = radius * Math.sqrt(3) * (r + q / 2);
+                    const vids = [];
+                    for (let i = 0; i < 6; i++) {
+                        const a = (i * 60 * Math.PI) / 180;
+                        vids.push(
+                            getV(
+                                cx + radius * Math.cos(a),
+                                cy + radius * Math.sin(a),
+                            ),
+                        );
+                    }
+                    const eids = [];
+                    for (let i = 0; i < 6; i++)
+                        eids.push(getE(vids[i], vids[(i + 1) % 6]));
+                    const cid = cells.length;
+                    cells.push({ edges: eids, clue: null });
+                    eids.forEach((e) => {
+                        if (!edges[e].cells.includes(cid))
+                            edges[e].cells.push(cid);
+                    });
+                });
+                const total = cells.length;
+                const interior = new Set();
+                interior.add(0);
+
+                function getSide(i) {
+                    const { q, r } = coords[i];
+                    const s = -q - r;
+                    if (q === N - 1) return 0;
+                    if (r === N - 1) return 1;
+                    if (s === N - 1) return 2;
+                    if (q === -(N - 1)) return 3;
+                    if (r === -(N - 1)) return 4;
+                    if (s === -(N - 1)) return 5;
+                    return -1;
+                }
+
+                const sideCells = [[], [], [], [], [], []];
+                for (let i = 0; i < total; i++) {
+                    const s = getSide(i);
+                    if (s >= 0) sideCells[s].push(i);
+                }
+
+                function bfsPath(from, to) {
+                    const q = [[from]],
+                        v = new Set([from]);
+                    while (q.length) {
+                        const p = q.shift(),
+                            l = p[p.length - 1];
+                        if (l === to) return p.slice(1);
+                        const nbs = cells[l].edges
+                            .map((e) => {
+                                const ed = edges[e];
+                                return ed.cells[0] === l
+                                    ? ed.cells[1]
+                                    : ed.cells[0];
+                            })
+                            .filter((x) => x !== undefined && !v.has(x));
+                        for (const n of nbs) {
+                            v.add(n);
+                            q.push([...p, n]);
+                        }
+                    }
+                    return [];
+                }
+
+                const needSides = N >= 5 ? 6 : 5;
+                const sides = [0, 1, 2, 3, 4, 5].sort(() => rng() - 0.5);
+                let reached = 0;
+                for (const side of sides) {
+                    if (reached >= needSides) break;
+                    const cand = sideCells[side];
+                    if (!cand.length) continue;
+                    const target = cand[Math.floor(rng() * cand.length)];
+                    let bestDist = Infinity,
+                        bestCell = null;
+                    for (const i of interior) {
+                        const d =
+                            Math.abs(coords[i].q - coords[target].q) +
+                            Math.abs(coords[i].r - coords[target].r);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestCell = i;
+                        }
+                    }
+                    if (bestCell !== null) {
+                        const path = bfsPath(bestCell, target);
+                        path.forEach((i) => interior.add(i));
+                        reached++;
+                    }
+                }
+
+                const target =
+                    N > 6
+                        ? Math.floor(total * 0.3)
+                        : N > 4
+                          ? Math.floor(total * 0.35)
+                          : Math.floor(total * 0.4);
+                let att = 0;
+                while (interior.size < target && att < 5000) {
+                    const arr = Array.from(interior);
+                    const cur = arr[Math.floor(rng() * arr.length)];
+                    const nbs = cells[cur].edges
+                        .map((e) => {
+                            const ed = edges[e];
+                            if (ed.cells.length === 1) return null;
+                            return ed.cells[0] === cur
+                                ? ed.cells[1]
+                                : ed.cells[0];
+                        })
+                        .filter((x) => x !== null && !interior.has(x));
+                    if (nbs.length) {
+                        interior.add(nbs[Math.floor(rng() * nbs.length)]);
+                    }
+                    att++;
+                }
+                const treasures = new Set();
+                const inArr = Array.from(interior);
+                const tc = N > 6 ? 3 : N > 4 ? 2 : 1;
+                for (let i = 0; i < tc; i++) {
+                    const t = inArr[Math.floor(rng() * inArr.length)];
+                    if (t !== undefined) treasures.add(t);
+                }
+                for (let i = 0; i < cells.length; i++) {
+                    if (treasures.has(i)) {
+                        cells[i].clue = "T";
+                        continue;
+                    }
+                    const isIn = interior.has(i);
+                    let cnt = 0;
+                    for (const e of cells[i].edges) {
+                        const ed = edges[e];
+                        if (ed.cells.length === 1) {
+                            if (isIn) cnt++;
+                        } else {
+                            const o =
+                                ed.cells[0] === i ? ed.cells[1] : ed.cells[0];
+                            if (interior.has(o) !== isIn) cnt++;
+                        }
+                    }
+                    cells[i].clue = cnt >= 6 ? null : cnt;
+                }
+                let bits = "";
+                const invert = interior.size > total / 2;
+                for (let i = 0; i < total; i++)
+                    bits += (invert ? !interior.has(i) : interior.has(i))
+                        ? "1"
+                        : "0";
+                const enc = BigInt("0b" + (bits || "0"))
+                    .toString(36)
+                    .toUpperCase();
+                return {
+                    cells,
+                    edges,
+                    verts,
+                    clues: cells.map((c) => c.clue),
+                    seed: `H${N}-${enc}`,
+                    interior,
+                    treasures,
+                };
+            }
+
+            function updateSeedUI() {
+                const seedStr = GS.seed || "";
+                const seedInput = el("seedInput");
+                const sbSeed = el("sbSeed");
+                seedInput.value = seedStr;
+                seedInput.style.width = Math.max(50, seedStr.length * 7) + "px";
+                sbSeed.textContent = seedStr || "—";
+            }
+
+            function loadLevelFromInterior(rows, cols, interior, treasures) {
+                GS.won = false;
+                GS.lIdx = -1;
+                GS.rows = rows;
+                GS.cols = cols;
+                GS.hEdges = Array.from({ length: rows + 1 }, () =>
+                    Array(cols).fill(0),
+                );
+                GS.vEdges = Array.from({ length: rows }, () =>
+                    Array(cols + 1).fill(0),
+                );
+                GS.history = [];
+                GS.historyGeneric = [];
+                GS.solutionInterior = interior;
+
+                const clues = [];
+                for (let r = 0; r < rows; r++) {
+                    const row = [];
+                    for (let c = 0; c < cols; c++) {
+                        const idx = r * cols + c;
+                        if (treasures && treasures.has(idx)) {
+                            row.push("T");
+                        } else {
+                            const isIn = interior.has(idx);
+                            let count = 0;
+                            if (r === 0) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has((r - 1) * cols + c) !== isIn
+                            )
+                                count++;
+                            if (r === rows - 1) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has((r + 1) * cols + c) !== isIn
+                            )
+                                count++;
+                            if (c === 0) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has(r * cols + (c - 1)) !== isIn
+                            )
+                                count++;
+                            if (c === cols - 1) {
+                                if (isIn) count++;
+                            } else if (
+                                interior.has(r * cols + (c + 1)) !== isIn
+                            )
+                                count++;
+                            row.push(count >= 4 ? null : count);
+                        }
+                    }
+                    clues.push(row);
+                }
+                GS.clues = clues;
+
+                resetTimer();
+                el("stLevel").textContent = `${rows}\u00d7${cols}`;
+                el("stSize").textContent = `${rows}\u00d7${cols}`;
+                buildGrid();
+                evaluate();
+            }
+
+            function parseBase36(str) {
+                const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                let result = 0n;
+                for (const c of str) {
+                    const val = chars.indexOf(c);
+                    if (val < 0) throw new Error("Invalid char");
+                    result = result * 36n + BigInt(val);
+                }
+                return result;
+            }
+
+            const BASE81 =
+                "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._~:+!$'()*";
+
+            function encodeCluesSeed(rows, cols, clues) {
+                let num = 0n;
+                for (let r = 0; r < rows; r++)
+                    for (let c = 0; c < cols; c++) {
+                        const v = clues[r][c];
+                        let d;
+                        if (v === null || v === undefined || v !== v) d = 0;
+                        else if (v === "T") d = 5;
+                        else d = v + 1;
+                        num = num * 6n + BigInt(d);
+                    }
+                if (num === 0n) return `C${rows}x${cols}-0`;
+                let out = "";
+                while (num > 0n) {
+                    out = BASE81[Number(num % 81n)] + out;
+                    num /= 81n;
+                }
+                return `C${rows}x${cols}-${out}`;
+            }
+
+            function decodeCluesSeed(str) {
+                const m = str.match(/^C(\d+)x(\d+)-(.+)$/i);
+                if (!m) return null;
+                const rows = parseInt(m[1]),
+                    cols = parseInt(m[2]),
+                    enc = m[3];
+                if (enc === "0")
+                    return {
+                        rows,
+                        cols,
+                        clues: Array.from({ length: rows }, () =>
+                            Array(cols).fill(null),
+                        ),
+                    };
+                let num = 0n;
+                for (const ch of enc) {
+                    num = num * 81n + BigInt(BASE81.indexOf(ch));
+                }
+                const total = rows * cols;
+                const digs = [];
+                for (let i = 0; i < total; i++) {
+                    digs.unshift(Number(num % 6n));
+                    num /= 6n;
+                }
+                const clues = [];
+                let idx = 0;
+                for (let r = 0; r < rows; r++) {
+                    const row = [];
+                    for (let c = 0; c < cols; c++) {
+                        const d = digs[idx++];
+                        if (d === 0) row.push(null);
+                        else if (d === 5) row.push("T");
+                        else row.push(d - 1);
+                    }
+                    clues.push(row);
+                }
+                return { rows, cols, clues };
+            }
+
+            function loadLevelFromSeed(seedStr) {
+                const upper = seedStr.trim().toUpperCase();
+                const cMatch = seedStr.trim().match(/^C(\d+)X(\d+)-(.+)$/i);
+                const oxMatch = upper.match(/^([OX])(\d+)X(\d+)-(.+)$/);
+                const thMatch = upper.match(/^([TH])(\d+)-(.+)$/);
+                const seedMatch = cMatch || oxMatch || thMatch;
+                if (!seedMatch) {
+                    if (!upper.match(/^[OXTHC]/)) {
+                        toast("Invalid seed format");
+                        return false;
+                    }
+                    toast("Invalid seed");
+                    return false;
+                }
+
+                if (cMatch) {
+                    const dec = decodeCluesSeed(seedStr.trim());
+                    if (!dec) {
+                        toast("Invalid seed");
+                        return false;
+                    }
+                    GS.gridType = GRID_TYPE.SQUARE;
+                    document
+                        .querySelectorAll("#gridTypeGroup .cb")
+                        .forEach((b) =>
+                            b.classList.toggle(
+                                "active",
+                                b.dataset.grid === "square",
+                            ),
+                        );
+                    GS.won = false;
+                    GS.lIdx = -1;
+                    GS.seed = seedStr;
+                    GS.solutionInterior = null;
+                    GS.rows = dec.rows;
+                    GS.cols = dec.cols;
+                    GS.clues = dec.clues;
+                    GS.hEdges = Array.from({ length: GS.rows + 1 }, () =>
+                        Array(GS.cols).fill(0),
+                    );
+                    GS.vEdges = Array.from({ length: GS.rows }, () =>
+                        Array(GS.cols + 1).fill(0),
+                    );
+                    GS.history = [];
+                    GS.historyGeneric = [];
+                    resetTimer();
+                    el("stLevel").textContent = `${GS.rows}\u00d7${GS.cols}`;
+                    el("stSize").textContent = `${GS.rows}\u00d7${GS.cols}`;
+                    buildGrid();
+                    evaluate();
+                    updateSeedUI();
+                    saveGame();
+                    return true;
+                }
+
+                let typeChar, rows, cols, encoded;
+                if (oxMatch) {
+                    typeChar = oxMatch[1];
+                    rows = parseInt(oxMatch[2]);
+                    cols = parseInt(oxMatch[3]);
+                    encoded = oxMatch[4];
+                } else {
+                    typeChar = thMatch[1];
+                    rows = parseInt(thMatch[2]);
+                    cols = rows;
+                    encoded = thMatch[3];
+                }
+
+                const invert = typeChar === "X";
+                const total = rows * cols;
+
+                try {
+                    const decoded = parseBase36(encoded);
+                    let bits = decoded.toString(2);
+                    bits = bits.padStart(total, "0");
+                    bits = bits.slice(-total);
+
+                    const interior = new Set();
+                    for (let i = 0; i < total; i++) {
+                        const bit = bits[i] === "1";
+                        const actual = invert ? !bit : bit;
+                        if (actual) interior.add(i);
+                    }
+
+                    if (typeChar === "O" || typeChar === "X") {
+                        GS.gridType = GRID_TYPE.SQUARE;
+                        document
+                            .querySelectorAll("#gridTypeGroup .cb")
+                            .forEach((b) =>
+                                b.classList.toggle(
+                                    "active",
+                                    b.dataset.grid === "square",
+                                ),
+                            );
+                        const insideArr = Array.from(interior).sort(
+                            (a, b) => a - b,
+                        );
+                        const tCount = rows > 8 ? 3 : rows > 5 ? 2 : 1;
+                        const treasures = new Set();
+                        for (let i = 0; i < tCount && i < insideArr.length; i++)
+                            treasures.add(
+                                insideArr[
+                                    Math.floor(
+                                        (insideArr.length * (i + 1)) /
+                                            (tCount + 1),
+                                    )
+                                ],
+                            );
+                        loadLevelFromInterior(rows, cols, interior, treasures);
+                        GS.seed = seedStr;
+                        updateSeedUI();
+                        saveGame();
+                        return true;
+                    } else if (typeChar === "T") {
+                        GS.gridType = GRID_TYPE.TRIANGLE;
+                        document
+                            .querySelectorAll("#gridTypeGroup .cb")
+                            .forEach((b) =>
+                                b.classList.toggle(
+                                    "active",
+                                    b.dataset.grid === "triangle",
+                                ),
+                            );
+                        const gen = generateTriangleLevel(rows);
+                        gen.interior = interior;
+                        gen.treasures = new Set();
+                        const inArr = Array.from(interior);
+                        const tc = rows > 8 ? 3 : rows > 5 ? 2 : 1;
+                        for (let i = 0; i < tc; i++) {
+                            const t =
+                                inArr[
+                                    Math.floor(
+                                        (inArr.length * (i + 1)) / (tc + 1),
+                                    )
+                                ];
+                            if (t !== undefined) gen.treasures.add(t);
+                        }
+                        for (let i = 0; i < gen.cells.length; i++) {
+                            if (gen.treasures.has(i)) {
+                                gen.cells[i].clue = "T";
+                                continue;
+                            }
+                            const isIn = interior.has(i);
+                            let cnt = 0;
+                            for (const e of gen.cells[i].edges) {
+                                const ed = gen.edges[e];
+                                if (ed.cells.length === 1) {
+                                    if (isIn) cnt++;
+                                } else {
+                                    const o =
+                                        ed.cells[0] === i
+                                            ? ed.cells[1]
+                                            : ed.cells[0];
+                                    if (interior.has(o) !== isIn) cnt++;
+                                }
+                            }
+                            gen.cells[i].clue = cnt >= 3 ? null : cnt;
+                        }
+                        gen.clues = gen.cells.map((c) => c.clue);
+                        GS.won = false;
+                        GS.lIdx = -1;
+                        GS.seed = seedStr;
+                        GS.solutionInterior = interior;
+                        GS.rows = 0;
+                        GS.cols = 0;
+                        GS.gCells = gen.cells;
+                        GS.gEdges = gen.edges;
+                        GS.gVerts = gen.verts;
+                        GS.gEdges.forEach((e) => (e.state = 0));
+                        GS.history = [];
+                        GS.historyGeneric = [];
+                        resetTimer();
+                        el("stLevel").textContent = `Δ${rows}`;
+                        el("stSize").textContent = `Δ${rows}`;
+                        buildGrid();
+                        evaluate();
+                        updateSeedUI();
+                        saveGame();
+                        return true;
+                    } else if (typeChar === "H") {
+                        GS.gridType = GRID_TYPE.HEXAGON;
+                        document
+                            .querySelectorAll("#gridTypeGroup .cb")
+                            .forEach((b) =>
+                                b.classList.toggle(
+                                    "active",
+                                    b.dataset.grid === "hexagon",
+                                ),
+                            );
+                        const gen = generateHexagonLevel(rows);
+                        gen.interior = interior;
+                        gen.treasures = new Set();
+                        const inArr = Array.from(interior);
+                        const tc = rows > 6 ? 3 : rows > 4 ? 2 : 1;
+                        for (let i = 0; i < tc; i++) {
+                            const t =
+                                inArr[
+                                    Math.floor(
+                                        (inArr.length * (i + 1)) / (tc + 1),
+                                    )
+                                ];
+                            if (t !== undefined) gen.treasures.add(t);
+                        }
+                        for (let i = 0; i < gen.cells.length; i++) {
+                            if (gen.treasures.has(i)) {
+                                gen.cells[i].clue = "T";
+                                continue;
+                            }
+                            const isIn = interior.has(i);
+                            let cnt = 0;
+                            for (const e of gen.cells[i].edges) {
+                                const ed = gen.edges[e];
+                                if (ed.cells.length === 1) {
+                                    if (isIn) cnt++;
+                                } else {
+                                    const o =
+                                        ed.cells[0] === i
+                                            ? ed.cells[1]
+                                            : ed.cells[0];
+                                    if (interior.has(o) !== isIn) cnt++;
+                                }
+                            }
+                            gen.cells[i].clue = cnt >= 6 ? null : cnt;
+                        }
+                        gen.clues = gen.cells.map((c) => c.clue);
+                        GS.won = false;
+                        GS.lIdx = -1;
+                        GS.seed = seedStr;
+                        GS.solutionInterior = interior;
+                        GS.rows = 0;
+                        GS.cols = 0;
+                        GS.gCells = gen.cells;
+                        GS.gEdges = gen.edges;
+                        GS.gVerts = gen.verts;
+                        GS.gEdges.forEach((e) => (e.state = 0));
+                        GS.history = [];
+                        GS.historyGeneric = [];
+                        resetTimer();
+                        el("stLevel").textContent = `⬡${rows}`;
+                        el("stSize").textContent = `⬡${rows}`;
+                        buildGrid();
+                        evaluate();
+                        updateSeedUI();
+                        saveGame();
+                        return true;
+                    }
+                } catch (e) {
+                    toast("Invalid seed");
+                    return false;
+                }
+            }
+
+            function loadRandomLevel() {
+                const activeBtn = document.querySelector(
+                    "#sizeGroup .cb.active",
+                );
+                const size = +(
+                    activeBtn?.dataset.size ||
+                    (GS.gridType === "hexagon"
+                        ? 3
+                        : GS.gridType === "triangle"
+                          ? 4
+                          : 7)
+                );
+                const seed = (Math.random() * 0x7fffffff) >>> 0;
+                const gen = generateRandomLevel(size, size, seed);
+                GS.seed = gen.seed;
+                GS.solutionInterior = gen.interior;
+                GS.solutionTreasures = gen.treasures;
+                GS.won = false;
+                GS.lIdx = -1;
+                GS.history = [];
+                GS.historyGeneric = [];
+                resetTimer();
+
+                if (GS.gridType === GRID_TYPE.SQUARE) {
+                    GS.rows = size;
+                    GS.cols = size;
+                    GS.clues = gen.clues;
+                    GS.hEdges = Array.from({ length: size + 1 }, () =>
+                        Array(size).fill(0),
+                    );
+                    GS.vEdges = Array.from({ length: size }, () =>
+                        Array(size + 1).fill(0),
+                    );
+                    el("stLevel").textContent = `${size}\u00d7${size}`;
+                    el("stSize").textContent = `${size}\u00d7${size}`;
+                } else {
+                    GS.gCells = gen.cells;
+                    GS.gEdges = gen.edges;
+                    GS.gVerts = gen.verts;
+                    GS.gEdges.forEach((e) => (e.state = 0));
+                    el("stLevel").textContent =
+                        GS.gridType === "triangle" ? `Δ${size}` : `⬡${size}`;
+                    el("stSize").textContent =
+                        GS.gridType === "triangle" ? `Δ${size}` : `⬡${size}`;
+                }
+                buildGrid();
+                evaluate();
+                updateSeedUI();
+                saveGame();
+            }
+
+            /* =========================================
+    GAME STATE
+   ========================================= */
+            const GS = {
+                lIdx: 0,
+                rows: 0,
+                cols: 0,
+                clues: [],
+                hEdges: [],
+                vEdges: [],
+                editMode: false,
+                history: [],
+                won: false,
+                timerOn: false,
+                timeSec: 0,
+                timerInt: null,
+                seed: null,
+                solutionInterior: null,
+                gridType: GRID_TYPE.TRIANGLE,
+                gCells: [],
+                gEdges: [],
+                gVerts: [],
+                historyGeneric: [],
+            };
+
+            /* =========================================
+    SAVE / LOAD
+    ========================================= */
+            function saveGame() {
+                try {
+                    const data = {
+                        lIdx: GS.lIdx,
+                        rows: GS.rows,
+                        cols: GS.cols,
+                        clues: GS.clues,
+                        hEdges: GS.hEdges,
+                        vEdges: GS.vEdges,
+                        editMode: GS.editMode,
+                        history: GS.history,
+                        won: GS.won,
+                        timeSec: GS.timeSec,
+                        seed: GS.seed,
+                        solutionInterior: GS.solutionInterior
+                            ? Array.from(GS.solutionInterior)
+                            : null,
+                        solutionTreasures: GS.solutionTreasures
+                            ? Array.from(GS.solutionTreasures)
+                            : null,
+                        timerOn: GS.timerOn,
+                        gridType: GS.gridType,
+                        gEdgeStates:
+                            GS.gridType !== GRID_TYPE.SQUARE
+                                ? GS.gEdges.map((e) => e.state)
+                                : undefined,
+                    };
+                    localStorage.setItem("laser-save", JSON.stringify(data));
+                } catch (e) {}
+            }
+            function loadGame() {
+                try {
+                    const raw = localStorage.getItem("laser-save");
+                    if (!raw) return false;
+                    const data = JSON.parse(raw);
+                    GS.gridType = data.gridType || GRID_TYPE.SQUARE;
+                    document
+                        .querySelectorAll("#gridTypeGroup .cb")
+                        .forEach((b) =>
+                            b.classList.toggle(
+                                "active",
+                                b.dataset.grid === GS.gridType,
+                            ),
+                        );
+                    updateSizeButtons();
+                    GS.lIdx = data.lIdx;
+                    GS.editMode = data.editMode;
+                    GS.won = data.won;
+                    GS.timeSec = data.timeSec;
+                    GS.seed = data.seed;
+                    GS.solutionInterior = data.solutionInterior
+                        ? new Set(data.solutionInterior)
+                        : null;
+                    GS.solutionTreasures = data.solutionTreasures
+                        ? new Set(data.solutionTreasures)
+                        : null;
+                    GS.history = data.history || [];
+
+                    if (GS.gridType === GRID_TYPE.SQUARE) {
+                        GS.rows = data.rows;
+                        GS.cols = data.cols;
+                        GS.hEdges = data.hEdges;
+                        GS.vEdges = data.vEdges;
+                        el("stLevel").textContent =
+                            GS.lIdx >= 0
+                                ? GS.lIdx + 1
+                                : `${GS.rows}\u00d7${GS.cols}`;
+                        el("stSize").textContent = `${GS.rows}\u00d7${GS.cols}`;
+                        if (GS.solutionInterior) {
+                            const R = GS.rows,
+                                C = GS.cols,
+                                clues = [];
+                            for (let r = 0; r < R; r++) {
+                                const row = [];
+                                for (let c = 0; c < C; c++) {
+                                    const idx = r * C + c;
+                                    if (
+                                        GS.solutionTreasures &&
+                                        GS.solutionTreasures.has(idx)
+                                    ) {
+                                        row.push("T");
+                                        continue;
+                                    }
+                                    const isIn = GS.solutionInterior.has(idx);
+                                    let cnt = 0;
+                                    if (r === 0) {
+                                        if (isIn) cnt++;
+                                    } else if (
+                                        GS.solutionInterior.has(
+                                            (r - 1) * C + c,
+                                        ) !== isIn
+                                    )
+                                        cnt++;
+                                    if (r === R - 1) {
+                                        if (isIn) cnt++;
+                                    } else if (
+                                        GS.solutionInterior.has(
+                                            (r + 1) * C + c,
+                                        ) !== isIn
+                                    )
+                                        cnt++;
+                                    if (c === 0) {
+                                        if (isIn) cnt++;
+                                    } else if (
+                                        GS.solutionInterior.has(
+                                            r * C + (c - 1),
+                                        ) !== isIn
+                                    )
+                                        cnt++;
+                                    if (c === C - 1) {
+                                        if (isIn) cnt++;
+                                    } else if (
+                                        GS.solutionInterior.has(
+                                            r * C + (c + 1),
+                                        ) !== isIn
+                                    )
+                                        cnt++;
+                                    row.push(cnt >= 4 ? null : cnt);
+                                }
+                                clues.push(row);
+                            }
+                            GS.clues = clues;
+                        } else {
+                            GS.clues = data.clues;
+                            for (let r = 0; r < GS.rows; r++)
+                                for (let c = 0; c < GS.cols; c++) {
+                                    const v = GS.clues[r][c];
+                                    if (v !== "T" && v !== null && v >= 4)
+                                        GS.clues[r][c] = null;
+                                }
+                        }
+                    } else {
+                        if (
+                            data.seed &&
+                            /^[TH]/.test(data.seed.trim().toUpperCase())
+                        ) {
+                            loadLevelFromSeed(data.seed);
+                            GS.history = data.history || [];
+                            if (
+                                data.gEdgeStates &&
+                                GS.gEdges.length === data.gEdgeStates.length
+                            ) {
+                                data.gEdgeStates.forEach((st, i) => {
+                                    GS.gEdges[i].state = st;
+                                });
+                            }
+                            el("stTime").textContent = fmt(GS.timeSec);
+                            updateSeedUI();
+                            if (GS.editMode) setEdit(true);
+                            else {
+                                buildGrid();
+                                evaluate();
+                            }
+                            if (GS.won) evaluate();
+                            if (data.timerOn) {
+                                GS.timerOn = false;
+                                startTimer();
+                            }
+                            return true;
+                        }
+                        return false;
+                    }
+                    updateSeedUI();
+                    if (GS.editMode) {
+                        setEdit(true);
+                    } else {
+                        buildGrid();
+                        evaluate();
+                    }
+                    if (data.timerOn) {
+                        GS.timerOn = false;
+                        startTimer();
+                    }
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            /* =========================================
+    AUDIO
+    ========================================= */
+            let ac = null;
+            function getAC() {
+                if (!ac)
+                    ac = new (
+                        window.AudioContext || window.webkitAudioContext
+                    )();
+                if (ac.state === "suspended") ac.resume();
+                return ac;
+            }
+            function beep(freq, dur, type = "sine", vol = 0.1) {
+                try {
+                    const ctx = getAC(),
+                        o = ctx.createOscillator(),
+                        g = ctx.createGain();
+                    o.connect(g);
+                    g.connect(ctx.destination);
+                    o.type = type;
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(vol, ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(
+                        0.001,
+                        ctx.currentTime + dur,
+                    );
+                    o.start();
+                    o.stop(ctx.currentTime + dur);
+                } catch (e) {}
+            }
+            function sfxLine() {
+                beep(700, 0.07, "sine", 0.09);
+            }
+            function sfxX() {
+                beep(200, 0.06, "square", 0.07);
+            }
+            function sfxClear() {
+                beep(400, 0.05, "sine", 0.06);
+            }
+            function sfxWin() {
+                [440, 550, 660, 880].forEach((f, i) =>
+                    setTimeout(() => beep(f, 0.3, "sine", 0.14), i * 110),
+                );
+            }
+
+            /* =========================================
+   TIMER
+   ========================================= */
+            function fmt(s) {
+                const m = Math.floor(s / 60),
+                    sc = s % 60;
+                return (
+                    (m < 10 ? "0" : "") + m + ":" + (sc < 10 ? "0" : "") + sc
+                );
+            }
+            function startTimer() {
+                if (GS.timerOn) return;
+                GS.timerOn = true;
+                let saveTick = 0;
+                GS.timerInt = setInterval(() => {
+                    GS.timeSec++;
+                    el("stTime").textContent = fmt(GS.timeSec);
+                    if (++saveTick % 5 === 0) saveGame();
+                }, 1000);
+            }
+            function stopTimer() {
+                GS.timerOn = false;
+                if (GS.timerInt) clearInterval(GS.timerInt);
+            }
+            function resetTimer() {
+                stopTimer();
+                GS.timeSec = 0;
+                el("stTime").textContent = "00:00";
+            }
+
+            /* =========================================
+   HELPERS
+   ========================================= */
+            function el(id) {
+                return document.getElementById(id);
+            }
+
+            let toastT;
+            function toast(msg) {
+                const t = el("toast");
+                t.textContent = msg;
+                t.classList.add("show");
+                clearTimeout(toastT);
+                toastT = setTimeout(() => t.classList.remove("show"), 1900);
+            }
+
+            /* =========================================
+   HISTORY / UNDO
+   ========================================= */
+            function snap() {
+                if (GS.gridType === GRID_TYPE.SQUARE)
+                    return {
+                        h: GS.hEdges.map((r) => [...r]),
+                        v: GS.vEdges.map((r) => [...r]),
+                    };
+                return { g: GS.gEdges.map((e) => e.state) };
+            }
+            function pushH() {
+                GS.history.push(snap());
+                if (GS.history.length > 100) GS.history.shift();
+            }
+            function undo() {
+                if (!GS.history.length) {
+                    toast("Nothing to undo");
+                    return;
+                }
+                const s = GS.history.pop();
+                if (GS.gridType === GRID_TYPE.SQUARE) {
+                    GS.hEdges = s.h;
+                    GS.vEdges = s.v;
+                } else {
+                    s.g.forEach((st, i) => (GS.gEdges[i].state = st));
+                }
+                renderEdges();
+                evaluate();
+                saveGame();
+            }
+
+            /* =========================================
+    COMPUTE CELL SIZE
+    ========================================= */
+            function computeCS() {
+                const ga = el("gameArea");
+                const aw = ga.clientWidth - 32,
+                    ah = ga.clientHeight - 32;
+                const ew = 14;
+                const maxCW = Math.floor((aw - ew * (GS.cols + 1)) / GS.cols);
+                const maxCH = Math.floor((ah - ew * (GS.rows + 1)) / GS.rows);
+                return Math.max(24, Math.min(120, maxCW, maxCH));
+            }
+
+            /* =========================================
+    BUILD DOM GRID
+    ========================================= */
+            function buildGrid() {
+                const grid = el("puzzleGrid");
+                grid.innerHTML = "";
+                grid.style.cssText = "";
+                grid.addEventListener("contextmenu", (e) => e.preventDefault());
+                if (GS.gridType === GRID_TYPE.SQUARE) buildSquareGrid();
+                else buildGenericGrid();
+            }
+
+            function buildSquareGrid() {
+                const grid = el("puzzleGrid");
+                const cs = computeCS(),
+                    ew = 14;
+                grid.style.setProperty(
+                    "--cell-fs",
+                    `${Math.round(cs * 0.65)}px`,
+                );
+                grid.style.setProperty("--x-fs", `${Math.round(cs * 0.38)}px`);
+                const GR = 2 * GS.rows + 1,
+                    GC = 2 * GS.cols + 1;
+
+                const col = Array.from({ length: GC }, (_, i) =>
+                    i % 2 === 0 ? `${ew}px` : `${cs}px`,
+                ).join(" ");
+                const row = Array.from({ length: GR }, (_, i) =>
+                    i % 2 === 0 ? `${ew}px` : `${cs}px`,
+                ).join(" ");
+                grid.style.gridTemplateColumns = col;
+                grid.style.gridTemplateRows = row;
+
+                for (let gr = 0; gr < GR; gr++) {
+                    for (let gc = 0; gc < GC; gc++) {
+                        const er = gr % 2 === 0,
+                            ec = gc % 2 === 0;
+                        const d = document.createElement("div");
+
+                        if (er && ec) {
+                            d.className = "vertex";
+                        } else if (er && !ec) {
+                            const r = gr / 2,
+                                c = (gc - 1) / 2;
+                            d.className = "edge h";
+                            d.dataset.t = "h";
+                            d.dataset.r = r;
+                            d.dataset.c = c;
+                            d.id = `he-${r}-${c}`;
+                            d.addEventListener("click", onEdgeClick);
+                            d.addEventListener("contextmenu", onEdgeRC);
+                            d.addEventListener("touchstart", onEdgeTouch, {
+                                passive: false,
+                            });
+                        } else if (!er && ec) {
+                            const r = (gr - 1) / 2,
+                                c = gc / 2;
+                            d.className = "edge v";
+                            d.dataset.t = "v";
+                            d.dataset.r = r;
+                            d.dataset.c = c;
+                            d.id = `ve-${r}-${c}`;
+                            d.addEventListener("click", onEdgeClick);
+                            d.addEventListener("contextmenu", onEdgeRC);
+                            d.addEventListener("touchstart", onEdgeTouch, {
+                                passive: false,
+                            });
+                        } else {
+                            const r = (gr - 1) / 2,
+                                c = (gc - 1) / 2;
+                            const clue = GS.clues[r][c];
+                            d.id = `cell-${r}-${c}`;
+                            d.dataset.r = r;
+                            d.dataset.c = c;
+                            if (GS.editMode) {
+                                d.className =
+                                    "cell edit-mode" +
+                                    (clue !== null ? " has-clue" : "") +
+                                    (clue !== null && clue !== "T"
+                                        ? " clue-" + clue
+                                        : "");
+                                d.textContent =
+                                    clue === "T"
+                                        ? "T"
+                                        : clue !== null
+                                          ? clue
+                                          : "";
+                                d.addEventListener("click", onCellClick);
+                                d.addEventListener("contextmenu", onCellRC);
+                            } else {
+                                if (clue === "T") {
+                                    d.className = "cell treasure";
+                                    d.textContent =
+                                        TREASURE_POOL[
+                                            (r * GS.cols + c) %
+                                                TREASURE_POOL.length
+                                        ];
+                                } else {
+                                    const show = _showZeroAsText(r, c);
+                                    d.className =
+                                        "cell" +
+                                        (clue !== null ? " has-clue" : "") +
+                                        (clue !== null && clue !== "T"
+                                            ? " clue-" + clue
+                                            : "");
+                                    d.textContent =
+                                        clue !== null && show ? clue : "";
+                                }
+                                addEdgeZoneHandlers(d, r, c, cs);
+                            }
+                        }
+                        grid.appendChild(d);
+                    }
+                }
+            }
+
+            function addEdgeZoneHandlers(el, r, c, cs) {
+                let ghostTarget = null;
+                function edgeId(t) {
+                    return t.t === "h"
+                        ? `he-${t.r}-${t.c}`
+                        : `ve-${t.r}-${t.c}`;
+                }
+                function clearGhost() {
+                    if (ghostTarget) {
+                        const e = document.getElementById(edgeId(ghostTarget));
+                        if (e) e.classList.remove("ghost");
+                        ghostTarget = null;
+                    }
+                }
+                function setGhost(target) {
+                    clearGhost();
+                    if (!target) return;
+                    const e = document.getElementById(edgeId(target));
+                    if (e && !e.classList.contains("active")) {
+                        e.classList.add("ghost");
+                        ghostTarget = target;
+                    }
+                }
+                function getEdge(ox, oy) {
+                    const nx = ox / cs - 0.5,
+                        ny = oy / cs - 0.5;
+                    if (Math.abs(nx) < 0.2 && Math.abs(ny) < 0.2) return null;
+                    if (Math.abs(ny) >= Math.abs(nx))
+                        return ny < 0
+                            ? { t: "h", r, c }
+                            : { t: "h", r: r + 1, c };
+                    return nx < 0 ? { t: "v", r, c } : { t: "v", r, c: c + 1 };
+                }
+                el.addEventListener("mousemove", (e) => {
+                    const b = el.getBoundingClientRect();
+                    setGhost(getEdge(e.clientX - b.left, e.clientY - b.top));
+                });
+                el.addEventListener("mouseleave", clearGhost);
+                el.addEventListener("click", (e) => {
+                    if (!ghostTarget) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const t = ghostTarget;
+                    clearGhost();
+                    cycleEdge(t.t, t.r, t.c);
+                });
+                el.addEventListener("contextmenu", (e) => {
+                    if (!ghostTarget) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const t = ghostTarget;
+                    clearGhost();
+                    cycleEdge(t.t, t.r, t.c, true);
+                });
+                let tt = null;
+                el.addEventListener(
+                    "touchstart",
+                    (e) => {
+                        const t = e.touches[0];
+                        const b = el.getBoundingClientRect();
+                        const target = getEdge(
+                            t.clientX - b.left,
+                            t.clientY - b.top,
+                        );
+                        if (!target) return;
+                        e.preventDefault();
+                        const edgeEl = document.getElementById(edgeId(target));
+                        if (edgeEl && !edgeEl.classList.contains("active"))
+                            edgeEl.classList.add("ghost");
+                        tt = setTimeout(() => {
+                            tt = null;
+                            cycleEdge(target.t, target.r, target.c, true);
+                            if (edgeEl) edgeEl.classList.remove("ghost");
+                        }, 350);
+                        const up = () => {
+                            if (tt) {
+                                clearTimeout(tt);
+                                tt = null;
+                                cycleEdge(target.t, target.r, target.c);
+                            }
+                            if (edgeEl) edgeEl.classList.remove("ghost");
+                        };
+                        el.addEventListener("touchend", up, { once: true });
+                        el.addEventListener(
+                            "touchcancel",
+                            () => {
+                                if (tt) clearTimeout(tt);
+                                if (edgeEl) edgeEl.classList.remove("ghost");
+                            },
+                            { once: true },
+                        );
+                    },
+                    { passive: false },
+                );
+            }
+
+            function buildGenericGrid() {
+                const grid = el("puzzleGrid");
+                grid.style.cssText = "";
+                grid.style.display = "flex";
+                grid.style.alignItems = "center";
+                grid.style.justifyContent = "center";
+                grid.style.width = "100%";
+                grid.style.height = "100%";
+                const svg = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "svg",
+                );
+                let minX = Infinity,
+                    minY = Infinity,
+                    maxX = -Infinity,
+                    maxY = -Infinity;
+                GS.gVerts.forEach((v) => {
+                    minX = Math.min(minX, v.x);
+                    minY = Math.min(minY, v.y);
+                    maxX = Math.max(maxX, v.x);
+                    maxY = Math.max(maxY, v.y);
+                });
+                const pad = 0.5;
+                const W = maxX - minX + pad * 2,
+                    H = maxY - minY + pad * 2;
+                GS._viewW = W;
+                svg.setAttribute(
+                    "viewBox",
+                    `${minX - pad} ${minY - pad} ${W} ${H}`,
+                );
+                svg.style.width = "100%";
+                svg.style.height = "100%";
+                svg.style.display = "block";
+                grid.appendChild(svg);
+                const fontFamily =
+                    "'Cal Sans','Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif";
+                GS.gCells.forEach((cell) => {
+                    const vset = new Set();
+                    cell.edges.forEach((eid) => {
+                        const e = GS.gEdges[eid];
+                        vset.add(e.v1);
+                        vset.add(e.v2);
+                    });
+                    const varr = Array.from(vset);
+                    let cx = 0,
+                        cy = 0;
+                    varr.forEach((vi) => {
+                        cx += GS.gVerts[vi].x;
+                        cy += GS.gVerts[vi].y;
+                    });
+                    cx /= varr.length;
+                    cy /= varr.length;
+                    varr.sort(
+                        (a, b) =>
+                            Math.atan2(
+                                GS.gVerts[a].y - cy,
+                                GS.gVerts[a].x - cx,
+                            ) -
+                            Math.atan2(
+                                GS.gVerts[b].y - cy,
+                                GS.gVerts[b].x - cx,
+                            ),
+                    );
+                    const poly = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "polygon",
+                    );
+                    poly.setAttribute(
+                        "points",
+                        varr
+                            .map(
+                                (vi) => `${GS.gVerts[vi].x},${GS.gVerts[vi].y}`,
+                            )
+                            .join(" "),
+                    );
+                    poly.setAttribute("fill", "var(--cell-bg)");
+                    poly.style.pointerEvents = "none";
+                    cell.bg = poly;
+                    svg.insertBefore(poly, svg.firstChild);
+                });
+                GS.gEdges.forEach((e, i) => {
+                    const v1 = GS.gVerts[e.v1],
+                        v2 = GS.gVerts[e.v2];
+                    const hit = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "line",
+                    );
+                    hit.setAttribute("x1", v1.x);
+                    hit.setAttribute("y1", v1.y);
+                    hit.setAttribute("x2", v2.x);
+                    hit.setAttribute("y2", v2.y);
+                    hit.setAttribute("stroke", "transparent");
+                    hit.setAttribute("stroke-width", "0.4");
+                    hit.setAttribute("stroke-linecap", "round");
+                    hit.style.cursor = "pointer";
+                    hit.addEventListener("click", () =>
+                        cycleGenericEdge(i, false),
+                    );
+                    hit.addEventListener("contextmenu", (ev) => {
+                        ev.preventDefault();
+                        cycleGenericEdge(i, true);
+                    });
+                    hit.addEventListener(
+                        "touchstart",
+                        (ev) => {
+                            ev.preventDefault();
+                            let tmr = setTimeout(() => {
+                                tmr = null;
+                                cycleGenericEdge(i, true);
+                            }, 350);
+                            const up = () => {
+                                if (tmr) {
+                                    clearTimeout(tmr);
+                                    cycleGenericEdge(i, false);
+                                }
+                            };
+                            hit.addEventListener("touchend", up, {
+                                once: true,
+                            });
+                            hit.addEventListener(
+                                "touchcancel",
+                                () => clearTimeout(tmr),
+                                { once: true },
+                            );
+                        },
+                        { passive: false },
+                    );
+                    const vis = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "line",
+                    );
+                    vis.setAttribute("x1", v1.x);
+                    vis.setAttribute("y1", v1.y);
+                    vis.setAttribute("x2", v2.x);
+                    vis.setAttribute("y2", v2.y);
+                    vis.setAttribute("stroke", "rgba(0,0,0,0.08)");
+                    vis.setAttribute("stroke-width", "0.06");
+                    vis.setAttribute("stroke-linecap", "round");
+                    vis.style.pointerEvents = "none";
+                    e.el = vis;
+                    svg.appendChild(hit);
+                    svg.appendChild(vis);
+                    hit.addEventListener("mouseenter", () => {
+                        e._hovered = true;
+                        if (e.state === 0) {
+                            vis.setAttribute("stroke", "var(--edge-hover)");
+                            vis.setAttribute("stroke-width", "0.12");
+                        }
+                    });
+                    hit.addEventListener("mouseleave", () => {
+                        e._hovered = false;
+                        if (e.state === 0) {
+                            vis.setAttribute("stroke", "rgba(0,0,0,0.08)");
+                            vis.setAttribute("stroke-width", "0.06");
+                        }
+                    });
+                    const xm = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "text",
+                    );
+                    xm.setAttribute("x", (v1.x + v2.x) / 2);
+                    xm.setAttribute("y", (v1.y + v2.y) / 2);
+                    xm.setAttribute("text-anchor", "middle");
+                    xm.setAttribute("dominant-baseline", "central");
+                    xm.setAttribute("fill", "var(--x-color)");
+                    xm.setAttribute("font-family", fontFamily);
+                    xm.setAttribute(
+                        "font-size",
+                        GS.gridType === GRID_TYPE.HEXAGON ? "0.85" : "0.50",
+                    );
+                    xm.setAttribute("font-weight", "900");
+                    xm.textContent = "✖";
+                    xm.style.pointerEvents = "none";
+                    xm.style.opacity = "0";
+                    e.xel = xm;
+                    svg.appendChild(xm);
+                });
+                const clueColors =
+                    GS.gridType === GRID_TYPE.HEXAGON
+                        ? {
+                              0: "#d9d9d9",
+                              1: "#0f9ed5",
+                              2: "#4ea72e",
+                              3: "#e97132",
+                              4: "#9b59b6",
+                              5: "#000000",
+                          }
+                        : {
+                              0: "#d9d9d9",
+                              1: "#0f9ed5",
+                              2: "#4ea72e",
+                              3: "#e97132",
+                          };
+                GS.gCells.forEach((cell, i) => {
+                    let cx = 0,
+                        cy = 0;
+                    cell.edges.forEach((eid) => {
+                        const e = GS.gEdges[eid];
+                        cx += GS.gVerts[e.v1].x + GS.gVerts[e.v2].x;
+                        cy += GS.gVerts[e.v1].y + GS.gVerts[e.v2].y;
+                    });
+                    cx /= cell.edges.length * 2;
+                    cy /= cell.edges.length * 2;
+                    const txt = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "text",
+                    );
+                    txt.setAttribute("x", cx);
+                    txt.setAttribute("y", cy);
+                    txt.setAttribute("text-anchor", "middle");
+                    txt.setAttribute("dominant-baseline", "central");
+                    txt.setAttribute("font-family", fontFamily);
+                    const isH = GS.gridType === GRID_TYPE.HEXAGON;
+                    txt.setAttribute(
+                        "font-size",
+                        cell.clue === "T"
+                            ? isH
+                                ? "0.9"
+                                : "0.4"
+                            : isH
+                              ? "0.75"
+                              : "0.35",
+                    );
+                    txt.setAttribute("font-weight", "900");
+                    txt.style.pointerEvents = "none";
+                    if (cell.clue === "T") {
+                        txt.setAttribute("fill", "var(--text)");
+                        txt.dataset.clueColor = "";
+                    } else if (
+                        cell.clue !== null &&
+                        clueColors[cell.clue] !== undefined
+                    ) {
+                        txt.setAttribute("fill", clueColors[cell.clue]);
+                        txt.dataset.clueColor = clueColors[cell.clue];
+                    } else {
+                        txt.setAttribute("fill", "var(--text)");
+                        txt.dataset.clueColor = "";
+                    }
+                    txt.textContent =
+                        cell.clue === "T"
+                            ? TREASURE_POOL[i % TREASURE_POOL.length]
+                            : cell.clue !== null
+                              ? cell.clue
+                              : "";
+                    cell.el = txt;
+                    svg.appendChild(txt);
+                });
+            }
+
+            /* =========================================
+    RENDER EDGE STATES
+    ========================================= */
+            function renderEdges() {
+                if (GS.gridType === GRID_TYPE.SQUARE) renderSquareEdges();
+                else renderGenericEdges();
+            }
+
+            function renderSquareEdges() {
+                for (let r = 0; r <= GS.rows; r++) {
+                    for (let c = 0; c < GS.cols; c++) {
+                        const d = el(`he-${r}-${c}`);
+                        if (!d) continue;
+                        const s = GS.hEdges[r][c];
+                        d.className =
+                            "edge h" +
+                            (s === 1 ? " active" : s === 2 ? " marked" : "");
+                        const ox = d.querySelector(".x-mark");
+                        if (ox) ox.remove();
+                        if (s === 2) {
+                            const x = document.createElement("span");
+                            x.className = "x-mark";
+                            x.textContent = "✖";
+                            d.appendChild(x);
+                        }
+                    }
+                }
+                for (let r = 0; r < GS.rows; r++) {
+                    for (let c = 0; c <= GS.cols; c++) {
+                        const d = el(`ve-${r}-${c}`);
+                        if (!d) continue;
+                        const s = GS.vEdges[r][c];
+                        d.className =
+                            "edge v" +
+                            (s === 1 ? " active" : s === 2 ? " marked" : "");
+                        const ox = d.querySelector(".x-mark");
+                        if (ox) ox.remove();
+                        if (s === 2) {
+                            const x = document.createElement("span");
+                            x.className = "x-mark";
+                            x.textContent = "✖";
+                            d.appendChild(x);
+                        }
+                    }
+                }
+                let lines = 0;
+                GS.hEdges.forEach((r) =>
+                    r.forEach((v) => {
+                        if (v === 1) lines++;
+                    }),
+                );
+                GS.vEdges.forEach((r) =>
+                    r.forEach((v) => {
+                        if (v === 1) lines++;
+                    }),
+                );
+                el("stLines").textContent = lines;
+            }
+
+            function renderGenericEdges() {
+                let lines = 0;
+                GS.gEdges.forEach((e, i) => {
+                    if (e.state === 1) {
+                        e.el.setAttribute("stroke", "var(--line-color)");
+                        e.el.setAttribute("stroke-width", "0.15");
+                        e.el.style.filter =
+                            "drop-shadow(0 0 4px var(--line-glow))";
+                        lines++;
+                    } else if (e.state === 2) {
+                        e.el.setAttribute("stroke", "transparent");
+                        e.el.setAttribute("stroke-width", "0.05");
+                        e.el.style.filter = "";
+                        e.xel.style.opacity = "1";
+                    } else {
+                        if (e._hovered) {
+                            e.el.setAttribute("stroke", "var(--edge-hover)");
+                            e.el.setAttribute("stroke-width", "0.12");
+                        } else {
+                            e.el.setAttribute("stroke", "rgba(0,0,0,0.08)");
+                            e.el.setAttribute("stroke-width", "0.06");
+                        }
+                        e.el.style.filter = "";
+                        e.xel.style.opacity = "0";
+                    }
+                });
+                el("stLines").textContent = lines;
+            }
+
+            /* =========================================
+    EVALUATE
+    ========================================= */
+            function evaluate() {
+                if (GS.gridType === GRID_TYPE.SQUARE) evaluateSquare();
+                else evaluateGeneric();
+            }
+
+            function evaluateSquare() {
+                renderEdges();
+                let sat = 0,
+                    tot = 0;
+                for (let r = 0; r < GS.rows; r++) {
+                    for (let c = 0; c < GS.cols; c++) {
+                        const d = el(`cell-${r}-${c}`);
+                        if (!d) continue;
+                        const clue = GS.clues[r][c];
+                        if (clue === null || clue === "T") {
+                            d.classList.toggle("edit-mode", GS.editMode);
+                            continue;
+                        }
+                        tot++;
+                        const top = GS.hEdges[r][c] === 1 ? 1 : 0;
+                        const bot = GS.hEdges[r + 1][c] === 1 ? 1 : 0;
+                        const lft = GS.vEdges[r][c] === 1 ? 1 : 0;
+                        const rgt = GS.vEdges[r][c + 1] === 1 ? 1 : 0;
+                        const cnt = top + bot + lft + rgt;
+                        d.classList.remove("satisfied", "error");
+                        if (cnt === clue) {
+                            d.classList.add("satisfied");
+                            sat++;
+                        } else if (cnt > clue) d.classList.add("error");
+                    }
+                }
+                const satEl = el("stSat");
+                satEl.textContent = `${sat}/${tot}`;
+                satEl.className = "v" + (sat === tot && tot > 0 ? " ok" : "");
+                if (!GS.won && sat === tot && tot > 0) checkWin();
+            }
+
+            function evaluateGeneric() {
+                renderEdges();
+                let sat = 0,
+                    tot = 0;
+                const okColor =
+                    GS.gridType === GRID_TYPE.TRIANGLE
+                        ? "#4fc3f7"
+                        : GS.gridType === GRID_TYPE.HEXAGON
+                          ? "#f5b041"
+                          : "var(--success)";
+                const okBg =
+                    GS.gridType === GRID_TYPE.TRIANGLE
+                        ? "rgba(79,195,247,0.12)"
+                        : GS.gridType === GRID_TYPE.HEXAGON
+                          ? "rgba(245,176,65,0.14)"
+                          : "var(--sat-bg)";
+                GS.gCells.forEach((cell, i) => {
+                    const clue = cell.clue;
+                    if (clue === null || clue === "T") return;
+                    tot++;
+                    let cnt = 0;
+                    cell.edges.forEach((eid) => {
+                        if (GS.gEdges[eid].state === 1) cnt++;
+                    });
+                    const el = cell.el,
+                        bg = cell.bg;
+                    if (cnt === clue) {
+                        el.setAttribute("fill", okColor);
+                        if (bg) bg.setAttribute("fill", okBg);
+                        sat++;
+                    } else if (cnt > clue) {
+                        el.setAttribute("fill", "var(--accent)");
+                        if (bg) bg.setAttribute("fill", "var(--err-bg)");
+                    } else {
+                        el.setAttribute(
+                            "fill",
+                            el.dataset.clueColor || "var(--text)",
+                        );
+                        if (bg) bg.setAttribute("fill", "var(--cell-bg)");
+                    }
+                });
+                const satEl = el("stSat");
+                satEl.textContent = `${sat}/${tot}`;
+                satEl.className = "v" + (sat === tot && tot > 0 ? " ok" : "");
+                if (!GS.won && sat === tot && tot > 0) checkWin();
+            }
+
+            /* =========================================
+    WIN CONDITION CHECK
+    ========================================= */
+            function checkWin() {
+                if (GS.gridType === GRID_TYPE.SQUARE) checkWinSquare();
+                else checkWinGeneric();
+            }
+
+            function checkWinSquare() {
+                for (let r = 0; r <= GS.rows; r++)
+                    for (let c = 0; c <= GS.cols; c++) {
+                        let deg = 0;
+                        if (c < GS.cols && GS.hEdges[r][c] === 1) deg++;
+                        if (c > 0 && GS.hEdges[r][c - 1] === 1) deg++;
+                        if (r < GS.rows && GS.vEdges[r][c] === 1) deg++;
+                        if (r > 0 && GS.vEdges[r - 1][c] === 1) deg++;
+                        if (deg !== 0 && deg !== 2) return;
+                    }
+
+                let total = 0,
+                    first = null;
+                for (let r = 0; r <= GS.rows; r++)
+                    for (let c = 0; c < GS.cols; c++)
+                        if (GS.hEdges[r][c] === 1) {
+                            total++;
+                            if (!first) first = { t: "h", r, c };
+                        }
+                for (let r = 0; r < GS.rows; r++)
+                    for (let c = 0; c <= GS.cols; c++)
+                        if (GS.vEdges[r][c] === 1) {
+                            total++;
+                            if (!first) first = { t: "v", r, c };
+                        }
+                if (total === 0) return;
+
+                function edgesAtVertex(vr, vc) {
+                    const e = [];
+                    if (vc < GS.cols && GS.hEdges[vr][vc] === 1)
+                        e.push({ t: "h", r: vr, c: vc });
+                    if (vc > 0 && GS.hEdges[vr][vc - 1] === 1)
+                        e.push({ t: "h", r: vr, c: vc - 1 });
+                    if (vr < GS.rows && GS.vEdges[vr][vc] === 1)
+                        e.push({ t: "v", r: vr, c: vc });
+                    if (vr > 0 && GS.vEdges[vr - 1][vc] === 1)
+                        e.push({ t: "v", r: vr - 1, c: vc });
+                    return e;
+                }
+                const key = (e) => `${e.t}-${e.r}-${e.c}`;
+                const vis = new Set();
+                const q = [first];
+                vis.add(key(first));
+                while (q.length) {
+                    const e = q.shift();
+                    const verts =
+                        e.t === "h"
+                            ? [
+                                  { r: e.r, c: e.c },
+                                  { r: e.r, c: e.c + 1 },
+                              ]
+                            : [
+                                  { r: e.r, c: e.c },
+                                  { r: e.r + 1, c: e.c },
+                              ];
+                    verts.forEach((v) =>
+                        edgesAtVertex(v.r, v.c).forEach((ne) => {
+                            const k = key(ne);
+                            if (!vis.has(k)) {
+                                vis.add(k);
+                                q.push(ne);
+                            }
+                        }),
+                    );
+                }
+                if (vis.size !== total) return;
+
+                GS.won = true;
+                stopTimer();
+                sfxWin();
+                let lines = 0;
+                GS.hEdges.forEach((r) =>
+                    r.forEach((v) => {
+                        if (v === 1) lines++;
+                    }),
+                );
+                GS.vEdges.forEach((r) =>
+                    r.forEach((v) => {
+                        if (v === 1) lines++;
+                    }),
+                );
+                el("wTime").textContent = fmt(GS.timeSec);
+                el("wLines").textContent = lines;
+                el("wLvl").textContent = GS.lIdx + 1;
+                setTimeout(() => el("winModal").classList.add("open"), 380);
+            }
+
+            function checkWinGeneric() {
+                for (let v = 0; v < GS.gVerts.length; v++) {
+                    let deg = 0;
+                    for (const eid of GS.gVerts[v].edges)
+                        if (GS.gEdges[eid].state === 1) deg++;
+                    if (deg !== 0 && deg !== 2) return;
+                }
+                let total = 0,
+                    first = null;
+                for (let e = 0; e < GS.gEdges.length; e++)
+                    if (GS.gEdges[e].state === 1) {
+                        total++;
+                        if (first === null) first = e;
+                    }
+                if (total === 0) return;
+                const adj = (eid) => {
+                    const e = GS.gEdges[eid],
+                        res = [];
+                    for (const e2 of GS.gVerts[e.v1].edges)
+                        if (e2 !== eid && GS.gEdges[e2].state === 1)
+                            res.push(e2);
+                    for (const e2 of GS.gVerts[e.v2].edges)
+                        if (e2 !== eid && GS.gEdges[e2].state === 1)
+                            res.push(e2);
+                    return res;
+                };
+                const vis = new Set(),
+                    q = [first];
+                vis.add(first);
+                while (q.length) {
+                    const cur = q.shift();
+                    for (const nb of adj(cur)) {
+                        if (!vis.has(nb)) {
+                            vis.add(nb);
+                            q.push(nb);
+                        }
+                    }
+                }
+                if (vis.size !== total) return;
+                GS.won = true;
+                stopTimer();
+                sfxWin();
+                el("wTime").textContent = fmt(GS.timeSec);
+                el("wLines").textContent = total;
+                el("wLvl").textContent =
+                    GS.gridType === "square"
+                        ? GS.lIdx + 1
+                        : GS.gridType === "triangle"
+                          ? "Δ"
+                          : "⬡";
+                setTimeout(() => el("winModal").classList.add("open"), 380);
+            }
+
+            /* =========================================
+     CLICK HANDLERS
+    ========================================= */
+            let longPressTimer = null;
+
+            function cycleEdge(t, r, c, toX = false) {
+                if (GS.won || GS.editMode) return;
+                pushH();
+                if (!GS.timerOn) startTimer();
+                const arr = t === "h" ? GS.hEdges : GS.vEdges;
+                if (toX) {
+                    arr[r][c] = arr[r][c] === 2 ? 0 : 2;
+                    sfxX();
+                } else {
+                    arr[r][c] = (arr[r][c] + 1) % 3;
+                    arr[r][c] === 1
+                        ? sfxLine()
+                        : arr[r][c] === 2
+                          ? sfxX()
+                          : sfxClear();
+                }
+                evaluate();
+                saveGame();
+            }
+
+            function onEdgeClick(e) {
+                e.preventDefault();
+                cycleEdge(
+                    e.currentTarget.dataset.t,
+                    +e.currentTarget.dataset.r,
+                    +e.currentTarget.dataset.c,
+                );
+            }
+            function onEdgeRC(e) {
+                e.preventDefault();
+                cycleEdge(
+                    e.currentTarget.dataset.t,
+                    +e.currentTarget.dataset.r,
+                    +e.currentTarget.dataset.c,
+                    true,
+                );
+            }
+
+            // Touch: short tap = cycle, long press = mark X
+            function onEdgeTouch(e) {
+                e.preventDefault();
+                const d = e.currentTarget;
+                const t = d.dataset.t,
+                    r = +d.dataset.r,
+                    c = +d.dataset.c;
+                longPressTimer = setTimeout(() => {
+                    longPressTimer = null;
+                    cycleEdge(t, r, c, true);
+                }, 350);
+                const up = () => {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                        cycleEdge(t, r, c);
+                    }
+                };
+                d.addEventListener("touchend", up, { once: true });
+                d.addEventListener(
+                    "touchcancel",
+                    () => clearTimeout(longPressTimer),
+                    { once: true },
+                );
+            }
+
+            function onCellClick(e) {
+                if (!GS.editMode) return;
+                GS.solutionInterior = null;
+                const r = +e.currentTarget.dataset.r,
+                    c = +e.currentTarget.dataset.c;
+                const cur = GS.clues[r][c];
+                if (cur === "T") {
+                    GS.clues[r][c] = null;
+                } else {
+                    GS.clues[r][c] =
+                        cur === null ? 0 : cur === 3 ? null : cur + 1;
+                }
+                const d = el(`cell-${r}-${c}`);
+                const v = GS.clues[r][c];
+                d.textContent = v === "T" ? "T" : v !== null ? v : "";
+                d.className =
+                    "cell edit-mode" +
+                    (v !== null ? " has-clue" : "") +
+                    (v !== null && v !== "T" ? " clue-" + v : "");
+                sfxLine();
+                GS.seed = encodeCluesSeed(GS.rows, GS.cols, GS.clues);
+                updateSeedUI();
+                saveGame();
+            }
+
+            function onCellRC(e) {
+                e.preventDefault();
+                if (!GS.editMode) return;
+                GS.solutionInterior = null;
+                const r = +e.currentTarget.dataset.r,
+                    c = +e.currentTarget.dataset.c;
+                const cur = GS.clues[r][c];
+                GS.clues[r][c] = cur === "T" ? null : "T";
+                const d = el(`cell-${r}-${c}`);
+                const v = GS.clues[r][c];
+                d.textContent = v === "T" ? "T" : v !== null ? v : "";
+                d.className =
+                    "cell edit-mode" +
+                    (v !== null ? " has-clue" : "") +
+                    (v !== null && v !== "T" ? " clue-" + v : "");
+                sfxX();
+                GS.seed = encodeCluesSeed(GS.rows, GS.cols, GS.clues);
+                updateSeedUI();
+                saveGame();
+            }
+
+            function cycleGenericEdge(eid, toX) {
+                if (GS.won || GS.editMode) return;
+                pushH();
+                if (!GS.timerOn) startTimer();
+                const e = GS.gEdges[eid];
+                if (toX) {
+                    e.state = e.state === 2 ? 0 : 2;
+                    sfxX();
+                } else {
+                    e.state = (e.state + 1) % 3;
+                    e.state === 1
+                        ? sfxLine()
+                        : e.state === 2
+                          ? sfxX()
+                          : sfxClear();
+                }
+                evaluate();
+                saveGame();
+            }
+
+            /* =========================================
+    EDIT MODE
+   ========================================= */
+            function setEdit(on) {
+                GS.editMode = on;
+                el("btnEdit").classList.toggle("active", on);
+                el("modePill").className = on
+                    ? "mode-pill edit"
+                    : "mode-pill play";
+                el("modePill").textContent = on ? "EDIT" : "PLAY";
+                el("btnExportTop").style.display = on ? "" : "none";
+                el("editorBar").classList.toggle("show", on);
+                buildGrid();
+                if (!on) evaluate();
+                saveGame();
+            }
+
+            /* =========================================
+    RESET
+   ========================================= */
+            function resetLevel() {
+                GS.won = false;
+                GS.history = [];
+                GS.historyGeneric = [];
+                resetTimer();
+                if (GS.gridType === GRID_TYPE.SQUARE) {
+                    GS.hEdges = Array.from({ length: GS.rows + 1 }, () =>
+                        Array(GS.cols).fill(0),
+                    );
+                    GS.vEdges = Array.from({ length: GS.rows }, () =>
+                        Array(GS.cols + 1).fill(0),
+                    );
+                } else {
+                    GS.gEdges.forEach((e) => (e.state = 0));
+                }
+                evaluate();
+                saveGame();
+            }
+
+            /* =========================================
+    EXPORT
+   ========================================= */
+            function doExport() {
+                const code = JSON.stringify(
+                    {
+                        name: "Custom Level",
+                        rows: GS.rows,
+                        cols: GS.cols,
+                        clues: GS.clues,
+                    },
+                    null,
+                    2,
+                );
+                el("exportArea").value = code;
+                el("exportSeed").textContent = encodeCluesSeed(
+                    GS.rows,
+                    GS.cols,
+                    GS.clues,
+                );
+                el("exportModal").classList.add("open");
+            }
+
+            /* =========================================
+   WIRE UP CONTROLS
+   ========================================= */
+            document.querySelectorAll("#sizeGroup .cb").forEach((btn) => {
+                btn.onclick = () => {
+                    document
+                        .querySelectorAll("#sizeGroup .cb")
+                        .forEach((b) => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    if (GS.editMode) setEdit(false);
+                    loadRandomLevel();
+                };
+            });
+            el("btnHome").onclick = () => {
+                window.location.href = "index.html";
+            };
+            el("btnNew").onclick = () => {
+                if (GS.editMode) setEdit(false);
+                loadRandomLevel();
+            };
+            el("btnReset").onclick = resetLevel;
+            el("btnUndo").onclick = undo;
+            el("btnTheme").onclick = toggleTheme;
+            el("btnSolve").onclick = solvePuzzle;
+
+            function updateSizeButtons() {
+                const grp = document.getElementById("sizeGroup");
+                grp.innerHTML = "";
+                const ranges = {
+                    square: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+                    triangle: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+                    hexagon: [3, 4, 5, 6, 7, 8, 9, 10],
+                };
+                const arr = ranges[GS.gridType];
+                const defaults = { square: 7, triangle: 4, hexagon: 3 };
+                arr.forEach((n) => {
+                    const b = document.createElement("button");
+                    b.className =
+                        "cb" + (n === defaults[GS.gridType] ? " active" : "");
+                    b.dataset.size = n;
+                    b.textContent = n;
+                    b.onclick = () => {
+                        document
+                            .querySelectorAll("#sizeGroup .cb")
+                            .forEach((x) => x.classList.remove("active"));
+                        b.classList.add("active");
+                        if (GS.editMode) setEdit(false);
+                        loadRandomLevel();
+                    };
+                    grp.appendChild(b);
+                });
+            }
+
+            function setGridType(t) {
+                GS.gridType = t;
+                document.querySelectorAll("#gridTypeGroup .cb").forEach((b) => {
+                    b.classList.toggle("active", b.dataset.grid === t);
+                });
+                updateSizeButtons();
+                if (GS.editMode) setEdit(false);
+                loadRandomLevel();
+            }
+
+            document.querySelectorAll("#gridTypeGroup .cb").forEach((b) => {
+                b.onclick = () => setGridType(b.dataset.grid);
+            });
+            el("btnEdit").onclick = () => {
+                setEdit(!GS.editMode);
+                if (GS.editMode) toast("Edit mode: click cells to set clues");
+            };
+            el("btnExportTop").onclick = doExport;
+            el("btnExportEdit").onclick = doExport;
+            el("btnExitEdit").onclick = () => setEdit(false);
+            el("btnClearAll").onclick = () => {
+                for (let r = 0; r < GS.rows; r++)
+                    for (let c = 0; c < GS.cols; c++) GS.clues[r][c] = null;
+                GS.solutionInterior = null;
+                buildGrid();
+                setEdit(true);
+                GS.seed = encodeCluesSeed(GS.rows, GS.cols, GS.clues);
+                updateSeedUI();
+                saveGame();
+                toast("Clues cleared");
+            };
+
+            el("btnCopy").onclick = () => {
+                navigator.clipboard
+                    ?.writeText(el("exportArea").value)
+                    .then(() => toast("Copied!"));
+            };
+            el("btnCopySeed").onclick = () => {
+                navigator.clipboard
+                    ?.writeText(el("exportSeed").textContent)
+                    .then(() => toast("Seed copied!"));
+            };
+            el("btnCloseExp").onclick = () =>
+                el("exportModal").classList.remove("open");
+            el("expClose").onclick = () =>
+                el("exportModal").classList.remove("open");
+
+            el("wClose").onclick = () =>
+                el("winModal").classList.remove("open");
+            el("wRetry").onclick = () => {
+                el("winModal").classList.remove("open");
+                resetLevel();
+                saveGame();
+            };
+            el("wNext").onclick = () => {
+                el("winModal").classList.remove("open");
+                loadRandomLevel();
+            };
+
+            el("seedInput").addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    const v = e.target.value.trim();
+                    if (v) {
+                        if (GS.editMode) setEdit(false);
+                        if (loadLevelFromSeed(v)) {
+                            e.target.blur();
+                        }
+                    }
+                }
+            });
+
+            el("sbSeed").onclick = () => {
+                if (GS.seed) {
+                    navigator.clipboard?.writeText(GS.seed);
+                    toast("Seed copied!");
+                }
+            };
+
+            // Keyboard shortcuts
+            document.addEventListener("keydown", (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+                    e.preventDefault();
+                    undo();
+                } else if (e.key === "r" && !e.ctrlKey && !e.metaKey)
+                    resetLevel();
+                else if (e.key === "e" && !e.ctrlKey && !e.metaKey)
+                    el("btnEdit").click();
+                else if (e.key === "Escape") {
+                    if (GS.editMode) setEdit(false);
+                    el("winModal").classList.remove("open");
+                    el("exportModal").classList.remove("open");
+                    el("previewModal").classList.remove("open");
+                }
+            });
+
+            // Resize
+            window.addEventListener("resize", () => {
+                buildGrid();
+                evaluate();
+            });
+
+            /* =========================================
+   THEME
+   ========================================= */
+            function applyTheme(mode) {
+                document.body.classList.toggle("dark", mode === "dark");
+                const btn = el("btnTheme");
+                btn.textContent = mode === "dark" ? "🌙 Dark" : "☀ Light";
+                localStorage.setItem("laser-theme", mode);
+            }
+            function toggleTheme() {
+                const dark = document.body.classList.contains("dark");
+                applyTheme(dark ? "light" : "dark");
+            }
+
+            /* =========================================
+   0-CLUE DISPLAY HELPERS
+   ========================================= */
+            function _zeroAdjNonzero(r, c) {
+                const cells = [
+                    [r - 1, c],
+                    [r + 1, c],
+                    [r, c - 1],
+                    [r, c + 1],
+                ];
+                for (const [rr, cc] of cells) {
+                    if (rr < 0 || rr >= GS.rows || cc < 0 || cc >= GS.cols)
+                        continue;
+                    const v = GS.clues[rr][cc];
+                    if (v !== null && v !== 0) return true;
+                }
+                return false;
+            }
+            function _showZeroAsText(r, c) {
+                const v = GS.clues[r][c];
+                return v !== null && !(v === 0 && !_zeroAdjNonzero(r, c));
+            }
+
+            /* =========================================
+   ANIMATE SOLUTION FROM INTERIOR
+   ========================================= */
+            function animateSquareSolution(interior) {
+                resetLevel();
+
+                const solH = Array.from({ length: GS.rows + 1 }, () =>
+                    Array(GS.cols).fill(0),
+                );
+                const solV = Array.from({ length: GS.rows }, () =>
+                    Array(GS.cols + 1).fill(0),
+                );
+
+                for (let r = 0; r <= GS.rows; r++) {
+                    for (let c = 0; c < GS.cols; c++) {
+                        if (r === 0) {
+                            if (interior.has(c)) solH[r][c] = 1;
+                        } else if (r === GS.rows) {
+                            if (interior.has((GS.rows - 1) * GS.cols + c))
+                                solH[r][c] = 1;
+                        } else {
+                            const a = interior.has((r - 1) * GS.cols + c);
+                            const b = interior.has(r * GS.cols + c);
+                            if (a !== b) solH[r][c] = 1;
+                        }
+                    }
+                }
+                for (let r = 0; r < GS.rows; r++) {
+                    for (let c = 0; c <= GS.cols; c++) {
+                        if (c === 0) {
+                            if (interior.has(r * GS.cols)) solV[r][c] = 1;
+                        } else if (c === GS.cols) {
+                            if (interior.has(r * GS.cols + (GS.cols - 1)))
+                                solV[r][c] = 1;
+                        } else {
+                            const a = interior.has(r * GS.cols + (c - 1));
+                            const b = interior.has(r * GS.cols + c);
+                            if (a !== b) solV[r][c] = 1;
+                        }
+                    }
+                }
+
+                const allEdges = [];
+                for (let r = 0; r <= GS.rows; r++)
+                    for (let c = 0; c < GS.cols; c++)
+                        if (solH[r][c] === 1) allEdges.push({ t: "h", r, c });
+                for (let r = 0; r < GS.rows; r++)
+                    for (let c = 0; c <= GS.cols; c++)
+                        if (solV[r][c] === 1) allEdges.push({ t: "v", r, c });
+
+                if (allEdges.length === 0) {
+                    toast("Empty solution");
+                    return;
+                }
+
+                const borderEdges = allEdges.filter((e) => {
+                    if (e.t === "h") return e.r === 0 || e.r === GS.rows;
+                    return e.c === 0 || e.c === GS.cols;
+                });
+                const start =
+                    borderEdges.length > 0
+                        ? borderEdges[
+                              Math.floor(Math.random() * borderEdges.length)
+                          ]
+                        : allEdges[Math.floor(Math.random() * allEdges.length)];
+
+                const key = (e) => `${e.t}-${e.r}-${e.c}`;
+                const ordered = [start];
+                const visited = new Set([key(start)]);
+
+                function edgesAtVertex(vr, vc) {
+                    const e = [];
+                    if (vc < GS.cols && solH[vr][vc] === 1)
+                        e.push({ t: "h", r: vr, c: vc });
+                    if (vc > 0 && solH[vr][vc - 1] === 1)
+                        e.push({ t: "h", r: vr, c: vc - 1 });
+                    if (vr < GS.rows && solV[vr][vc] === 1)
+                        e.push({ t: "v", r: vr, c: vc });
+                    if (vr > 0 && solV[vr - 1][vc] === 1)
+                        e.push({ t: "v", r: vr - 1, c: vc });
+                    return e;
+                }
+
+                let current = start;
+                while (ordered.length < allEdges.length) {
+                    const verts =
+                        current.t === "h"
+                            ? [
+                                  { r: current.r, c: current.c },
+                                  { r: current.r, c: current.c + 1 },
+                              ]
+                            : [
+                                  { r: current.r, c: current.c },
+                                  { r: current.r + 1, c: current.c },
+                              ];
+                    let found = false;
+                    for (const v of verts) {
+                        for (const n of edgesAtVertex(v.r, v.c)) {
+                            const k = key(n);
+                            if (!visited.has(k)) {
+                                visited.add(k);
+                                ordered.push(n);
+                                current = n;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                    }
+                    if (!found) break;
+                }
+
+                let idx = 0;
+                const speed = 40;
+                let lineCount = 0;
+
+                function step() {
+                    if (idx >= ordered.length) {
+                        evaluate();
+                        checkWin();
+                        toast("Solved!");
+                        return;
+                    }
+                    const e = ordered[idx];
+                    const arr = e.t === "h" ? GS.hEdges : GS.vEdges;
+                    arr[e.r][e.c] = 1;
+                    lineCount++;
+
+                    const edgeEl = document.getElementById(
+                        `${e.t === "h" ? "he" : "ve"}-${e.r}-${e.c}`,
+                    );
+                    if (edgeEl) edgeEl.className = `edge ${e.t} active`;
+                    el("stLines").textContent = lineCount;
+
+                    idx++;
+                    setTimeout(step, speed);
+                }
+
+                pushH();
+                step();
+            }
+
+            /* =========================================
+    SOLVE BUTTON
+    ========================================= */
+            function solvePuzzle() {
+                if (GS.editMode) {
+                    toast("Exit edit mode first");
+                    return;
+                }
+                if (!GS.solutionInterior || GS.solutionInterior.size === 0) {
+                    toast("No stored solution for this puzzle");
+                    return;
+                }
+                if (GS.gridType === GRID_TYPE.SQUARE)
+                    animateSquareSolution(GS.solutionInterior);
+                else animateGenericSolution(GS.solutionInterior);
+            }
+
+            function animateGenericSolution(interior) {
+                resetLevel();
+                const boundary = [];
+                for (let e = 0; e < GS.gEdges.length; e++) {
+                    const ed = GS.gEdges[e];
+                    let isB = false;
+                    if (ed.cells.length === 1) {
+                        if (interior.has(ed.cells[0])) isB = true;
+                    } else {
+                        const c1 = ed.cells[0],
+                            c2 = ed.cells[1];
+                        if (interior.has(c1) !== interior.has(c2)) isB = true;
+                    }
+                    if (isB) boundary.push(e);
+                }
+                if (!boundary.length) {
+                    toast("Empty");
+                    return;
+                }
+                const borderEdges = boundary.filter(
+                    (e) => GS.gEdges[e].cells.length === 1,
+                );
+                const start = borderEdges.length
+                    ? borderEdges[
+                          Math.floor(Math.random() * borderEdges.length)
+                      ]
+                    : boundary[Math.floor(Math.random() * boundary.length)];
+                const ordered = [start],
+                    vis = new Set([start]);
+                let cur = start;
+                while (ordered.length < boundary.length) {
+                    const e = GS.gEdges[cur];
+                    const cand = [];
+                    for (const e2 of GS.gVerts[e.v1].edges)
+                        if (e2 !== cur && boundary.includes(e2) && !vis.has(e2))
+                            cand.push(e2);
+                    for (const e2 of GS.gVerts[e.v2].edges)
+                        if (e2 !== cur && boundary.includes(e2) && !vis.has(e2))
+                            cand.push(e2);
+                    if (!cand.length) break;
+                    const next = cand[0];
+                    vis.add(next);
+                    ordered.push(next);
+                    cur = next;
+                }
+                let idx = 0,
+                    speed = 40,
+                    lineCount = 0;
+                function step() {
+                    if (idx >= ordered.length) {
+                        evaluate();
+                        checkWin();
+                        toast("Solved!");
+                        return;
+                    }
+                    const eid = ordered[idx];
+                    GS.gEdges[eid].state = 1;
+                    lineCount++;
+                    const edgeEl = GS.gEdges[eid].el;
+                    if (edgeEl) {
+                        edgeEl.setAttribute("stroke", "var(--line-color)");
+                        edgeEl.setAttribute("stroke-width", "0.15");
+                    }
+                    el("stLines").textContent = lineCount;
+                    idx++;
+                    setTimeout(step, speed);
+                }
+                pushH();
+                step();
+            }
+
+            /* =========================================
+   PNG EXPORT & PREVIEW LOGIC
+   ========================================= */
+            function drawPrintableBoard(ctx, cs, ox, oy, ew) {
+                const R = GS.rows,
+                    C = GS.cols;
+                const step = cs + ew;
+                ctx.setLineDash([]);
+                ctx.lineWidth = 7;
+                ctx.strokeStyle = "#d92f2f";
+                ctx.shadowColor = "rgba(217,47,47,0.35)";
+                ctx.shadowBlur = 6;
+                for (let r = 0; r <= R; r++)
+                    for (let c = 0; c < C; c++) {
+                        if (GS.hEdges[r][c] !== 1) continue;
+                        ctx.beginPath();
+                        ctx.moveTo(ox + ew + c * step, oy + ew + r * step);
+                        ctx.lineTo(
+                            ox + ew + (c + 1) * step,
+                            oy + ew + r * step,
+                        );
+                        ctx.stroke();
+                    }
+                for (let r = 0; r < R; r++)
+                    for (let c = 0; c <= C; c++) {
+                        if (GS.vEdges[r][c] !== 1) continue;
+                        ctx.beginPath();
+                        ctx.moveTo(ox + ew + c * step, oy + ew + r * step);
+                        ctx.lineTo(
+                            ox + ew + c * step,
+                            oy + ew + (r + 1) * step,
+                        );
+                        ctx.stroke();
+                    }
+                ctx.shadowBlur = 0;
+                ctx.lineWidth = 2;
+                const xSize = cs * 0.15;
+                ctx.strokeStyle = "#999";
+                ctx.lineWidth = Math.max(2, cs * 0.06);
+                for (let r = 0; r <= R; r++)
+                    for (let c = 0; c < C; c++) {
+                        if (GS.hEdges[r][c] !== 2) continue;
+                        const cx = ox + ew + c * step + step / 2;
+                        const cy = oy + ew + r * step;
+                        ctx.beginPath();
+                        ctx.moveTo(cx - xSize, cy - xSize);
+                        ctx.lineTo(cx + xSize, cy + xSize);
+                        ctx.moveTo(cx + xSize, cy - xSize);
+                        ctx.lineTo(cx - xSize, cy + xSize);
+                        ctx.stroke();
+                    }
+                for (let r = 0; r < R; r++)
+                    for (let c = 0; c <= C; c++) {
+                        if (GS.vEdges[r][c] !== 2) continue;
+                        const cx = ox + ew + c * step;
+                        const cy = oy + ew + r * step + step / 2;
+                        ctx.beginPath();
+                        ctx.moveTo(cx - xSize, cy - xSize);
+                        ctx.lineTo(cx + xSize, cy + xSize);
+                        ctx.moveTo(cx + xSize, cy - xSize);
+                        ctx.lineTo(cx - xSize, cy + xSize);
+                        ctx.stroke();
+                    }
+                const yOff = cs * 0.08;
+                const clueColors = {
+                    0: "#d9d9d9",
+                    1: "#0f9ed5",
+                    2: "#4ea72e",
+                    3: "#e97132",
+                };
+                for (let r = 0; r < R; r++)
+                    for (let c = 0; c < C; c++) {
+                        const clue = GS.clues[r][c];
+                        if (clue === null) continue;
+                        const cx = ox + ew + c * step + step / 2;
+                        const cy = oy + ew + r * step + step / 2 + yOff;
+                        if (clue === "T") {
+                            ctx.font = `${cs * 0.85}px 'Cal Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif`;
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillStyle = "#000";
+                            ctx.fillText(
+                                TREASURE_POOL[
+                                    (r * C + c) % TREASURE_POOL.length
+                                ],
+                                cx,
+                                cy,
+                            );
+                        } else {
+                            ctx.font = `bold ${cs * 0.75}px 'Cal Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif`;
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillStyle = clueColors[clue] || "#000";
+                            ctx.fillText(clue, cx, cy);
+                        }
+                    }
+            }
+
+            const expCfg = {
+                bgShow: true,
+                bgZero: false,
+                showSeed: true,
+                seedSide: 0,
+            };
+
+            function getSidesCount() {
+                if (GS.gridType === "square") return 4;
+                if (GS.gridType === "triangle") return 3;
+                if (GS.gridType === "hexagon") return 6;
+                return 4;
+            }
+
+            document.getElementById("tglBg").addEventListener("change", (e) => {
+                expCfg.bgShow = e.target.checked;
+                updatePreviewImage();
+            });
+            document
+                .getElementById("tglBgZero")
+                .addEventListener("change", (e) => {
+                    expCfg.bgZero = e.target.checked;
+                    updatePreviewImage();
+                });
+            document
+                .getElementById("tglSeed")
+                .addEventListener("change", (e) => {
+                    expCfg.showSeed = e.target.checked;
+                    updatePreviewImage();
+                });
+            document
+                .getElementById("btnCycleSide")
+                .addEventListener("click", () => {
+                    expCfg.seedSide = (expCfg.seedSide + 1) % getSidesCount();
+                    document.getElementById("btnCycleSide").textContent =
+                        `Side ${expCfg.seedSide}`;
+                    updatePreviewImage();
+                });
+
+            function drawSeedOnCanvas(ctx, w, h) {
+                if (!expCfg.showSeed || !GS.seed) return;
+                const sides = getSidesCount();
+                const side = expCfg.seedSide % sides;
+
+                ctx.save();
+                ctx.font = `bold ${Math.max(14, Math.min(w, h) * 0.025)}px monospace`;
+                ctx.fillStyle = document.body.classList.contains("dark")
+                    ? "rgba(255,255,255,0.45)"
+                    : "rgba(0,0,0,0.5)";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                const cx = w / 2;
+                const cy = h / 2;
+                const pad = 18;
+
+                if (sides === 4) {
+                    if (side === 0) {
+                        ctx.translate(cx, pad);
+                    } else if (side === 1) {
+                        ctx.translate(w - pad, cy);
+                        ctx.rotate(Math.PI / 2);
+                    } else if (side === 2) {
+                        ctx.translate(cx, h - pad);
+                    } else if (side === 3) {
+                        ctx.translate(pad, cy);
+                        ctx.rotate(-Math.PI / 2);
+                    }
+                } else if (sides === 3) {
+                    if (side === 0) {
+                        ctx.translate(cx, h - pad);
+                    } else if (side === 1) {
+                        ctx.translate(w - pad * 1.5, cy);
+                        ctx.rotate(Math.PI / 3);
+                    } else if (side === 2) {
+                        ctx.translate(pad * 1.5, cy);
+                        ctx.rotate(-Math.PI / 3);
+                    }
+                } else if (sides === 6) {
+                    if (side === 0) {
+                        ctx.translate(cx, pad);
+                    } else if (side === 1) {
+                        ctx.translate(w - pad * 1.5, h * 0.25);
+                        ctx.rotate(Math.PI / 3);
+                    } else if (side === 2) {
+                        ctx.translate(w - pad * 1.5, h * 0.75);
+                        ctx.rotate((Math.PI * 2) / 3);
+                    } else if (side === 3) {
+                        ctx.translate(cx, h - pad);
+                    } else if (side === 4) {
+                        ctx.translate(pad * 1.5, h * 0.75);
+                        ctx.rotate((-Math.PI * 2) / 3);
+                    } else if (side === 5) {
+                        ctx.translate(pad * 1.5, h * 0.25);
+                        ctx.rotate(-Math.PI / 3);
+                    }
+                }
+
+                ctx.fillText(GS.seed, 0, 0);
+                ctx.restore();
+            }
+
+            function updatePreviewImage() {
+                const ds = document.body.classList.contains("dark");
+                const scale = 4;
+
+                if (GS.gridType === "square") {
+                    const cs = computeCS(),
+                        ew = 14,
+                        step = cs + ew;
+                    const pad = ew + 28;
+                    const W = pad * 2 + GS.cols * step;
+                    const H = pad * 2 + GS.rows * step;
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = W * scale;
+                    canvas.height = H * scale;
+                    const ctx = canvas.getContext("2d");
+                    ctx.scale(scale, scale);
+
+                    if (expCfg.bgShow) {
+                        ctx.fillStyle = ds ? "#080c18" : "#f4f6fb";
+                        ctx.fillRect(0, 0, W, H);
+                    }
+
+                    if (expCfg.bgZero) {
+                        ctx.fillStyle = ds
+                            ? "rgba(255,255,255,0.06)"
+                            : "rgba(0,0,0,0.06)";
+                        for (let r = 0; r < GS.rows; r++) {
+                            for (let c = 0; c < GS.cols; c++) {
+                                if (GS.clues[r][c] === 0) {
+                                    ctx.fillRect(
+                                        pad + c * step,
+                                        pad + r * step,
+                                        step,
+                                        step,
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = ds ? "rgba(255,255,255,0.15)" : "#d9d9d9";
+                    ctx.lineWidth = 2;
+                    for (let r = 0; r <= GS.rows; r++) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, pad + r * step);
+                        ctx.lineTo(W, pad + r * step);
+                        ctx.stroke();
+                    }
+                    for (let c = 0; c <= GS.cols; c++) {
+                        ctx.beginPath();
+                        ctx.moveTo(pad + c * step, 0);
+                        ctx.lineTo(pad + c * step, H);
+                        ctx.stroke();
+                    }
+                    ctx.setLineDash([]);
+
+                    drawPrintableBoard(ctx, cs, pad - ew, pad - ew, ew);
+                    drawSeedOnCanvas(ctx, W, H);
+
+                    el("previewImg").src = canvas.toDataURL("image/png");
+                } else {
+                    const orig = el("puzzleGrid").querySelector("svg");
+                    if (!orig) return;
+                    const svg = orig.cloneNode(true);
+                    const vb = svg
+                        .getAttribute("viewBox")
+                        .split(" ")
+                        .map(Number);
+                    const extraPad = 0.9;
+                    svg.setAttribute(
+                        "viewBox",
+                        `${vb[0] - extraPad} ${vb[1] - extraPad} ${vb[2] + extraPad * 2} ${vb[3] + extraPad * 2}`,
+                    );
+
+                    const baseW = 960,
+                        baseH = Math.round(
+                            (baseW * (vb[3] + extraPad * 2)) /
+                                (vb[2] + extraPad * 2),
+                        );
+                    svg.removeAttribute("style");
+                    svg.setAttribute("width", baseW);
+                    svg.setAttribute("height", baseH);
+
+                    const css = getComputedStyle(document.body);
+                    const lineColor = css
+                        .getPropertyValue("--line-color")
+                        .trim();
+                    const xColor = css.getPropertyValue("--x-color").trim();
+                    const textColor = css.getPropertyValue("--text").trim();
+                    const bgFill = ds
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(0,0,0,0.06)";
+
+                    function resolveVars(n) {
+                        ["stroke", "fill", "color"].forEach((attr) => {
+                            const val = n.getAttribute(attr);
+                            if (val)
+                                n.setAttribute(
+                                    attr,
+                                    val
+                                        .replace(
+                                            /var\(--line-color\)/g,
+                                            lineColor,
+                                        )
+                                        .replace(/var\(--x-color\)/g, xColor)
+                                        .replace(/var\(--text\)/g, textColor),
+                                );
+                        });
+                        Array.from(n.children).forEach(resolveVars);
+                    }
+                    resolveVars(svg);
+
+                    Array.from(svg.querySelectorAll("polygon"))
+                        .reverse()
+                        .forEach((p, i) => {
+                            if (
+                                expCfg.bgZero &&
+                                GS.gCells[i] &&
+                                GS.gCells[i].clue === 0
+                            )
+                                p.setAttribute("fill", bgFill);
+                            else p.remove();
+                        });
+
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = baseW * scale;
+                        canvas.height = baseH * scale;
+                        const ctx = canvas.getContext("2d");
+                        ctx.scale(scale, scale);
+
+                        if (expCfg.bgShow) {
+                            ctx.fillStyle = ds ? "#080c18" : "#f4f6fb";
+                            ctx.fillRect(0, 0, baseW, baseH);
+                        }
+                        ctx.drawImage(img, 0, 0, baseW, baseH);
+                        drawSeedOnCanvas(ctx, baseW, baseH);
+
+                        el("previewImg").src = canvas.toDataURL("image/png");
+                    };
+                    img.src =
+                        "data:image/svg+xml;base64," +
+                        btoa(
+                            unescape(
+                                encodeURIComponent(
+                                    new XMLSerializer().serializeToString(svg),
+                                ),
+                            ),
+                        );
+                }
+            }
+
+            el("btnPNG").onclick = () => {
+                expCfg.seedSide = 0;
+                document.getElementById("btnCycleSide").textContent = `Side 0`;
+                updatePreviewImage();
+                el("previewModal").classList.add("open");
+            };
+
+            el("btnSavePNG").onclick = () => {
+                const a = document.createElement("a");
+                a.download = `laser-slitherlink-${GS.gridType}.png`;
+                a.href = el("previewImg").src;
+                a.click();
+                el("previewModal").classList.remove("open");
+                toast("Image Saved");
+            };
+            el("btnCancelPNG").onclick = () =>
+                el("previewModal").classList.remove("open");
+            el("prevClose").onclick = () =>
+                el("previewModal").classList.remove("open");
+
+            /* =========================================
+   HOW-TO HINT (first load)
+   ========================================= */
+            function showHint() {
+                toast("Click edges to draw lines · Right-click to mark ✕");
+            }
+
+            /* =========================================
+   INIT
+   ========================================= */
+            window.onload = () => {
+                const savedTheme =
+                    localStorage.getItem("laser-theme") || "light";
+                applyTheme(savedTheme);
+                updateSizeButtons();
+                setTimeout(() => {
+                    el("loadingScreen").style.display = "none";
+                    if (!loadGame()) {
+                        loadRandomLevel();
+                        setTimeout(showHint, 600);
+                    }
+                }, 1050);
+            };
+        </script>
+    </body>
+</html>

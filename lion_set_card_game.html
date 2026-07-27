@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lion Set Match</title>
+    <style>
+        /* --- Themes --- */
+        :root {
+            --bg-color: #ecf0f1;
+            --hud-bg: rgba(255,255,255,0.95);
+            --card-back: #2c3e50;
+            --card-face: #ffffff; 
+            --accent: #d35400;
+            --text: #2c3e50;
+            --border-color: rgba(0,0,0,0.1);
+            --hint-color: #f1c40f;
+            --finish-color: #e74c3c;
+            --gap: 10px;
+            --number-size: 1.4rem; 
+        }
+
+        body.dark-mode {
+            --bg-color: #2c3e50;
+            --hud-bg: rgba(0,0,0,0.8);
+            --card-back: #000000;
+            --accent: #e67e22;
+            --text: #ffffff;
+            --border-color: rgba(255,255,255,0.1);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh; width: 100vw;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            user-select: none;
+            touch-action: none;
+            -ms-touch-action: none;
+        }
+
+        /* --- HUD --- */
+        #hud {
+            height: 60px;
+            display: flex; 
+            align-items: center;
+            justify-content: flex-end; /* PUSH EVERYTHING TO RIGHT */
+            padding: 0 15px;
+            background: var(--hud-bg);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 100;
+            gap: 12px;
+        }
+
+        /* Unified Group for Right Corner */
+        .hud-cluster {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(127, 140, 141, 0.1);
+            padding: 5px 10px;
+            border-radius: 8px;
+            height: 40px;
+        }
+
+        .stats { 
+            display: flex; gap: 8px; font-size: 0.9rem; font-weight: 600; 
+            align-items: center;
+            white-space: nowrap;
+        }
+        
+        #sets-container { transition: color 0.3s; display: flex; align-items: center; gap: 4px; }
+        .sets-zero { color: #e74c3c; animation: pulse-text 2s infinite; }
+        .sets-avail { color: #27ae60; }
+        
+        @keyframes pulse-text { 
+            0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } 
+        }
+
+        button {
+            background-color: var(--accent); border: none; color: white;
+            padding: 6px 10px; border-radius: 6px; cursor: pointer;
+            font-size: 0.9rem; font-weight: bold;
+            transition: transform 0.1s, background-color 0.3s;
+            display: flex; align-items: center; justify-content: center;
+            gap: 5px; min-width: 32px;
+        }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        button:active { transform: translateY(0); }
+        button.secondary { background-color: #7f8c8d; }
+        button.hint-btn { background-color: var(--hint-color); color: #2c3e50; }
+        button.help-btn { background-color: #3498db; font-size: 1.1rem; font-weight: 900; width: 35px; }
+        
+        button#roar-btn.active { background-color: #e67e22; box-shadow: 0 0 10px #e67e22; border: 1px solid white; }
+
+        button.finish-btn {
+            background-color: var(--finish-color);
+        }
+        button.auto-finish-btn {
+            background-color: var(--finish-color);
+            display: none; 
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .font-ctrl { background-color: #bdc3c7; color: #333; padding: 6px 8px; font-family: monospace; }
+        body.dark-mode .font-ctrl { background-color: #34495e; color: #fff; }
+
+        /* --- Game Board --- */
+        #game-board {
+            flex: 1; padding: 10px;
+            display: flex; flex-wrap: wrap; justify-content: center; align-content: center;
+            gap: var(--gap);
+            perspective: 1200px;
+            position: relative; 
+        }
+
+        /* --- Card Styles --- */
+        .card {
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1), opacity 0.5s;
+            cursor: pointer; border-radius: 12px; z-index: 10;
+        }
+        
+        /* Fixed mode for Roar Animation */
+        .card.roar-fixed {
+            position: fixed;
+            z-index: 9999 !important; /* Highest priority */
+            transition: top 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        left 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 0;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        }
+
+        .card-placeholder { visibility: hidden; opacity: 0; }
+        .card.storming { transition: transform 1.5s cubic-bezier(0.25, 1, 0.5, 1); z-index: 1000; }
+        .card.victory-dance { animation: victoryJump 2s ease-in-out infinite; }
+
+        @keyframes victoryJump {
+            0%, 100% { transform: rotateY(180deg) translateY(0); }
+            50% { transform: rotateY(180deg) translateY(-30px) rotateZ(5deg); }
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+        .card.matched { opacity: 0.4; pointer-events: none; cursor: default; box-shadow: none; filter: grayscale(1); }
+        .card.selected .face { border: 4px solid #3498db; box-shadow: 0 0 15px #3498db; }
+        .card.hint-active .face { border: 4px solid var(--hint-color); box-shadow: 0 0 20px var(--hint-color); }
+
+        .face, .back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15); overflow: hidden;
+        }
+
+        .back {
+            background-color: var(--card-back);
+            color: rgba(255,255,255,0.2); 
+            font-size: 2.5rem; font-weight: bold;
+            border: 1px solid var(--border-color);
+            z-index: 2; transform: rotateY(0deg); 
+        }
+
+        .face {
+            background-color: var(--card-face);
+            transform: rotateY(180deg); 
+            border: 1px solid #bdc3c7;
+            z-index: 1; padding: 5px; box-sizing: border-box;
+        }
+
+        .card-img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+        .fallback-text { display: none; font-size: 1.5rem; font-weight: bold; color: #333; border: 2px dashed #999; padding: 5px; border-radius: 5px; }
+
+        .card-number {
+            position: absolute; top: 0; left: 0; width: 100%;
+            padding-top: 5px; padding-left: 8px; text-align: left;
+            font-size: var(--number-size); font-weight: 800; z-index: 20; pointer-events: none;
+        }
+        .back .card-number { color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .face .card-number { color: #333333; text-shadow: none; }
+
+        .persistent-tick {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; opacity: 0; z-index: 25; transition: opacity 0.5s;
+        }
+        .card.matched .back .persistent-tick { opacity: 1; }
+
+        .feedback-anim {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            font-size: 3rem; z-index: 30; opacity: 0; pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .fade-up { animation: fadeUp 0.8s forwards; }
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -100%) scale(1); }
+        }
+        
+        .shake { animation: shake-flipped 0.5s ease-in-out; }
+        @keyframes shake-flipped {
+            0%, 100% { transform: rotateY(180deg) translateX(0); }
+            20% { transform: rotateY(180deg) translateX(-6px) rotateZ(-2deg); }
+            40% { transform: rotateY(180deg) translateX(6px) rotateZ(2deg); }
+            60% { transform: rotateY(180deg) translateX(-6px) rotateZ(-2deg); }
+            80% { transform: rotateY(180deg) translateX(6px) rotateZ(2deg); }
+        }
+
+        /* --- ROAR PULSE --- */
+        @keyframes roar-pulse {
+            0% { transform: scale(2.0) rotateY(180deg); }
+            50% { transform: scale(2.2) rotateY(180deg); }
+            100% { transform: scale(2.0) rotateY(180deg); }
+        }
+        .roar-pulsing { animation: roar-pulse 0.4s ease-in-out forwards; }
+
+        /* --- Roar Mode Overlay --- */
+        #roar-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.01);
+            z-index: 9000;
+            cursor: pointer;
+            flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 50px;
+        }
+        #roar-msg {
+            color: #d35400; font-size: 1.8rem; font-weight: bold; margin-bottom: 20px;
+            animation: pulse-text 1.5s infinite; text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.8); padding: 10px 20px; border-radius: 20px;
+        }
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 500;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(2px);
+            animation: fadeIn 0.3s ease;
+        }
+        .modal-content {
+            background: var(--bg-color); color: var(--text);
+            padding: 30px; border-radius: 20px;
+            max-width: 95%; width: 600px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            position: relative;
+            max-height: 90vh; overflow-y: auto;
+            border: 2px solid var(--border-color);
+        }
+        .modal-content h2 { margin-top: 0; color: var(--accent); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- Start Screen --- */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color);
+            z-index: 300;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+        #start-btn {
+            font-size: 2rem; padding: 20px 40px;
+            background-color: var(--accent); color: white;
+            border-radius: 50px; border: 4px solid white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        a.return-to-menu {
+            position: fixed; top: 10px; left: 10px;
+            font-size: 24px; background-color: rgba(0,0,0,0.2); color: white;
+            padding: 10px; border-radius: 5px; text-decoration: none;
+            opacity: 0.5; transition: opacity 0.3s, background-color 0.3s;
+            z-index: 1000;
+        }
+        a.return-to-menu:hover { opacity: 1; background-color: rgba(0,0,0,0.5); }
+
+        /* --- Seed System Styles --- */
+        #seed-container {
+            display: flex; flex-direction: row; 
+            align-items: center;
+            gap: 10px;
+        }
+        #seed-display {
+            font-family: 'Courier New', monospace; font-size: 1.0rem;
+            font-weight: 800; letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 4px; cursor: pointer;
+            text-align: center;
+            background: rgba(255,255,255,0.6);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            transition: all 0.2s;
+            white-space: nowrap; 
+            overflow: hidden; 
+            min-width: 120px; /* Wider to show full code */
+            text-overflow: ellipsis;
+        }
+        #seed-display:hover { background: var(--accent); color: white; }
+        
+        #seed-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 3000;
+            justify-content: center; align-items: center;
+        }
+        .seed-box {
+            background: var(--bg-color); padding: 25px; border-radius: 12px;
+            width: 85%; max-width: 350px; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .seed-box input {
+            width: 100%; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.2rem;
+            border: 2px solid #bdc3c7; box-sizing: border-box; text-align: center; letter-spacing: 1px;
+        }
+        .seed-actions { display: flex; justify-content: space-between; gap: 10px; }
+        .seed-actions button { flex: 1; }
+        
+        #toast {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: #2c3e50; color: white; padding: 12px 24px;
+            border-radius: 30px; z-index: 4000; opacity: 0;
+            transition: opacity 0.3s, transform 0.3s; pointer-events: none; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+
+        /* --- Victory Panel --- */
+        #victory-panel {
+            position: fixed;
+            bottom: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: var(--hud-bg);
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 2000;
+            transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            border: 4px solid var(--accent);
+        }
+
+        #victory-panel.show {
+            bottom: 40px;
+            pointer-events: auto;
+        }
+
+        .vic-btn {
+            font-size: 1.4rem;
+            padding: 15px 30px;
+            border-radius: 30px;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+
+        .vic-home { background-color: #e74c3c; }
+        .vic-restart { background-color: #27ae60; }
+        
+        body.dark-mode #victory-panel {
+            border-color: #f1c40f;
+        }
+
+        /* --- Loading Screen --- */
+        #loading-screen {
+            position: fixed; inset: 0; z-index: 2500;
+            background: var(--bg-color);
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.3s;
+        }
+        .loading-panel {
+            background: var(--hud-bg);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 24px 28px;
+            text-align: center;
+            min-width: 240px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .loading-title { font-weight: 800; margin-bottom: 12px; }
+        .loading-bar-track {
+            width: 240px; max-width: 70vw;
+            height: 10px; border-radius: 999px;
+            background: rgba(0,0,0,0.12);
+            overflow: hidden;
+        }
+        #loading-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.2s; }
+        #loading-text { margin-top: 10px; font-family: monospace; font-weight: 700; }
+        #start-screen .start-actions { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        #start-btn { font-size: 1.5rem; padding: 15px 30px; }
+        #seed-start-btn { font-size: 1.2rem; padding: 15px 30px; border-radius: 50px; background-color: #7f8c8d; border: 2px solid white; }
+        
+        /* Toggle Switch for Seed Type */
+        .switch-container { display: flex; flex-direction: column; gap: 2px; }
+        .switch-btn { 
+            background: transparent; color: var(--text); border: 1px solid var(--text); 
+            opacity: 0.5; font-size: 0.6rem; padding: 2px 4px; min-width: 35px; border-radius: 3px;
+            line-height: 1;
+        }
+        .switch-btn.active { background: var(--text); color: var(--bg-color); opacity: 1; font-weight: bold; }
+        
+        body.dark-mode #seed-display {
+            background-color: rgba(0,0,0,0.25);
+            color: var(--text);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        /* --- HELP MODAL VISUALS --- */
+        .help-section { margin-bottom: 25px; text-align: left; }
+        .help-section h3 { border-bottom: 2px solid var(--border-color); padding-bottom: 5px; margin-bottom: 10px; font-size: 1.2rem; color: var(--text); }
+        .help-text { font-size: 1rem; line-height: 1.4; margin-bottom: 10px; }
+        
+        .example-row { display: flex; gap: 10px; justify-content: center; margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 10px; }
+        .example-label { font-weight: bold; margin-right: 10px; display: flex; align-items: center; }
+        .good { color: #27ae60; } .bad { color: #e74c3c; }
+        
+        .demo-card { 
+            width: 45px; height: 60px; background: white; border-radius: 4px; border: 1px solid #ccc; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+        .demo-card img { width: 90%; height: 90%; object-fit: contain; }
+        
+        @media (max-width: 600px) {
+             #hud { padding: 0 5px; gap: 5px; }
+             .hud-cluster { padding: 4px 5px; gap: 5px; }
+             #seed-display { font-size: 0.8rem; min-width: 70px; max-width: 90px; }
+             .stats { font-size: 0.8rem; gap: 5px; }
+             .demo-card { width: 35px; height: 50px; }
+             button { padding: 4px 6px; min-width: 28px; }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loading-panel">
+            <div class="loading-title">Loading Lions...</div>
+            <div class="loading-bar-track"><div id="loading-bar"></div></div>
+            <div id="loading-text">0%</div>
+        </div>
+    </div>
+<a class="return-to-menu" href="index.html">🏠</a>
+
+    <div id="start-screen">
+        <h1 style="color:var(--text); margin-bottom:40px;">Lion Set Match</h1>
+        <div class="start-actions">
+            <button id="start-btn" onclick="startIntro()">▶ Start Game</button>
+            <button id="seed-start-btn" onclick="openSeedModal()">📂 Enter Seed</button>
+        </div>
+    </div>
+
+    <div id="seed-modal">
+        <div class="seed-box">
+            <h3>Load Challenge</h3>
+            <p style="font-size:0.9rem; color:var(--text); opacity:0.8; margin:0; text-align:center;">Enter Seed (e.g. LION) or Save Code:</p>
+            <input type="text" id="seed-input" placeholder="LION" />
+            <div class="seed-actions">
+                <button onclick="closeSeedModal()" style="background:#7f8c8d;">Cancel</button>
+                <button onclick="applySeed()" style="background:var(--accent);">✔ Load</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast">Copied!</div>
+
+    <div id="roar-overlay" onclick="dismissRoar()">
+        <div id="roar-msg">Tap anywhere to collect!</div>
+    </div>
+
+    <div id="hud">
+        <div class="hud-cluster">
+            <span class="stats">⏱️ <span id="time">00:00</span></span>
+            <span id="sets-container" class="sets-zero">🔍 <span id="sets-count">0</span></span>
+        </div>
+        <div class="hud-cluster">
+            <div id="seed-container">
+                <div id="seed-display" onclick="copySeedToClipboard()" title="Tap to copy">...</div>
+                <div class="switch-container">
+                    <button class="switch-btn active" id="mode-seed" onclick="setSeedMode('seed')">SEED</button>
+                    <button class="switch-btn" id="mode-save" onclick="setSeedMode('save')">SAVE</button>
+                </div>
+            </div>
+            <button class="secondary" onclick="openSeedModal()" title="Load Game">📂</button>
+            <button class="hint-btn" onclick="useHint()">💡</button>
+            <button onclick="toggleFullscreen()" id="fullscreen-btn" title="Fullscreen">&#x26F6;</button>
+            <button id="roar-btn" class="active" onclick="toggleRoarMode()">🦁</button>
+            <button id="giveup-btn" class="finish-btn" onclick="giveUpGame()">🏁</button>
+            <button id="auto-finish-btn" class="auto-finish-btn" onclick="endGameManual()">🏁</button>
+            <button class="font-ctrl" onclick="adjustFontSize(-1)">A-</button>
+            <button class="font-ctrl" onclick="adjustFontSize(1)">A+</button>
+            <button class="secondary" onclick="toggleTheme()" id="theme-btn">🌙</button>
+            <button class="help-btn" onclick="showHelp()">?</button>
+        </div>
+    </div>
+
+    <div id="game-board"></div>
+
+    <div id="victory-panel">
+        <button class="vic-btn vic-home" onclick="window.location.href='index.html'">🏠 Home</button>
+        <button class="vic-btn vic-restart" onclick="resetGame()">↺ Play Again</button>
+    </div>
+
+    <canvas id="confetti" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; display:none;"></canvas>
+
+    <div id="modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modal-title" style="color:var(--accent); font-size: 2.5rem;">Game Over!</h2>
+            <div id="compliment" style="font-size:1.5rem; color:#f1c40f; margin:15px 0;"></div>
+            <div id="final-stats" style="font-size: 1.2rem; line-height: 1.6;"></div>
+            <br>
+            <button onclick="resetGame()" style="font-size:1.2rem; padding:12px 30px; margin: 0 auto;">Play Again</button>
+        </div>
+    </div>
+
+    <div id="help-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>How to Play</h2>
+            
+            <div class="help-section">
+                <h3>1. Find a "Roar" Set</h3>
+                <p class="help-text">Pick <b>3 cards</b>. For each feature (Color, Mane, Tail), the cards must be either <b>ALL THE SAME</b> or <b>ALL DIFFERENT</b>.</p>
+                
+                <div class="example-row">
+                    <div class="example-label good">✔ GOOD</div>
+                    <div class="demo-card"><img src="lion_cards/YRS.png"></div>
+                    <div class="demo-card"><img src="lion_cards/PRS.png"></div>
+                    <div class="demo-card"><img src="lion_cards/GRS.png"></div>
+                </div>
+                <p style="font-size:0.8rem; margin-top:-10px; margin-bottom: 10px;">(Colors are different, Manes are same, Tails are same)</p>
+
+                <div class="example-row">
+                    <div class="example-label bad">✖ BAD</div>
+                    <div class="demo-card"><img src="lion_cards/YRS.png"></div>
+                    <div class="demo-card"><img src="lion_cards/YRS.png"></div>
+                    <div class="demo-card"><img src="lion_cards/PRS.png"></div>
+                </div>
+                <p style="font-size:0.8rem; margin-top:-10px;">(Two Yellows, One Purple = Not all same, not all different)</p>
+            </div>
+
+            <div class="help-section">
+                <h3>2. Save & Challenges</h3>
+                <p class="help-text"><b>SEED:</b> Use Letters, Numbers, or Symbols (e.g., LION vs LION!). Games are case-sensitive!</p>
+                <p class="help-text"><b>SAVE:</b> Long code (e.g. "4k91Z..."). Copy this to save your progress.</p>
+            </div>
+
+            <div class="help-section">
+                <h3>3. Roar Mode 🦁</h3>
+                <p class="help-text">When <b>ON</b>: Finding a set triggers a special animation. Tap the screen to collect the cards.</p>
+            </div>
+
+            <button onclick="hideHelp()" style="font-size:1.2rem; padding:10px 40px; margin-top:10px;">Got it!</button>
+        </div>
+    </div>
+
+<script>
+    // --- COMPRESSION & HASHING ENGINE ---
+    // Added special chars to Base72 to allow even shorter save codes and better randomness
+    const BASE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()"; 
+    const BASE_LEN = BigInt(BASE_CHARS.length);
+
+    // 1. Text Hasher (Turn "Lion!" into Number)
+    function hashString(str) {
+        let hash = 5381n;
+        for (let i = 0; i < str.length; i++) {
+            const charCode = BigInt(str.charCodeAt(i));
+            hash = ((hash << 5n) + hash) + charCode;
+        }
+        return Number(hash & 0xFFFFFFFFn); 
+    }
+
+    // 2. Base Converters (for Save States)
+    function toCustomBase(num) {
+        if (num === 0n) return BASE_CHARS[0];
+        let str = "";
+        while (num > 0n) {
+            str = BASE_CHARS[Number(num % BASE_LEN)] + str;
+            num /= BASE_LEN;
+        }
+        return str;
+    }
+
+    function fromCustomBase(str) {
+        let num = 0n;
+        for (let i = 0; i < str.length; i++) {
+            const idx = BASE_CHARS.indexOf(str[i]);
+            if (idx === -1) throw new Error("Invalid Char");
+            num = num * BASE_LEN + BigInt(idx);
+        }
+        return num;
+    }
+
+    // --- SEED MANIPULATION ---
+    let currentSeedString = ""; 
+    let displayMode = 'seed'; // 'seed' (Short) or 'save' (Long)
+
+    function getSaveStateString() {
+        let combined = BigInt(currentDeckSeed) << 54n; 
+        let revealedBits = 0n;
+        deck.forEach((card, i) => { if (card.isRevealed) revealedBits |= (1n << BigInt(i)); });
+        combined |= revealedBits << 27n;
+        let matchedBits = 0n;
+        deck.forEach((card, i) => { if (card.isMatched) matchedBits |= (1n << BigInt(i)); });
+        combined |= matchedBits;
+        return toCustomBase(combined);
+    }
+
+    function parseSaveState(str) {
+        let combined = fromCustomBase(str);
+        if (combined < (1n << 54n)) return null; 
+        const matchedBits = combined & ((1n << 27n) - 1n); combined >>= 27n;
+        const revealedBits = combined & ((1n << 27n) - 1n); combined >>= 27n;
+        const seed = Number(combined);
+        return { seed, revealedBits, matchedBits };
+    }
+
+    function createRNG(seed) {
+        return function() {
+            var t = seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+    }
+
+    function updateLoadingProgress(loaded, total) {
+        const pct = total ? Math.round((loaded / total) * 100) : 100;
+        loadingBar.style.width = `${pct}%`;
+        loadingText.innerText = `${pct}%`;
+    }
+
+    function hideLoadingScreen() {
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => { loadingScreen.style.display = 'none'; }, 300);
+    }
+
+    function getAllLionCodes() {
+        const codes = [];
+        for (let c = 0; c < COLORS.length; c++) {
+            for (let m = 0; m < MANES.length; m++) {
+                for (let t = 0; t < TAILS.length; t++) {
+                    codes.push(COLORS[c] + MANES[m] + TAILS[t]);
+                }
+            }
+        }
+        return codes;
+    }
+
+    function preloadLionCards(codes) {
+        return new Promise((resolve) => {
+            let loaded = 0;
+            const total = codes.length;
+            if (total === 0) {
+                updateLoadingProgress(1, 1);
+                resolve();
+                return;
+            }
+            updateLoadingProgress(0, total);
+            codes.forEach((code) => {
+                const img = new Image();
+                const done = () => {
+                    loaded += 1;
+                    updateLoadingProgress(loaded, total);
+                    if (loaded >= total) resolve();
+                };
+                img.onload = done;
+                img.onerror = done;
+                img.src = `lion_cards/${code}.png`;
+            });
+        });
+    }
+
+    // --- GAME LOGIC VARS ---
+    const COLORS = ['Y', 'P', 'G']; const MANES  = ['R', 'E', 'F']; const TAILS  = ['S', 'C', 'T'];
+    let deck = []; let selectedCards = []; let matchesFound = 0; 
+    let startTime = null; let timerInterval = null; let isProcessing = false; let isIntroMode = false; let isDarkMode = false; let isPaused = false;
+    let currentDeckSeed = 0;
+    let isRoarMode = true; 
+    let roarPlaceholders = [];
+    let currentFontSize = 1.4;
+    let isCelebrating = false;
+
+    const HOLD_DURATION_MS = 1500;
+    let holdTimer = null;
+
+    // --- DOM REFS ---
+    const board = document.getElementById('game-board');
+    const timeDisplay = document.getElementById('time');
+    const setsCountDisplay = document.getElementById('sets-count');
+    const setsContainer = document.getElementById('sets-container');
+    const themeBtn = document.getElementById('theme-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const finishBtn = document.getElementById('auto-finish-btn');
+    const startScreen = document.getElementById('start-screen');
+    const modal = document.getElementById('modal');
+    const helpModal = document.getElementById('help-modal');
+    const confettiCanvas = document.getElementById('confetti');
+    const roarBtn = document.getElementById('roar-btn');
+    const roarOverlay = document.getElementById('roar-overlay');
+    const seedModal = document.getElementById('seed-modal');
+    const seedInput = document.getElementById('seed-input');
+    const toast = document.getElementById('toast');
+    const seedDisplay = document.getElementById('seed-display');
+    const loadingScreen = document.getElementById('loading-screen');
+    const loadingBar = document.getElementById('loading-bar');
+    const loadingText = document.getElementById('loading-text');
+
+    window.addEventListener('resize', () => { resizeCards(); if(confettiCanvas.style.display !== 'none') { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }});
+
+    // --- UI FUNCTIONS ---
+    function setSeedMode(mode) {
+        displayMode = mode;
+        document.getElementById('mode-seed').classList.toggle('active', mode === 'seed');
+        document.getElementById('mode-save').classList.toggle('active', mode === 'save');
+        updateSeedUI();
+    }
+
+    function updateSeedUI() {
+        if (displayMode === 'seed') {
+            seedDisplay.innerText = currentSeedString || currentDeckSeed;
+        } else {
+            // Display save code (expanded)
+            seedDisplay.innerText = getSaveStateString();
+        }
+    }
+    
+    function copySeedToClipboard() {
+        let textToCopy = "";
+        if (displayMode === 'seed') {
+             textToCopy = currentSeedString || currentDeckSeed.toString();
+             showToast(`Seed "${textToCopy}" Copied!`);
+        } else {
+            textToCopy = getSaveStateString();
+            showToast("Full Save Game Copied!");
+        }
+        navigator.clipboard.writeText(textToCopy);
+    }
+
+    function openSeedModal() { isPaused = true; cancelHold(); seedInput.value = ""; seedModal.style.display = "flex"; seedInput.focus(); }
+    function closeSeedModal() { isPaused = false; seedModal.style.display = "none"; }
+    
+    // --- CORE SEED LOGIC ---
+    function applySeed() {
+        let raw = seedInput.value.trim();
+        modal.style.display = 'none';
+        confettiCanvas.style.display = 'none';
+        if(!raw) {
+            closeSeedModal();
+            setSeedMode('seed');
+            startIntro(false);
+            showToast("New Random Game Started!");
+            return;
+        }
+
+        try {
+            const saveData = parseSaveState(raw);
+            if (saveData) {
+                loadGameFromState(saveData);
+                closeSeedModal();
+                showToast("Game Resumed!");
+                setSeedMode('save');
+                return;
+            }
+        } catch(e) { }
+
+        // REMOVED .toUpperCase() -> Now Case Sensitive
+        const newSeed = hashString(raw);
+        currentSeedString = raw; 
+        startNewGameWithSeed(newSeed);
+        
+        closeSeedModal();
+        showToast(`Seed "${currentSeedString}" Loaded!`);
+        setSeedMode('seed');
+    }
+
+    function loadGameFromState(data) {
+        clearInterval(timerInterval);
+        matchesFound = 0; isProcessing = false; isCelebrating = false;
+        modal.style.display = 'none';
+        confettiCanvas.style.display = 'none';
+        
+        currentDeckSeed = data.seed;
+        currentSeedString = ""; 
+        
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng);
+        renderBoard();
+        selectedCards = []; 
+        
+        deck.forEach((card, i) => {
+            const cardEl = document.getElementById(`card-${card.index}`);
+            const iBig = BigInt(i);
+            if ((data.matchedBits >> iBig) & 1n) {
+                card.isMatched = true; card.isRevealed = true;
+                matchesFound++; cardEl.classList.add('matched');
+            }
+            if ((data.revealedBits >> iBig) & 1n) {
+                card.isRevealed = true;
+                if (!card.isMatched) cardEl.classList.add('flipped');
+            }
+        });
+        
+        checkGameState();
+        updateSeedUI();
+        startIntro(true); 
+        startTimer();
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
+    }
+
+    function startNewGameWithSeed(seedVal) {
+        clearInterval(timerInterval);
+        matchesFound = 0; isProcessing = false; isCelebrating = false;
+        modal.style.display = 'none';
+        confettiCanvas.style.display = 'none';
+        currentDeckSeed = seedVal;
+        
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng);
+        
+        renderBoard();
+        checkGameState();
+        updateSeedUI();
+        startIntro(true);
+        startTimer();
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if (giveUpBtn) giveUpBtn.style.display = 'flex';
+    }
+
+    // --- STANDARD GAME FUNCS ---
+    function showHelp() { isPaused = true; helpModal.style.display = 'flex'; }
+    function hideHelp() { isPaused = false; helpModal.style.display = 'none'; }
+    function toggleTheme() {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle('dark-mode', isDarkMode);
+        themeBtn.innerText = isDarkMode ? '☀️' : '🌙';
+    }
+
+    function toggleFullscreen() {
+        const elem = document.documentElement;
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+        if (!isFullscreen) {
+            if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+    }
+    function updateFullscreenButton() {
+        if (!fullscreenBtn) return;
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+        fullscreenBtn.innerText = isFullscreen ? '\u2716' : '\u26F6';
+    }
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    function toggleRoarMode() {
+        isRoarMode = !isRoarMode;
+        roarBtn.classList.toggle("active", isRoarMode);
+    }
+    function adjustFontSize(dir) {
+        currentFontSize = Math.max(0.8, Math.min(3.0, currentFontSize + (dir * 0.2)));
+        document.documentElement.style.setProperty('--number-size', `${currentFontSize}rem`);
+    }
+    
+    function startIntro(fromSeed = false) {
+        isCelebrating = false;
+        SoundManager.init();
+        startScreen.style.opacity = '0';
+        setTimeout(() => startScreen.style.display = 'none', 500);
+        if (!fromSeed) {
+            resetLogic();
+            renderBoard();
+            isIntroMode = true; isProcessing = true; 
+            const cards = document.querySelectorAll('.card');
+            setTimeout(() => {
+                cards.forEach(card => {
+                    card.classList.add('storming');
+                    const rX = (Math.random()-0.5)*window.innerWidth*1.2;
+                    const rY = (Math.random()-0.5)*window.innerHeight*1.2;
+                    card.style.transform = `translate(${rX}px, ${rY}px) rotate(${(Math.random()-0.5)*720}deg) scale(0.5) rotateY(180deg)`;
+                });
+            }, 50);
+            setTimeout(() => { cards.forEach(c => { c.style.transform = ''; setTimeout(()=>c.classList.remove('storming'), 1500); }); }, 1600);
+            setTimeout(() => {
+                isIntroMode = false; isProcessing = false;
+                const rng = createRNG(currentDeckSeed + 1);
+                let indices = Array.from({length: 27}, (_, i) => i).sort(() => rng() - 0.5);
+                indices.slice(0, 6).forEach(idx => flipCard(document.getElementById(`card-${idx}`), deck[idx]));
+                checkGameState(); startTimer();
+            }, 3200);
+        }
+    }
+
+    function resetGame() {
+        modal.style.display = 'none'; confettiCanvas.style.display = 'none';
+        startScreen.style.display = 'flex'; startScreen.style.opacity = '1';
+        roarOverlay.style.display = 'none'; cleanupRoar(true);
+        clearInterval(timerInterval);
+        isCelebrating = false;
+    }
+
+    function resetLogic() {
+        const randomNum = Math.floor(Math.random() * 100000);
+        currentSeedString = ""; 
+        currentDeckSeed = randomNum;
+        
+        const rng = createRNG(currentDeckSeed);
+        deck = generateDeck(rng); 
+        selectedCards = []; matchesFound = 0; isProcessing = false; isPaused = false; isCelebrating = false;
+        clearInterval(timerInterval);
+            timeDisplay.innerText = '00:00'; finishBtn.style.display = 'none'; 
+            const giveUpBtn = document.getElementById('giveup-btn');
+            if(giveUpBtn) giveUpBtn.style.display = 'flex';
+            updateSeedUI();    
+            if(document.getElementById('victory-panel')) document.getElementById('victory-panel').classList.remove('show');
+    }
+
+    function startTimer() { startTime = Date.now(); timerInterval = setInterval(updateTimer, 1000); }
+    function updateTimer() {
+        if (isPaused || !startTime) return; 
+        const diff = Math.floor((Date.now() - startTime) / 1000);
+        const m = Math.floor(diff / 60).toString().padStart(2, '0');
+        const s = (diff % 60).toString().padStart(2, '0');
+        timeDisplay.innerText = `${m}:${s}`;
+    }
+
+    function generateDeck(rngFunc) {
+        let cards = []; let id = 0;
+        for (let c = 0; c < 3; c++) for (let m = 0; m < 3; m++) for (let t = 0; t < 3; t++) 
+            cards.push({ id: id++, color: COLORS[c], mane: MANES[m], tail: TAILS[t], code: COLORS[c]+MANES[m]+TAILS[t], isRevealed: false, isMatched: false, index: 0 });
+        const shuffled = cards.sort(() => rngFunc() - 0.5);
+        shuffled.forEach((c, i) => c.index = i);
+        return shuffled;
+    }
+
+    function showToast(msg) { toast.innerText = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); }
+
+    function renderBoard() {
+        board.innerHTML = '';
+        deck.forEach((card, index) => {
+            const cardEl = document.createElement('div'); cardEl.className = 'card'; cardEl.id = `card-${index}`;
+            const back = document.createElement('div'); back.className = 'back';
+            back.innerHTML = `<div class="card-number">${index+1}</div><div class="persistent-tick">✅</div>`;
+            const face = document.createElement('div'); face.className = 'face';
+            const img = document.createElement('img'); img.src = `lion_cards/${card.code}.png`; img.className = 'card-img';
+            img.onerror = function() { this.style.display = 'none'; this.nextElementSibling.style.display = 'block'; };
+            const fallback = document.createElement('div'); fallback.className = 'fallback-text'; fallback.innerText = card.code;
+            face.appendChild(img); face.appendChild(fallback);
+            face.innerHTML += `<div class="card-number">${index+1}</div><div class="feedback-anim tick-anim">✅</div><div class="feedback-anim cross-anim">❌</div>`;
+            cardEl.appendChild(back); cardEl.appendChild(face);
+            cardEl.addEventListener('click', () => handleCardClick(index));
+            board.appendChild(cardEl);
+        });
+        resizeCards();
+    }
+
+    function resizeCards() {
+        const boardW = board.clientWidth - 20; const boardH = board.clientHeight - 20; const gap = 10; let bestSize = 0;
+        for (let cols = 3; cols <= 9; cols++) {
+            const rows = Math.ceil(27 / cols);
+            const w = (boardW - (cols - 1) * gap) / cols; const h = (boardH - (rows - 1) * gap) / rows;
+            const size = Math.min(w, h); const cardW = size; const cardH = size * 1.25; 
+            if (cardH * rows + (rows-1)*gap <= boardH && cardW * cols + (cols-1)*gap <= boardW) {
+                if (cardW > bestSize) {
+                    bestSize = cardW;
+                    document.documentElement.style.setProperty('--card-w', `${cardW}px`); document.documentElement.style.setProperty('--card-h', `${cardH}px`);
+                }
+            }
+        }
+        document.querySelectorAll('.card').forEach(c => {
+            c.style.width = document.documentElement.style.getPropertyValue('--card-w') || '80px';
+            c.style.height = document.documentElement.style.getPropertyValue('--card-h') || '100px';
+        });
+    }
+
+    function handleCardClick(index) {
+        if (isProcessing || isIntroMode || isPaused) return;
+        const cardObj = deck[index]; const cardEl = document.getElementById(`card-${index}`);
+        if (cardObj.isMatched) return;
+        if (!cardObj.isRevealed) { SoundManager.play('flip'); flipCard(cardEl, cardObj); checkGameState(); updateSeedUI(); return; }
+        toggleSelection(cardEl, cardObj);
+    }
+
+    function flipCard(el, obj) { el.classList.add('flipped'); obj.isRevealed = true; }
+
+    function toggleSelection(el, obj) {
+        if (selectedCards.includes(obj)) { el.classList.remove('selected'); selectedCards = selectedCards.filter(c => c !== obj); SoundManager.play('flip'); } 
+        else { el.classList.add('selected'); selectedCards.push(obj); SoundManager.play('flip'); }
+        if (selectedCards.length === 3) checkSet();
+    }
+
+    function checkSetLogic(c1, c2, c3) {
+        const isAttributeSet = (a, b, c) => (a === b && b === c) || (a !== b && b !== c && a !== c);
+        return isAttributeSet(c1.color, c2.color, c3.color) && isAttributeSet(c1.mane, c2.mane, c3.mane) && isAttributeSet(c1.tail, c2.tail, c3.tail);
+    }
+
+    function checkSet() {
+        isProcessing = true;
+        const [c1, c2, c3] = selectedCards;
+        const els = [c1, c2, c3].map(c => document.getElementById(`card-${c.index}`));
+        if (checkSetLogic(c1, c2, c3)) {
+            if (isRoarMode) performRoarSequence(c1, c2, c3, els[0], els[1], els[2]);
+            else {
+                SoundManager.play('roar'); els.forEach(el => showFeedback(el, 'tick-anim'));
+                setTimeout(() => finalizeMatch(c1, c2, c3, els[0], els[1], els[2]), 600);
+            }
+        } else {
+            SoundManager.play('error');
+            setTimeout(() => {
+                els.forEach(el => { showFeedback(el, 'cross-anim'); el.classList.add('shake'); });
+                setTimeout(() => { els.forEach(el => el.classList.remove('selected', 'shake')); selectedCards = []; isProcessing = false; }, 600);
+            }, 400);
+        }
+    }
+    
+    function performRoarSequence(c1, c2, c3, el1, el2, el3) {
+        roarOverlay.style.display = 'flex'; const cards = [el1, el2, el3]; roarPlaceholders = [];
+        cards.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const ph = document.createElement('div'); ph.className = 'card card-placeholder';
+            ph.style.width = el.style.width; ph.style.height = el.style.height;
+            el.parentNode.insertBefore(ph, el); roarPlaceholders.push({ ph: ph, el: el });
+            el.classList.add('roar-fixed'); el.style.top = rect.top + 'px'; el.style.left = rect.left + 'px'; el.style.width = rect.width + 'px'; el.style.height = rect.height + 'px';
+        });
+        requestAnimationFrame(() => {
+            const centerX = window.innerWidth / 2; const centerY = window.innerHeight / 2;
+            const baseW = parseFloat(cards[0].style.width); const scaledW = baseW * 2.0; const gap = 20;
+            cards.forEach((el, index) => {
+                let targetX = centerX; if (index===0) targetX -= scaledW+gap; if (index===2) targetX += scaledW+gap;
+                el.style.top = (centerY - parseFloat(el.style.height)/2) + 'px'; el.style.left = (targetX - baseW/2) + 'px';
+                el.style.transform = `scale(2.0) rotateY(180deg)`;
+            });
+            setTimeout(() => { SoundManager.play('roar'); cards.forEach(el => el.classList.add('roar-pulsing')); setTimeout(()=>cards.forEach(el=>el.classList.remove('roar-pulsing')), 500); }, 800);
+        });
+    }
+
+    function dismissRoar() {
+        if (roarOverlay.style.display === 'none') return;
+        roarOverlay.style.display = 'none';
+        roarPlaceholders.forEach(item => {
+            const rect = item.ph.getBoundingClientRect();
+            item.el.style.top = rect.top + 'px'; item.el.style.left = rect.left + 'px'; item.el.style.transform = 'scale(1) rotateY(180deg)';
+        });
+        setTimeout(() => cleanupRoar(false), 800);
+    }
+
+    function cleanupRoar(isForce) {
+        if (roarPlaceholders.length === 0 && !isForce) return;
+        if(isForce) { document.querySelectorAll('.card.roar-fixed').forEach(el => { el.classList.remove('roar-fixed'); el.style = ''; }); document.querySelectorAll('.card-placeholder').forEach(ph=>ph.remove()); }
+        else {
+            roarPlaceholders.forEach(item => { item.ph.remove(); item.el.classList.remove('roar-fixed'); item.el.style = ''; });
+            if(selectedCards.length === 3) finalizeMatch(selectedCards[0], selectedCards[1], selectedCards[2], ...selectedCards.map(c=>document.getElementById(`card-${c.index}`)));
+        }
+        roarPlaceholders = []; resizeCards();
+    }
+
+    function finalizeMatch(c1, c2, c3, el1, el2, el3) {
+        [el1, el2, el3].forEach(el => { el.classList.remove('selected', 'hint-active', 'flipped', 'matched'); el.classList.add('matched'); });
+        c1.isMatched = c2.isMatched = c3.isMatched = true; matchesFound++; 
+        selectedCards = []; isProcessing = false; checkGameState(); updateSeedUI();
+    }
+
+    function showFeedback(el, type) { const fb = el.querySelector(`.${type}`); fb.classList.remove('fade-up'); void fb.offsetWidth; fb.classList.add('fade-up'); }
+
+    function checkGameState() {
+        const unmatched = deck.filter(c => c.isRevealed && !c.isMatched);
+        let setsAvailable = 0;
+        if (unmatched.length >= 3) {
+            for (let i=0; i<unmatched.length; i++) for (let j=i+1; j<unmatched.length; j++) for (let k=j+1; k<unmatched.length; k++) 
+                if (checkSetLogic(unmatched[i], unmatched[j], unmatched[k])) setsAvailable++;
+        }
+        setsCountDisplay.innerText = setsAvailable; setsContainer.className = setsAvailable===0 ? "sets-zero" : "sets-avail";
+        if (deck.filter(c => !c.isRevealed).length === 0) {
+            finishBtn.style.display = 'flex';
+            if (setsAvailable === 0) endGame(deck.filter(c => !c.isMatched).length < 3 ? "Completed!" : "No moves left!");
+        }
+    }
+
+    function useHint() {
+        if (isProcessing || isPaused) return;
+        const cand = deck.filter(c => c.isRevealed && !c.isMatched); let set = null;
+        for (let i=0; i<cand.length; i++) { for (let j=i+1; j<cand.length; j++) { for (let k=j+1; k<cand.length; k++) { if (checkSetLogic(cand[i], cand[j], cand[k])) { set=[cand[i], cand[j], cand[k]]; break; } } if(set) break; } if(set) break; }
+        if (set) { SoundManager.play('flip'); set.forEach(c => { const el = document.getElementById(`card-${c.index}`); el.classList.add('hint-anim', 'hint-active'); setTimeout(() => { el.classList.remove('hint-anim'); setTimeout(()=>el.classList.remove('hint-active'),2000); }, 1200); }); }
+        else { SoundManager.play('error'); const btn = document.querySelector('.hint-btn'); const txt = btn.innerText; btn.innerText = "✖"; btn.style.background = "#e74c3c"; setTimeout(() => { btn.innerText=txt; btn.style.background = ""; }, 1500); }
+    }
+
+    function giveUpGame() {
+        if (isProcessing || isPaused) return;
+        isProcessing = true;
+        isPaused = true;
+        clearInterval(timerInterval);
+        
+        const giveUpBtn = document.getElementById('giveup-btn');
+        if(giveUpBtn) giveUpBtn.style.display = 'none';
+
+        const autoFinishBtn = document.getElementById('auto-finish-btn');
+        if (autoFinishBtn) autoFinishBtn.style.display = 'none';
+
+        // 1. Flip all un-flipped cards
+        const unrevealed = deck.filter(c => !c.isRevealed);
+        unrevealed.forEach((card, i) => {
+            setTimeout(() => {
+                const el = document.getElementById(`card-${card.index}`);
+                if (el && !el.classList.contains('flipped')) {
+                    flipCard(el, card);
+                    SoundManager.play('flip');
+                }
+            }, i * 30);
+        });
+
+        // 2. After a delay, start auto-resolving sets
+        setTimeout(() => {
+            autoResolveSets();
+        }, unrevealed.length * 30 + 500);
+    }
+
+    function endGameManual() { isProcessing=true; isPaused=true; clearInterval(timerInterval); finishBtn.style.display='none'; autoResolveSets(); }
+    function autoResolveSets() {
+        const cand = deck.filter(c => c.isRevealed && !c.isMatched); let set = null;
+        for (let i=0; i<cand.length; i++) { for (let j=i+1; j<cand.length; j++) { for (let k=j+1; k<cand.length; k++) { if (checkSetLogic(cand[i], cand[j], cand[k])) { set=[cand[i], cand[j], cand[k]]; break; } } if(set) break; } if(set) break; }
+        if (set) {
+            SoundManager.play('roar'); const els = set.map(c=>document.getElementById(`card-${c.index}`));
+            els.forEach(el => { showFeedback(el, 'tick-anim'); el.classList.remove('selected','hint-active'); el.classList.add('matched'); });
+            set.forEach(c=>c.isMatched=true); matchesFound++; updateSeedUI(); setTimeout(autoResolveSets, 400);
+        } else endGame("Finished!");
+    }
+
+    function endGame(title) {
+        clearInterval(timerInterval); SoundManager.play('win');
+        isCelebrating = true;
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('compliment').innerText = "Good job!";
+        document.getElementById('final-stats').innerHTML = `<p>Time: ${timeDisplay.innerText}</p><p>Sets: ${matchesFound}</p>`;
+        modal.style.display = 'flex'; startConfetti(); triggerVictoryDance();
+        
+        document.getElementById('victory-panel').classList.add('show');
+    }
+
+    function triggerVictoryDance() { document.querySelectorAll('.card').forEach(c => { c.classList.add('flipped', 'victory-dance'); c.classList.remove('matched'); c.style.opacity = '1'; c.style.animationDelay = Math.random()*2+'s'; }); }
+
+    function startConfetti() {
+        const cvs = document.getElementById("confetti"); cvs.style.display = "block"; const ctx = cvs.getContext("2d");
+        cvs.width = window.innerWidth; cvs.height = window.innerHeight;
+        const p = Array.from({length:200}, ()=>({x:Math.random()*cvs.width, y:Math.random()*cvs.height-cvs.height, c:['#f1c40f','#e74c3c','#3498db'][Math.floor(Math.random()*3)], dy:Math.random()*5+2}));
+        function draw() { ctx.clearRect(0,0,cvs.width,cvs.height); let act=false; p.forEach(i=>{ ctx.fillStyle=i.c; ctx.fillRect(i.x,i.y,10,10); i.y+=i.dy; if(i.y<cvs.height) act=true; }); if(act) requestAnimationFrame(draw); }
+        draw();
+    }
+
+    const SoundManager = {
+        ctx: null, init: function() { window.AudioContext=window.AudioContext||window.webkitAudioContext; this.ctx=new AudioContext(); },
+        play: function(t) { if(this.muted||!this.ctx)return; if(this.ctx.state==='suspended')this.ctx.resume(); this.synth(t); },
+        synth: function(t) {
+            const g=this.ctx.createGain(), o=this.ctx.createOscillator(), n=this.ctx.currentTime; g.connect(this.ctx.destination);
+            if(t==='flip'){ o.type='sine'; o.frequency.setValueAtTime(800,n); o.frequency.exponentialRampToValueAtTime(300,n+0.1); g.gain.setValueAtTime(0.1,n); g.gain.exponentialRampToValueAtTime(0.01,n+0.1); o.connect(g); o.start(n); o.stop(n+0.1); }
+            else if(t==='error'){ o.type='sawtooth'; o.frequency.setValueAtTime(150,n); g.gain.setValueAtTime(0.2,n); g.gain.linearRampToValueAtTime(0,n+0.3); o.connect(g); o.start(n); o.stop(n+0.3); }
+            else if(t==='win'){ [523,659,783,1046].forEach((f,i)=> { const o2=this.ctx.createOscillator(), g2=this.ctx.createGain(); o2.type='square'; o2.frequency.value=f; g2.connect(this.ctx.destination); g2.gain.setValueAtTime(0.1,n+i*0.2); g2.gain.linearRampToValueAtTime(0,n+i*0.2+0.2); o2.connect(g2); o2.start(n+i*0.2); o2.stop(n+i*0.2+0.2); }); }
+            else if(t==='roar'){ 
+                const buf=this.ctx.createBuffer(1,this.ctx.sampleRate*2,this.ctx.sampleRate), d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+                const src=this.ctx.createBufferSource(); src.buffer=buf; const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.setValueAtTime(200,n); f.frequency.linearRampToValueAtTime(800,n+0.2); f.frequency.linearRampToValueAtTime(100,n+0.8);
+                const gN=this.ctx.createGain(); gN.gain.setValueAtTime(0,n); gN.gain.linearRampToValueAtTime(0.5,n+0.1); gN.gain.linearRampToValueAtTime(0,n+0.8);
+                src.connect(f); f.connect(gN); gN.connect(g); src.start(n); src.stop(n+0.9);
+            }
+        }
+    };
+
+    function canTriggerHold(target) {
+        if (!isCelebrating || seedModal.style.display === "flex") return false;
+        if (!target || !target.closest) return true;
+        return !target.closest('#seed-modal');
+    }
+
+    function startHold(e) {
+        if (!canTriggerHold(e.target)) return;
+        if (holdTimer) clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => {
+            holdTimer = null;
+            openSeedModal();
+        }, HOLD_DURATION_MS);
+    }
+
+    function cancelHold() {
+        if (holdTimer) clearTimeout(holdTimer);
+        holdTimer = null;
+    }
+
+    preloadLionCards(getAllLionCodes()).then(() => {
+        hideLoadingScreen();
+    });
+
+    window.addEventListener('pointerdown', startHold);
+    window.addEventListener('pointerup', cancelHold);
+    window.addEventListener('pointercancel', cancelHold);
+    window.addEventListener('pointerleave', cancelHold);
+    window.addEventListener('blur', cancelHold);
+
+    // --- TOUCH ZOOM PREVENTION ---
+    let lastTouchEnd = 0;
+    window.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener('gesturestart', (e) => e.preventDefault());
+    window.addEventListener('gesturechange', (e) => e.preventDefault());
+    window.addEventListener('gestureend', (e) => e.preventDefault());
+</script>
+</body>
+</html>

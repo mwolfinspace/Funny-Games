@@ -1,0 +1,3933 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nonogram Master</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --game-bg: #f1f5f9;
+            --panel-border: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+
+            --clue-bg: #ffffff;
+            --clue-text: #000000;
+            --clue-divider: #e2e8f0;
+            --clue-cell-bg: #ffffff;
+            --clue-zone-bg: #f0f4f8;
+            --corner-bg: #ffffff;
+
+            --border-frame: #73b7ee;
+
+            --cell-bg: #ffffff;
+            --cell-crossed: #ef4444;
+            --cell-hint: #facc15;
+
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
+            --game-bg: #020617;
+            --panel-border: #334155;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --clue-bg: #1e293b;
+            --clue-text: #ffffff;
+            --clue-divider: #334155;
+            --clue-cell-bg: #1e293b;
+            --clue-zone-bg: #2a3a4a;
+            --corner-bg: #1e293b;
+            --border-frame: #27527e;
+            --cell-bg: #1e293b;
+            --cell-crossed: #ef4444;
+            --cell-hint: #ca8a04;
+            --accent: #60a5fa;
+            --accent-hover: #3b82f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            font-family: "Segoe UI", sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* STAGE */
+        #main-stage {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--game-bg);
+            background-image: radial-gradient(var(--grid-line) 1px, transparent 1px);
+            overflow: hidden;
+            transition: flex 0.3s ease;
+        }
+
+        /* SIDEBAR */
+        #sidebar {
+            width: 340px;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 15px;
+            z-index: 20;
+            overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.05);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, opacity 0.2s ease, border 0.3s;
+            flex-shrink: 0;
+        }
+
+        body.sidebar-collapsed #sidebar {
+            width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            opacity: 0;
+            border-left: none;
+            overflow: hidden;
+        }
+
+        /* TOP RIGHT CONTROLS CONTAINER */
+        #top-right-group {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 30;
+            flex-direction: row-reverse;
+        }
+
+        /* FLOATING BUTTONS */
+        .float-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s, color 0.2s;
+            font-size: 1.2rem;
+            text-decoration: none;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .float-btn:hover {
+            transform: scale(1.1);
+            background: var(--bg-color);
+        }
+
+        .float-btn svg {
+            width: 24px;
+            height: 24px;
+            stroke-width: 2;
+        }
+
+        .float-btn.highlight {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+            animation: pulseBtn 2s infinite;
+        }
+
+        .float-btn.hint-btn {
+            color: #eab308;
+            border-color: #eab308;
+        }
+
+        .hint-btn-cooldown {
+            position: relative;
+            overflow: hidden;
+        }
+        .hint-btn-cooldown::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6); /* A dark overlay */
+            animation: cooldown-reveal 5s linear forwards;
+        }
+
+        @keyframes cooldown-reveal {
+            from {
+                height: 100%;
+            }
+            to {
+                height: 0%;
+            }
+        }
+
+        @keyframes pulseBtn {
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+
+        #top-left-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        @media (max-width: 767px) {
+            #home-btn {
+                display: none;
+            }
+
+            body.sidebar-collapsed #home-btn {
+                display: flex;
+            }
+        }
+
+        /* TIMER */
+        #timer-display {
+            font-family: monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            background: var(--sidebar-bg);
+            padding: 8px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            pointer-events: none;
+            display: none;
+            /* Hide by default */
+        }
+
+        #timer-display.visible {
+            display: block;
+        }
+
+        #float-extra-controls {
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-right: 5px;
+        }
+
+        body.sidebar-collapsed #float-extra-controls {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(0);
+        }
+
+
+
+        #mobile-bottom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+            flex-direction: row;
+            gap: 8px;
+            z-index: 30;
+        }
+
+        @media (max-width: 767px) {
+            #mobile-bottom-controls {
+                display: flex;
+            }
+
+            body:not(.sidebar-collapsed) #mobile-bottom-controls {
+                display: none;
+            }
+        }
+
+        @media (min-width: 768px) {
+            #mobile-bottom-controls {
+                display: none !important;
+            }
+
+            body.sidebar-collapsed #mobile-bottom-controls {
+                display: flex !important;
+            }
+        }
+
+        /* TALL NARROW SCREEN LAYOUT FOR BOTTOM BUTTONS (aspect ratio < 0.5, like Samsung Galaxy S20, Xiaomi Mi 11i) */
+        @media (max-aspect-ratio: 0.5) and (max-width: 767px) {
+            #mobile-bottom-controls {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto auto;
+                gap: 8px;
+                width: auto;
+                z-index: 30;
+            }
+
+            body:not(.sidebar-collapsed) #mobile-bottom-controls {
+                display: grid;
+            }
+        }
+
+        #seed-display-box {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: none;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            cursor: pointer;
+            z-index: 30;
+            max-width: 200px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: var(--accent);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+
+        #seed-display-box:hover {
+            background: var(--bg-color);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        @media (max-width: 767px) {
+            #seed-display-box {
+                display: block;
+            }
+
+            body:not(.sidebar-collapsed) #seed-display-box {
+                display: none;
+            }
+        }
+
+        @media (min-width: 768px) {
+            #seed-display-box {
+                display: block;
+            }
+        }
+
+        /* Seed Modal */
+        #seed-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #seed-modal.show {
+            display: flex;
+        }
+
+        #seed-modal-content {
+            background: var(--sidebar-bg);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        #seed-modal-text {
+            font-family: monospace;
+            font-size: 1em;
+            color: var(--accent);
+            font-weight: 600;
+            word-break: break-all;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--bg-color);
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #seed-modal-text:hover {
+            background: var(--panel-border);
+        }
+
+        #seed-modal-button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        #seed-modal-button:hover {
+            opacity: 0.9;
+        }
+
+        #seed-modal-buttons {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        #seed-modal-button,
+        #seed-modal-qr-button {
+            flex: 1;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        #seed-modal-qr-button:hover {
+            opacity: 0.9;
+        }
+
+        #qr-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #qr-modal.show {
+            display: flex;
+        }
+
+        #qr-modal-content {
+            background: var(--sidebar-bg);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #qr-code-container {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #qr-code-container canvas,
+        #qr-code-container svg {
+            display: block;
+        }
+
+        #qr-modal-link {
+            font-family: monospace;
+            font-size: 0.85em;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            max-width: 300px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #qr-modal-link:hover {
+            background: var(--panel-border);
+        }
+
+        .qr-modal-button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-top: 8px;
+        }
+
+        .qr-modal-button:hover {
+            opacity: 0.9;
+        }
+
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* BOARD SCALER */
+        #game-scaler {
+            transform-origin: center;
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            background: var(--clue-bg);
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            position: relative;
+            z-index: 1;
+        }
+
+        .grid-frame {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 0;
+            background: var(--border-frame);
+            border: 4px solid var(--border-frame);
+        }
+
+        .corner,
+        .clues-col,
+        .clues-row {
+            background: var(--clue-bg);
+        }
+
+        .corner {
+            background: var(--corner-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-right: 3px solid var(--border-frame);
+            border-bottom: 3px solid var(--border-frame);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .corner:hover {
+            opacity: 0.8;
+        }
+
+        .corner-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            width: 100%;
+            height: 100%;
+            font-size: 14px;
+        }
+
+        .corner-emoji {
+            font-size: 24px;
+            line-height: 1;
+            /* min-height: 30px;  <-- REMOVE or comment out this line */
+            min-height: 0;
+            /* Add this to override any defaults */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .corner-preview {
+            border: 1px solid var(--grid-line);
+            border-radius: 2px;
+        }
+
+        .corner-preview.hidden {
+            display: none;
+        }
+
+        .corner-preview svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .clues-col {
+            grid-column: 2;
+            grid-row: 1;
+            display: flex;
+        }
+
+        .clues-row {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .corner {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .clue-group-col {
+            width: 26px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            border-right: 3px solid var(--border-frame);
+            font-family: 'Courier Prime', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--clue-text);
+            padding: 4px 0;
+            background: var(--clue-zone-bg);
+        }
+
+        .clue-group-row {
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            border-bottom: 3px solid var(--border-frame);
+            font-family: 'Courier Prime', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--clue-text);
+            padding: 0 6px;
+            gap: 3px;
+            background: var(--clue-zone-bg);
+        }
+
+        .cell {
+            width: 26px;
+            height: 26px;
+            background: var(--cell-bg);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border: 1px solid var(--grid-line);
+        }
+
+        .cell.v-thick {
+            border-right: 3px solid var(--border-frame) !important;
+            margin-right: -1px;
+        }
+
+        .cell.h-thick {
+            border-bottom: 3px solid var(--border-frame) !important;
+            margin-bottom: -1px;
+        }
+
+        /* Fill zone perimeter borders */
+        .cell.perimeter-top {
+            border-top: 3px solid var(--border-frame) !important;
+        }
+
+        .cell.perimeter-bottom {
+            border-bottom: 3px solid var(--border-frame) !important;
+            margin-bottom: -1px;
+        }
+
+        .cell.perimeter-left {
+            border-left: 3px solid var(--border-frame) !important;
+        }
+
+        .cell.perimeter-right {
+            border-right: 3px solid var(--border-frame) !important;
+            margin-right: -1px;
+        }
+
+        .cell.filled {
+            background: var(--cell-filled);
+        }
+
+        .cell.crossed {
+            color: var(--cell-crossed);
+            font-weight: 900;
+            font-size: 20px;
+        }
+
+        .cell.crossed::after {
+            content: "✕";
+        }
+
+        .cell.unsolved {
+            box-shadow: inset 0 0 0 3px var(--danger);
+            z-index: 5;
+        }
+
+        @keyframes rainbow-shift {
+
+            0%,
+            100% {
+                background-color: hsl(0, 80%, 70%);
+            }
+
+            10% {
+                background-color: hsl(36, 80%, 70%);
+            }
+
+            20% {
+                background-color: hsl(72, 80%, 70%);
+            }
+
+            30% {
+                background-color: hsl(108, 80%, 70%);
+            }
+
+            40% {
+                background-color: hsl(144, 80%, 70%);
+            }
+
+            50% {
+                background-color: hsl(180, 80%, 70%);
+            }
+
+            60% {
+                background-color: hsl(216, 80%, 70%);
+            }
+
+            70% {
+                background-color: hsl(252, 80%, 70%);
+            }
+
+            80% {
+                background-color: hsl(288, 80%, 70%);
+            }
+
+            90% {
+                background-color: hsl(324, 80%, 70%);
+            }
+        }
+
+        .cell.filled.rainbow-win {
+            animation: rainbow-shift 4s linear infinite;
+        }
+
+
+
+        @keyframes flashHint {
+            0% {
+                background: var(--cell-hint);
+                transform: scale(1.2);
+            }
+
+            100% {
+                background: var(--cell-filled);
+                transform: scale(1);
+            }
+        }
+
+        .cell.hint-anim {
+            animation: flashHint 0.5s ease-out forwards;
+        }
+
+        /* UI CONTROLS */
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: var(--accent);
+        }
+
+        h2 {
+            margin: 10px 0 5px 0;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.1s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn.secondary {
+            background: var(--sidebar-bg);
+            color: var(--text-main);
+            border: 1px solid var(--panel-border);
+        }
+
+        .btn.secondary:hover {
+            background: var(--bg-color);
+        }
+
+        .btn.danger {
+            background: var(--danger);
+        }
+
+        .btn.hint {
+            background: #eab308;
+            color: black;
+        }
+
+        .btn.small {
+            padding: 5px 10px;
+            font-size: 0.85em;
+            width: auto;
+            margin: 0;
+        }
+
+        .btn.icon {
+            width: 36px;
+            padding: 5px;
+            margin: 0;
+        }
+
+        .control-panel {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            animation: fadeIn 0.3s;
+        }
+
+        .control-panel.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .control-box {
+            background: var(--bg-color);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .row-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background: var(--sidebar-bg);
+            color: var(--text-main);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 1em;
+        }
+
+        .level-nav {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            align-items: stretch;
+            height: 42px;
+        }
+
+        .level-nav .btn {
+            margin: 0;
+            height: 100%;
+        }
+
+        .level-input-group {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 0 5px;
+            height: 100%;
+        }
+
+        .level-input-group span {
+            font-size: 0.8em;
+            font-weight: 700;
+            color: var(--text-muted);
+            padding-left: 8px;
+            white-space: nowrap;
+        }
+
+        .level-input-group input {
+            border: none;
+            background: transparent;
+            padding: 5px;
+            text-align: center;
+            font-weight: bold;
+            height: 100%;
+        }
+
+        .level-input-group input:focus {
+            outline: none;
+        }
+
+        .status-bar {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-align: center;
+            background: var(--panel-border);
+            color: var(--text-muted);
+            transition: 0.3s;
+        }
+
+        .status-bar.ok {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-bar.warn {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .status-bar.err {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+
+
+        .code-display {
+            font-size: 2em;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            border: 1px solid transparent;
+            transition: 0.2s;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 8px;
+            font-family: monospace;
+            cursor: pointer;
+        }
+
+        .code-display:hover {
+            background: rgba(0, 0, 0, 0.08);
+            border-color: var(--panel-border);
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 200px;
+            background-color: #0f172a;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 12px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+
+        @keyframes screen-shake {
+
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0);
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                transform: translate(-4px, 4px) rotate(-1deg);
+            }
+
+            20%,
+            40%,
+            60%,
+            80% {
+                transform: translate(4px, -4px) rotate(1deg);
+            }
+        }
+
+        .shake-win {
+            animation: screen-shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+        }
+    </style>
+</head>
+
+<body oncontextmenu="return false;">
+
+    <div id="unmute-overlay"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); color: white; z-index: 2000; justify-content: center; align-items: center; font-size: 2rem; font-family: sans-serif; cursor: pointer;">
+        ▶ Tap to Start</div>
+
+    <div id="toast">Code Copied!</div>
+
+    <div id="main-stage">
+        <canvas id="emoji-canvas"
+            style="position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none;"></canvas>
+        <div id="top-left-container">
+            <a href="index.html" id="home-btn" class="float-btn" title="Back to Home">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+            </a>
+            <div id="timer-display">00:00</div>
+        </div>
+
+        <div id="top-right-group">
+            <button id="sidebar-toggle" class="float-btn" onclick="app.toggleSidebar()" title="Toggle Sidebar">
+                <svg id="icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round" style="display:block">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="15" y1="3" x2="15" y2="21"></line>
+                    <path d="M10 15l-3-3 3-3" />
+                </svg>
+                <svg id="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round" style="display:none">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="15" y1="3" x2="15" y2="21"></line>
+                    <path d="M7 15l3-3-3-3" />
+                </svg>
+            </button>
+
+            <div id="float-extra-controls">
+                <button id="btn-action" class="float-btn" onclick="app.handleActionBtn()"
+                    title="Clear Board / New Game">
+                    <svg id="icon-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round" style="display:block">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <path d="M3 3v5h5"></path>
+                    </svg>
+                    <svg id="icon-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round" style="display:none">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                </button>
+                <button id="btn-new-game" class="float-btn" onclick="app.startRandom(10, 10)"
+                    title="New 10x10 Challenge" style="display:none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="12 3 20 7.5 20 16.5 12 21 4 16.5 4 7.5 12 3"></polyline>
+                        <polyline points="12 12 20 7.5"></polyline>
+                        <polyline points="12 12 12 21"></polyline>
+                        <polyline points="12 12 4 7.5"></polyline>
+                    </svg>
+                </button>
+                <button id="floating-hint-btn" class="float-btn hint-btn" title="Hint (Hold for Give Up)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M9 18h6"></path>
+                        <path d="M10 22h4"></path>
+                        <path d="M12 2v1"></path>
+                        <path d="M12 15a5 5 0 0 1-5-5c0-2.5 2-5 5-5s5 2.5 5 5a5 5 0 0 1-5 5z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div id="mobile-bottom-controls">
+                <button class="float-btn" onclick="app.zoom(0.1)" title="Zoom In">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+                <button class="float-btn" onclick="app.zoom(-0.1)" title="Zoom Out">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+                <button id="qr-btn" class="float-btn" onclick="app.generateQR()" title="Generate QR Code">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                        <line x1="11" y1="19" x2="20" y2="19"></line>
+                        <line x1="19" y1="11" x2="19" y2="20"></line>
+                    </svg>
+                </button>
+                <button class="float-btn" onclick="app.showGameActionsModal()" title="Give Up - Let AI Finish">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="4 17 10 11 4 5"></polyline>
+                        <line x1="12" y1="19" x2="20" y2="19"></line>
+                    </svg>
+                </button>
+                <button id="fullscreen-btn" class="float-btn" onclick="app.toggleFullscreen()"
+                    title="Toggle Fullscreen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+                            id="fullscreen-icon"></path>
+                        <path
+                            d="M16 3h3a2 2 0 0 1 2 2v3M3 8V5a2 2 0 0 1 2-2h3m18 18h-3a2 2 0 0 1-2-2v-3m0 0V8m3 16v3a2 2 0 0 1-2 2h-3"
+                            id="fullscreen-exit-icon" style="display:none"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="seed-display-box" onclick="app.showSeedModal()">Seed: Loading...</div>
+
+        <div id="seed-modal" onclick="app.closeSeedModal(event)">
+            <div id="seed-modal-content" onclick="event.stopPropagation()">
+                <div id="seed-modal-text" onclick="app.copySeedFromModal()">Seed: Loading...</div>
+                <div id="seed-modal-buttons">
+                    <button id="seed-modal-button" onclick="app.copySeedFromModal()">📋 Copy to Clipboard</button>
+                    <button id="seed-modal-qr-button" onclick="app.closeSeedModal(); app.generateQR();">🔲 QR
+                        Code</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="qr-modal" onclick="app.closeQRModal(event)">
+            <div id="qr-modal-content" onclick="event.stopPropagation()">
+                <h2 style="margin-top: 0; color: var(--text-main);">Share Your Game</h2>
+                <div id="qr-code-container"></div>
+                <div id="qr-modal-link" onclick="app.copyQRLink()" title="Click to copy link">Loading...</div>
+                <button class="qr-modal-button" onclick="app.copyQRLink()">🔗 Copy Link</button>
+                <button class="qr-modal-button" onclick="app.downloadQR()">⬇️ Download QR</button>
+                <button class="qr-modal-button secondary" style="background: var(--text-muted); margin-top: 16px;"
+                    onclick="app.closeQRModal()">Close</button>
+            </div>
+        </div>
+
+
+        <div id="game-scaler">
+            <div id="grid-container" class="grid-frame"></div>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <div class="header-row">
+            <div>
+                <h1>Nonogram</h1>
+                <small style="color: var(--text-muted)">Right-click to Cross</small>
+            </div>
+
+            <div style="display:flex; gap:6px; align-items:center;">
+                <input type="color" id="frame-color-picker" style="width:0; height:0; opacity:0; position:absolute;"
+                    onchange="app.setColor(this.value)">
+
+                <button class="btn secondary icon"
+                    onclick="document.getElementById('frame-color-picker').showPicker ? document.getElementById('frame-color-picker').showPicker() : document.getElementById('frame-color-picker').click()"
+                    title="Pick Border Color">🎨</button>
+                <button class="btn secondary icon" onclick="app.setRandomColor()"
+                    title="Random Border Color">🎲</button>
+                <button class="btn secondary icon" onclick="app.toggleTheme()" title="Toggle Theme">◑</button>
+            </div>
+        </div>
+
+        <div id="panel-menu" class="control-panel active">
+            <div
+                style="text-align:center; padding: 8px; color: var(--accent); font-weight:bold; font-size:0.85em; background: var(--bg-color); border-radius:6px;">
+                Watching AI Demo...
+            </div>
+
+            <h2>Campaign</h2>
+            <div class="level-nav">
+                <button class="btn secondary small" style="width:40px" onmousedown="Nav.start(-1)"
+                    ontouchstart="Nav.start(-1)">❮</button>
+                <div class="level-input-group">
+                    <span>Lvl</span>
+                    <input type="number" id="menu-lvl-input" value="1" min="1" max="500"
+                        onchange="app.validateLevelInput()">
+                </div>
+                <button class="btn" style="flex:1" onclick="app.campGo()">Play</button>
+                <button class="btn secondary small" style="width:40px" onmousedown="Nav.start(1)"
+                    ontouchstart="Nav.start(1)">❯</button>
+            </div>
+            <small style="color:var(--text-muted); font-size:0.8em; display:block; margin-top:-5px;">Size grows from 5x5
+                to 20x20</small>
+
+            <h2>Quick Play</h2>
+            <button class="btn secondary" onclick="app.startRandom(5, 7)">🎲 Easy Random (5x5 - 7x7)</button>
+            <button class="btn secondary" onclick="app.startRandom(8, 12)">🎲 Medium Random (8x8 - 12x12)</button>
+            <button class="btn secondary" onclick="app.startRandom(13, 15)">🎲 Hard Random (13x13 - 15x15)</button>
+            <button class="btn secondary" onclick="app.startRandom(16, 20)">🎲 Expert Random (16x16 - 20x20)</button>
+
+            <h2>Load / Editor</h2>
+            <div class="control-box">
+                <input type="text" id="load-input" placeholder="Paste Save Code or Seed">
+                <div class="row-group">
+                    <button class="btn secondary small" style="flex:1" onclick="app.handleLoad()">Load</button>
+                    <button class="btn secondary small" style="flex:1" onclick="app.openEditor()">Editor</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-game" class="control-panel">
+            <div class="header-row">
+                <h2 id="level-title" style="border:none; margin:0; cursor:pointer;" onclick="app.promptLevelJump()"
+                    title="Click to jump level">Level 1</h2>
+                <span id="zoom-val" style="font-size:0.8em; font-weight:bold; color:var(--accent);">100%</span>
+            </div>
+
+            <div id="camp-controls" class="row-group" style="display:none; margin-bottom:8px;">
+                <button class="btn secondary small" style="flex:1" onclick="app.nextLevel(-1)">❮ Prev</button>
+                <button class="btn secondary small" style="flex:1" onclick="app.nextLevel(1)">Next ❯</button>
+            </div>
+
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">ACTIONS</small>
+                <div class="row-group">
+                    <button class="btn secondary small" onclick="app.resetBoard()">Clear Board</button>
+                    <button id="btn-sidebar-new" class="btn secondary small" style="display:none;"
+                        onclick="app.startNewGame()">New Random</button>
+                </div>
+            </div>
+
+            <div class="row-group">
+                <button class="btn hint" onclick="app.useHint()">💡 Hint</button>
+                <button class="btn secondary" onclick="app.showGameActionsModal()">Give Up</button>
+            </div>
+
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">ZOOM</small>
+                <div class="row-group">
+                    <button class="btn secondary small" onclick="app.zoom(-0.1)">-</button>
+                    <button class="btn secondary small" style="flex:1" onclick="app.fitBoard(true)">Fit Screen</button>
+                    <button class="btn secondary small" onclick="app.zoom(0.1)">+</button>
+                </div>
+            </div>
+
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">SHARE / SAVE</small>
+                <div class="code-display" id="share-display" onclick="app.copyCode('share-display')">...</div>
+                <button class="btn secondary" onclick="app.generateQR()" style="width:100%; margin-top:8px;">🔲 Share QR
+                    Code</button>
+            </div>
+
+            <div style="flex:1"></div>
+            <button class="btn danger" onclick="app.showMenu()">Back to Menu</button>
+        </div>
+
+        <div id="panel-editor" class="control-panel">
+            <h2>Editor</h2>
+            <div id="editor-status" class="status-bar">Empty Board</div>
+
+            <div class="control-box">
+                <div class="row-group" style="justify-content: space-between;">
+                    <span>Width</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button class="btn secondary small" onclick="app.resizeBoard(-1, 0)">-</button>
+                        <b id="lbl-w" style="min-width: 24px; text-align: center;">10</b>
+                        <button class="btn secondary small" onclick="app.resizeBoard(1, 0)">+</button>
+                    </div>
+                </div>
+                <div class="row-group" style="justify-content: space-between;">
+                    <span>Height</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button class="btn secondary small" onclick="app.resizeBoard(0, -1)">-</button>
+                        <b id="lbl-h" style="min-width: 24px; text-align: center;">10</b>
+                        <button class="btn secondary small" onclick="app.resizeBoard(0, 1)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn secondary" onclick="app.clearEditorBoard()" title="Clear all cells">🧹 Quick
+                Clean</button>
+
+            <button class="btn hint" onclick="app.editorSolve()">🤖 Auto Solve & Check</button>
+            <button class="btn" onclick="app.playEditorLevel()">▶️ Test Play</button>
+
+            <div class="control-box">
+                <small style="font-weight:700; color:var(--text-muted)">SAVE CODE</small>
+                <div id="editor-export" class="code-display" onclick="app.copyCode('editor-export')"></div>
+            </div>
+
+            <div style="flex:1"></div>
+            <button class="btn danger" onclick="app.showMenu()">Exit</button>
+        </div>
+    </div>
+
+    <script>
+        const EMOJI_LIST = [
+            '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩',
+            '😘', '😗', '☺️', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐',
+            '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕',
+            '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁',
+            '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣',
+            '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹',
+            '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉',
+            '🙊', '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛',
+            '💚', '💙', '💜', '🤎', '🖤', '🤍', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️',
+            '🗨️', '🗯️', '💭', '💤', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
+            '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲',
+            '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴',
+            '👀', '👅', '👄', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '👨‍🦰', '👨‍🦱', '👨‍🦳', '👨‍🦲', '👩',
+            '👩‍🦰', '🧑‍🦰', '👩‍🦱', '🧑‍🦱', '👩‍🦳', '🧑‍🦳', '👩‍🦲', '🧑‍🦲', '👱‍♀️', '👱‍♂️', '🧓', '👴', '👵', '🙍', '🙍‍♂️', '🙍‍♀️',
+            '🙎', '🙎‍♂️', '🙎‍♀️', '🙅', '🙅‍♂️', '🙅‍♀️', '🙆', '🙆‍♂️', '🙆‍♀️', '💁', '💁‍♂️', '💁‍♀️', '🙋', '🙋‍♂️', '🙋‍♀️',
+            '🧏', '🧏‍♂️', '🧏‍♀️', '🙇', '🙇‍♂️', '🙇‍♀️', '🤦', '🤦‍♂️', '🤦‍♀️', '🤷', '🤷‍♂️', '🤷‍♀️', '👨‍⚕️', '👩‍⚕️', '👨‍🎓',
+            '👩‍🎓', '👨‍🏫', '👩‍🏫', '👨‍⚖️', '👩‍⚖️', '👨‍🌾', '👩‍🌾', '👨‍🍳', '👩‍🍳', '👨‍🔧', '👩‍🔧', '👨‍🏭', '👩‍🏭', '👨‍💼',
+            '👩‍💼', '👨‍🔬', '👩‍🔬', '👨‍💻', '👩‍💻', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '👨‍✈️', '👩‍✈️', '👨‍🚀', '👩‍🚀', '👨‍🚒',
+            '👩‍🚒', '👮', '👮‍♂️', '👮‍♀️', '🕵️', '🕵️‍♂️', '🕵️‍♀️', '💂', '💂‍♂️', '💂‍♀️', '👷', '👷‍♂️', '👷‍♀️', '🤴', '👸',
+            '👳', '👳‍♂️', '👳‍♀️', '👲', '🧕', '🤵', '🤵‍♂️', '🤵‍♀️', '👰', '👰‍♂️', '👰‍♀️', '🤰', '🤱', '👩‍🍼', '👨‍🍼',
+            '🧑‍🍼', '👼', '🎅', '🤶', '🧑‍🎄', '🦸', '🦸‍♂️', '🦸‍♀️', '🦹', '🦹‍♂️', '🦹‍♀️', '🧙', '🧙‍♂️', '🧙‍♀️', '🧚',
+            '🧚‍♂️', '🧚‍♀️', '🧛', '🧛‍♂️', '🧛‍♀️', '🧜', '🧜‍♂️', '🧜‍♀️', '🧝', '🧝‍♂️', '🧝‍♀️', '🧞', '🧞‍♂️', '🧞‍♀️', '🧟',
+            '🧟‍♂️', '🧟‍♀️', '💆', '💆‍♂️', '💆‍♀️', '💇', '💇‍♂️', '💇‍♀️', '🚶', '🚶‍♂️', '🚶‍♀️', '🧍', '🧍‍♂️', '🧍‍♀️',
+            '🧎', '🧎‍♂️', '🧎‍♀️', '👨‍🦯', '👩‍🦯', '🧑‍🦯', '👨‍🦼', '👩‍🦼', '🧑‍🦼', '👨‍🦽', '👩‍🦽', '🧑‍🦽', '🏃', '🏃‍♂️',
+            '🏃‍♀️', '💃', '🕺', '🕴️', '👯', '👯‍♂️', '👯‍♀️', '🧖', '🧖‍♂️', '🧖‍♀️', '🧗', '🧗‍♂️', '🧗‍♀️', '🤺', '🏇',
+            '⛷️', '🏂', '🏌️', '🏌️‍♂️', '🏌️‍♀️', '🏄', '🏄‍♂️', '🏄‍♀️', '🚣', '🚣‍♂️', '🚣‍♀️', '🏊', '🏊‍♂️', '🏊‍♀️', '⛹️',
+            '⛹️‍♂️', '⛹️‍♀️', '🏋️', '🏋️‍♂️', '🏋️‍♀️', '🚴', '🚴‍♂️', '🚴‍♀️', '🚵', '🚵‍♂️', '🚵‍♀️', '🤸', '🤸‍♂️', '🤸‍♀️',
+            '🤼', '🤼‍♂️', '🤼‍♀️', '🤽', '🤽‍♂️', '🤽‍♀️', '🤾', '🤾‍♂️', '🤾‍♀️', '🤹', '🤹‍♂️', '🤹‍♀️', '🧘', '🧘‍♂️',
+            '🧘‍♀️', '🛀', '🛌', '👭', '👫', '👬', '💏', '👩‍❤️‍💋‍👨', '👨‍❤️‍💋‍👨', '👩‍❤️‍💋‍👩', '💑', '👩‍❤️‍👨', '👨‍❤️‍👨',
+            '👩‍❤️‍👩', '👪', '👨‍👩‍👦', '👨‍👩‍👧', '👨‍👩‍👧‍👦', '👨‍👩‍👦‍👦', '👨‍👩‍👧‍👧', '👨‍👨‍👦', '👨‍👨‍👧', '👨‍👨‍👧‍👦', '👨‍👨‍👦‍👦',
+            '👨‍👨‍👧‍👧', '👩‍👩‍👦', '👩‍👩‍👧', '👩‍👩‍👧‍👦', '👩‍👩‍👦‍👦', '👩‍👩‍👧‍👧', '👨‍👦', '👨‍👦‍👦', '👨‍👧', '👨‍👧‍👦', '👨‍👧‍👧',
+            '👩‍👦', '👩‍👦‍👦', '👩‍👧', '👩‍👧‍👦', '👩‍👧‍👧', '🗣️', '👤', '👥', '🫂', '👣', '🐵', '🐒', '🦍', '🦧', '🐶',
+            '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱', '🐈', '🐈‍⬛', '🦁', '🐯', '🐅', '🐆', '🐴', '🐎',
+            '🦄', '🦓', '🦌', '🦬', '🐮', '🐂', '🐃', '🐄', '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🐪',
+            '🐫', '🦙', '🦒', '🐘', '🦣', '🦏', '🦛', '🐭', '🐁', '🐀', '🐹', '🐰', '🐇', '🐿️', '🦫', '🦔',
+            '🦇', '🐻', '🐻‍❄️', '🐨', '🐼', '🦥', '🦦', '🦨', '🦘', '🦡', '🐾', '🦃', '🐔', '🐓', '🐣', '🐤',
+            '🐥', '🐦', '🐧', '🕊️', '🦅', '🦆', '🦢', '🦉', '🦤', '🪶', '🦩', '🦚', '🦜', '🐸', '🐊', '🐢',
+            '🦎', '🐍', '🐲', '🐉', '🦕', '🦖', '🐳', '🐋', '🐬', '🦭', '🐟', '🐠', '🐡', '🦈', '🐙', '🐚',
+            '🐌', '🦋', '🐛', '🐜', '🐝', '🪲', '🐞', '🦗', '🪳', '🕷️', '🕸️', '🦂', '🦟', '🪰', '🪱', '🦠',
+            '💐', '🌸', '💮', '🏵️', '🌹', '🥀', '🌺', '🌻', '🌼', '🌷', '🌱', '🪴', '🌲', '🌳', '🌴', '🌵',
+            '🌾', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃', '🍄', '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🦯', '🦽', '🦼', '🛴', '🚲', '🛵', '🏍️', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋', '🚞', '🚝', '🚄', '🚅', '🚈', '🚂', '🚆', '🚇', '🚊', '🚉', '✈️', '🛫', '🛬', '🛩️', '💺', '🛰️', '🚀', '🛸', '🚁', '🛶', '⛵', '🚤', '🛥️', '🛳️', '⛴️', '🚢', '⚓', '⛽', '🚧', '🚦', '🚥', '🚏', '🗺️', '🗿', '🗽', '🗼', '🏰', '🏯', '🏟️', '🎡', '🎢', '🎠', '⛲', '⛱️', '🏖️', '🏝️', '🏜️', '🌋', '⛰️', '🏔️', '🗻', '🏕️', '⛺', '🏠', '🏡', '🏘️', '🏚️', '🏗️', '🏢', '🏣', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '💒', '🗼', '🗽', '⛪', '🕌', '🕍', '⛩️', '🕋', '⛲', '⛺', '🌁', '🌃', '🏙️', '🌄', '🌅', '🌆', '🌇', '🌉', '♨️', '🌌', '🎠', '🎡', '🎢', '⌚', '📱', '📲', '💻', '⌨️', '🖱️', '🖲️', '🕹️', '🗜️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯️', '🪔', '🧯', '🛢️', '💸', '💵', '💴', '💶', '💷', '🪙', '💰', '💳', '💎', '⚖️', '🪜', '🧰', '🪛', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🪚', '🔫', '💣', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '🪦', '⚱️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '🕳️', '💊', '💉', '🩹', '🩺', '🌡️', '🧹', '🪠', '🧺', '🧻', '🚽', '🚰', '🚿', '🛁', '🛀', '🧼', '🪥', '🪒', '🧴', '🛎️', '🔑', '🗝️', '🚪', '🪑', '🛋️', '🛏️', '🛌', '🧸', '🖼️', '🛍️', '🛒', '🎁', '🎈', '🎏', '🎀', '🪄', '🪅', '🎊', '🎉', '🎎', '🏮', '🎐', '🧧', '✉️', '📩', '📨', '📧', '💌', '📥', '📤', '📦', '🏷️', '🪧', '📫', '📪', '📬', '📭', '📮', '🗳️', '📜', '📃', '📄', '📅', '📆', '🗓️', '📇', '📈', '📉', '📊', '📋', '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🗃️', '🗄️', '🗑️', '🔒', '🔓', '🔏', '🔐', '🔑', '🗝️', '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🗡️', '⚔️', '🔫', '🏹', '🛡️', '🔧', '🪛', '🔩', '⚙️', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🪝', '🧰', '🧲', '🪜', '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🎱', '🥏', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️', '🎿', '⛷️', '🏂', '🏋️', '🤺', '🤼', '🤸', '⛹️', '🏌️', '🏇', '🧘', '🏄', '🏊‍♀️', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🎰', '🧩', '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🫕', '🥣', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '☕', '🫖', '🍵', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🥤', '🧋', '🧃', '🧊', '🥢', '🍽️', '🍴', '🥄', '🔪', '🏺'
+        ];
+        /* SOLVER */
+        const Solver = { permute: (l, b) => { const o = []; if (!b.length) return [Array(l).fill(0)]; const ms = b.reduce((a, x) => a + x, 0) + b.length - 1; if (ms > l) return []; const bl = b[0], rt = b.slice(1); const mx = l - (rt.reduce((a, x) => a + x, 0) + rt.length) - bl - (rt.length ? 1 : 0); for (let i = 0; i <= mx; i++) { const ln = Array(i).fill(0); for (let k = 0; k < bl; k++)ln.push(1); if (rt.length) { ln.push(0); Solver.permute(l - ln.length, rt).forEach(s => o.push(ln.concat(s))) } else { while (ln.length < l) ln.push(0); o.push(ln) } } return o }, solveLine: (l, b) => { const p = Solver.permute(l, b); if (!p.length) return null; if (p.length === 1) return p[0]; const r = Array(l).fill(null); for (let i = 0; i < l; i++) { let v = p[0][i], c = true; for (let k = 1; k < p.length; k++)if (p[k][i] !== v) { c = false; break } if (c) r[i] = v } return r }, check: (g) => { const h = g.length, w = g[0].length, f = g.flat(); if (f.every(x => x === 0)) return { t: "Empty Board", c: "", wk: [] }; const cl = Gen.getClues(g); let wk = Array(h).fill(0).map(() => Array(w).fill(null)), ch = true, it = 0; while (ch && it < 20) { ch = false; it++; for (let y = 0; y < h; y++) { const r = Solver.solveLine(w, cl.rows[y]); if (!r) continue; for (let x = 0; x < w; x++)if (wk[y][x] === null && r[x] !== null) { wk[y][x] = r[x]; ch = true } } for (let x = 0; x < w; x++) { const r = Solver.solveLine(h, cl.cols[x]); if (!r) continue; for (let y = 0; y < h; y++)if (wk[y][x] === null && r[y] !== null) { wk[y][x] = r[y]; ch = true } } } let s = true, c = true; for (let y = 0; y < h; y++)for (let x = 0; x < w; x++) { if (wk[y][x] === null) s = false; else if (wk[y][x] !== g[y][x]) c = false } if (s && c) return { t: "✅ Solvable (Logic)", c: "ok", wk: wk }; return { t: "⚠️ Multiple Solutions / Hard", c: "warn", wk: wk } } };
+
+        /* UTILS */
+        const Sfx = {
+            x: null,
+            unlocked: false,
+            i: () => { if (!Sfx.x) Sfx.x = new (window.AudioContext || webkitAudioContext)() },
+            unlockAudio: () => {
+                Sfx.i();
+                if (Sfx.x.state === 'suspended') {
+                    Sfx.x.resume().then(() => {
+                        Sfx.unlocked = true;
+                        // Play tiny tone to truly unlock audio
+                        Sfx.tone('sine', 440, 0.001, 0.001);
+                    });
+                } else {
+                    Sfx.unlocked = true;
+                }
+            },
+            tone: (type, freq, dur, vol = 0.3) => {
+                Sfx.i();
+                // Only play if audio is unlocked, otherwise skip to prevent queuing
+                if (!Sfx.unlocked) return;
+                const o = Sfx.x.createOscillator(), g = Sfx.x.createGain();
+                o.type = type;
+                o.frequency.setValueAtTime(freq, Sfx.x.currentTime);
+                g.gain.setValueAtTime(vol, Sfx.x.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, Sfx.x.currentTime + dur);
+                o.connect(g);
+                g.connect(Sfx.x.destination);
+                o.start();
+                o.stop(Sfx.x.currentTime + dur)
+            },
+            warmupAudio: () => { Sfx.tone('sine', 440, 0.001, 0.001) }, // Ultra-quiet startup tone to initialize audio context
+            fill: () => Sfx.tone('sine', 600, 0.08, 0.75),
+            cross: () => Sfx.tone('sawtooth', 120, 0.06, 0.375),
+            hint: () => Sfx.tone('triangle', 800, 0.3, 0.75),
+            win: () => { if (!Sfx.unlocked) return;[523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => Sfx.tone('square', f, 0.2, 0.45), i * 80)) },
+            happyTuneState: { timer: null, playing: false },
+            melodies: [
+                // 1. Ode to Joy
+                [330, 330, 349, 392, 392, 349, 330, 294, 262, 262, 294, 330, 330, 294, 294],
+                // 2. Twinkle Twinkle Little Star
+                [262, 262, 392, 392, 440, 440, 392, 0, 349, 349, 330, 330, 294, 294, 262],
+                // 3. Mary Had a Little Lamb
+                [330, 294, 262, 294, 330, 330, 330, 0, 294, 294, 294, 0, 330, 392, 392],
+                // 4. Frère Jacques
+                [262, 294, 330, 262, 0, 262, 294, 330, 262, 0, 330, 349, 392, 0, 330, 349, 392, 0],
+                // 5. Jingle Bells (chorus)
+                [330, 330, 330, 0, 330, 330, 330, 0, 330, 392, 262, 294, 330, 0, 0],
+                // 6. Happy Birthday
+                [262, 262, 294, 262, 349, 330, 0, 262, 262, 294, 262, 392, 349, 0, 0],
+                // 7. London Bridge Is Falling Down
+                [392, 440, 392, 349, 330, 349, 392, 0, 294, 330, 349, 0, 330, 349, 392, 0],
+                // 8. Row, Row, Row Your Boat
+                [262, 262, 262, 294, 330, 0, 330, 294, 330, 349, 392, 0, 0],
+                // 9. Simple Up/Down Major Scale
+                [262, 294, 330, 349, 392, 440, 494, 523, 494, 440, 392, 349, 330, 294, 262],
+                // 10. Simple Happy Arpeggios
+                [262, 330, 392, 523, 0, 523, 392, 330, 262, 0, 294, 349, 440, 587, 0, 587, 440, 349, 294],
+                // 11. When the Saints Go Marching In
+                [262, 330, 349, 392, 0, 262, 330, 349, 392, 0, 262, 330, 349, 392, 330, 294, 262, 294, 0, 262, 294, 262, 330, 349, 0, 330, 294, 262, 0, 0],
+                // 12. Hush, Little Baby
+                [392, 440, 392, 440, 392, 440, 392, 440, 494, 392, 349, 330, 294],
+                // 13. Itsy Bitsy Spider
+                [392, 392, 440, 494, 494, 440, 392, 440, 494, 392, 0, 330, 330, 349, 392, 392, 349, 330, 349, 392, 330, 0, 392, 392, 440, 494, 494, 440, 392, 440, 494, 392],
+                // 14. Old MacDonald Had a Farm
+                [392, 392, 392, 294, 330, 330, 294, 0, 440, 440, 392, 0, 294, 294, 294, 0, 294, 294, 294],
+                // 15. The Muffin Man
+                [294, 330, 294, 262, 0, 392, 440, 392, 0, 294, 330, 294, 262],
+                // 16. Pop Goes the Weasel
+                [262, 262, 294, 262, 330, 262, 0, 262, 294, 262, 330, 262, 0, 262, 294, 330, 349, 392]
+            ],
+            happyTune: function (duration, onEnd) {
+                this.stopHappyTune();
+                this.happyTuneState.playing = true;
+                Sfx.i();
+                if (Sfx.x.state === 'suspended') Sfx.x.resume();
+
+                // Pick a random melody
+                const melody = this.melodies[Math.floor(Math.random() * this.melodies.length)];
+
+                const noteDuration = 180; // ms
+                const gap = 50;           // ms
+
+                let noteIndex = 0;
+
+                const play = () => {
+                    if (!this.happyTuneState.playing || noteIndex >= melody.length) {
+                        this.happyTuneState.playing = false;
+                        if (onEnd) onEnd();
+                        return;
+                    }
+
+                    const freq = melody[noteIndex];
+                    if (freq > 0) { // Frequencies of 0 are treated as rests
+                        Sfx.tone('sine', freq, noteDuration / 1000, 13.5);
+                    }
+                    noteIndex++;
+
+                    this.happyTuneState.timer = setTimeout(play, noteDuration + gap);
+                };
+                play();
+            },
+            stopHappyTune: function () {
+                if (this.happyTuneState.timer) clearTimeout(this.happyTuneState.timer);
+                this.happyTuneState.playing = false;
+            }
+        };
+
+        /* SMART CODEC */
+        const Codec = {
+            B: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+            raw: (g) => {
+                let b = "", r = "";
+                const flat = g.flat();
+                for (let v of flat) b += v ? "1" : "0";
+                while (b.length % 6) b += "0";
+                for (let i = 0; i < b.length; i += 6) r += Codec.B[parseInt(b.substr(i, 6), 2)];
+                return r;
+            },
+            rle: (g) => {
+                const flat = g.flat();
+                let runs = [], cVal = 0, count = 0;
+                if (flat[0] === 1) runs.push(0);
+                for (let v of flat) {
+                    if (v === cVal) count++;
+                    else { runs.push(count); cVal = v; count = 1; }
+                }
+                runs.push(count);
+                let encoded = "";
+                for (let r of runs) {
+                    while (r > 63) { encoded += Codec.B[63] + Codec.B[0]; r -= 63; }
+                    encoded += Codec.B[r];
+                }
+                return encoded;
+            },
+            rle2: (g) => {
+                const flat = g.flat();
+                let runs = [], cVal = 0, count = 0;
+                if (flat[0] === 1) runs.push(0);
+                for (let v of flat) {
+                    if (v === cVal) count++;
+                    else { runs.push(count); cVal = v; count = 1; }
+                }
+                runs.push(count);
+                let encoded = "";
+                for (let r of runs) {
+                    if (r < 32) { encoded += Codec.B[r]; }
+                    else if (r < 2048) { encoded += Codec.B[32 + (r >> 6)] + Codec.B[r & 63]; }
+                    else { while (r > 2047) { encoded += Codec.B[63] + Codec.B[63] + Codec.B[0]; r -= 2047; } if (r >= 32) encoded += Codec.B[32 + (r >> 6)] + Codec.B[r & 63]; else encoded += Codec.B[r]; }
+                }
+                return encoded;
+            },
+            c: (w, h, g) => {
+                const header = "~" + Codec.B[w] + Codec.B[h];
+                const rawStr = Codec.raw(g);
+                const rleStr = Codec.rle(g);
+                const rle2Str = Codec.rle2(g);
+
+                if (rle2Str.length < rleStr.length && rle2Str.length < rawStr.length) return header + "!" + rle2Str;
+                if (rleStr.length < rawStr.length) return header + "^" + rleStr;
+                return header + rawStr;
+            },
+            d: (s) => {
+                if (!s.startsWith("~")) return null;
+                const w = Codec.B.indexOf(s[1]);
+                const h = Codec.B.indexOf(s[2]);
+                const mode = s[3];
+                let data = s.substring(4);
+                if (mode !== '^' && mode !== '!') data = s.substring(3);
+
+                let grid = [], flat = [];
+                if (mode === '!') {
+                    let val = 0, i = 0;
+                    while (i < data.length) {
+                        let code = Codec.B.indexOf(data[i++]);
+                        let run = 0;
+                        if (code < 32) { run = code; }
+                        else { let low = Codec.B.indexOf(data[i++]); run = ((code - 32) << 6) | low; }
+                        for (let k = 0; k < run; k++) flat.push(val);
+                        val = 1 - val;
+                    }
+                } else if (mode === '^') {
+                    let val = 0;
+                    for (let i = 0; i < data.length; i++) {
+                        let count = Codec.B.indexOf(data[i]);
+                        for (let k = 0; k < count; k++) flat.push(val);
+                        val = 1 - val;
+                    }
+                } else {
+                    let b = "";
+                    for (let i = 0; i < data.length; i++) b += Codec.B.indexOf(data[i]).toString(2).padStart(6, "0");
+                    for (let i = 0; i < w * h; i++) flat.push(b[i] === '1' ? 1 : 0);
+                }
+                let ptr = 0;
+                for (let y = 0; y < h; y++) { let row = []; for (let x = 0; x < w; x++) row.push(flat[ptr++] || 0); grid.push(row); }
+                return { w, h, grid };
+            },
+            encodeState: (p) => {
+                let f = p.flat(), b = "", r = "";
+                for (let v of f) b += v.toString(2).padStart(2, '0');
+                while (b.length % 6) b += "00";
+                for (let i = 0; i < b.length; i += 6)r += Codec.B[parseInt(b.substr(i, 6), 2)];
+                return r;
+            },
+            decodeState: (s, w, h) => {
+                let b = "", p = Array(h).fill(0).map(() => Array(w).fill(0));
+                for (let c of s) b += Codec.B.indexOf(c).toString(2).padStart(6, "0");
+                let ptr = 0;
+                for (let y = 0; y < h; y++)for (let x = 0; x < w; x++) { let bits = b.substr(ptr, 2); ptr += 2; p[y][x] = parseInt(bits, 2); }
+                return p;
+            }
+        };
+
+        /* GENERATOR */
+        const Gen = { hash: (s) => { let h = 5381; for (let i = 0; i < s.length; i++)h = ((h << 5) + h) + s.charCodeAt(i); return Math.abs(h) }, getGrid: (s, w, h) => { let S = typeof s === 'string' ? Gen.hash(s) : s; const rng = () => { const x = Math.sin(S++) * 10000; return x - Math.floor(x) }; let g = Array(h).fill(0).map(() => Array(w).fill(0)); for (let y = 0; y < h; y++)for (let x = 0; x < w; x++) { let v = rng() > 0.55 ? 1 : 0; if (x > 0 && g[y][x - 1]) v = rng() > 0.35 ? 1 : 0; if (y > 0 && g[y - 1][x]) v = rng() > 0.35 ? 1 : 0; g[y][x] = v } if (g.every(r => r.every(c => c === 0))) g[h >> 1][w >> 1] = 1; return g }, getClues: (g) => { const l = a => { let r = [], c = 0; for (let v of a) { if (v) c++; else { if (c) r.push(c); c = 0 } } if (c) r.push(c); return r.length ? r : [0] }; return { rows: g.map(l), cols: g[0].map((_, i) => l(g.map(r => r[i]))) } } };
+
+        const Intro = {
+            t: null, fadeInterval: null, a: false, sId: '',
+            state: [], clues: {}, w: 0, h: 0, rem_guesses: [], isSolver: false, solution: [],
+
+            s: () => {
+                if (Intro.a) return;
+                const doStart = () => {
+                    if (Intro.a) return; // Re-check in case of weird race conditions
+                    Intro.a = true;
+                    const isMobile = window.innerWidth < 768;
+                    const threshold = isMobile ? 10 : 30;
+
+                    Intro.fadeInterval = setInterval(() => {
+                        const liveCount = EmojiPhysics.bodies.filter(b => !b.isDying).length;
+                        if (liveCount > 30) {
+                            const fadeCount = Math.ceil((liveCount - 30) * 0.1);
+                            EmojiPhysics.fadeOut(fadeCount);
+                        }
+                    }, 1000);
+                    Intro.n();
+                }
+
+                Sfx.i(); // Init AudioContext to check its state
+                if (Sfx.x.state === 'suspended') {
+                    const overlay = document.getElementById('unmute-overlay');
+                    if (overlay) {
+                        overlay.style.display = 'flex';
+
+                        const startHandler = () => {
+                            overlay.style.display = 'none';
+                            // unlockAudio is async but that's ok, the context will be resuming.
+                            // The important part is that this is inside a user gesture.
+                            Sfx.unlockAudio();
+                            doStart();
+                            overlay.removeEventListener('click', startHandler);
+                            overlay.removeEventListener('touchend', startHandler);
+                        };
+                        overlay.addEventListener('click', startHandler);
+                        overlay.addEventListener('touchend', startHandler);
+
+                    } else {
+                        // Fallback if the overlay element does not exist for some reason
+                        doStart();
+                    }
+                } else {
+                    Sfx.unlocked = true;
+                    doStart();
+                }
+            },
+            e: () => {
+                Intro.a = false;
+                clearTimeout(Intro.t);
+                if (Intro.fadeInterval) clearInterval(Intro.fadeInterval);
+                app.toggleNewGameBtn(false);
+
+                // Ensure the start overlay is hidden if the demo ends for any reason
+                const overlay = document.getElementById('unmute-overlay');
+                if (overlay) overlay.style.display = 'none';
+
+                if (!Intro.isSolver) {
+
+                    Sfx.stopHappyTune();
+                    const h1 = document.querySelector('#sidebar h1');
+                    if (h1) h1.innerHTML = "Nonogram";
+                }
+            },
+
+            toast: (msg) => {
+                const t = document.getElementById("toast");
+                t.textContent = msg;
+                t.className = "show";
+                setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000);
+            },
+
+            findLogicalMove: () => {
+                const { w, h, clues, state } = Intro;
+
+                const findAndRecord = (checkFn) => {
+                    for (let y = 0; y < h; y++) {
+                        const move = checkFn('row', y);
+                        if (move) return move;
+                    }
+                    for (let x = 0; x < w; x++) {
+                        const move = checkFn('col', x);
+                        if (move) return move;
+                    }
+                    return null;
+                };
+
+                // P1: Cross full lines (based on fill count)
+                const checkDoCrosses = (type, idx) => {
+                    const lineClues = (type === 'row') ? clues.rows[idx] : clues.cols[idx];
+                    const lineState = (type === 'row') ? state[idx] : state.map(r => r[idx]);
+                    const len = (type === 'row') ? w : h;
+
+                    const filled = lineState.filter(c => c === 1).length;
+                    const target = lineClues.reduce((a, b) => a + b, 0);
+
+                    if (filled === target) {
+                        for (let i = 0; i < len; i++) {
+                            if (lineState[i] === 0) {
+                                return (type === 'row') ? { x: i, y: idx, v: 2 } : { x: idx, y: i, v: 2 };
+                            }
+                        }
+                    }
+                    return null;
+                };
+                let move = findAndRecord(checkDoCrosses);
+                if (move) return move;
+
+                // P2: Cross based on block structure
+                const checkCompleteBlocks = (type, idx) => {
+                    const lineClues = (type === 'row') ? clues.rows[idx] : clues.cols[idx];
+                    const lineState = (type === 'row') ? state[idx] : state.map(r => r[idx]);
+                    const len = (type === 'row') ? w : h;
+
+                    if (lineClues.length === 1 && lineClues[0] === 0) return null;
+
+                    const blocks = [];
+                    let current = null;
+                    for (let i = 0; i < len; i++) {
+                        if (lineState[i] === 1) {
+                            if (current === null) current = { len: 0 };
+                            current.len++;
+                        } else {
+                            if (current) { blocks.push(current); current = null; }
+                        }
+                    }
+                    if (current) blocks.push(current);
+
+                    if (blocks.length === lineClues.length && blocks.every((b, i) => b.len === lineClues[i])) {
+                        for (let i = 0; i < len; i++) {
+                            if (lineState[i] === 0) {
+                                return (type === 'row') ? { x: i, y: idx, v: 2 } : { x: idx, y: i, v: 2 };
+                            }
+                        }
+                    }
+                    return null;
+                };
+                move = findAndRecord(checkCompleteBlocks);
+                if (move) return move;
+
+                // P3: Fill new cells
+                const checkDoFills = (type, idx) => {
+                    const lineClues = (type === 'row') ? clues.rows[idx] : clues.cols[idx];
+                    const len = (type === 'row') ? w : h;
+
+                    const sum = lineClues.reduce((a, b) => a + b, 0) + lineClues.length - 1;
+                    const slack = len - sum;
+
+                    if (slack >= 0) {
+                        let cursor = 0;
+                        for (const b of lineClues) {
+                            if (b > slack) {
+                                for (let k = 0; k < (b - slack); k++) {
+                                    const i = cursor + slack + k;
+                                    const currentVal = (type === 'row') ? state[idx][i] : state[i][idx];
+                                    if (currentVal === 0) {
+                                        return (type === 'row') ? { x: i, y: idx, v: 1 } : { x: idx, y: i, v: 1 };
+                                    }
+                                }
+                            }
+                            cursor += b + 1;
+                        }
+                    }
+                    return null;
+                };
+                move = findAndRecord(checkDoFills);
+                if (move) return move;
+
+                return null;
+            },
+
+            findNextMove: () => {
+                const logicalMove = Intro.findLogicalMove();
+                if (logicalMove) return logicalMove;
+
+                if (Intro.rem_guesses.length > 0) {
+                    return Intro.rem_guesses.pop();
+                }
+                return null;
+            },
+
+            startSolver: (w, h, clues, initialState, solution, isSolverMode) => {
+                Intro.e();
+                Intro.a = true;
+                Intro.isSolver = isSolverMode;
+
+                Intro.w = w; Intro.h = h; Intro.clues = clues; Intro.solution = solution;
+                Intro.state = initialState.map(row => [...row]);
+
+                Intro.rem_guesses = [];
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        if (Intro.state[y][x] === 0) {
+                            Intro.rem_guesses.push({ x, y, v: solution[y][x] ? 1 : 2 });
+                        }
+                    }
+                }
+                Intro.rem_guesses.sort(() => Math.random() - 0.5);
+                Intro.p();
+            },
+
+            n: () => {
+                if (!Intro.a) return;
+                Intro.sId = Math.random().toString(36).substring(7);
+                let g = Gen.getGrid(Intro.sId, 10, 10);
+
+                const onLoaded = () => {
+                    // Store seed so it can be replayed
+                    app.d.seed = Intro.sId;
+
+                    setTimeout(() => {
+                        const h1 = document.querySelector('#sidebar h1');
+                        if (h1) {
+                            h1.innerHTML = `Nonogram <br>
+                <span style="font-size:12px; color:var(--accent); cursor:pointer; font-weight:normal;" 
+                      onclick="navigator.clipboard.writeText('${Intro.sId}'); Intro.toast('Seed Copied: ${Intro.sId}')" 
+                      title="Click to Copy Seed">
+                    Seed: ${Intro.sId} 📋
+                </span>`;
+                        }
+                    }, 50);
+
+                    Intro.startSolver(10, 10, Gen.getClues(g), Array(10).fill().map(() => Array(10).fill(0)), g, false);
+
+                    // Update seed display for demo
+                    app.updateSeedDisplay();
+
+                    // Show new game button if sidebar is hidden
+                    if (document.body.classList.contains('sidebar-collapsed')) {
+                        app.toggleNewGameBtn(true);
+                    }
+                };
+
+                app.load(g, 10, 10, "Watching AI...", app.d.manualZoom, onLoaded);
+            },
+
+            p: () => {
+                if (!Intro.a) return;
+
+                let m = Intro.findNextMove();
+
+                if (!m) {
+                    if (!Intro.isSolver) {
+                        const duration = 10;
+                        Sfx.happyTune(duration);
+                        EmojiPhysics.fadeOut(EmojiPhysics.bodies.length * 0.5);
+                        EmojiPhysics.add(EmojiPhysics.bodies.length * 0.6);
+                        Intro.t = setTimeout(Intro.n, duration * 1000);
+                    } else {
+                        app.check(); // Final check to trigger win state
+                    }
+                    return;
+                }
+
+                // If move is already applied (e.g. from initial state), find next
+                if (Intro.state[m.y][m.x] !== 0) {
+                    Intro.p();
+                    return;
+                }
+
+                Intro.state[m.y][m.x] = m.v;
+                app.d.player[m.y][m.x] = m.v;
+                app.upd(m.x, m.y, m.v);
+                app.updateClueState();
+                app.updateURL();
+
+                if (m.v == 1) { Sfx.fill(); EmojiPhysics.add(3); EmojiPhysics.fadeOut(2);} else { Sfx.cross(); EmojiPhysics.add(3); EmojiPhysics.fadeOut(6); }
+
+                let delay = 500; // Slower speed for main menu demo
+                if (Intro.isSolver) {
+                    delay = 100; // Fast speed for "Give Up" solver
+                    if (Intro.rem_guesses.length < 20) {
+                        delay = Math.max(20, delay / 2);
+                    }
+                }
+                Intro.t = setTimeout(Intro.p, delay);
+            }
+        };
+        /* TIMER */
+        const Timer = {
+            t: null, s: 0, active: false, fadeInterval: null,
+            start: () => {
+                Timer.stop(true); // Stop and hide any previous timer.
+                Timer.s = 0;
+                Timer.upd();
+                Timer.active = true;
+                document.getElementById('timer-display').classList.add('visible');
+                Timer.t = setInterval(() => { Timer.s++; Timer.upd() }, 1000);
+                Timer.fadeInterval = setInterval(() => {
+                    const liveCount = EmojiPhysics.bodies.filter(b => !b.isDying).length;
+                    if (liveCount > 30) {
+                        const fadeCount = Math.ceil((liveCount - 30) * 0.1);
+                        EmojiPhysics.fadeOut(fadeCount);
+                    }
+                }, 500);
+            },
+            stop: (hide = false) => {
+                clearInterval(Timer.t);
+                clearInterval(Timer.fadeInterval);
+                Timer.active = false;
+                if (hide) {
+                    document.getElementById('timer-display').classList.remove('visible');
+                } else {
+                    document.getElementById('timer-display').classList.add('visible');
+                }
+            },
+            reset: () => {
+                Timer.stop(true);
+                Timer.s = 0;
+                Timer.upd();
+            },
+            upd: () => {
+                const m = Math.floor(Timer.s / 60).toString().padStart(2, '0');
+                const s = (Timer.s % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').textContent = `${m}:${s}`;
+            }
+        };
+
+        /* NAV HOLD */
+        const Nav = {
+            t: null, d: 0, sp: 500,
+            start: (d) => { Nav.d = d; Nav.step(); Nav.sp = 500; Nav.t = setTimeout(Nav.hold, Nav.sp); document.addEventListener('mouseup', Nav.stop); document.addEventListener('touchend', Nav.stop); },
+            hold: () => { Nav.step(); Nav.sp = Math.max(50, Nav.sp * 0.8); Nav.t = setTimeout(Nav.hold, Nav.sp); },
+            step: () => app.campNav(Nav.d),
+            stop: () => { clearTimeout(Nav.t); Nav.t = null; document.removeEventListener('mouseup', Nav.stop); document.removeEventListener('touchend', Nav.stop); }
+        };
+
+        const EmojiPhysics = {
+            engine: null,
+            runner: null,
+            render: null,
+            canvas: null,
+            bodies: [], // Keep track of our bodies to manage them
+
+            init() {
+                try {
+                    this.isFlushing = false;
+                    const Engine = Matter.Engine,
+                        Render = Matter.Render,
+                        Runner = Matter.Runner,
+                        Bodies = Matter.Bodies,
+                        Composite = Matter.Composite;
+
+                    this.engine = Engine.create({
+                        gravity: { y: 0.6 }
+                    });
+
+                    this.canvas = document.getElementById('emoji-canvas');
+                    const mainStage = document.getElementById('main-stage');
+
+                    this.render = Render.create({
+                        element: mainStage,
+                        canvas: this.canvas,
+                        engine: this.engine,
+                        options: {
+                            width: mainStage.clientWidth,
+                            height: mainStage.clientHeight,
+                            wireframes: false,
+                            background: 'transparent'
+                        }
+                    });
+
+                    this.ground = Bodies.rectangle(mainStage.clientWidth / 2, mainStage.clientHeight + 30, mainStage.clientWidth + 200, 60, { isStatic: true, label: 'ground' });
+                    this.wallLeft = Bodies.rectangle(-30, mainStage.clientHeight / 2, 60, mainStage.clientHeight, { isStatic: true, label: 'wallLeft' });
+                    this.wallRight = Bodies.rectangle(mainStage.clientWidth + 30, mainStage.clientHeight / 2, 60, mainStage.clientHeight, { isStatic: true, label: 'wallRight' });
+
+                    Composite.add(this.engine.world, [this.ground, this.wallLeft, this.wallRight]);
+
+                    this.runner = Runner.create();
+                    Runner.run(this.runner, this.engine);
+
+                    Matter.Events.on(this.render, 'afterRender', () => {
+                        const ctx = this.canvas.getContext('2d');
+                        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                        this.bodies.forEach(body => {
+                            if (body.isDying) {
+                                body.opacity -= 0.03;
+                            }
+
+                            if (body.opacity <= 0) {
+                                Matter.Composite.remove(this.engine.world, body);
+                            } else {
+                                ctx.globalAlpha = body.opacity;
+                                ctx.font = `${body.size}px sans-serif`;
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.save();
+                                ctx.translate(body.position.x, body.position.y);
+                                ctx.rotate(body.angle);
+                                ctx.fillText(body.char, 0, 0);
+                                ctx.restore();
+                            }
+                        });
+                        this.bodies = this.bodies.filter(b => b.opacity > 0);
+                        ctx.globalAlpha = 1;
+                    });
+
+                    Render.run(this.render);
+
+                    window.addEventListener('resize', () => this.resize());
+                    this.resize();
+
+                } catch (e) {
+                    console.error("Matter.js not found or failed to initialize.", e);
+                    this.init = this.add = this.fillScreen = this.fadeOut = () => { };
+                }
+            },
+
+            resize() {
+
+                if (!this.render || !this.engine) return;
+
+                const mainStage = document.getElementById('main-stage');
+
+                const newWidth = mainStage.clientWidth;
+
+                const newHeight = mainStage.clientHeight;
+
+
+
+                // Update canvas and renderer
+
+                this.render.canvas.width = newWidth;
+
+                this.render.canvas.height = newHeight;
+
+                this.render.options.width = newWidth;
+
+                this.render.options.height = newHeight;
+
+
+
+                // Update static bodies
+
+                if (this.ground && this.wallLeft && this.wallRight) {
+
+                    Matter.Body.setPosition(this.ground, { x: newWidth / 2, y: newHeight + 30 });
+
+                    Matter.Body.setVertices(this.ground, Matter.Vertices.fromPath(`L 0 0 L ${newWidth + 200} 0 L ${newWidth + 200} 60 L 0 60`));
+
+                    Matter.Body.setPosition(this.wallRight, { x: newWidth + 30, y: newHeight / 2 });
+
+                    Matter.Body.setVertices(this.wallRight, Matter.Vertices.fromPath(`L 0 0 L 60 0 L 60 ${newHeight} L 0 ${newHeight}`));
+
+                    Matter.Body.setPosition(this.wallLeft, { x: -30, y: newHeight / 2 });
+
+                    Matter.Body.setVertices(this.wallLeft, Matter.Vertices.fromPath(`L 0 0 L 60 0 L 60 ${newHeight} L 0 ${newHeight}`));
+
+                }
+
+            },
+
+            add(count = 1, randomSize = false) {
+                if (!this.engine || this.isFlushing) return;
+                const Bodies = Matter.Bodies,
+                    Composite = Matter.Composite;
+
+                const mainStage = document.getElementById('main-stage');
+                const isMobile = window.innerWidth < 768;
+                const sizeMultiplier = isMobile ? 1.75 : 2.5;
+
+                for (let i = 0; i < count; i++) {
+                    // Original base sizes: regular 30, random 15-45
+                    const baseSize = randomSize ? (Math.random() * 30 + 15) : 30;
+                    const size = baseSize * sizeMultiplier;
+
+                    const x = Math.random() * mainStage.clientWidth;
+
+                    const body = Bodies.circle(x, -size, size / 1.8, {
+                        restitution: 0.5,
+                        friction: 0.01,
+                        angle: Math.random() * Math.PI * 2,
+                    });
+
+                    body.char = EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)];
+                    body.size = size;
+                    body.opacity = 1;
+                    body.isDying = false;
+
+                    this.bodies.push(body);
+                    Composite.add(this.engine.world, body);
+                }
+            },
+
+            fillScreen() {
+                if (!this.engine) return;
+                const totalEmojis = Math.min(250, (window.innerWidth / 30) * (window.innerHeight / 30) / 1.5);
+                for (let i = 0; i < totalEmojis; i++) {
+                    setTimeout(() => this.add(1, true), Math.random() * 1500);
+                }
+            },
+
+            flush(onComplete) {
+                if (!this.engine || !this.ground) {
+                    if (onComplete) onComplete();
+                    return;
+                }
+
+                // If a flush is already happening, wait for it to finish then execute the callback.
+                if (this.isFlushing) {
+                    const checkInterval = setInterval(() => {
+                        if (!this.isFlushing) {
+                            clearInterval(checkInterval);
+                            if (onComplete) onComplete();
+                        }
+                    }, 100);
+                    return;
+                }
+
+                if (this.bodies.length === 0) {
+                    if (onComplete) onComplete();
+                    return;
+                }
+
+                this.isFlushing = true;
+                Matter.Composite.remove(this.engine.world, this.ground);
+
+                setTimeout(() => {
+                    if (!this.engine) {
+                        this.isFlushing = false;
+                        if (onComplete) onComplete();
+                        return;
+                    }
+
+                    this.bodies.forEach(body => {
+                        Matter.Composite.remove(this.engine.world, body);
+                    });
+                    this.bodies = [];
+
+                    if (this.ground) {
+                        Matter.Composite.add(this.engine.world, this.ground);
+                    }
+                    this.isFlushing = false;
+                    if (onComplete) onComplete();
+                }, 3000);
+            },
+
+            fadeOut(count = 1) {
+                if (!this.engine) return;
+
+                // If count is very large or infinite, fade all bodies.
+                if (!isFinite(count) || count > this.bodies.length) {
+                    this.bodies.forEach(b => b.isDying = true);
+                    return;
+                }
+
+                const candidates = this.bodies.filter(b => !b.isDying);
+                for (let i = 0; i < count; i++) {
+                    if (candidates.length === 0) return;
+                    const index = Math.floor(Math.random() * candidates.length);
+                    candidates[index].isDying = true;
+                    // Remove from candidates so it's not picked again in the same call
+                    candidates.splice(index, 1);
+                }
+            }
+        };
+
+        /* APP */
+        const app = {
+            d: { mode: 'menu', w: 10, h: 10, grid: [], player: [], editorCrosses: [], seed: "", solved: false, drag: false, dt: 0, scale: 1, campLvl: 0, checkTimer: null, manualZoom: false, touchTimer: null, isLongPress: false, isDragging: false, hintCooldown: false, dragMode: 0, lastTouchedCell: null, touchStartValue: 0 },
+            init: () => {
+                EmojiPhysics.init();
+                // Initialize random clue zone color on load
+                app.initializeClueZoneColor();
+
+                // Unlock audio on first user interaction
+                const unlockOnInteraction = () => {
+                    Sfx.unlockAudio();
+                    document.removeEventListener('touchstart', unlockOnInteraction);
+                    document.removeEventListener('click', unlockOnInteraction);
+                };
+                document.addEventListener('touchstart', unlockOnInteraction);
+                document.addEventListener('click', unlockOnInteraction);
+
+                const s = document.getElementById('main-stage');
+                let pan = false, sx, sy, sl, st;
+                s.onmousedown = e => { if (e.target.closest('#game-scaler') || e.target.closest('.float-btn')) return; pan = true; sx = e.pageX - s.offsetLeft; sy = e.pageY - s.offsetTop; sl = s.scrollLeft; st = s.scrollTop };
+                window.onmouseup = () => { pan = false; app.d.drag = false };
+                window.onmousemove = e => { if (pan) { e.preventDefault(); s.scrollLeft = sl - ((e.pageX - s.offsetLeft) - sx); s.scrollTop = st - ((e.pageY - s.offsetTop) - sy) } if (app.d.drag) app.hov(e) };
+                s.addEventListener('touchstart', (e) => app.handleTouchStart(e), { passive: false });
+                s.addEventListener('touchmove', (e) => app.handleTouchMove(e), { passive: false });
+                s.addEventListener('touchend', (e) => app.handleTouchEnd(e));
+                // window.onresize is handled by a single, debounced listener at the end of the script.
+
+                // Auto-hide sidebar on mobile or narrow desktop screens
+                const SIDEBAR_WIDTH = 340;
+                const MIN_GAME_WIDTH = 400;
+                const shouldHideSidebar = window.innerWidth < (SIDEBAR_WIDTH + MIN_GAME_WIDTH);
+
+                if (window.innerWidth < 768) {
+                    app.toggleSidebar();
+
+                    // Add close button to sidebar
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'btn secondary icon';
+                    closeBtn.title = 'Close Sidebar';
+                    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                    closeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        app.toggleSidebar();
+                    };
+                    const headerRowDiv = document.querySelector('#sidebar .header-row > div:last-child');
+                    if (headerRowDiv) {
+                        headerRowDiv.appendChild(closeBtn);
+                    }
+
+                    // Add swipe to close sidebar
+                    const sidebar = document.getElementById('sidebar');
+                    let touchStartX = 0;
+                    sidebar.addEventListener('touchstart', e => {
+                        touchStartX = e.changedTouches[0].screenX;
+                    }, { passive: true });
+                    sidebar.addEventListener('touchend', e => {
+                        const touchEndX = e.changedTouches[0].screenX;
+                        if (touchStartX < touchEndX && (touchEndX - touchStartX > 50)) { // Swiped right
+                            if (!document.body.classList.contains('sidebar-collapsed')) {
+                                app.toggleSidebar();
+                            }
+                        }
+                    }, { passive: true });
+                } else if (shouldHideSidebar) {
+                    // Desktop with narrow screen - auto-hide sidebar
+                    app.toggleSidebar();
+                }
+
+                // Check if there's a hash to restore from - if so, don't start the demo
+                const hash = window.location.hash.substring(1);
+                if (!hash) {
+                    Intro.s();
+                } else {
+                    // Load the game from hash immediately
+                    setTimeout(() => {
+                        app.handleLoad(hash, false);
+                    }, 50);
+                }
+            },
+
+            toggleSidebar: () => {
+                document.body.classList.toggle('sidebar-collapsed');
+                const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                document.getElementById('icon-collapse').style.display = isCollapsed ? 'none' : 'block';
+                document.getElementById('icon-expand').style.display = isCollapsed ? 'block' : 'none';
+
+                // Show overlay on mobile AND iPad/tablet when sidebar is open
+                const isMobileOrTablet = window.innerWidth < 1024;
+                if (isMobileOrTablet) {
+                    const overlayId = 'main-stage-overlay';
+                    const overlay = document.getElementById(overlayId);
+                    if (!isCollapsed) { // sidebar is open
+                        if (!overlay) {
+                            const newOverlay = document.createElement('div');
+                            newOverlay.id = overlayId;
+                            newOverlay.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; z-index:25; background:rgba(0,0,0,0.1);';
+                            newOverlay.onclick = () => app.toggleSidebar();
+                            document.getElementById('main-stage').appendChild(newOverlay);
+                        }
+                    } else { // sidebar is closed
+                        if (overlay) {
+                            overlay.remove();
+                        }
+                    }
+                }
+
+                // Show new game button when sidebar is hidden and demo is playing
+                if (isCollapsed && Intro.a && !Intro.isSolver) {
+                    app.toggleNewGameBtn(true);
+                } else {
+                    app.toggleNewGameBtn(false);
+                }
+                setTimeout(() => {
+                    app.fit(true);
+                    if (EmojiPhysics.resize) {
+                        EmojiPhysics.resize();
+                    }
+                }, 350);
+            },
+            toggleFullscreen: () => {
+                const elem = document.documentElement;
+                const fullscreenIcon = document.getElementById('fullscreen-icon');
+                const fullscreenExitIcon = document.getElementById('fullscreen-exit-icon');
+                const isCurrentlyFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+
+                if (!isCurrentlyFullscreen) {
+                    // Request fullscreen
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) {
+                        elem.mozRequestFullScreen();
+                    } else if (elem.msRequestFullscreen) {
+                        elem.msRequestFullscreen();
+                    }
+                    fullscreenIcon.style.display = 'none';
+                    fullscreenExitIcon.style.display = 'block';
+                } else {
+                    // Exit fullscreen
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                    fullscreenIcon.style.display = 'block';
+                    fullscreenExitIcon.style.display = 'none';
+                }
+            },
+
+            shadeColor: (color, percent) => {
+                var f = parseInt(color.slice(1), 16), t = percent < 0 ? 0 : 255, p = percent < 0 ? percent * -1 : percent, R = f >> 16, G = f >> 8 & 0x00FF, B = f & 0x0000FF;
+                var newR = Math.round((t - R) * p) + R;
+                var newG = Math.round((t - G) * p) + G;
+                var newB = Math.round((t - B) * p) + B;
+                return "#" + (0x1000000 + newR * 0x10000 + newG * 0x100 + newB).toString(16).slice(1);
+            },
+            palettes: {
+                light: [
+                    { name: "Ocean", border: '#4A90E2', corner: '#EAF3FB', zone: '#D4E3F3' },
+                    { name: "Forest", border: '#417505', corner: '#E9EFE6', zone: '#DAE4D0' },
+                    { name: "Ruby", border: '#d0021b', corner: '#FAE5E8', zone: '#f5d0d5' },
+                    { name: "Gold", border: '#F5A623', corner: '#FDF6E9', zone: '#FCEECF' },
+                    { name: "Amethyst", border: '#9013FE', corner: '#F4E7FD', zone: '#EAD7FE' },
+                    { name: "Mint", border: '#50E3C2', corner: '#E4FAF5', zone: '#D2F2E8' },
+                    { name: "Sakura", border: '#FF69B4', corner: '#FFEBF3', zone: '#FFD6E9' }
+                ],
+                dark: [
+                    { name: "Ocean", border: '#4A90E2', corner: '#1C2A3A', zone: '#25374C' },
+                    { name: "Forest", border: '#5DBE36', corner: '#222E1C', zone: '#2C3A25' },
+                    { name: "Ruby", border: '#F44336', corner: '#3A1C1C', zone: '#4C2525' },
+                    { name: "Gold", border: '#F8D862', corner: '#3A331C', zone: '#4C4225' },
+                    { name: "Amethyst", border: '#B886F9', corner: '#2E1C3A', zone: '#3B254C' },
+                    { name: "Mint", border: '#50E3C2', corner: '#1C3A33', zone: '#254C42' },
+                    { name: "Sakura", border: '#FF80C9', corner: '#3A1C2B', zone: '#4C2539' }
+                ]
+            },
+            paletteIndex: -1,
+
+            initializeClueZoneColor: () => {
+                // On initial load, apply a random theme from the palettes
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const mode = isDark ? 'dark' : 'light';
+                app.paletteIndex = Math.floor(Math.random() * app.palettes[mode].length) - 1;
+                app.setRandomColor();
+            },
+
+            setColor: (c) => {
+                // Sets the variable on the root, overriding the theme defaults until reload
+                document.documentElement.style.setProperty('--border-frame', c);
+
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+                const filledColor = isDark ? app.shadeColor(c, 0.2) : app.shadeColor(c, -0.4);
+                document.documentElement.style.setProperty('--cell-filled', filledColor);
+
+                const gridLineColor = isDark ? app.shadeColor(c, -0.6) : app.shadeColor(c, 0.75);
+                document.documentElement.style.setProperty('--grid-line', gridLineColor);
+            },
+
+            setRandomColor: () => {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const mode = isDark ? 'dark' : 'light';
+
+                app.paletteIndex = (app.paletteIndex + 1) % app.palettes[mode].length;
+
+                const palette = app.palettes[mode][app.paletteIndex];
+
+                app.setColor(palette.border);
+                document.documentElement.style.setProperty('--corner-bg', palette.corner);
+                document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
+            },
+            toggleActionBtn: (isWin) => {
+                const b = document.getElementById('btn-action');
+                const r = document.getElementById('icon-reset');
+                const n = document.getElementById('icon-next');
+                const newGameBtn = document.getElementById('btn-new-game');
+                if (isWin) {
+                    r.style.display = 'none'; n.style.display = 'block';
+                    b.classList.add('highlight'); b.title = "Next Game (Clipboard or Random)";
+                    newGameBtn.style.display = 'none';
+                } else {
+                    r.style.display = 'block'; n.style.display = 'none';
+                    b.classList.remove('highlight'); b.title = "Reset Board";
+                    newGameBtn.style.display = 'none';
+                }
+            },
+
+            toggleNewGameBtn: (show) => {
+                const btn = document.getElementById('btn-new-game');
+                if (btn) btn.style.display = show ? 'flex' : 'none';
+            },
+
+            handleActionBtn: () => { if (app.d.solved) app.startNewGame(); else app.resetBoard(); },
+
+            resetBoard: () => {
+                document.querySelectorAll('.rainbow-win').forEach(c => c.classList.remove('rainbow-win'));
+                app.d.player = Array(app.d.h).fill(0).map(() => Array(app.d.w).fill(0));
+                app.refreshPlayerView();
+                app.updateClueState();
+                app.updateURL();
+                Timer.start();
+            },
+
+            startNewGame: () => {
+                const w = parseInt(app.d.w) || 10;
+                const h = parseInt(app.d.h) || 10;
+                const rngNum = Math.floor(Math.random() * 999999).toString();
+                const seed = w + "x" + rngNum;
+                const g = Gen.getGrid(rngNum, w, h);
+                app.load(g, w, h, "Random " + w + "x" + h, true);
+                app.d.seed = seed;
+                app.d.campLvl = 0;
+            },
+
+            campNav: (d) => {
+                const i = document.getElementById('menu-lvl-input');
+                let v = parseInt(i.value) + d;
+                if (v < 1) v = 1; if (v > 500) v = 500;
+                i.value = v;
+            },
+            validateLevelInput: () => {
+                const i = document.getElementById('menu-lvl-input');
+                let v = parseInt(i.value);
+                if (isNaN(v) || v < 1) v = 1;
+                if (v > 500) v = 500;
+                i.value = v;
+            },
+
+            campGo: () => app.startCamp(parseInt(document.getElementById('menu-lvl-input').value) || 1),
+
+            startCamp: (lvl) => {
+                if (lvl < 1) lvl = 1; if (lvl > 500) lvl = 500; app.d.campLvl = lvl;
+                app.pan('game');
+                let s = 5 + Math.floor((lvl - 1) / 10); if (s > 20) s = 20;
+                const g = Gen.getGrid("CAMPAIGN_LEVEL_" + lvl, s, s);
+                Intro.e(); app.d.seed = "#" + lvl;
+                app.load(g, s, s, "Level " + lvl, app.d.manualZoom);
+                document.getElementById('camp-controls').style.display = 'flex';
+            },
+
+            nextLevel: (d) => app.startCamp(app.d.campLvl + d),
+            promptLevelJump: () => { if (!app.d.campLvl) return; let l = prompt("Jump to Level:", app.d.campLvl); if (l && !isNaN(l)) app.startCamp(parseInt(l)); },
+
+            startRandom: (min = 5, max = 7) => {
+                app.d.campLvl = 0;
+                const s = Math.floor(Math.random() * (max - min + 1)) + min;
+                const rngNum = Math.floor(Math.random() * 99999).toString();
+                Intro.e();
+                app.pan('game');
+                app.d.seed = s + "x" + rngNum;
+                app.load(Gen.getGrid(rngNum, s, s), s, s, "Random " + s + "x" + s, app.d.manualZoom);
+                document.getElementById('camp-controls').style.display = 'none';
+            },
+
+            handleLoad: (valOverride = null, preserveZoom = false) => {
+                let v = valOverride || document.getElementById('load-input').value.trim();
+                if (!v) return;
+                Intro.e(); app.d.campLvl = 0; document.getElementById('camp-controls').style.display = 'none';
+                let statePart = null;
+                if (v.includes(":")) { let p = v.split(":"); v = p[0]; statePart = p[1]; }
+                const finishLoad = () => {
+                    if (statePart) { app.d.player = Codec.decodeState(statePart, app.d.w, app.d.h); app.refreshPlayerView(); }
+                    if (!preserveZoom) app.pan('game');
+                };
+                if (!v.includes("x") && (v.startsWith("#") || (!isNaN(v) && !v.startsWith("~")))) {
+                    let lvl = parseInt(v.replace("#", ""));
+                    if (lvl > 0 && lvl <= 500) { app.startCamp(lvl); if (statePart) { app.d.player = Codec.decodeState(statePart, app.d.w, app.d.h); app.refreshPlayerView(); } return; }
+                }
+                if (v.startsWith("~")) {
+                    const d = Codec.d(v);
+                    if (d) { app.d.seed = v; app.load(d.grid, d.w, d.h, "Custom", preserveZoom); finishLoad(); }
+                    else alert("Bad Code");
+                } else {
+                    let s = 10, seed = v;
+                    if (v.includes("x")) { let parts = v.split("x"); if (!isNaN(parts[0])) { s = parseInt(parts[0]); seed = parts[1]; } }
+                    const g = Gen.getGrid(seed, s, s);
+                    app.d.seed = v; app.load(g, s, s, "Seed: " + seed, preserveZoom); finishLoad();
+                }
+            },
+
+            load: (g, w, h, t, preserveZoom = false, onLoadComplete) => {
+                const startGame = () => {
+                    if (window.innerWidth < 768) {
+                        if (!document.body.classList.contains('sidebar-collapsed')) {
+                            app.toggleSidebar();
+                        }
+                    }
+
+                    Sfx.stopHappyTune();
+                    app.d.grid = g; app.d.w = w; app.d.h = h; app.d.player = Array(h).fill(0).map(() => Array(w).fill(0)); app.d.solved = false;
+
+                    // Force title update safely
+                    const titleEl = document.getElementById('level-title');
+                    if (titleEl) titleEl.textContent = t;
+
+                    app.updShare();
+                    app.toggleActionBtn(false);
+                    const isCamp = (app.d.campLvl > 0);
+                    document.getElementById('btn-sidebar-new').style.display = isCamp ? 'none' : 'block';
+                    if (!Intro.a) { Timer.start(); }
+                    app.ren(false, preserveZoom);
+                    app.updateClueState();
+                    app.updateURL();
+                    if (onLoadComplete) onLoadComplete();
+                };
+                if (app.d.winFadeInterval) { clearInterval(app.d.winFadeInterval); app.d.winFadeInterval = null; }
+                EmojiPhysics.isFlushing = false;
+                startGame();
+            },
+
+            renderSolutionPreview: () => {
+                const corner = document.querySelector('.corner');
+                if (!corner || app.d.grid.length === 0) return;
+
+                // Required clicks = board size (square board)
+                const requiredClicks = app.d.w;
+
+                const maxSize = 40; // Maximum size for the preview
+                const size = Math.min(app.d.w, app.d.h, 12); // Cap at 12x12 for readability
+                const cellSize = Math.floor(maxSize / size);
+
+                // Get computed colors from CSS variables
+                const root = document.documentElement;
+                const filledColor = getComputedStyle(root).getPropertyValue('--cell-filled').trim();
+                const bgColor = getComputedStyle(root).getPropertyValue('--cell-bg').trim();
+                const borderColor = getComputedStyle(root).getPropertyValue('--grid-line').trim();
+
+                // Create SVG for solution preview
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', `0 0 ${cellSize * size} ${cellSize * size}`);
+                svg.setAttribute('width', cellSize * size);
+                svg.setAttribute('height', cellSize * size);
+                svg.className = 'corner-preview';
+                svg.style.display = 'none'; // Ensure hidden initially
+
+                // Draw solution grid with SVG rectangles
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const cell = app.d.grid[y][x];
+
+                        // Background rectangle
+                        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        bg.setAttribute('x', x * cellSize);
+                        bg.setAttribute('y', y * cellSize);
+                        bg.setAttribute('width', cellSize);
+                        bg.setAttribute('height', cellSize);
+                        bg.setAttribute('fill', cell === 1 ? filledColor : bgColor);
+                        svg.appendChild(bg);
+
+                        // Border rectangle
+                        const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        border.setAttribute('x', x * cellSize);
+                        border.setAttribute('y', y * cellSize);
+                        border.setAttribute('width', cellSize);
+                        border.setAttribute('height', cellSize);
+                        border.setAttribute('fill', 'none');
+                        border.setAttribute('stroke', borderColor);
+                        border.setAttribute('stroke-width', '0.5');
+                        svg.appendChild(border);
+                    }
+                }
+
+                // Create content wrapper
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'corner-content';
+                contentDiv.title = `Click ${requiredClicks} times to reveal answer (Easter Egg!)`;
+
+                // Create emoji display area (hidden by default)
+                const emojiDisplay = document.createElement('div');
+                emojiDisplay.className = 'corner-emoji';
+                emojiDisplay.style.fontSize = '24px';
+                emojiDisplay.style.textAlign = 'center';
+                emojiDisplay.style.minHeight = '10px';
+                contentDiv.appendChild(emojiDisplay);
+
+                // Add preview SVG (hidden by default)
+                contentDiv.appendChild(svg);
+
+                corner.innerHTML = '';
+                corner.appendChild(contentDiv);
+
+                // Add click handler with random emojis until reveal
+                let clickCount = 0;
+                let isRevealed = false;
+                corner.onclick = (e) => {
+                    e.stopPropagation();
+
+                    if (!isRevealed) {
+                        clickCount++;
+
+                        if (clickCount <= requiredClicks) {
+                            // Show random emoji for each click
+                            const randomEmoji = EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)];
+                            emojiDisplay.innerHTML = randomEmoji;
+                        }
+
+                        if (clickCount >= requiredClicks) {
+                            // Reveal SVG after enough clicks
+                            isRevealed = true;
+                            setTimeout(() => {
+                                emojiDisplay.innerHTML = '';
+                                emojiDisplay.style.display = 'none';
+                                svg.style.display = 'block';
+                            }, 200); // Brief delay to show last emoji
+                        }
+                    } else if (isRevealed) {
+                        // Toggle visibility after revealed
+                        svg.style.display = svg.style.display === 'none' ? 'block' : 'none';
+                    }
+                    setTimeout(() => app.fit(true), 50);
+                };
+            },
+
+            ren: (ed, preserveZoom = false) => {
+                const c = document.getElementById('grid-container'), { w, h } = app.d, cl = ed ? { rows: [], cols: [] } : Gen.getClues(app.d.grid);
+
+                const isLargeGrid = w > 8 || h > 8;
+                const cellSize = isLargeGrid ? 26 : 32;
+                const fontSize = isLargeGrid ? 12 : 14;
+
+                c.style.gridTemplateColumns = `auto repeat(${w}, ${cellSize}px)`;
+                c.style.gridTemplateRows = `auto repeat(${h}, ${cellSize}px)`;
+                let html = '<div class="corner"></div>';
+
+                // Column clues - FIXED: Changed <div> to <span> to match row logic and JS selector
+                for (let x = 0; x < w; x++) {
+                    html += `<div class="clue-group-col" id="col-clue-${x}" style="width: ${cellSize}px; font-size: ${fontSize}px;">${ed ? '' : cl.cols[x].map(n => `<span>${n}</span>`).join('')}</div>`;
+                }
+
+                // Row clues and cells
+                for (let y = 0; y < h; y++) {
+                    html += `<div class="clue-group-row" id="row-clue-${y}" style="height: ${cellSize}px; font-size: ${fontSize}px; flex-wrap: wrap;">${ed ? '' : cl.rows[y].map(n => `<span>${n}</span>`).join('')}</div>`;
+                    for (let x = 0; x < w; x++) {
+                        let v = ed ? app.d.grid[y][x] : app.d.player[y][x], cls = 'cell';
+                        if ((x + 1) % 5 == 0 && x != w - 1) cls += ' v-thick'; if ((y + 1) % 5 == 0 && y != h - 1) cls += ' h-thick';
+
+                        /* EDITOR CROSS SUPPORT - Check crosses array for editor mode */
+                        if (ed && app.d.editorCrosses?.[y]?.[x] === 2) {
+                            cls += ' crossed';
+                        } else {
+                            if (v == 1) cls += ' filled';
+                            if (v == 2) cls += ' crossed';
+                        }
+                        /* END EDITOR CROSS SUPPORT */
+
+                        // Add perimeter borders for fill zone outline
+                        if (x === 0) cls += ' perimeter-left';
+                        if (x === w - 1) cls += ' perimeter-right';
+                        if (y === 0) cls += ' perimeter-top';
+                        if (y === h - 1) cls += ' perimeter-bottom';
+                        html += `<div class="${cls}" data-x="${x}" data-y="${y}" style="width: ${cellSize}px; height: ${cellSize}px;" onmousedown="app.drag(${x},${y},event.button)" onmouseenter="app.hov(event)"></div>`;
+                    }
+                }
+                c.innerHTML = html;
+                const adjustCornerSize = () => {
+                    const colHeader = document.querySelector('.clues-col');
+                    const rowHeader = document.querySelector('.clues-row'); // The left sidebar of numbers
+                    const emojiEl = document.querySelector('.corner-emoji');
+
+                    if (colHeader && rowHeader && emojiEl) {
+                        // 1. Reset emoji styles so it doesn't prop open the grid while we measure
+                        emojiEl.style.minHeight = '0px';
+                        emojiEl.style.height = 'auto';
+                        emojiEl.style.fontSize = '10px'; // Shrink temporarily to get true container size
+
+                        // 2. Measure the "natural" size of the headers
+                        // offsetHeight of colHeader is the height of the top strip
+                        // offsetWidth of rowHeader is the width of the left strip
+                        const h = colHeader.offsetHeight;
+                        const w = rowHeader.offsetWidth;
+
+                        // 3. Pick the smaller dimension to ensure we fit in both
+                        const limit = Math.min(h, w);
+
+                        // 4. Apply the size (with a little padding factor so it doesn't touch edges)
+                        // Emojis are text, so we adjust fontSize. 0.7 is a safe ratio.
+                        emojiEl.style.fontSize = Math.floor(limit * 0.7) + 'px';
+
+                        // Optional: Force the container to match exactly if you want a perfect square
+                        // emojiEl.style.height = limit + 'px';
+                        // emojiEl.style.width = limit + 'px';
+                    }
+                };
+                adjustCornerSize();
+                setTimeout(adjustCornerSize, 50);
+                if (!preserveZoom) {
+                    setTimeout(() => {
+                        app.fit(true);
+                        app.renderSolutionPreview();
+                        app.updateClueState(); // Ensure clues update immediately after render
+                    }, 150);
+                    app.updateURL();
+                } else {
+                    app.renderSolutionPreview();
+                    app.updateClueState(); // Ensure clues update immediately after render
+                    app.updateURL();
+                }
+            },
+            refreshPlayerView: () => { const { w, h } = app.d; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) app.upd(x, y, app.d.player[y][x]); app.updShare(); app.updateClueState(); app.check(); app.updateURL(); },
+
+            /* MODIFIED FOR EDITOR CROSS - Support right-click crossing in editor */
+            drag: (x, y, b) => {
+                if (Intro.a || (app.d.solved && app.d.mode === 'game')) return;
+                const ed = app.d.mode === 'editor';
+
+                if (ed) {
+                    app.d.drag = true;
+                    // Ensure crosses array exists
+                    if (!app.d.editorCrosses) {
+                        app.d.editorCrosses = Array(app.d.h).fill(0).map(() => Array(app.d.w).fill(0));
+                    }
+
+                    const v = app.d.grid[y][x];
+
+                    if (b == 2) {
+                        // Right click: toggle cross
+                        const wasCross = app.d.editorCrosses[y][x] === 2;
+                        const newCross = wasCross ? 0 : 2;
+                        app.d.editorCrosses[y][x] = newCross;
+
+                        // If setting cross, clear fill
+                        if (newCross === 2) {
+                            if (v === 1) app.d.grid[y][x] = 0;
+                            Sfx.cross();
+                        }
+                        app.d.dt = 2; // Remember we're crossing for drag
+                        app.upd(x, y, newCross === 2 ? 2 : app.d.grid[y][x]);
+                    } else {
+                        // Left click: toggle fill
+                        const newFill = (v == 1 ? 0 : 1);
+                        app.d.grid[y][x] = newFill;
+                        // If filling, clear cross
+                        if (newFill === 1 && app.d.editorCrosses[y][x] === 2) {
+                            app.d.editorCrosses[y][x] = 0;
+                        }
+                        app.d.dt = newFill;
+                        app.upd(x, y, newFill === 1 ? 1 : (app.d.editorCrosses[y][x] === 2 ? 2 : 0));
+                        if (newFill === 1) Sfx.fill();
+                    }
+
+                    app.updateEditorClues();
+                    app.exportSave();
+                    clearTimeout(app.d.checkTimer);
+                    app.d.checkTimer = setTimeout(app.checkSolvability, 800);
+                    return; // Exit early for editor mode
+                }
+
+                // Game mode logic (original)
+                app.d.drag = true;
+                const g = app.d.player, v = g[y][x];
+                app.d.dt = (b == 2 ? (v == 2 ? 0 : 2) : (v == 1 ? 0 : 1));
+                app.set(x, y, app.d.dt);
+            },
+            /* END MODIFIED drag */
+
+            handleTouchStart: (e) => {
+                if (Intro.a || (app.d.solved && app.d.mode === 'game')) return;
+
+                const el = e.target;
+                if (!el?.classList.contains('cell')) return;
+
+                if (e.cancelable) e.preventDefault();
+                
+                const x = parseInt(el.dataset.x);
+                const y = parseInt(el.dataset.y);
+
+                const ed = app.d.mode === 'editor';
+                if (ed) {
+                    if (!app.d.editorCrosses) {
+                        app.d.editorCrosses = Array(app.d.h).fill(0).map(() => Array(app.d.w).fill(0));
+                    }
+
+                    const hasFill = app.d.grid[y][x] === 1;
+                    const hasCross = app.d.editorCrosses[y][x] === 2;
+
+                    if (!hasFill && !hasCross) {
+                        app.d.grid[y][x] = 1; app.upd(x, y, 1); Sfx.fill();
+                    } else if (hasFill) {
+                        app.d.grid[y][x] = 0; app.d.editorCrosses[y][x] = 2; app.upd(x, y, 2); Sfx.cross();
+                    } else {
+                        app.d.editorCrosses[y][x] = 0; app.upd(x, y, 0);
+                    }
+
+                    app.updateEditorClues();
+                    app.exportSave();
+                    clearTimeout(app.d.checkTimer);
+                    app.d.checkTimer = setTimeout(app.checkSolvability, 800);
+                    return;
+                }
+
+                // Game mode logic
+                app.d.isDragging = false;
+                app.d.isLongPress = false;
+                app.d.lastTouchedCell = { x, y };
+                const v = app.d.player[y][x];
+                app.d.touchStartValue = v;
+                app.d.dragMode = 0;
+
+                // Instant fill for empty cells for responsive feel
+                if (v === 0) {
+                    app.set(x, y, 1);
+                }
+
+                app.d.touchTimer = setTimeout(() => {
+                    app.d.isLongPress = true;
+                    
+                    // On long press, always become cross
+                    app.d.dragMode = 2;
+                    app.set(x, y, app.d.dragMode);
+                    Sfx.cross();
+
+                }, 250); // Long press duration
+            },
+
+            handleTouchMove: (e) => {
+                if (app.d.mode === 'editor' || !app.d.lastTouchedCell || Intro.a || (app.d.solved && app.d.mode === 'game')) return;
+                if (e.cancelable) e.preventDefault();
+                
+                app.d.isDragging = true;
+                
+                if (app.d.touchTimer) clearTimeout(app.d.touchTimer);
+
+                const touch = e.touches[0];
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+
+                if (el?.classList.contains('cell')) {
+                    const x = parseInt(el.dataset.x);
+                    const y = parseInt(el.dataset.y);
+
+                    if (app.d.lastTouchedCell.x === x && app.d.lastTouchedCell.y === y) return;
+
+                    if (app.d.isLongPress) {
+                        // Already in cross-drag mode
+                        app.set(x, y, 2);
+                    } else {
+                        // Standard drag is fill-drag.
+                        if (app.d.dragMode === 0) {
+                            app.d.dragMode = 1; // Set to fill mode
+                            // Ensure the first cell is also set correctly, as it might have been an instant-fill.
+                            app.set(app.d.lastTouchedCell.x, app.d.lastTouchedCell.y, 1);
+                        }
+                        app.set(x, y, 1);
+                    }
+                    app.d.lastTouchedCell = {x, y};
+                }
+            },
+
+            handleTouchEnd: (e) => {
+                if (app.d.mode === 'editor' || !app.d.lastTouchedCell || Intro.a || (app.d.solved && app.d.mode === 'game')) return;
+
+                clearTimeout(app.d.touchTimer);
+
+                // If it was a short tap (no drag, no long press)
+                if (!app.d.isDragging && !app.d.isLongPress) {
+                    const {x, y} = app.d.lastTouchedCell;
+                    const v = app.d.touchStartValue;
+                    
+                    let n;
+                    if (v === 0) {
+                        // Action was already completed on touchstart (empty -> fill)
+                        n = 1;
+                    } else if (v === 1) {
+                        n = 2; // filled -> cross
+                    } else { // v === 2
+                        n = 0; // cross -> empty
+                    }
+                    app.set(x, y, n);
+                }
+                
+                // Reset state
+                app.d.lastTouchedCell = null;
+                app.d.isDragging = false;
+                app.d.isLongPress = false;
+                app.d.dragMode = 0;
+                app.d.touchStartValue = 0;
+            },
+
+            /* MODIFIED FOR EDITOR CROSS - Support dragging crosses in editor */
+            hov: (e) => {
+                if (!app.d.drag) return;
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                if (el?.classList.contains('cell')) {
+                    const x = parseInt(el.dataset.x);
+                    const y = parseInt(el.dataset.y);
+
+                    // Editor mode drag handling
+                    if (app.d.mode === 'editor') {
+                        if (app.d.dt === 2) {
+                            // Dragging crosses
+                            if (!app.d.editorCrosses) app.d.editorCrosses = Array(app.d.h).fill(0).map(() => Array(app.d.w).fill(0));
+                            if (app.d.editorCrosses[y][x] !== 2) {
+                                app.d.editorCrosses[y][x] = 2;
+                                if (app.d.grid[y][x] === 1) app.d.grid[y][x] = 0;
+                                app.upd(x, y, 2);
+                                Sfx.cross();
+                            }
+                        } else {
+                            // Dragging fills (0 or 1)
+                            if (app.d.grid[y][x] !== app.d.dt) {
+                                app.d.grid[y][x] = app.d.dt;
+                                if (app.d.dt === 1 && app.d.editorCrosses?.[y]?.[x] === 2) {
+                                    app.d.editorCrosses[y][x] = 0;
+                                }
+                                app.upd(x, y, app.d.dt === 1 ? 1 : (app.d.editorCrosses?.[y]?.[x] === 2 ? 2 : 0));
+                                if (app.d.dt === 1) Sfx.fill();
+                            }
+                        }
+                        // Debounce the heavy updates
+                        if (!app.d.editorUpdatePending) {
+                            app.d.editorUpdatePending = true;
+                            requestAnimationFrame(() => {
+                                app.updateEditorClues();
+                                app.exportSave();
+                                app.d.editorUpdatePending = false;
+                            });
+                        }
+                        return;
+                    }
+
+                    // Game mode (original)
+                    app.set(parseInt(el.dataset.x), parseInt(el.dataset.y), app.d.dt);
+                }
+            },
+            /* END MODIFIED hov */
+
+            set: (x, y, v) => {
+                if (Intro.a || app.d.mode === 'editor' || app.d.solved) return; // Prevent set from handling editor mode now
+                const g = app.d.player;
+                const previousValue = g[y][x];
+                if (previousValue == v) return;
+                g[y][x] = v;
+                app.upd(x, y, v);
+                if (v == 1) { // Filling a cell
+                    Sfx.fill();
+                    EmojiPhysics.add(5);
+                    EmojiPhysics.fadeOut(3);
+                } else if (v == 2) { // Crossing a cell
+                    Sfx.cross();
+                    EmojiPhysics.add(3);
+                    EmojiPhysics.fadeOut(4);
+                } else if (v == 0 && (previousValue == 1 || previousValue == 2)) { // Un-filling or un-crossing
+                    EmojiPhysics.fadeOut(5);
+                }
+                app.updShare();
+                if (!app.d.solved) {
+                    app.check();
+                    app.updateClueState();
+                }
+            },
+            upd: (x, y, v) => { const c = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); c.className = c.className.replace(/ (filled|crossed)/g, ''); if (v == 1) c.classList.add('filled'); if (v == 2) c.classList.add('crossed'); },
+            updShare: () => { let base = app.d.seed; if (app.d.campLvl > 0) base = "#" + app.d.campLvl; const flat = app.d.player.flat(); const isEmpty = flat.every(x => x === 0); let code = base; if (!isEmpty && !app.d.solved) { code += ":" + Codec.encodeState(app.d.player); } document.getElementById('share-display').textContent = code; app.updateSeedDisplay(); },
+            updateClueState: () => {
+                if (app.d.mode === 'editor' || !app.d.grid.length) return;
+                const { w, h, grid, player } = app.d;
+
+                const getSolutionBlocks = (line) => {
+                    const blocks = [];
+                    let currentBlock = null;
+                    for (let i = 0; i < line.length; i++) {
+                        if (line[i] === 1) {
+                            if (currentBlock === null) {
+                                currentBlock = { start: i, length: 1 };
+                            } else {
+                                currentBlock.length++;
+                            }
+                        } else {
+                            if (currentBlock !== null) {
+                                blocks.push(currentBlock);
+                                currentBlock = null;
+                            }
+                        }
+                    }
+                    if (currentBlock !== null) {
+                        blocks.push(currentBlock);
+                    }
+                    return blocks;
+                };
+
+                const checkLine = (player_line, solution_line, clueEl) => {
+                    const spans = clueEl.getElementsByTagName('span');
+                    const solutionBlocks = getSolutionBlocks(solution_line);
+
+                    // Handle '0' clue for empty lines
+                    if (solutionBlocks.length === 0) {
+                        if (spans.length === 1 && spans[0].textContent === '0') {
+                            const hasNoFills = player_line.every(cell => cell !== 1);
+                            if (hasNoFills) {
+                                spans[0].style.textDecoration = 'line-through';
+                                spans[0].style.color = 'var(--text-muted)';
+                            } else {
+                                spans[0].style.textDecoration = 'none';
+                                spans[0].style.color = 'var(--clue-text)';
+                            }
+                        }
+                        return;
+                    }
+
+                    if (spans.length !== solutionBlocks.length) {
+                        return;
+                    }
+
+                    solutionBlocks.forEach((block, index) => {
+                        let isBlockComplete = true;
+                        for (let i = 0; i < block.length; i++) {
+                            if (player_line[block.start + i] !== 1) {
+                                isBlockComplete = false;
+                                break;
+                            }
+                        }
+
+                        const span = spans[index];
+                        if (isBlockComplete) {
+                            span.style.textDecoration = 'line-through';
+                            span.style.color = 'var(--text-muted)';
+                        } else {
+                            span.style.textDecoration = 'none';
+                            span.style.color = 'var(--clue-text)';
+                        }
+                    });
+                };
+
+                // Check rows
+                for (let y = 0; y < h; y++) {
+                    const rowClueEl = document.getElementById(`row-clue-${y}`);
+                    if (!rowClueEl) continue;
+                    const player_line = player[y];
+                    const solution_line = grid[y];
+                    checkLine(player_line, solution_line, rowClueEl);
+                }
+
+                // Check columns
+                for (let x = 0; x < w; x++) {
+                    const colClueEl = document.getElementById(`col-clue-${x}`);
+                    if (colClueEl) {
+                        // Create vertical arrays for the column check
+                        const colPlayerLine = player.map(row => row[x]);
+                        const colGridLine = grid.map(row => row[x]);
+                        checkLine(colPlayerLine, colGridLine, colClueEl);
+                    }
+                }
+            },
+            check: () => {
+                const { grid, player } = app.d; const targetClues = Gen.getClues(grid); const playerBinary = player.map(row => row.map(cell => cell === 1 ? 1 : 0)); const currentClues = Gen.getClues(playerBinary); if (JSON.stringify(targetClues) === JSON.stringify(currentClues)) {
+                    if (app.d.touchTimer) clearTimeout(app.d.touchTimer);
+                    app.d.solved = true; Timer.stop(); app.d.winFadeInterval = setInterval(() => {
+                        const liveCount = EmojiPhysics.bodies.filter(b => !b.isDying).length;
+                        if (liveCount > 30) {
+                            const fadeCount = Math.ceil((liveCount - 30) * 0.1);
+                            EmojiPhysics.fadeOut(fadeCount);
+                        }
+                    }, 1000);
+                    const duration = Math.max(app.d.w, app.d.h);
+                    Sfx.happyTune(duration, () => { });
+                    document.querySelectorAll('.cell.filled').forEach(c => c.classList.add('rainbow-win')); app.updShare(); app.toggleActionBtn(true); EmojiPhysics.fadeOut(EmojiPhysics.bodies.length * 0.4);EmojiPhysics.add(EmojiPhysics.bodies.length * 0.8); const mainStage = document.getElementById('main-stage'); mainStage.classList.add('shake-win'); setTimeout(() => mainStage.classList.remove('shake-win'), 500);
+                }
+            },
+            useHint: () => {
+                if (app.d.solved || app.d.hintCooldown) return;
+
+                // First, correct any wrong marks
+                for (let y = 0; y < app.d.h; y++) {
+                    for (let x = 0; x < app.d.w; x++) {
+                        const playerVal = app.d.player[y][x];
+                        const solutionVal = app.d.grid[y][x];
+                        if ((playerVal === 1 && solutionVal === 0) || (playerVal === 2 && solutionVal === 1)) {
+                            app.d.player[y][x] = 0;
+                            app.upd(x, y, 0);
+                        }
+                    }
+                }
+
+                // Then find a potential hint cell
+                let t = [];
+                for (let y = 0; y < app.d.h; y++) {
+                    for (let x = 0; x < app.d.w; x++) {
+                        if (app.d.grid[y][x] == 1 && app.d.player[y][x] != 1) {
+                            t.push({ x, y });
+                        }
+                    }
+                }
+
+                if (!t.length) return;
+
+                // --- HINT IS AVAILABLE, START COOLDOWN ---
+                app.d.hintCooldown = true;
+                const hintButtons = document.querySelectorAll('.btn.hint, .float-btn.hint-btn');
+                hintButtons.forEach(btn => {
+                    btn.classList.add('hint-btn-cooldown');
+                });
+
+                setTimeout(() => {
+                    app.d.hintCooldown = false;
+                    hintButtons.forEach(btn => {
+                        btn.classList.remove('hint-btn-cooldown');
+                    });
+                }, 5000);
+                Timer.s += 15;
+                Timer.upd();
+
+
+                // --- APPLY THE HINT ---
+                const p = t[Math.floor(Math.random() * t.length)];
+                app.d.player[p.y][p.x] = 1;
+                app.upd(p.x, p.y, 1);
+
+                const c = document.querySelector(`.cell[data-x="${p.x}"][data-y="${p.y}"]`);
+                if (c) {
+                    c.classList.add('hint-anim');
+                    setTimeout(() => c.classList.remove('hint-anim'), 600);
+                }
+                
+                Sfx.hint();
+                app.check();
+                app.updShare();
+                app.updateClueState();
+            },
+            checkSolvability: () => { const r = Solver.check(app.d.grid); const e = document.getElementById('editor-status'); e.textContent = r.t; e.className = 'status-bar ' + r.c; },
+            updateEditorClues: () => {
+                if (app.d.mode !== 'editor') return;
+                const { w, h, grid } = app.d;
+                const clues = Gen.getClues(grid);
+                for (let x = 0; x < w; x++) {
+                    const el = document.getElementById(`col-clue-${x}`);
+                    if (el) el.innerHTML = clues.cols[x].map(n => `<span>${n}</span>`).join('');
+                }
+                for (let y = 0; y < h; y++) {
+                    const el = document.getElementById(`row-clue-${y}`);
+                    if (el) el.innerHTML = clues.rows[y].map(n => `<span>${n}</span>`).join('');
+                }
+                setTimeout(() => app.fit(true), 200);
+            },
+            fit: (f) => {
+                const s = document.getElementById('game-scaler'), c = document.getElementById('grid-container'), m = document.getElementById('main-stage');
+                if (!s || !c || !m.offsetParent) return;
+
+                // Measure the board's full scrollable size, which is independent of CSS transforms.
+                const boardWidth = c.scrollWidth;
+                const boardHeight = c.scrollHeight;
+
+                if (boardWidth === 0 || boardHeight === 0) {
+                    return; // Avoid division by zero if board is not rendered
+                }
+
+                let screenWidth = m.offsetWidth;
+                const screenHeight = m.offsetHeight;
+
+                // On mobile, ALWAYS use the full window width for scaling calculations.
+                // This ignores the main stage's animated width during sidebar transitions,
+                // ensuring the board scales to the final, full-screen space.
+                if (window.innerWidth < 768) {
+                    screenWidth = window.innerWidth;
+                }
+
+                const padding = window.innerWidth < 768 ? 20 : 40;
+                const scaleX = (screenWidth - padding) / boardWidth;
+                const scaleY = (screenHeight - padding) / boardHeight;
+
+                const finalScale = Math.max(0.1, Math.min(scaleX, scaleY));
+                app.applyZ(finalScale);
+                app.d.manualZoom = false;
+            },
+            zoom: (d) => { app.d.manualZoom = true; app.applyZ(Math.max(0.1, Math.min(10, app.d.scale + d))); },
+            applyZ: (v) => { app.d.scale = v; document.getElementById('game-scaler').style.transform = `scale(${v})`; document.getElementById('zoom-val').textContent = Math.round(v * 100) + "%"; },
+            pan: (id) => {
+                document.querySelectorAll('.control-panel').forEach(e => e.classList.remove('active'));
+                document.getElementById('panel-' + id).classList.add('active');
+                app.d.mode = id;
+                if (id === 'game') {
+                    setTimeout(() => app.updateGamePanelButtons(), 0);
+                }
+            },
+            updateGamePanelButtons: () => {
+                const backToMenuBtn = document.querySelector('#panel-game .btn.danger');
+                if (!backToMenuBtn) return;
+
+                const isEditorLevel = app.d.seed && app.d.seed.startsWith('~');
+
+                if (isEditorLevel) {
+                    backToMenuBtn.textContent = 'Back to Editor';
+                    backToMenuBtn.onclick = () => app.returnToEditor();
+                } else {
+                    backToMenuBtn.textContent = 'Back to Menu';
+                    backToMenuBtn.onclick = () => app.showMenu();
+                }
+            },
+            returnToEditor: () => {
+                Sfx.stopHappyTune();
+                app.ren(true, true); // Re-render board to show editor grid state
+                app.pan('editor');
+                app.updEL();
+                app.checkSolvability();
+                app.exportSave();
+                app.updateEditorClues();
+            },
+            showMenu: () => { Intro.e(); Timer.stop(); EmojiPhysics.bodies.forEach(b => b.isDying = true); app.pan('menu'); Intro.s(); document.getElementById('menu-lvl-input').value = app.d.campLvl || 1; history.replaceState(null, null, window.location.href.split('#')[0]); },
+            toggleTheme: () => {
+                const isCurrentlyDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const newTheme = isCurrentlyDark ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+
+                // The number of palettes is the same for both themes, so index should be safe.
+                // Re-apply the current palette settings for the new theme.
+                const palette = app.palettes[newTheme][app.paletteIndex];
+
+                if (palette) {
+                    app.setColor(palette.border);
+                    document.documentElement.style.setProperty('--corner-bg', palette.corner);
+                    document.documentElement.style.setProperty('--clue-zone-bg', palette.zone);
+                } else if (app.palettes[newTheme][0]) {
+                    // Fallback to the first palette if current index is somehow invalid
+                    app.paletteIndex = 0;
+                    const fallbackPalette = app.palettes[newTheme][0];
+                    app.setColor(fallbackPalette.border);
+                    document.documentElement.style.setProperty('--corner-bg', fallbackPalette.corner);
+                    document.documentElement.style.setProperty('--clue-zone-bg', fallbackPalette.zone);
+                }
+            },
+            updateURL: () => {
+                let hash = app.d.seed;
+                if (app.d.campLvl > 0) hash = "#" + app.d.campLvl;
+                if (window.location.hash !== '#' + hash) {
+                    history.replaceState(null, null, '#' + hash);
+                }
+            },
+            copyCode: (id) => { const txt = document.getElementById(id).textContent; if (!txt || txt === "...") return; navigator.clipboard.writeText(txt).then(() => { const t = document.getElementById("toast"); t.className = "show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }); },
+            solve: () => {
+                if (app.d.solved) return;
+                Intro.e();
+                Timer.stop(true);
+
+                let errors = 0;
+                const correctedPlayer = app.d.player.map(r => [...r]);
+
+                for (let y = 0; y < app.d.h; y++) {
+                    for (let x = 0; x < app.d.w; x++) {
+                        const playerVal = app.d.player[y][x];
+                        const solutionVal = app.d.grid[y][x];
+                        let isError = false;
+                        if (playerVal === 1 && solutionVal === 0) isError = true;
+                        if (playerVal === 2 && solutionVal === 1) isError = true;
+
+                        if (isError) {
+                            errors++;
+                            correctedPlayer[y][x] = 0;
+                            app.upd(x, y, 0);
+                        }
+                    }
+                }
+                app.d.player = correctedPlayer;
+
+                const startSolve = () => {
+                    const clues = Gen.getClues(app.d.grid);
+                    Intro.startSolver(app.d.w, app.d.h, clues, app.d.player, app.d.grid, true);
+                };
+
+                if (errors > 0) {
+                    Intro.toast(`${errors} error(s) corrected.`);
+                    setTimeout(startSolve, 800);
+                } else {
+                    startSolve();
+                }
+            },
+
+            /* MODIFIED FOR EDITOR CROSS - Initialize crosses array */
+            openEditor: () => {
+                Intro.e();
+                const v = document.getElementById('load-input').value.trim();
+
+                let grid, w, h, seed;
+
+                if (v.startsWith("~")) {
+                    const d = Codec.d(v);
+                    if (d) {
+                        grid = d.grid;
+                        w = d.w;
+                        h = d.h;
+                        seed = v;
+                    } else {
+                        alert("Invalid puzzle code!");
+                        grid = Array(10).fill(0).map(() => Array(10).fill(0));
+                        w = 10;
+                        h = 10;
+                        seed = "";
+                    }
+                } else if (v) { // Handle seeds as well
+                    let s = 10, seed_val = v;
+                    if (v.includes("x")) {
+                        let parts = v.split("x");
+                        if (!isNaN(parts[0])) {
+                            s = parseInt(parts[0]);
+                            seed_val = parts[1];
+                        }
+                    }
+                    grid = Gen.getGrid(seed_val, s, s);
+                    w = s;
+                    h = s;
+                    seed = v;
+
+                } else {
+                    grid = Array(10).fill(0).map(() => Array(10).fill(0));
+                    w = 10;
+                    h = 10;
+                    seed = "";
+                }
+
+                app.d.grid = grid;
+                app.d.w = w;
+                app.d.h = h;
+                app.d.seed = seed;
+
+                // Initialize crosses array for editor
+                app.d.editorCrosses = Array(h).fill(0).map(() => Array(w).fill(0));
+
+                app.ren(true, false);
+                app.pan('editor');
+                app.updEL();
+                app.checkSolvability();
+                app.exportSave();
+                app.updateEditorClues();
+            },
+            /* END MODIFIED openEditor */
+
+            resizeBoard: (dx, dy) => {
+                let { w, h, grid } = app.d, nw = Math.max(5, Math.min(30, w + dx)), nh = Math.max(5, Math.min(30, h + dy));
+                app.d.w = nw;
+                app.d.h = nh;
+                app.d.grid = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < h && x < w) ? grid[y][x] : 0));
+
+                /* EDITOR CROSS SUPPORT - Resize crosses array */
+                const oldCrosses = app.d.editorCrosses || [];
+                app.d.editorCrosses = Array(nh).fill(0).map((_, y) => Array(nw).fill(0).map((_, x) => (y < oldCrosses.length && x < oldCrosses[0]?.length) ? oldCrosses[y][x] : 0));
+                /* END EDITOR CROSS SUPPORT */
+
+                app.ren(true);
+                app.updEL();
+                app.checkSolvability();
+                app.exportSave();
+                app.updateEditorClues();
+            },
+
+            /* MODIFIED FOR EDITOR CROSS - Clear crosses in editor */
+            clearEditorBoard: () => {
+                if (app.d.mode !== 'editor') return;
+                const { w, h } = app.d;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        if (app.d.grid[y][x] !== 0) {
+                            app.d.grid[y][x] = 0;
+                            app.upd(x, y, 0);
+                        }
+                        // Clear crosses too
+                        if (app.d.editorCrosses?.[y]?.[x] !== 0) {
+                            app.d.editorCrosses[y][x] = 0;
+                            app.upd(x, y, 0);
+                        }
+                    }
+                }
+                EmojiPhysics.fadeOut(Infinity);
+                app.updateEditorClues();
+                app.exportSave();
+                app.checkSolvability();
+            },
+            /* END MODIFIED clearEditorBoard */
+
+            updEL: () => { document.getElementById('lbl-w').textContent = app.d.w; document.getElementById('lbl-h').textContent = app.d.h },
+            playEditorLevel: () => { const c = Codec.c(app.d.w, app.d.h, app.d.grid); app.d.seed = c; app.load(JSON.parse(JSON.stringify(app.d.grid)), app.d.w, app.d.h, "Test Play"); app.pan('game'); document.getElementById('camp-controls').style.display = 'none'; },
+            exportSave: () => document.getElementById('editor-export').textContent = Codec.c(app.d.w, app.d.h, app.d.grid),
+            editorSolve: () => { const r = Solver.check(app.d.grid); const { w, h } = app.d; document.querySelectorAll('.cell.unsolved').forEach(e => e.classList.remove('unsolved')); if (r.c === "ok") { alert("✅ Solvable by Logic!"); } else { for (let y = 0; y < h; y++) { for (let x = 0; x < w; x++) { if (r.wk[y][x] === null) { const c = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); if (c) c.classList.add('unsolved'); } } } const e = document.getElementById('editor-status'); e.textContent = r.t; e.className = 'status-bar ' + r.c; } },
+            fitBoard: (force) => app.fit(force),
+
+            updateSeedDisplay: () => {
+                let seedText = "";
+                if (app.d.campLvl > 0) {
+                    seedText += "#" + app.d.campLvl;
+                } else if (app.d.seed) {
+                    seedText += app.d.seed;
+                } else {
+                    seedText += "N/A";
+                }
+
+                const seedBox = document.getElementById('seed-display-box');
+                const seedModal = document.getElementById('seed-modal-text');
+                if (seedBox) seedBox.textContent = seedText;
+                if (seedModal) seedModal.textContent = seedText;
+            },
+
+            showSeedModal: () => {
+                const modal = document.getElementById('seed-modal');
+                if (modal) modal.classList.add('show');
+            },
+
+            closeSeedModal: (event) => {
+                if (event && event.target.id !== 'seed-modal') return;
+                const modal = document.getElementById('seed-modal');
+                if (modal) modal.classList.remove('show');
+            },
+
+            copySeedFromModal: () => {
+                const seedText = document.getElementById('seed-modal-text').textContent;
+                const seedContent = seedText.replace('Seed: ', '');
+                navigator.clipboard.writeText(seedContent).then(() => {
+                    const btn = document.getElementById('seed-modal-button');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✓ Copied!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                });
+            },
+
+            generateQRLink: () => {
+                let base = app.d.seed;
+                if (app.d.campLvl > 0) base = "#" + app.d.campLvl;
+
+                const flat = app.d.player.flat();
+                const isEmpty = flat.every(x => x === 0);
+
+                let code = base;
+                if (!isEmpty && !app.d.solved) {
+                    code += ":" + Codec.encodeState(app.d.player);
+                }
+
+                // Use the full GitHub URL for deployed version
+                const baseUrl = "https://mwolfinspace.github.io/Funny-Games/Nonogram.html#" + code;
+                return baseUrl;
+            },
+
+            generateQR: () => {
+                const qrLink = app.generateQRLink();
+                const qrContainer = document.getElementById('qr-code-container');
+                const qrLinkElement = document.getElementById('qr-modal-link');
+
+                // Clear previous QR code
+                qrContainer.innerHTML = '';
+
+                // Generate QR code
+                new QRCode(qrContainer, {
+                    text: qrLink,
+                    width: 256,
+                    height: 256,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                qrLinkElement.textContent = qrLink;
+
+                const modal = document.getElementById('qr-modal');
+                if (modal) modal.classList.add('show');
+            },
+
+            closeQRModal: (event) => {
+                if (event && event.target.id !== 'qr-modal') return;
+                const modal = document.getElementById('qr-modal');
+                if (modal) modal.classList.remove('show');
+            },
+
+            copyQRLink: () => {
+                const qrLink = app.generateQRLink();
+                navigator.clipboard.writeText(qrLink).then(() => {
+                    const btn = event.target.tagName === 'BUTTON' ? event.target : event.target.closest('button');
+                    if (btn) {
+                        const originalText = btn.textContent;
+                        btn.textContent = '✓ Copied!';
+                        setTimeout(() => {
+                            btn.textContent = originalText;
+                        }, 2000);
+                    }
+                });
+            },
+
+            downloadQR: () => {
+                const canvas = document.querySelector('#qr-code-container canvas') || document.querySelector('#qr-code-container svg');
+                if (!canvas) return;
+
+                // If it's SVG, convert to canvas
+                let imageCanvas = canvas;
+                if (canvas.tagName === 'SVG') {
+                    imageCanvas = document.createElement('canvas');
+                    imageCanvas.width = 256;
+                    imageCanvas.height = 256;
+                    const ctx = imageCanvas.getContext('2d');
+                    const svg = new XMLSerializer().serializeToString(canvas);
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0);
+                        downloadQRCanvas(imageCanvas);
+                    };
+                    img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                } else {
+                    downloadQRCanvas(imageCanvas);
+                }
+
+                function downloadQRCanvas(canvas) {
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/png');
+                    link.download = 'nonogram-' + Date.now() + '.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            },
+
+            showGameActionsModal: () => {
+                document.getElementById('game-actions-modal').style.display = 'flex';
+            },
+
+            closeGameActionsModal: () => {
+                document.getElementById('game-actions-modal').style.display = 'none';
+            },
+
+            handleLoadFromModal: () => {
+                const val = document.getElementById('modal-load-input').value;
+                document.getElementById('load-input').value = val;
+                app.handleLoad();
+                app.closeGameActionsModal();
+            },
+
+            openEditorFromModal: () => {
+                const val = document.getElementById('modal-load-input').value;
+                document.getElementById('load-input').value = val;
+                app.openEditor();
+                app.closeGameActionsModal();
+            },
+
+            solveAndCloseModal: () => {
+                app.solve();
+                app.closeGameActionsModal();
+            }
+        };
+        const StopConfetti = () => { };
+        window.onload = app.init;
+
+        // Handle URL hash to restore game from shared link
+        window.addEventListener('hashchange', () => {
+            if (Intro.a) return;
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                app.handleLoad(hash, false);
+            }
+        });
+
+        // On initial load, check if there's a hash and load the game
+        window.addEventListener('load', () => {
+            const hash = window.location.hash.substring(1);
+            if (hash && !Intro.a) {
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    app.handleLoad(hash, false);
+                }, 100);
+            }
+
+            // On mobile, force a refit after a short delay.
+            // This helps ensure the initial demo board is scaled correctly,
+            // as layout can be unstable on page load.
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    if (Intro.a && app.d.mode === 'menu') {
+                        app.fit(true);
+                    }
+                }, 500); // A slightly longer delay to be safe
+            }
+        }, false);
+
+        // Auto-fit on window resize (handles device rotation, etc.)
+        window.addEventListener('resize', () => {
+            if (app.d && app.d.w && app.d.h && app.d.mode === 'game') {
+                setTimeout(() => {
+                    app.fit(false);
+                }, 100);
+            }
+        });
+
+        // Update fullscreen icon when fullscreen mode changes
+        document.addEventListener('fullscreenchange', () => {
+            const fullscreenIcon = document.getElementById('fullscreen-icon');
+            const fullscreenExitIcon = document.getElementById('fullscreen-exit-icon');
+            const isCurrentlyFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement;
+            if (isCurrentlyFullscreen) {
+                fullscreenIcon.style.display = 'none';
+                fullscreenExitIcon.style.display = 'block';
+            } else {
+                fullscreenIcon.style.display = 'block';
+                fullscreenExitIcon.style.display = 'none';
+            }
+        });
+
+        // Function to detect button overlap and force 2-row grid layout
+        function detectButtonOverlap() {
+            const topControls = document.getElementById('float-extra-controls');
+            const bottomControls = document.getElementById('mobile-bottom-controls');
+
+            if (!topControls || !bottomControls) return;
+
+            const checkOverlap = (container) => {
+                const buttons = container.querySelectorAll('.float-btn');
+                if (buttons.length < 2) return false;
+
+                // Get bounding rectangles for all buttons
+                const rects = Array.from(buttons).map(btn => ({
+                    btn,
+                    rect: btn.getBoundingClientRect()
+                }));
+
+                // Check if any two buttons overlap
+                for (let i = 0; i < rects.length; i++) {
+                    for (let j = i + 1; j < rects.length; j++) {
+                        const rect1 = rects[i].rect;
+                        const rect2 = rects[j].rect;
+
+                        // Check if rectangles overlap
+                        if (!(rect1.right < rect2.left ||
+                            rect1.left > rect2.right ||
+                            rect1.bottom < rect2.top ||
+                            rect1.top > rect2.bottom)) {
+                            return true; // Overlap detected
+                        }
+                    }
+                }
+                return false;
+            };
+
+            // Check for overlap in top controls
+            if (checkOverlap(topControls)) {
+                topControls.style.display = 'grid';
+                topControls.style.gridTemplateColumns = '1fr 1fr';
+            }
+
+            // Check for overlap in bottom controls
+            if (checkOverlap(bottomControls)) {
+                bottomControls.style.display = 'grid';
+                bottomControls.style.gridTemplateColumns = '1fr 1fr';
+            }
+        }
+
+        // Run overlap detection on load and resize
+        window.addEventListener('load', () => {
+            setTimeout(detectButtonOverlap, 500);
+        });
+
+        window.addEventListener('resize', () => {
+            setTimeout(detectButtonOverlap, 300);
+        });
+
+        (function () {
+            // Override startNewGame to keep some useful functionality but remove broken zoom preservation.
+            app.startNewGame = function () {
+                // --- CLEANUP ---
+                if (typeof StopConfetti === 'function') StopConfetti();
+                if (app.timer) { clearInterval(app.timer); app.timer = null; }
+                const stage = document.getElementById('main-stage');
+                if (stage) stage.style.pointerEvents = 'auto';
+
+                // --- CAPTURE STATE ---
+                let w = 10, h = 10;
+
+                // Get size from active game data
+                if (app.d) {
+                    if (app.d.w) { w = app.d.w; h = app.d.h; }
+                }
+                // Fallback size from solution if app.d is empty
+                if ((!app.d || !app.d.w) && app.solution && app.solution.length) {
+                    h = app.solution.length;
+                    w = app.solution[0].length;
+                }
+
+                // --- START GAME ---
+                // This will start a new random game of a similar size, and app.fit() will be
+                // called automatically to scale it correctly.
+                const size = Math.max(w, h);
+                app.startRandom(size, size);
+
+                // --- PREVENT PINCH ZOOM AND DOUBLE-TAP ZOOM ---
+                document.addEventListener('touchmove', function (e) {
+                    if (e.touches.length > 1) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+
+                let lastTouchTime = 0;
+                document.addEventListener('touchend', function (e) {
+                    const currentTime = new Date().getTime();
+                    const tapLength = currentTime - lastTouchTime;
+                    if (tapLength < 300 && tapLength > 0) {
+                        e.preventDefault();
+                    }
+                    lastTouchTime = currentTime;
+                }, { passive: false });
+            };
+        })();
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('particle-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let animationFrameId;
+
+            const setup = () => {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                particles = [];
+                const particleCount = Math.floor(canvas.width * canvas.height / 40000);
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: Math.random() * 0.6 - 0.3,
+                        vy: Math.random() * 0.6 - 0.3,
+                        size: Math.random() * 40 + 20, // Font size from 20px to 60px
+                        emoji: EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)],
+                        alpha: Math.random() * 0.7 + 0.2,
+                        targetAlpha: Math.random() * 0.7 + 0.2, // Store original alpha
+                        currentAlpha: 0 // Start transparent for fade-in
+                    });
+                }
+            };
+
+            const draw = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                let allFadedIn = true;
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x > canvas.width + p.size) p.x = -p.size;
+                    if (p.x < -p.size) p.x = canvas.width + p.size;
+                    if (p.y > canvas.height + p.size) p.y = -p.size;
+                    if (p.y < -p.size) p.y = canvas.height + p.size;
+
+                    // Fade in logic
+                    if (p.currentAlpha < p.targetAlpha) {
+                        p.currentAlpha += 0.2; // Fade-in speed
+                        allFadedIn = false;
+                    }
+                    p.currentAlpha = Math.min(p.currentAlpha, p.targetAlpha);
+
+                    ctx.globalAlpha = p.currentAlpha;
+                    ctx.font = p.size + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    ctx.fillText(p.emoji, p.x, p.y);
+                });
+
+                ctx.globalAlpha = 1.0;
+
+                animationFrameId = requestAnimationFrame(draw);
+            };
+
+            const triggerBackgroundChange = () => {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+
+                let fadeOutAlpha = 1.0;
+                const fadeOut = () => {
+                    if (fadeOutAlpha > 0) {
+                        fadeOutAlpha -= 0.00002; // Fade-out speed
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        particles.forEach(p => {
+                            // Keep them moving a bit while fading
+                            p.x += p.vx * 0.5;
+                            p.y += p.vy * 0.5;
+
+                            ctx.globalAlpha = p.currentAlpha * fadeOutAlpha;
+                            ctx.font = p.size + 'px sans-serif';
+                            ctx.fillText(p.emoji, p.x, p.y);
+                        });
+                        requestAnimationFrame(fadeOut);
+                    } else {
+                        // After fade out, setup new particles and start drawing (which includes fade-in)
+                        setup();
+                        draw();
+                    }
+                };
+
+                if (particles.length > 0) {
+                    fadeOut();
+                } else {
+                    setup();
+                    draw();
+                }
+            };
+
+            const addRandomEmojis = (count) => {
+                if (!canvas) return;
+                for (let i = 0; i < count; i++) {
+                    particles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: Math.random() * 0.6 - 0.3,
+                        vy: Math.random() * 0.6 - 0.3,
+                        size: Math.random() * 40 + 20, // Font size from 20px to 60px
+                        emoji: EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)],
+                        alpha: Math.random() * 0.7 + 0.2,
+                        targetAlpha: Math.random() * 0.7 + 0.2, // Store original alpha
+                        currentAlpha: 0 // Start transparent for fade-in
+                    });
+                }
+            };
+
+            // Expose to the global app object
+            app.triggerBackgroundChange = triggerBackgroundChange;
+            app.addRandomEmojis = addRandomEmojis;
+
+            // Initial setup
+            setup();
+            draw();
+
+            if ('ResizeObserver' in window) {
+                const resizeObserver = new ResizeObserver(() => {
+                    // Don't re-trigger the whole fade, just resize and restart
+                    cancelAnimationFrame(animationFrameId);
+                    setup();
+                    draw();
+                });
+                resizeObserver.observe(canvas);
+            } else {
+                window.addEventListener('resize', () => {
+                    cancelAnimationFrame(animationFrameId);
+                    setup();
+                    draw();
+                });
+            }
+        });
+    </script>
+    <div id="game-actions-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center;">
+        <div id="game-actions-modal-content"
+            style="background: var(--sidebar-bg); border-radius: 12px; padding: 24px; max-width: 90%; width:320px; max-height: 80%; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <h2 style="margin-top: 0; color: var(--text-main);">Game Actions</h2>
+            <div class="control-box">
+                <input type="text" id="modal-load-input" placeholder="Paste Save Code or Seed">
+                <div class="row-group">
+                    <button class="btn secondary small" style="flex:1" onclick="app.handleLoadFromModal()">Load</button>
+                    <button class="btn secondary small" style="flex:1"
+                        onclick="app.openEditorFromModal()">Editor</button>
+                </div>
+            </div>
+            <div style="margin-top: 24px; display:flex; flex-direction:column; gap: 8px;">
+                <button class="btn danger" onclick="app.solveAndCloseModal()">Give Up</button>
+                <button class="btn secondary" onclick="app.closeGameActionsModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const hintBtn = document.getElementById('floating-hint-btn');
+            if (hintBtn) {
+                let hintHoldTimer = null;
+                let isLongPress = false;
+
+                const startPress = (e) => {
+                    e.preventDefault();
+                    if (document.body.classList.contains('sidebar-collapsed')) {
+                        isLongPress = false;
+                        hintHoldTimer = setTimeout(() => {
+                            isLongPress = true;
+                            app.solve();
+                        }, 1000);
+                    }
+                };
+
+                const endPress = (e) => {
+                    e.preventDefault();
+                    clearTimeout(hintHoldTimer);
+                    if (!isLongPress && document.body.classList.contains('sidebar-collapsed')) {
+                        app.useHint();
+                    } else if (!document.body.classList.contains('sidebar-collapsed')) {
+                        app.useHint();
+                    }
+                };
+
+                hintBtn.addEventListener('mousedown', startPress);
+                hintBtn.addEventListener('touchstart', startPress, { passive: false });
+                hintBtn.addEventListener('mouseup', endPress);
+                hintBtn.addEventListener('touchend', endPress);
+                hintBtn.addEventListener('mouseleave', () => clearTimeout(hintHoldTimer));
+            }
+        });
+    </script>
+</body>
+
+</html>

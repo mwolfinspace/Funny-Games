@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
+        />
+        <title>🧊 Ice Skate Puzzle</title>
+        <style>
+            :root {
+                --glass-bg: rgba(255, 255, 255, 0.75);
+                --glass-bd: rgba(255, 255, 255, 0.9);
+                --glass-sh: 0 4px 24px rgba(0, 0, 0, 0.09);
+                --radius: 12px;
+                --radius-lg: 20px;
+                --accent: #4f8ef7;
+                --accent2: #7c6ff7;
+                --danger: #f76f6f;
+                --success: #52c87a;
+                --text: #1a1a2e;
+                --muted: #6b7280;
+                --wall-color: #2c3e50;
+            }
+
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            html,
+            body {
+                width: 100vw;
+                height: 100vh;
+                overflow: hidden;
+                background: #e8edf5;
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                touch-action: none;
+                color: var(--text);
+            }
+
+            /* Top Bar */
+            #topBar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 54px;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 0 10px;
+                background: rgba(255, 255, 255, 0.75);
+                backdrop-filter: blur(24px) saturate(200%);
+                -webkit-backdrop-filter: blur(24px) saturate(200%);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+                box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            #topBar::-webkit-scrollbar {
+                display: none;
+            }
+
+            #btnHome {
+                width: 36px;
+                height: 36px;
+                min-width: 36px;
+                border: none;
+                background: rgba(0, 0, 0, 0.06);
+                border-radius: var(--radius);
+                cursor: pointer;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition:
+                    background 0.12s,
+                    transform 0.09s;
+                flex-shrink: 0;
+            }
+            #btnHome:hover {
+                background: rgba(0, 0, 0, 0.1);
+            }
+            #btnHome:active {
+                transform: scale(0.9);
+            }
+
+            .cg {
+                display: flex;
+                align-items: center;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+                border-radius: var(--radius);
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+
+            .cb {
+                height: 34px;
+                min-width: 32px;
+                padding: 0 9px;
+                background: transparent;
+                border: none;
+                border-radius: 0;
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text);
+                cursor: pointer;
+                white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                transition:
+                    background 0.12s,
+                    color 0.12s,
+                    transform 0.09s;
+                touch-action: manipulation;
+                flex-shrink: 0;
+            }
+            .cb + .cb {
+                border-left: 1px solid rgba(0, 0, 0, 0.07);
+            }
+            .cb:hover {
+                background: rgba(0, 0, 0, 0.05);
+            }
+            .cb:active {
+                transform: scale(0.9);
+            }
+            .cb.active {
+                background: linear-gradient(
+                    135deg,
+                    rgba(79, 142, 247, 0.22),
+                    rgba(124, 111, 247, 0.17)
+                );
+                color: var(--accent);
+            }
+
+            .sb {
+                height: 34px;
+                padding: 0 12px;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+                border-radius: var(--radius);
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--text);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                transition:
+                    background 0.12s,
+                    transform 0.1s,
+                    box-shadow 0.12s;
+                white-space: nowrap;
+                flex-shrink: 0;
+                touch-action: manipulation;
+            }
+            .sb:hover {
+                background: rgba(255, 255, 255, 0.94);
+                transform: translateY(-1px);
+                box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12);
+            }
+            .sb:active {
+                transform: scale(0.93);
+            }
+            .sb.primary {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                color: #fff;
+                border: none;
+                box-shadow: 0 4px 16px rgba(79, 142, 247, 0.38);
+            }
+            .sb.primary:hover {
+                box-shadow: 0 7px 24px rgba(79, 142, 247, 0.5);
+            }
+
+            .ctrl-label {
+                padding: 0 6px;
+                font-weight: bold;
+                min-width: 36px;
+                text-align: center;
+                font-size: 12px;
+            }
+
+            #seedBox {
+                height: 34px;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+                border-radius: var(--radius);
+                padding: 0 8px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            #seedInput {
+                border: none;
+                background: transparent;
+                font-family: monospace;
+                font-size: 11px;
+                outline: none;
+                color: var(--text);
+                min-width: 40px;
+                flex: 1;
+            }
+            #seedInput::placeholder {
+                color: var(--muted);
+                opacity: 0.6;
+            }
+
+            /* Canvas */
+            #gameCanvas {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: block;
+                touch-action: none;
+            }
+
+            /* D-Pads */
+            .dpad {
+                position: fixed;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                z-index: 50;
+                transition:
+                    left 0.3s,
+                    right 0.3s;
+            }
+            .dpad-mid {
+                display: flex;
+                gap: 4px;
+            }
+            .nav-btn {
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                font-size: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255, 255, 255, 0.75);
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+                backdrop-filter: blur(16px) saturate(180%);
+                -webkit-backdrop-filter: blur(16px) saturate(180%);
+                cursor: pointer;
+                transition:
+                    background 0.12s,
+                    transform 0.1s;
+            }
+            .nav-btn:hover {
+                background: rgba(255, 255, 255, 0.94);
+                transform: translateY(-1px);
+            }
+            .nav-btn:active {
+                transform: scale(0.93);
+            }
+            .dpad-center {
+                width: 56px;
+                height: 56px;
+                opacity: 0.08;
+                background: var(--text);
+                border-radius: 50%;
+            }
+
+            @media (max-width: 640px) {
+                .dpad {
+                    display: none;
+                }
+                .modal-card {
+                    width: 92%;
+                    padding: 16px;
+                    padding-top: 24px;
+                }
+                .win-stats {
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 8px;
+                }
+                .ws-box {
+                    padding: 8px;
+                }
+                .ws-box .wv {
+                    font-size: 16px;
+                }
+                .ws-box .wl {
+                    font-size: 9px;
+                }
+                .modal-btns {
+                    flex-direction: column;
+                }
+            }
+
+            /* Status Bar */
+            #statusBar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 42px;
+                z-index: 100;
+                background: rgba(15, 20, 40, 0.85);
+                color: white;
+                display: flex;
+                align-items: center;
+                padding: 0 16px;
+                gap: 16px;
+                font-size: 12px;
+                overflow-x: auto;
+                scrollbar-width: none;
+                flex-shrink: 0;
+            }
+            #statusBar::-webkit-scrollbar {
+                display: none;
+            }
+            .sbi {
+                display: flex;
+                gap: 6px;
+                align-items: baseline;
+                flex-shrink: 0;
+            }
+            .sbi .l {
+                opacity: 0.5;
+                text-transform: uppercase;
+                font-size: 10px;
+                font-weight: 800;
+            }
+            .sbi .v {
+                font-weight: 600;
+            }
+            #sbSeed {
+                margin-left: auto;
+                font-family: monospace;
+                cursor: pointer;
+                font-size: 11px;
+                opacity: 0.7;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            #sbSeed:hover {
+                opacity: 1;
+            }
+
+            /* Modals */
+            .modal-bg {
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                background: rgba(0, 0, 0, 0.35);
+                backdrop-filter: blur(6px);
+                display: none;
+                align-items: center;
+                justify-content: center;
+            }
+            .modal-bg.open {
+                display: flex;
+            }
+            .modal-card {
+                width: 90%;
+                max-width: 340px;
+                padding: 24px;
+                padding-top: 32px;
+                text-align: center;
+                border-radius: var(--radius-lg);
+                background: rgba(255, 255, 255, 0.75);
+                backdrop-filter: blur(24px) saturate(200%);
+                -webkit-backdrop-filter: blur(24px) saturate(200%);
+                border: 1px solid rgba(255, 255, 255, 0.9);
+                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.09);
+                animation: popIn 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.27);
+            }
+            @keyframes popIn {
+                from {
+                    transform: scale(0.8);
+                    opacity: 0;
+                }
+                to {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+            .modal-card .me {
+                font-size: 36px;
+                margin-bottom: 8px;
+            }
+            .modal-card h2 {
+                font-size: 22px;
+                margin-bottom: 4px;
+            }
+            .modal-card .ms {
+                font-size: 13px;
+                opacity: 0.6;
+                margin-bottom: 20px;
+            }
+
+            .win-stats {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 4px;
+                margin: 12px 0;
+                min-height: 55px;
+            }
+            .ws-box {
+                background: rgba(0, 0, 0, 0.05);
+                padding: 12px;
+                border-radius: var(--radius);
+            }
+            .ws-box .wv {
+                font-size: 20px;
+                font-weight: 900;
+                color: #FFD700;
+                text-shadow: 0 0 2px rgba(255, 215, 0, 0.5);
+                white-space: nowrap;
+            }
+            .ws-box .wl {
+                font-size: 10px;
+                opacity: 0.5;
+                text-transform: uppercase;
+                font-weight: 800;
+                margin-top: 2px;
+            }
+
+            .modal-btns {
+                display: flex;
+                gap: 8px;
+            }
+            .mbtn {
+                flex: 1;
+                height: 48px;
+                border-radius: var(--radius);
+                border: none;
+                font-weight: bold;
+                font-size: 14px;
+                cursor: pointer;
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent2)
+                );
+                color: white;
+                transition:
+                    box-shadow 0.12s,
+                    transform 0.1s;
+            }
+            .mbtn:hover {
+                box-shadow: 0 7px 24px rgba(79, 142, 247, 0.5);
+            }
+            .mbtn:active {
+                transform: scale(0.96);
+            }
+            .mbtn-sec {
+                background: rgba(0, 0, 0, 0.06);
+                color: var(--text);
+                box-shadow: none;
+            }
+            .mbtn-sec:hover {
+                background: rgba(0, 0, 0, 0.1);
+                box-shadow: none;
+            }
+            .mbtn-close {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                border: none;
+                background: rgba(0, 0, 0, 0.06);
+                cursor: pointer;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Toast */
+            #toast {
+                position: fixed;
+                bottom: 60px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 10px 24px;
+                border-radius: 24px;
+                background: rgba(15, 20, 40, 0.88);
+                color: white;
+                font-size: 13px;
+                font-weight: 500;
+                opacity: 0;
+                transition:
+                    opacity 0.3s,
+                    transform 0.3s;
+                z-index: 300;
+                pointer-events: none;
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+            }
+            #toast.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(-4px);
+            }
+
+            #loadingScreen {
+                position: fixed;
+                inset: 0;
+                background: #e8edf5;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+            #loadingScreen h1 {
+                font-size: 28px;
+                color: var(--text);
+                margin-top: 16px;
+            }
+            #loadingScreen p {
+                font-size: 14px;
+                color: var(--muted);
+                margin-top: 6px;
+            }
+            .loader {
+                width: 40px;
+                height: 40px;
+                border: 4px solid rgba(0, 0, 0, 0.08);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            #editorControls {
+                display: none;
+                gap: 6px;
+                align-items: center;
+                flex-shrink: 0;
+            }
+            #editorControls.show {
+                display: flex;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="loadingScreen">
+            <div class="loader"></div>
+            <h1>🧊 Ice Puzzle</h1>
+            <p>Freezing the floor...</p>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="topBar">
+            <button id="btnHome">🏠</button>
+            <div class="cg">
+                <button class="cb" id="btnSizeDown">−</button>
+                <span class="ctrl-label" id="sizeLabel">6×6</span>
+                <button class="cb" id="btnSizeUp">+</button>
+            </div>
+            <button class="sb" id="btnDifficulty">
+                🎯 <span id="diffLabel">Medium</span>
+            </button>
+            <button class="sb" id="btnReset">↺</button>
+            <button class="sb" id="btnNew">✨ New</button>
+            <button class="sb" id="btnEditor">✏️ Edit</button>
+            <button class="sb" id="btnSolve">💡 Solve</button>
+            <div id="seedBox">
+                <input type="text" id="seedInput" placeholder="Seed ID..." />
+            </div>
+            <div id="editorControls">
+                <div class="cg">
+                    <button class="cb active" id="toolWall">✏️ Wall</button>
+                    <button class="cb" id="toolStart">⭕ Start</button>
+                    <button class="cb" id="toolEnd">⭐ End</button>
+                </div>
+                <button class="sb primary" id="btnTest">▶ Test</button>
+            </div>
+        </div>
+
+        <div id="dpadLeft" class="dpad">
+            <button class="nav-btn" data-dir="UP">▲</button>
+            <div class="dpad-mid">
+                <button class="nav-btn" data-dir="LEFT">◀</button>
+                <div class="dpad-center"></div>
+                <button class="nav-btn" data-dir="RIGHT">▶</button>
+            </div>
+            <button class="nav-btn" data-dir="DOWN">▼</button>
+        </div>
+
+        <div id="dpadRight" class="dpad">
+            <button class="nav-btn" data-dir="UP">▲</button>
+            <div class="dpad-mid">
+                <button class="nav-btn" data-dir="LEFT">◀</button>
+                <div class="dpad-center"></div>
+                <button class="nav-btn" data-dir="RIGHT">▶</button>
+            </div>
+            <button class="nav-btn" data-dir="DOWN">▼</button>
+        </div>
+
+        <div id="statusBar">
+            <div class="sbi">
+                <span class="l">Time</span><span class="v" id="timeVal">00:00</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Moves</span><span class="v" id="movesVal">0</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Best</span><span class="v" id="bestVal">—</span>
+            </div>
+            <div class="sbi">
+                <span class="l">Size</span
+                ><span class="v" id="sizeVal">6×6</span>
+            </div>
+            <span id="sbSeed">SEED: —</span>
+        </div>
+
+        <div class="modal-bg" id="winModal">
+            <div class="modal-card" id="winCard">
+                <button class="mbtn-close" id="wBtnClose">✕</button>
+                <div class="me">🎉</div>
+                <h2>Nailed it!</h2>
+                <div class="ms">You slid to the ⭐</div>
+                <div class="win-stats">
+                    <div class="ws-box">
+                        <div class="wv" id="wTime">00:00</div>
+                        <div class="wl">Time</div>
+                    </div>
+                    <div class="ws-box">
+                        <div class="wv" id="wMoves">0</div>
+                        <div class="wl">Moves</div>
+                    </div>
+                    <div class="ws-box">
+                        <div class="wv" id="wOptimal">0</div>
+                        <div class="wl">Best</div>
+                    </div>
+                    <div class="ws-box">
+                        <div class="wv" id="wRating">⭐⭐⭐</div>
+                        <div class="wl">Rating</div>
+                    </div>
+                </div>
+                <div class="modal-btns">
+                    <button class="mbtn mbtn-sec" id="wBtnRetry">
+                        🔄 Retry
+                    </button>
+                    <button class="mbtn" id="wBtnNext">⏭ Next</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast"></div>
+
+        <script>
+            /**
+             * SFX System (Web Audio API)
+             */
+            let audioCtx = null;
+            function getAudioCtx() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                return audioCtx;
+            }
+
+            function playSlideSound() {
+                const ctx = getAudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.15);
+            }
+
+            function playConfettiPop() {
+                const ctx = getAudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800 + Math.random() * 600, ctx.currentTime);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.1);
+            }
+
+            function playTinSound() {
+                const ctx = getAudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.12, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.08);
+            }
+
+            function playStarSound(stars) {
+                for (let i = 0; i < stars; i++) {
+                    setTimeout(() => playTinSound(), i * 150);
+                }
+            }
+
+            function formatTime(s) {
+                const m = Math.floor(s / 60);
+                const sc = s % 60;
+                return (m < 10 ? "0" : "") + m + ":" + (sc < 10 ? "0" : "") + sc;
+            }
+
+            function startTimer() {
+                if (GS.timerActive) return;
+                GS.timerActive = true;
+                if (GS.timerInterval) clearInterval(GS.timerInterval);
+                GS.timerInterval = setInterval(() => {
+                    GS.timeSeconds++;
+                    document.getElementById("timeVal").innerText = formatTime(GS.timeSeconds);
+                }, 1000);
+            }
+
+            function stopTimer() {
+                GS.timerActive = false;
+                if (GS.timerInterval) clearInterval(GS.timerInterval);
+            }
+
+            function resetTimer() {
+                stopTimer();
+                GS.timeSeconds = 0;
+                document.getElementById("timeVal").innerText = "00:00";
+            }
+
+            /**
+             * BITMASK CONSTANTS: T:1, R:2, B:4, L:8
+             */
+            const MASK = { UP: 1, RIGHT: 2, DOWN: 4, LEFT: 8 };
+            const GS = {
+                gridSize: 6,
+                grid: [],
+                startCell: { r: 0, c: 0 },
+                endCell: { r: 0, c: 0 },
+                pawnCell: { r: 0, c: 0 },
+                pawnPixel: { x: 0, y: 0 },
+                isSliding: false,
+                ghostActive: false,
+                ghostPixel: { x: 0, y: 0 },
+                solveCooldown: 0,
+                difficulty: "MEDIUM",
+                seed: "",
+                moveCount: 0,
+                optimalMoves: 0,
+                mode: "PLAY",
+                editorTool: "WALL",
+                trail: [],
+                confetti: [],
+                cellSize: 0,
+                offsetX: 0,
+                offsetY: 0,
+                dragStart: null,
+                isDragging: false,
+                dirty: true,
+                timerActive: false,
+                timeSeconds: 0,
+                timerInterval: null,
+                gameStarted: false,
+            };
+
+            let renderRunning = false;
+            function kickRender() {
+                GS.dirty = true;
+                if (!renderRunning) { renderRunning = true; requestAnimationFrame(render); }
+            }
+
+            const canvas = document.getElementById("gameCanvas");
+            const ctx = canvas.getContext("2d");
+            const DIRS = {
+                UP: [-1, 0],
+                DOWN: [1, 0],
+                LEFT: [0, -1],
+                RIGHT: [0, 1],
+            };
+
+            // 81 Safe Characters (Excludes "_" and ".")
+            const BASE81_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+[]{}|~";
+
+            function toBase81(num, minLen = 1) {
+                if (num === 0) return BASE81_CHARS[0].repeat(minLen);
+                let str = "";
+                while (num > 0) {
+                    str = BASE81_CHARS[num % 81] + str;
+                    num = Math.floor(num / 81);
+                }
+                while (str.length < minLen) {
+                    str = BASE81_CHARS[0] + str;
+                }
+                return str;
+            }
+
+            function fromBase81(str) {
+                let num = 0;
+                for (let i = 0; i < str.length; i++) {
+                    num = num * 81 + BASE81_CHARS.indexOf(str[i]);
+                }
+                return num;
+            }
+
+            // PRNG
+            function mulberry32(a) {
+                return function () {
+                    let t = (a += 0x6d2b79f5);
+                    t = Math.imul(t ^ (t >>> 15), t | 1);
+                    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+                };
+            }
+            const hashStr = (s) =>
+                s
+                    .split("")
+                    .reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0);
+
+            // Grid helpers
+            function initEmptyGrid() {
+                GS.grid = Array.from({ length: GS.gridSize }, () =>
+                    Array(GS.gridSize).fill(0),
+                );
+                for (let i = 0; i < GS.gridSize; i++) {
+                    GS.grid[0][i] |= MASK.UP;
+                    GS.grid[GS.gridSize - 1][i] |= MASK.DOWN;
+                    GS.grid[i][0] |= MASK.LEFT;
+                    GS.grid[i][GS.gridSize - 1] |= MASK.RIGHT;
+                }
+            }
+
+            function addWall(r, c, m) {
+                GS.grid[r][c] |= m;
+                if (m === MASK.UP && r > 0) GS.grid[r - 1][c] |= MASK.DOWN;
+                if (m === MASK.DOWN && r < GS.gridSize - 1)
+                    GS.grid[r + 1][c] |= MASK.UP;
+                if (m === MASK.LEFT && c > 0) GS.grid[r][c - 1] |= MASK.RIGHT;
+                if (m === MASK.RIGHT && c < GS.gridSize - 1)
+                    GS.grid[r][c + 1] |= MASK.LEFT;
+            }
+
+            function removeWall(r, c, m) {
+                GS.grid[r][c] &= ~m;
+                if (m === MASK.UP && r > 0) GS.grid[r - 1][c] &= ~MASK.DOWN;
+                if (m === MASK.DOWN && r < GS.gridSize - 1)
+                    GS.grid[r + 1][c] &= ~MASK.UP;
+                if (m === MASK.LEFT && c > 0) GS.grid[r][c - 1] &= ~MASK.RIGHT;
+                if (m === MASK.RIGHT && c < GS.gridSize - 1)
+                    GS.grid[r][c + 1] &= ~MASK.LEFT;
+            }
+
+            // Map Encoding (Seamless Base81 with Minority Rule)
+            function encodeMap() {
+                const N = GS.gridSize;
+                let onWalls = [];
+                let offWalls = [];
+
+                for (let r = 0; r < N; r++) {
+                    for (let c = 0; c < N - 1; c++) {
+                        const idx = r * (N - 1) + c;
+                        if (GS.grid[r][c] & MASK.RIGHT) onWalls.push(idx);
+                        else offWalls.push(idx);
+                    }
+                }
+                const vOffset = N * (N - 1);
+                for (let r = 0; r < N - 1; r++) {
+                    for (let c = 0; c < N; c++) {
+                        const idx = vOffset + r * N + c;
+                        if (GS.grid[r][c] & MASK.DOWN) onWalls.push(idx);
+                        else offWalls.push(idx);
+                    }
+                }
+
+                let mode = 1;
+                let targetList = onWalls;
+                if (onWalls.length > offWalls.length) {
+                    mode = 0;
+                    targetList = offWalls;
+                }
+
+                const maxIdx = 2 * N * (N - 1);
+                const charLen = maxIdx < 81 ? 1 : 2;
+
+                const header =
+                    toBase81(N) +
+                    toBase81(Math.min(GS.optimalMoves || 0, 80)) +
+                    toBase81(GS.startCell.r) +
+                    toBase81(GS.startCell.c) +
+                    toBase81(GS.endCell.r) +
+                    toBase81(GS.endCell.c) +
+                    toBase81(mode);
+
+                const wallData = targetList.map(idx => toBase81(idx, charLen)).join("");
+                GS.seed = header + "_" + wallData;
+            }
+
+            function decodeMap(str) {
+                try {
+                    if (!str || str.length < 7) return false;
+
+                    const N = fromBase81(str[0]);
+                    if (N < 4 || N > 50) return false;
+
+                    GS.gridSize = N;
+                    GS.optimalMoves = fromBase81(str[1]);
+                    GS.startCell = { r: fromBase81(str[2]), c: fromBase81(str[3]) };
+                    GS.endCell = { r: fromBase81(str[4]), c: fromBase81(str[5]) };
+                    const mode = fromBase81(str[6]);
+
+                    if (mode !== 0 && mode !== 1) return false;
+
+                    let dataStart = 7;
+                    if (str[dataStart] === "_") {
+                        dataStart++;
+                    }
+
+                    const maxIdx = 2 * N * (N - 1);
+                    const charLen = maxIdx < 81 ? 1 : 2;
+
+                    if ((str.length - dataStart) % charLen !== 0) return false;
+
+                    const targetSet = new Set();
+                    for (let i = dataStart; i < str.length; i += charLen) {
+                        targetSet.add(fromBase81(str.substring(i, i + charLen)));
+                    }
+
+                    initEmptyGrid();
+
+                    for (let r = 0; r < N; r++) {
+                        for (let c = 0; c < N - 1; c++) {
+                            const idx = r * (N - 1) + c;
+                            const isWallOn = (mode === 1) ? targetSet.has(idx) : !targetSet.has(idx);
+                            if (isWallOn) {
+                                GS.grid[r][c] |= MASK.RIGHT;
+                                GS.grid[r][c + 1] |= MASK.LEFT;
+                            }
+                        }
+                    }
+
+                    const vOffset = N * (N - 1);
+                    for (let r = 0; r < N - 1; r++) {
+                        for (let c = 0; c < N; c++) {
+                            const idx = vOffset + r * N + c;
+                            const isWallOn = (mode === 1) ? targetSet.has(idx) : !targetSet.has(idx);
+                            if (isWallOn) {
+                                GS.grid[r][c] |= MASK.DOWN;
+                                GS.grid[r + 1][c] |= MASK.UP;
+                            }
+                        }
+                    }
+
+                    return true;
+                } catch (e) {
+                    console.error("Failed to decode seamless Base81 map:", e);
+                    return false;
+                }
+            }
+
+// 1. Enhanced Solver that tracks "Trickiness" (False Paths)
+function solveComplex() {
+    const queue = [{ r: GS.startCell.r, c: GS.startCell.c, path: [] }];
+    const visited = new Set([`${GS.startCell.r},${GS.startCell.c}`]);
+    let exploredCount = 0;
+
+    while (queue.length > 0) {
+        const curr = queue.shift();
+        exploredCount++; // Count how many nodes we evaluate
+
+        if (curr.r === GS.endCell.r && curr.c === GS.endCell.c) {
+            return { path: curr.path, explored: exploredCount };
+        }
+
+        for (const dir in DIRS) {
+            const res = slideSim(GS.grid, curr.r, curr.c, dir);
+            const key = `${res.r},${res.c}`;
+            if (!visited.has(key)) {
+                visited.add(key);
+                queue.push({
+                    r: res.r,
+                    c: res.c,
+                    path: [...curr.path, dir],
+                });
+            }
+        }
+    }
+    return { path: null, explored: exploredCount };
+}
+
+// Keep the original solve() so the "💡 Solve" button still works perfectly
+function solve() {
+    const res = solveComplex();
+    return res.path;
+}
+
+// Helper to apply the winning map
+function applyCandidate(candidate, diff, seedVal) {
+    GS.grid = candidate.grid;
+    GS.startCell = candidate.start;
+    GS.endCell = candidate.end;
+    GS.difficulty = diff;
+    GS.optimalMoves = candidate.steps;
+    encodeMap();
+    reset();
+    startTimer();
+    kickRender();
+    document.getElementById("loadingScreen").style.display = "none";
+}
+
+            function slideSim(grid, r, c, dir) {
+                const vectors = {
+                    UP: [-1, 0],
+                    DOWN: [1, 0],
+                    LEFT: [0, -1],
+                    RIGHT: [0, 1],
+                };
+                const masks = {
+                    UP: MASK.UP,
+                    DOWN: MASK.DOWN,
+                    LEFT: MASK.LEFT,
+                    RIGHT: MASK.RIGHT,
+                };
+                const [dr, dc] = DIRS[dir];
+                let cr = r,
+                    cc = c;
+                const passed = [];
+                while (!(grid[cr][cc] & masks[dir])) {
+                    cr += dr;
+                    cc += dc;
+                    passed.push({ r: cr, c: cc });
+                }
+                return { r: cr, c: cc, passed };
+            }
+
+            // 2. The New Open-Ice, High-Trickery Generator
+            async function generateMap(forcedDiff, customSeed) {
+                const effectiveDiff = forcedDiff || GS.difficulty;
+                
+                // Notice the drastically LOWER wall densities. 
+                // We rely on 'minExplored' (amount of false paths) to create difficulty, not wall clutter.
+                const config = {
+                    EASY:   { wallDensity: 0.08, minSteps: 4, maxSteps: 6, minExplored: 15 },
+                    MEDIUM: { wallDensity: 0.12, minSteps: 7, maxSteps: 10, minExplored: 40 },
+                    HARD:   { wallDensity: 0.16, minSteps: 10, maxSteps: 25, minExplored: 80 }
+                }[effectiveDiff];
+                
+                // Use the custom string, or generate a random one
+                const seedVal = customSeed || Date.now().toString(36);
+                const rng = mulberry32(hashStr(seedVal));
+
+                let attempts = 0;
+                const maxAttempts = 6000;
+                const chunkSize = 50;
+                const n = GS.gridSize;
+                
+                let bestCandidate = null;
+                let bestScore = 0;
+
+                function tryChunk() {
+                    for (let c = 0; c < chunkSize && attempts < maxAttempts; c++) {
+                        attempts++;
+                        initEmptyGrid();
+
+                        const wallCount = Math.floor(n * n * config.wallDensity * 4);
+                        for (let i = 0; i < wallCount; i++) {
+                            const r = Math.floor(rng() * n);
+                            const cc = Math.floor(rng() * n);
+                            const m = [MASK.UP, MASK.RIGHT, MASK.DOWN, MASK.LEFT][Math.floor(rng() * 4)];
+                            
+                            // --- ANTI-CLOSED-CELL LOGIC ---
+                            // 15 is the bitmask when all 4 walls are active (1 | 2 | 4 | 8 = 15)
+                            // First, check if adding this wall closes all 4 sides of the current cell
+                            let createsClosedCell = (GS.grid[r][cc] | m) === 15;
+                            
+                            // Next, check if it closes all 4 sides of the neighboring cell it touches
+                            if (!createsClosedCell) {
+                                if (m === MASK.UP && r > 0 && (GS.grid[r - 1][cc] | MASK.DOWN) === 15) createsClosedCell = true;
+                                else if (m === MASK.DOWN && r < n - 1 && (GS.grid[r + 1][cc] | MASK.UP) === 15) createsClosedCell = true;
+                                else if (m === MASK.LEFT && cc > 0 && (GS.grid[r][cc - 1] | MASK.RIGHT) === 15) createsClosedCell = true;
+                                else if (m === MASK.RIGHT && cc < n - 1 && (GS.grid[r][cc + 1] | MASK.LEFT) === 15) createsClosedCell = true;
+                            }
+
+                            // Only add the wall if it does NOT create an enclosed 4-wall cell
+                            if (!createsClosedCell) {
+                                addWall(r, cc, m);
+                            }
+                        }
+
+                        // Place start and end randomly anywhere
+                        GS.startCell = { r: Math.floor(rng() * n), c: Math.floor(rng() * n) };
+                        GS.endCell = { r: Math.floor(rng() * n), c: Math.floor(rng() * n) };
+                        
+                        if (GS.startCell.r === GS.endCell.r && GS.startCell.c === GS.endCell.c) continue;
+
+                        // --- ANTI-BUCKET LOGIC ---
+                        // If the goal is surrounded by 3 walls, it's a "bucket". You just slide into it and easily win.
+                        // We reject buckets on Medium and Hard, forcing the player to align perfectly in open ice.
+                        let endWalls = 0;
+                        let endMask = GS.grid[GS.endCell.r][GS.endCell.c];
+                        if (endMask & MASK.UP) endWalls++;
+                        if (endMask & MASK.DOWN) endWalls++;
+                        if (endMask & MASK.LEFT) endWalls++;
+                        if (endMask & MASK.RIGHT) endWalls++;
+                        if (effectiveDiff !== "EASY" && endWalls >= 3) continue;
+
+                        // Run the complex solver to evaluate trickiness
+                        const result = solveComplex();
+
+                        // Check if it fits the required step lengths
+                        if (result.path && result.path.length >= config.minSteps && result.path.length <= config.maxSteps) {
+                            
+                            // Score heavily favors maps that have massive amounts of false paths
+                            const score = result.explored;
+                            
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestCandidate = {
+                                    grid: GS.grid.map(row => [...row]),
+                                    start: { ...GS.startCell },
+                                    end: { ...GS.endCell },
+                                    steps: result.path.length,
+                                    explored: result.explored
+                                };
+
+                                // If it meets our rigorous "trickiness" threshold, accept immediately
+                                if (score >= config.minExplored) {
+                                    applyCandidate(bestCandidate, effectiveDiff, seedVal);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    return false;
+                }
+
+                function nextChunk() {
+                    if (tryChunk()) return; // Found a perfect, highly tricky map
+
+                    if (attempts >= maxAttempts) {
+                        // If we ran out of attempts, use the absolute trickiest one we found during the search
+                        if (bestCandidate) {
+                            applyCandidate(bestCandidate, effectiveDiff, seedVal);
+                        } else {
+                            // Fallback mechanism in case of extreme bad luck
+                            if (effectiveDiff === "HARD") generateMap("MEDIUM");
+                            else if (effectiveDiff === "MEDIUM") generateMap("EASY");
+                        }
+                        return;
+                    }
+                    // Yield to browser to prevent freezing the UI
+                    setTimeout(nextChunk, 0);
+                }
+
+                nextChunk();
+            }
+
+            // ANIMATION & RENDERING
+            function animateSlide(dir, onDone) {
+                if (GS.isSliding) return;
+                if (GS.gameStarted && GS.moveCount === 0 && GS.mode === "PLAY") startTimer();
+                if (!GS.gameStarted) GS.gameStarted = true;
+                playSlideSound();
+                GS.isSliding = true;
+                GS.moveCount++;
+                updateUI();
+                kickRender();
+
+                const target = slideSim(GS.grid, GS.pawnCell.r, GS.pawnCell.c, dir);
+                const startX = GS.offsetX + GS.pawnCell.c * GS.cellSize;
+                const startY = GS.offsetY + GS.pawnCell.r * GS.cellSize;
+                const endX = GS.offsetX + target.c * GS.cellSize;
+                const endY = GS.offsetY + target.r * GS.cellSize;
+
+                const duration = 200 + target.passed.length * 20;
+                const startTime = performance.now();
+
+                function frame(now) {
+                    let t = Math.min(1, (now - startTime) / duration);
+                    t = 1 - Math.pow(1 - t, 3);
+                    GS.pawnPixel.x = startX + (endX - startX) * t;
+                    GS.pawnPixel.y = startY + (endY - startY) * t;
+
+                    target.passed.forEach((p) => {
+                        if (t > 0.1)
+                            GS.trail.push({ r: p.r, c: p.c, alpha: 0.5 });
+                    });
+
+                    if (t < 1) requestAnimationFrame(frame);
+                    else {
+                        GS.pawnCell = { r: target.r, c: target.c };
+                        GS.isSliding = false;
+                        if (
+                            GS.pawnCell.r === GS.endCell.r &&
+                            GS.pawnCell.c === GS.endCell.c
+                        )
+                            triggerWin();
+                        onDone?.();
+                    }
+                }
+                requestAnimationFrame(frame);
+            }
+
+            function triggerWin() {
+                stopTimer();
+                for (let i = 0; i < 30; i++) {
+                    GS.confetti.push({
+                        x: GS.pawnPixel.x + GS.cellSize / 2,
+                        y: GS.pawnPixel.y + GS.cellSize / 2,
+                        vx: (Math.random() - 0.5) * 10,
+                        vy: (Math.random() - 1) * 12,
+                        color: ["#4F8EF7", "#7C6FF7", "#F76F6F", "#52C87A"][
+                            Math.floor(Math.random() * 4)
+                        ],
+                        r: Math.random() * 6 + 4,
+                        life: 1,
+                    });
+                    setTimeout(() => playConfettiPop(), i * 30);
+                }
+                setTimeout(() => {
+                    document.getElementById("wTime").innerText = formatTime(GS.timeSeconds);
+                    document.getElementById("wMoves").innerText = GS.moveCount;
+                    document.getElementById("wOptimal").innerText =
+                        GS.optimalMoves;
+                    const rating =
+                        GS.moveCount <= GS.optimalMoves
+                            ? "⭐⭐⭐"
+                            : GS.moveCount <= GS.optimalMoves + 2
+                              ? "⭐⭐"
+                              : "⭐";
+                    document.getElementById("wRating").innerText = rating;
+                    document.getElementById("winModal").classList.add("open");
+                    // Play tin sounds based on star count
+                    const stars = GS.moveCount <= GS.optimalMoves ? 3 : GS.moveCount <= GS.optimalMoves + 2 ? 2 : 1;
+                    playStarSound(stars);
+                }, 800);
+            }
+
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Board background
+                const pad = 12;
+                const bx = GS.offsetX - pad;
+                const by = GS.offsetY - pad;
+                const bw = GS.gridSize * GS.cellSize + pad * 2;
+                const bh = GS.gridSize * GS.cellSize + pad * 2;
+                const br = 16;
+                ctx.save();
+                ctx.fillStyle = "rgba(200,220,245,0.5)";
+                ctx.shadowColor = "rgba(0,0,0,0.08)";
+                ctx.shadowBlur = 20;
+                ctx.shadowOffsetY = 4;
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, br);
+                ctx.fill();
+                ctx.restore();
+
+                for (let r = 0; r < GS.gridSize; r++) {
+                    for (let c = 0; c < GS.gridSize; c++) {
+                        const px = GS.offsetX + c * GS.cellSize;
+                        const py = GS.offsetY + r * GS.cellSize;
+
+                        ctx.fillStyle =
+                            r === GS.endCell.r && c === GS.endCell.c
+                                ? "rgba(255, 215, 0, 0.15)"
+                                : "rgba(220,232,255,0.4)";
+                        ctx.beginPath();
+                        ctx.roundRect(
+                            px + 2,
+                            py + 2,
+                            GS.cellSize - 4,
+                            GS.cellSize - 4,
+                            GS.cellSize * 0.1,
+                        );
+                        ctx.fill();
+
+                        if (r === GS.startCell.r && c === GS.startCell.c) {
+                            ctx.font = `${GS.cellSize * 0.4}px Arial`;
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillStyle = "#4F8EF7";
+                            ctx.shadowColor = "rgba(79, 142, 247, 0.8)";
+                            ctx.shadowBlur = 10;
+                            ctx.fillText(
+                                "⭕",
+                                px + GS.cellSize / 2,
+                                py + GS.cellSize / 2,
+                            );
+                            ctx.shadowBlur = 0;
+                            ctx.fillStyle = "#000";
+                        }
+                        if (r === GS.endCell.r && c === GS.endCell.c) {
+                            ctx.font = `${GS.cellSize * 0.4}px Arial`;
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillStyle = "#FFD700";
+                            ctx.shadowColor = "rgba(255, 215, 0, 0.8)";
+                            ctx.shadowBlur = 12;
+                            ctx.fillText(
+                                "⭐",
+                                px + GS.cellSize / 2,
+                                py + GS.cellSize / 2,
+                            );
+                            ctx.shadowBlur = 0;
+                            ctx.fillStyle = "#000";
+                        }
+                    }
+                }
+
+                ctx.strokeStyle = "#0f9ed5";
+                ctx.lineWidth = 6;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                for (let r = 0; r < GS.gridSize; r++) {
+                    for (let c = 0; c < GS.gridSize; c++) {
+                        const x = GS.offsetX + c * GS.cellSize;
+                        const y = GS.offsetY + r * GS.cellSize;
+                        const m = GS.grid[r][c];
+                        if (m & MASK.UP) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x + GS.cellSize, y);
+                            ctx.stroke();
+                        }
+                        if (m & MASK.DOWN) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, y + GS.cellSize);
+                            ctx.lineTo(x + GS.cellSize, y + GS.cellSize);
+                            ctx.stroke();
+                        }
+                        if (m & MASK.LEFT) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x, y + GS.cellSize);
+                            ctx.stroke();
+                        }
+                        if (m & MASK.RIGHT) {
+                            ctx.beginPath();
+                            ctx.moveTo(x + GS.cellSize, y);
+                            ctx.lineTo(x + GS.cellSize, y + GS.cellSize);
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                GS.trail = GS.trail.filter((t) => t.alpha > 0.01);
+                GS.trail.forEach((t) => {
+                    ctx.fillStyle = `rgba(79,142,247,${t.alpha})`;
+                    ctx.fillRect(
+                        GS.offsetX + t.c * GS.cellSize + 5,
+                        GS.offsetY + t.r * GS.cellSize + 5,
+                        GS.cellSize - 10,
+                        GS.cellSize - 10,
+                    );
+                    t.alpha *= 0.94;
+                });
+
+                if (GS.ghostActive)
+                    drawPawn(GS.ghostPixel.x, GS.ghostPixel.y, true);
+                drawPawn(GS.pawnPixel.x, GS.pawnPixel.y);
+
+                if (GS.isDragging && GS.dragStart && GS.dragCurrent) {
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeStyle = "rgba(79,142,247,0.6)";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(GS.dragStart.x, GS.dragStart.y);
+                    ctx.lineTo(GS.dragCurrent.x, GS.dragCurrent.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                GS.confetti.forEach((c) => {
+                    ctx.fillStyle = c.color;
+                    ctx.fillRect(c.x, c.y, c.r, c.r);
+                    c.x += c.vx;
+                    c.y += c.vy;
+                    c.vy += 0.4;
+                    c.life -= 0.02;
+                });
+                GS.confetti = GS.confetti.filter((c) => c.life > 0);
+
+                GS.dirty = GS.isSliding || GS.ghostActive || GS.confetti.length > 0 || GS.isDragging;
+                if (GS.dirty) requestAnimationFrame(render);
+                else renderRunning = false;
+            }
+
+            function drawPawn(x, y, ghost = false) {
+                const cx = x + GS.cellSize / 2,
+                    cy = y + GS.cellSize / 2;
+                const r = GS.cellSize * 0.35;
+                ctx.save();
+                if (ghost) ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.fillStyle = ghost ? "#a8c8ff" : "#4F8EF7";
+                ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                if (!ghost) {
+                    ctx.fillStyle = "white";
+                    ctx.beginPath();
+                    ctx.arc(
+                        cx - r * 0.3,
+                        cy - r * 0.1,
+                        r * 0.15,
+                        0,
+                        Math.PI * 2,
+                    );
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(
+                        cx + r * 0.3,
+                        cy - r * 0.1,
+                        r * 0.15,
+                        0,
+                        Math.PI * 2,
+                    );
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // UI & INPUT
+            function computeLayout() {
+                const cw = canvas.clientWidth || window.innerWidth;
+                const ch = canvas.clientHeight || window.innerHeight;
+                
+                canvas.width = cw;
+                canvas.height = ch;
+                
+                const topPad = 54;
+                const botPad = 42;
+                const sidePad = cw > 640 ? 200 : 40;
+                
+                const availableH = ch - topPad - botPad;
+                const availableW = cw - sidePad;
+                
+                GS.cellSize = Math.max(
+                    36,
+                    Math.floor(
+                        Math.min(availableW, availableH) / (GS.gridSize + 0.5),
+                    ),
+                );
+                
+                GS.offsetX = Math.round((cw - GS.gridSize * GS.cellSize) / 2);
+                GS.offsetY = Math.round(topPad + (availableH - GS.gridSize * GS.cellSize) / 2);
+                
+                resetPositions();
+                positionDpads();
+            }
+
+            function positionDpads() {
+                const dpadWidth = 190;
+                const gap = 12;
+                const minScreenSpace = dpadWidth + gap;
+                const boardRight = GS.offsetX + GS.gridSize * GS.cellSize;
+                const leftSpace = GS.offsetX;
+                const rightSpace = canvas.width - boardRight;
+                const leftDpad = document.getElementById("dpadLeft");
+                const rightDpad = document.getElementById("dpadRight");
+
+                if (leftSpace >= minScreenSpace) {
+                    leftDpad.style.display = "flex";
+                    leftDpad.style.left = GS.offsetX - dpadWidth - gap + "px";
+                } else {
+                    leftDpad.style.display = "none";
+                }
+
+                if (rightSpace >= minScreenSpace) {
+                    rightDpad.style.display = "flex";
+                    rightDpad.style.right = rightSpace - dpadWidth - gap + "px";
+                } else {
+                    rightDpad.style.display = "none";
+                }
+            }
+
+            function resetPositions() {
+                GS.pawnPixel = {
+                    x: GS.offsetX + GS.pawnCell.c * GS.cellSize,
+                    y: GS.offsetY + GS.pawnCell.r * GS.cellSize,
+                };
+            }
+
+            function reset() {
+                GS.pawnCell = { ...GS.startCell };
+                GS.moveCount = 0;
+                GS.trail = [];
+                GS.ghostActive = false;
+                GS.isSliding = false;
+                resetPositions();
+                resetTimer();
+                updateUI();
+                kickRender();
+            }
+
+            function updateUI() {
+                document.getElementById("movesVal").innerText = GS.moveCount;
+                document.getElementById("sizeLabel").innerText =
+                    `${GS.gridSize}×${GS.gridSize}`;
+                document.getElementById("sizeVal").innerText =
+                    `${GS.gridSize}×${GS.gridSize}`;
+                document.getElementById("diffLabel").innerText = GS.difficulty.charAt(0) + GS.difficulty.slice(1).toLowerCase();
+                document.getElementById("bestVal").innerText =
+                    GS.optimalMoves || "—";
+                document.getElementById("sbSeed").innerText =
+                    GS.seed || "SEED: —";
+                const seedInput = document.getElementById("seedInput");
+                seedInput.value = GS.seed;
+                seedInput.style.width = Math.max(40, GS.seed.length * 7) + "px";
+            }
+
+            function showToast(msg) {
+                const t = document.getElementById("toast");
+                t.innerText = msg;
+                t.classList.add("show");
+                setTimeout(() => t.classList.remove("show"), 2000);
+            }
+
+            // Input Handlers
+            window.addEventListener("keydown", (e) => {
+                if (GS.mode === "EDITOR") return;
+                if (e.key === "r" || e.key === "R" || e.key === "Escape") {
+                    e.preventDefault();
+                    document.getElementById("winModal").classList.remove("open");
+                    reset();
+                    return;
+                }
+                if (GS.isSliding) return;
+                const map = {
+                    ArrowUp: "UP",
+                    ArrowDown: "DOWN",
+                    ArrowLeft: "LEFT",
+                    ArrowRight: "RIGHT",
+                    w: "UP",
+                    s: "DOWN",
+                    a: "LEFT",
+                    d: "RIGHT",
+                };
+                if (map[e.key]) animateSlide(map[e.key]);
+            });
+
+            canvas.addEventListener("pointerdown", (e) => {
+                if (GS.mode === "EDITOR") {
+                    handleEditorClick(e);
+                    return;
+                }
+                GS.dragStart = { x: e.clientX, y: e.clientY };
+                GS.isDragging = true;
+            });
+
+            window.addEventListener("pointermove", (e) => {
+                if (!GS.isDragging) return;
+                GS.dragCurrent = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener("pointerup", (e) => {
+                if (!GS.isDragging) return;
+                const dx = e.clientX - GS.dragStart.x;
+                const dy = e.clientY - GS.dragStart.y;
+                if (Math.sqrt(dx * dx + dy * dy) > 30) {
+                    const dir =
+                        Math.abs(dx) > Math.abs(dy)
+                            ? dx > 0
+                                ? "RIGHT"
+                                : "LEFT"
+                            : dy > 0
+                              ? "DOWN"
+                              : "UP";
+                    animateSlide(dir);
+                }
+                GS.isDragging = false;
+                GS.dragStart = null;
+                GS.dragCurrent = null;
+            });
+
+            document.querySelectorAll(".nav-btn").forEach((btn) => {
+                btn.onclick = () => animateSlide(btn.dataset.dir);
+            });
+
+            // Buttons
+            document.getElementById("btnHome").onclick = () =>
+                (window.location.href = "index.html");
+            document.getElementById("btnSizeUp").onclick = () => {
+                if (GS.gridSize < 10) {
+                    GS.gridSize++;
+                    generateMap();
+                    computeLayout();
+                }
+            };
+            document.getElementById("btnSizeDown").onclick = () => {
+                if (GS.gridSize > 4) {
+                    GS.gridSize--;
+                    generateMap();
+                    computeLayout();
+                }
+            };
+            document.getElementById("btnDifficulty").onclick = () => {
+                GS.difficulty =
+                    GS.difficulty === "EASY"
+                        ? "MEDIUM"
+                        : GS.difficulty === "MEDIUM"
+                          ? "HARD"
+                          : "EASY";
+                updateUI();
+                generateMap();
+            };
+            document.getElementById("btnReset").onclick = reset;
+            document.getElementById("btnNew").onclick = () => {
+                document.getElementById("winModal").classList.remove("open");
+                GS.solveCooldown = 0;
+                generateMap();
+            };
+            document.getElementById("wBtnRetry").onclick = () => {
+                document.getElementById("winModal").classList.remove("open");
+                reset();
+            };
+            document.getElementById("wBtnNext").onclick = () => {
+                document.getElementById("winModal").classList.remove("open");
+                generateMap();
+                computeLayout();
+            };
+            document.getElementById("wBtnClose").onclick = () =>
+                document.getElementById("winModal").classList.remove("open");
+
+            document.getElementById("btnSolve").onclick = () => {
+                if (GS.solveCooldown > 0) return;
+                const path = solve();
+                if (!path) return;
+
+                GS.ghostActive = true;
+                GS.solveCooldown = 10;
+                kickRender();
+
+                let ghostCell = { r: GS.startCell.r, c: GS.startCell.c };
+                GS.ghostPixel = {
+                    x: GS.offsetX + ghostCell.c * GS.cellSize,
+                    y: GS.offsetY + ghostCell.r * GS.cellSize,
+                };
+
+                let i = 0;
+                function nextStep() {
+                    if (i >= path.length) {
+                        GS.ghostActive = false;
+                        return;
+                    }
+                    const dir = path[i++];
+                    const target = slideSim(
+                        GS.grid,
+                        ghostCell.r,
+                        ghostCell.c,
+                        dir,
+                    );
+
+                    const startX = GS.ghostPixel.x;
+                    const startY = GS.ghostPixel.y;
+                    const endX = GS.offsetX + target.c * GS.cellSize;
+                    const endY = GS.offsetY + target.r * GS.cellSize;
+                    const duration = 200 + target.passed.length * 20;
+                    const startTime = performance.now();
+
+                    function animate(now) {
+                        let t = Math.min(1, (now - startTime) / duration);
+                        t = 1 - Math.pow(1 - t, 3);
+                        GS.ghostPixel.x = startX + (endX - startX) * t;
+                        GS.ghostPixel.y = startY + (endY - startY) * t;
+                        if (t < 1) requestAnimationFrame(animate);
+                        else {
+                            ghostCell = { r: target.r, c: target.c };
+                            setTimeout(nextStep, 400);
+                        }
+                    }
+                    requestAnimationFrame(animate);
+                }
+                setTimeout(nextStep, 500);
+            };
+
+            // Editor
+            document.getElementById("btnEditor").onclick = () => {
+                GS.mode = GS.mode === "PLAY" ? "EDITOR" : "PLAY";
+                document
+                    .getElementById("editorControls")
+                    .classList.toggle("show", GS.mode === "EDITOR");
+                document
+                    .getElementById("btnEditor")
+                    .classList.toggle("active", GS.mode === "EDITOR");
+                if (GS.mode === "PLAY") reset();
+            };
+
+            ["toolWall", "toolStart", "toolEnd"].forEach((id) => {
+                document.getElementById(id).onclick = () => {
+                    ["toolWall", "toolStart", "toolEnd"].forEach((x) =>
+                        document.getElementById(x).classList.remove("active"),
+                    );
+                    document.getElementById(id).classList.add("active");
+                    GS.editorTool = id.replace("tool", "").toUpperCase();
+                };
+            });
+
+            function handleEditorClick(e) {
+                const x = e.clientX - GS.offsetX;
+                const y = e.clientY - GS.offsetY;
+                const r = Math.floor(y / GS.cellSize);
+                const c = Math.floor(x / GS.cellSize);
+                if (r < 0 || r >= GS.gridSize || c < 0 || c >= GS.gridSize)
+                    return;
+
+                if (GS.editorTool === "WALL") {
+                    const lx = x / GS.cellSize - c;
+                    const ly = y / GS.cellSize - r;
+                    const dists = [ly, 1 - lx, 1 - ly, lx];
+                    const min = Math.min(...dists);
+                    const side = [MASK.UP, MASK.RIGHT, MASK.DOWN, MASK.LEFT][
+                        dists.indexOf(min)
+                    ];
+                    if (GS.grid[r][c] & side) removeWall(r, c, side);
+                    else addWall(r, c, side);
+                }
+                if (GS.editorTool === "START") {
+                    GS.startCell = { r, c };
+                    GS.pawnCell = { r, c };
+                }
+                if (GS.editorTool === "END") GS.endCell = { r, c };
+                encodeMap();
+                updateUI();
+                kickRender();
+            }
+
+            document.getElementById("btnTest").onclick = () => {
+                const path = solve();
+                if (!path) showToast("No valid path found!");
+                else {
+                    GS.optimalMoves = path.length;
+                    GS.mode = "PLAY";
+                    document
+                        .getElementById("editorControls")
+                        .classList.remove("show");
+                    document
+                        .getElementById("btnEditor")
+                        .classList.remove("active");
+                    reset();
+                    kickRender();
+                }
+            };
+
+            document.getElementById("seedInput").addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    const v = e.target.value.trim();
+                    if (v && decodeMap(v)) {
+                        e.target.blur();
+                        reset();
+                        setTimeout(() => {
+                            computeLayout();
+                            kickRender();
+                        }, 100);
+                    }
+                }
+            });
+
+            document.getElementById("sbSeed").onclick = () => {
+                navigator.clipboard?.writeText(GS.seed);
+                showToast("Seed copied!");
+            };
+
+            /**
+             * INIT
+             */
+            window.onload = () => {
+                setTimeout(() => {
+                    document.getElementById("loadingScreen").style.display =
+                        "none";
+                    generateMap();
+                    computeLayout();
+                    kickRender();
+                }, 1000);
+            };
+            window.addEventListener("resize", () => { 
+    computeLayout(); 
+    kickRender(); 
+});
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => { 
+        computeLayout(); 
+        kickRender(); 
+    });
+}
+
+            setInterval(() => {
+                if (GS.solveCooldown > 0) {
+                    GS.solveCooldown--;
+                    document.getElementById("btnSolve").innerText =
+                        `💡 ${GS.solveCooldown}s`;
+                } else {
+                    document.getElementById("btnSolve").innerText = `💡 Solve`;
+                }
+            }, 1000);
+        </script>
+    </body>
+</html>

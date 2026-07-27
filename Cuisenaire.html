@@ -1,0 +1,1940 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🧊 Cuisenaire Builder</title>
+  <style>
+    :root {
+      --bg-color: #f0f2f5;
+      --hud-bg: rgba(255, 255, 255, 0.7);
+      --text-color: #222;
+      --button-bg: rgba(0, 0, 0, 0.05);
+      --button-hover-bg: rgba(0, 0, 0, 0.1);
+      --accent-color: #0078d4;
+      --color-a: #ff8800; /* Top/Bot */
+      --color-b: #ff0000; /* Frt/Bak */
+      --color-c: #0000ff; /* Lft/Rgt */
+    }
+
+    body.dark-mode {
+      --bg-color: #202020;
+      --hud-bg: rgba(30, 30, 30, 0.7);
+      --text-color: #f5f5f5;
+      --button-bg: rgba(255, 255, 255, 0.1);
+      --button-hover-bg: rgba(255, 255, 255, 0.15);
+    }
+
+    body {
+      margin: 0; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
+      background-color: var(--bg-color); color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+      user-select: none;
+    }
+    #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+    
+    #hud {
+      position: absolute; top: 0; left: 0; width: 100%;
+      background-color: var(--hud-bg); backdrop-filter: blur(12px);
+      padding: 5px 15px; display: flex; flex-direction: column; gap: 5px;
+      z-index: 100; box-sizing: border-box; border-bottom: 1px solid rgba(127,127,127,0.2);
+    }
+    
+    #hud-top-row, #hud-bottom-row {
+      display: flex; align-items: center; width: 100%; gap: 10px;
+    }
+    #hud-top-row { justify-content: space-between; flex-wrap: wrap; }
+    #hud-top-left { display: flex; align-items: center; }
+    #hud-bottom-row { justify-content: center; flex-wrap: wrap; }
+    
+    #back-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 6px 12px; border-radius: 5px; border: 1px solid transparent;
+      background-color: var(--button-bg); color: var(--text-color);
+      text-decoration: none; font-weight: 500; font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    #back-btn:hover { background-color: var(--button-hover-bg); }
+    
+    .hud-cluster { display: flex; align-items: center; gap: 8px; padding: 2px 5px; }
+    .hud-sub-cluster { display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 5px; background-color: var(--button-bg); }
+    
+    button {
+      padding: 6px 10px; border-radius: 5px; border: 1px solid transparent;
+      background-color: var(--button-bg); color: var(--text-color);
+      cursor: pointer; font-weight: 500; font-size: 14px; min-width: 35px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background-color 0.2s;
+    }
+    button:hover { background-color: var(--button-hover-bg); border-color: rgba(0,0,0,0.05); }
+    button.active { background-color: var(--accent-color); color: white; }
+    
+    .cuisenaire-btn { 
+      width: 32px; height: 32px; font-weight: bold; border-radius: 4px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.6); color: white;
+      border: 2px solid transparent;
+      box-shadow: 0 0 0 0 rgba(0,0,0,0);
+      transition: all 0.2s;
+    }
+    .cuisenaire-btn.active {
+      border: 3px solid var(--accent-color);
+      box-shadow: 0 0 8px 2px rgba(0,120,212,0.6);
+      transform: scale(1.15);
+      z-index: 10;
+    }
+    
+    input[type="color"] { width: 28px; height: 32px; border: none; padding: 0; cursor: pointer; background: none; border-radius: 5px; }
+    input[type="text"] { height: 32px; border-radius: 5px; border: 1px solid var(--button-bg); background: var(--button-bg); color: var(--text-color); padding: 0 8px; font-family: monospace; }
+    
+    /* iOS-style toggle switch */
+    .ios-toggle {
+      position: relative; width: 44px; height: 24px; margin: 0 4px;
+    }
+    .ios-toggle input { opacity: 0; width: 0; height: 0; }
+    .ios-toggle .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc; transition: 0.3s; border-radius: 24px;
+    }
+    .ios-toggle .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background-color: white; transition: 0.3s; border-radius: 50%;
+    }
+    .ios-toggle input:checked + .slider { background-color: var(--accent-color); }
+    .ios-toggle input:checked + .slider:before { transform: translateX(20px); }
+    
+    /* BG reset label style */
+    .bg-reset-label { cursor: pointer; text-decoration: underline dotted; }
+    
+    #edit-panel {
+      position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
+      background-color: var(--hud-bg); backdrop-filter: blur(10px);
+      padding: 10px 15px; border-radius: 8px; display: none; gap: 8px;
+      z-index: 200; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid var(--accent-color);
+      flex-wrap: wrap; justify-content: center; align-items: center;
+    }
+    #edit-panel span { display: flex; align-items: center; }
+    
+    #rod-counts {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-left: 10px;
+      font-size: 12px; font-weight: bold; align-items: center;
+    }
+    .rod-count-badge {
+      padding: 2px 6px; border-radius: 4px; text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+    }
+
+    #view-controls {
+      position: fixed; bottom: 20px; right: 20px; display: grid;
+      grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 8px; z-index: 150;
+    }
+    .view-btn {
+      width: 45px; height: 45px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.3);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      font-weight: bold; font-size: 14px; backdrop-filter: blur(4px); transition: all 0.2s;
+    }
+    .view-btn:hover { transform: scale(1.05); }
+    .view-btn[data-cam="0,10,0"], .view-btn[data-cam="0,-10,0"] { background: color-mix(in srgb, var(--color-b) 70%, white); color: white; }
+    .view-btn[data-cam="0,0,10"], .view-btn[data-cam="0,0,-10"] { background: color-mix(in srgb, var(--color-a) 70%, white); color: white; }
+    .view-btn[data-cam="-10,0,0"], .view-btn[data-cam="10,0,0"] { background: color-mix(in srgb, var(--color-c) 70%, white); color: white; }
+
+    #toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: var(--accent-color); color: white; padding: 10px 20px;
+      border-radius: 8px; z-index: 1000; opacity: 0; pointer-events: none; transition: 0.3s;
+    }
+    #toast.show { opacity: 1; }
+
+    #camera-hint {
+      position: fixed; bottom: 20px; left: 20px; font-size: 12px; opacity: 0.7; pointer-events: none;
+      background: var(--hud-bg); padding: 8px; border-radius: 6px; backdrop-filter: blur(4px);
+    }
+    
+    /* Seed ID floating panel */
+    #seed-panel {
+      position: fixed; bottom: 20px; left: 20px; z-index: 150;
+      background: var(--hud-bg); backdrop-filter: blur(10px);
+      padding: 8px 12px; border-radius: 8px;
+      border: 1px solid rgba(127,127,127,0.3);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; gap: 12px;
+      white-space: nowrap;
+    }
+    #seed-panel:hover {
+      background: var(--button-hover-bg);
+      transform: scale(1.02);
+    }
+    #seed-panel-label {
+      font-size: 11px; font-weight: bold; opacity: 0.8;
+      white-space: nowrap;
+    }
+    #seed-panel-value {
+      font-family: monospace; font-size: 13px;
+      background: var(--button-bg); padding: 6px 8px; border-radius: 4px;
+      border: 1px solid rgba(127,127,127,0.2);
+      white-space: nowrap;
+      max-width: none;
+    }
+    
+    /* Controls hint panel */
+    #controls-hint {
+      position: fixed; bottom: 90px; left: 20px; z-index: 150;
+      background: var(--hud-bg); backdrop-filter: blur(10px);
+      padding: 10px 14px; border-radius: 8px;
+      border: 1px solid rgba(127,127,127,0.3); font-size: 12px; line-height: 1.6;
+    }
+    #controls-hint b { opacity: 0.9; color: var(--accent-color); }
+    #controls-hint span { opacity: 0.7; }
+
+    #camera-debug-info {
+      position: fixed; bottom: 130px; right: 20px; background: rgba(0, 0, 0, 0.5);
+      color: white; padding: 10px; border-radius: 5px; font-family: monospace;
+      font-size: 12px; line-height: 1.4; z-index: 201; pointer-events: none;
+    }
+
+    /* Preview Modal Styles */
+    #preview-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
+      display: none; align-items: center; justify-content: center; z-index: 1000;
+    }
+    #preview-modal {
+      background-color: var(--bg-color); padding: 20px; border-radius: 10px;
+      text-align: center; color: var(--text-color); display: flex; flex-direction: column;
+      align-items: center; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    }
+    #preview-image { max-width: 80vw; max-height: 65vh; border: 1px solid rgba(127, 127, 127, 0.2); border-radius: 5px; margin: 15px 0; }
+    #preview-info  { margin: 3px 0 0; font-size: 13px; opacity: 0.7; min-height: 1.3em; }
+    #camera-prev, #camera-next { padding: 8px 18px; font-size: 18px; font-weight: bold; min-width: 44px; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.164.1",
+        "three/addons/": "https://esm.sh/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <div id="hud-top-row">
+      <div id="hud-top-left">
+        <a href="index.html" id="back-btn" title="Home">🏠</a>
+        <div class="hud-cluster" id="cuisenaire-picker">
+          <span style="font-weight: bold; margin-right: 5px;">Rods:</span>
+        </div>
+      </div>
+      <div id="rod-counts"></div>
+      <div class="hud-cluster">
+        <label for="edges-toggle">✒️</label>
+        <label class="ios-toggle">
+          <input type="checkbox" id="edges-toggle" checked />
+          <span class="slider"></span>
+        </label>
+        <span class="bg-reset-label" id="bg-reset-btn">🖼️</span>
+        <input type="color" id="bg-color-picker" value="#f0f2f5" />
+        <button id="export-png" title="Export PNG (Shift+Click for SVG)">🖼️</button>
+        <button id="export-cabinet" title="Export Cabinet (Shift+Click for SVG)">🧊</button>
+        <input type="text" id="seed-input" title="Scene Seed ID (type and press Enter to load)" placeholder="Enter seed..." />
+        <button id="copy-seed-btn" title="Copy Seed ID">📋</button>
+        <button id="theme-btn" title="Toggle Theme">🌙</button>
+        <button id="reset-btn" title="Reset Scene">🔄</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-panel">
+    <span style="margin-right: 5px;">✏️ Edit:</span>
+    <button id="btn-rot-x" title="Rotate by YZ plane" style="background:#0000ff; color:white;">Rot YZ</button>
+    <button id="btn-rot-y" title="Rotate by XZ plane" style="background:#ffff00; color:black;">Rot XZ</button>
+    <button id="btn-rot-z" title="Rotate by XY plane" style="background:#ff0000; color:white;">Rot XY</button>
+    <button id="btn-dup" style="background:#4caf50; color:white;">Duplicate</button>
+    <button id="btn-del" style="background:#f44336; color:white;">Delete</button>
+    <button id="btn-done">Done</button>
+  </div>
+
+  <div id="view-controls">
+    <div class="view-btn" data-cam="0,0,10" data-up="0,1,0">F</div>
+    <div class="view-btn" data-cam="0,10,0" data-up="0,0,-1">T</div>
+    <div class="view-btn" data-cam="10,0,0" data-up="0,1,0">R</div>
+    <div class="view-btn" data-cam="0,0,-10" data-up="0,1,0">B</div>
+    <div class="view-btn" data-cam="0,-10,0" data-up="0,0,1">b</div>
+    <div class="view-btn" data-cam="-10,0,0" data-up="0,1,0">L</div>
+  </div>
+
+  <!-- Seed ID floating panel -->
+  <div id="seed-panel" title="Click to copy seed ID">
+    <div id="seed-panel-label">🔑 Seed ID (click to copy)</div>
+    <div id="seed-panel-value">-</div>
+  </div>
+
+  <!-- Controls hint panel -->
+  <div id="controls-hint">
+    <b>1-0:</b> Add (Scroll: Axis) • <b>Db-Click:</b> Edit<br>
+    <b>Arrows:</b> Move Rod • <b>Del:</b> Delete<br>
+    <b>E:</b> Toggle Edit • <b>V:</b> Cycle View<br>
+    <b>P:</b> PNG • <b>C:</b> Cabinet • <b>F:</b> Full
+  </div>
+
+  <div id="camera-debug-info"></div>
+
+  <div id="toast">Message</div>
+  <div id="container"></div>
+
+  <div id="preview-overlay">
+    <div id="preview-modal">
+      <p id="preview-title" style="margin:0; font-weight:bold;">Image Preview</p>
+      <p id="preview-info" style="margin:3px 0 0; font-size:13px; opacity:0.7; min-height:1.3em;"></p>
+      <img id="preview-image" src="" alt="Export Preview" />
+      <div id="preview-controls" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; align-items:center;">
+         <button id="camera-prev" style="display:none;" title="Previous view">⬅️</button>
+         <div class="hud-sub-cluster" style="display:flex; align-items:center; gap:8px; height: 34px; padding: 0 10px;">
+           <span style="font-size: 13px; font-weight: 600;">Solid BG</span>
+           <label class="ios-toggle">
+             <input type="checkbox" id="export-solid-bg" checked />
+             <span class="slider"></span>
+           </label>
+         </div>
+         <div class="hud-sub-cluster" style="display:flex; align-items:center; gap:8px; height: 34px; padding: 0 10px;">
+           <span style="font-size: 13px; font-weight: 600;">Show Seed</span>
+           <label class="ios-toggle">
+             <input type="checkbox" id="export-seed-toggle" />
+             <span class="slider"></span>
+           </label>
+         </div>
+        <button id="export-seed-pos-btn" title="Cycle Seed Position">🔄</button>
+        <button id="export-seed-size-down" title="Decrease Seed Size">A-</button>
+        <button id="export-seed-size-up" title="Increase Seed Size">A+</button>
+        <button id="preview-cancel" style="background:#666; color:white;">Cancel</button>
+        <button id="preview-save" style="background:var(--accent-color); color:white;">Save PNG</button>
+        <button id="camera-next" style="display:none;" title="Next view">➡️</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    // Configuration
+    const CUISENAIRE = {
+      1: { hex: "#ffffff", name: "White", text: "#000" },
+      2: { hex: "#ff0000", name: "Red", text: "#fff" },
+      3: { hex: "#4caf50", name: "Green", text: "#fff" },
+      4: { hex: "#ff69b4", name: "Pink", text: "#fff" },
+      5: { hex: "#ffff00", name: "Yellow", text: "#000" },
+      6: { hex: "#00bfff", name: "Cyan", text: "#000" },
+      7: { hex: "#333333", name: "Black", text: "#fff" },
+      8: { hex: "#8b4513", name: "Brown", text: "#fff" },
+      9: { hex: "#000080", name: "Navy", text: "#fff" },
+      10: { hex: "#ffa500", name: "Orange", text: "#000" }
+    };
+    const AXES = [new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1)];
+    const CUBE_SIZE = 1;
+    const GEOMETRY = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+
+    let app = { scene: null, camera: null, renderer: null, controls: null, cubeGroup: null, floor: null, grid: null, axisHighlight: null, viewTransitionRaf: null, isViewTransitioning: false };
+    let interaction = {
+      state: "VIEWING", 
+      currentAddLength: 1,
+      selectedRodId: null,
+      pivotCube: null,
+      ghostGroup: new THREE.Group(),
+      addPreviewPos: null,
+      addPreviewAxis: new THREE.Vector3(1,0,0),
+      currentAxisIndex: 0, 
+      raycaster: new THREE.Raycaster(),
+      mouse: new THREE.Vector2(),
+      mousePx: new THREE.Vector2(),
+      isDragging: false,
+      dragOffset: new THREE.Vector3(),
+      dragPlane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+    };
+    let isDarkMode = false;
+    let currentExportDataURL = null;
+    let lastExportType = null;
+    let currentViewIndex = 0; // For cycling camera views
+    // Cabinet-view cycle state (shared with nav buttons)
+    const cabinetViews = ["front", "back", "left", "right", "top", "bottom"];
+    let currentCabinetViewIndex = 0;
+    let isCabinetExport = false;
+
+    const VIEW_TRANSITION_DURATION_MS = 600;
+
+    const ALPHABET = "!$&()*+,-./:;=?@_~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const BASE = BigInt(ALPHABET.length);
+
+    const exportSettings = {
+      showSeed: false,
+      seedPosition: 0, // 0: bottom-left, 1: top-left, 2: bottom-right, 3: top-right
+      seedSize: 1.0
+    };
+
+    const predefinedViews = []; // Populated from view-btn data attributes
+    init();
+
+    function init() {
+      app.scene = new THREE.Scene();
+      app.scene.background = new THREE.Color(document.getElementById("bg-color-picker").value);
+      
+      app.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+      // Look from above XY plane - Z is vertical, grid is on XY
+      app.camera.position.set(15, 15, 25);
+
+      app.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+      app.renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById("container").appendChild(app.renderer.domElement);
+      app.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent right-click context menu
+
+      app.controls = new OrbitControls(app.camera, app.renderer.domElement);
+      app.controls.enableDamping = true;
+      app.controls.enableZoom = true; 
+      app.controls.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN // Change right-click to pan
+      };
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+      app.scene.add(ambientLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      dirLight.position.set(10, 30, 10);
+      app.scene.add(dirLight);
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      fillLight.position.set(-10, 10, -10);
+      app.scene.add(fillLight);
+
+      app.cubeGroup = new THREE.Group();
+      app.scene.add(app.cubeGroup);
+      app.scene.add(interaction.ghostGroup);
+
+      // Floor & Grid - XY plane horizontal (OXY horizontal), Z is vertical
+      const floorGeo = new THREE.PlaneGeometry(100, 100);
+      const floorMat = new THREE.MeshBasicMaterial({ visible: false });
+      app.floor = new THREE.Mesh(floorGeo, floorMat);
+      // Floor on XY plane, facing +Z direction (up)
+      app.floor.position.y = -0.5;
+      app.floor.rotation.x = -Math.PI / 2;
+      app.scene.add(app.floor);
+
+      // Grid on XY plane - flat horizontal, grid lines at rod corners (offset 0.5)
+      // Positioned at Y=-0.5 so rods sit on top of the grid
+      app.grid = new THREE.GridHelper(100, 100, 0x000000, 0x000000);
+      app.grid.position.set(0.5, -0.5, 0.5);
+      app.grid.material.opacity = 0.2;
+      app.grid.material.transparent = true;
+      app.scene.add(app.grid);
+
+      // Axis highlight lines (Ox, Oy, Oz) - highlighted when first rod is placed
+      // Ox and Oy are horizontal on grid floor, Oz is vertical for rod stacking
+      const axisHighlightGroup = new THREE.Group();
+      axisHighlightGroup.name = "axisHighlight";
+      
+      // Ox axis line (along X at y=0) - horizontal front/back direction (blue)
+      const oxGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-50, 0, 0),
+        new THREE.Vector3(50, 0, 0)
+      ]);
+      const oxLine = new THREE.Line(oxGeometry, new THREE.LineBasicMaterial({ 
+        color: 0x0000ff, // Blue for Ox (horizontal X)
+        linewidth: 3 
+      }));
+      oxLine.position.set(0, -0.49, 0.5); // Slightly above grid
+      axisHighlightGroup.add(oxLine);
+
+      // Oy axis line (along Y at x=0) - horizontal left/right direction (yellow)  
+      const oyGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, -50, 0),
+        new THREE.Vector3(0, 50, 0)
+      ]);
+      const oyLine = new THREE.Line(oyGeometry, new THREE.LineBasicMaterial({ 
+        color: 0xffff00, // Yellow for Oy (horizontal Y)
+        linewidth: 3 
+      }));
+      oyLine.position.set(0.5, -0.49, 0.5); // Slightly above grid
+      axisHighlightGroup.add(oyLine);
+
+      // Oz axis line (vertical Z at origin) - vertical direction (red) for rod stacking
+      const ozGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, -50),
+        new THREE.Vector3(0, 0, 50)
+      ]);
+      const ozLine = new THREE.Line(ozGeometry, new THREE.LineBasicMaterial({ 
+        color: 0xff0000, // Red for Oz (vertical)
+        linewidth: 3 
+      }));
+      ozLine.position.set(0.5, -0.49, 0.5); // At the origin corner
+      axisHighlightGroup.add(ozLine);
+
+      // Origin corner marker (at 0,0,0) - the root corner - exact center of intersection
+      const originGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+      const originMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Green marker
+      const originMarker = new THREE.Mesh(originGeometry, originMaterial);
+      originMarker.position.set(0.5, -0.49, 0.5); // Exact center at corner (0,0,0)
+      originMarker.name = "originMarker";
+      axisHighlightGroup.add(originMarker);
+
+      axisHighlightGroup.visible = false;
+      app.axisHighlight = axisHighlightGroup;
+      app.scene.add(app.axisHighlight);
+
+      buildUI();
+      setupEvents();
+      
+      // Populate predefinedViews array
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        const cam = btn.dataset.cam.split(',').map(Number);
+        const up = btn.dataset.up.split(',').map(Number);
+        predefinedViews.push({ direction: new THREE.Vector3(...cam), up: new THREE.Vector3(...up) });
+      });
+
+      loadFromSeedOrGenerateDefault();
+      animate();
+    }
+
+    function buildUI() {
+      const picker = document.getElementById("cuisenaire-picker");
+      for(let i=1; i<=10; i++) {
+        const btn = document.createElement("button");
+        btn.className = "cuisenaire-btn";
+        btn.textContent = i;
+        btn.title = CUISENAIRE[i].name;
+        btn.style.backgroundColor = CUISENAIRE[i].hex;
+        btn.style.color = CUISENAIRE[i].text;
+        
+        btn.onclick = () => {
+          if (interaction.state === "ADDING" && interaction.currentAddLength === i) {
+            leaveEditMode();
+          } else {
+            leaveEditMode(); 
+            interaction.currentAddLength = i;
+            interaction.state = "ADDING";
+            updatePickerUI();
+          }
+        };
+        picker.appendChild(btn);
+      }
+      updatePickerUI();
+    }
+
+    function updatePickerUI() {
+      const btns = document.querySelectorAll(".cuisenaire-btn");
+      btns.forEach((btn, index) => {
+        btn.classList.toggle("active", interaction.state === "ADDING" && interaction.currentAddLength === index + 1);
+      });
+      updateRodCounts();
+    }
+
+    function updateRodCounts() {
+      const counts = {};
+      app.cubeGroup.children.forEach(c => {
+        if(c.isMesh && c.userData.rodId) {
+          counts[c.userData.rodLength] = (counts[c.userData.rodLength] || 0) + 1;
+        }
+      });
+      
+      const countsContainer = document.getElementById("rod-counts");
+      countsContainer.innerHTML = "";
+      for(let i=1; i<=10; i++) {
+        const trueCount = (counts[i] || 0) / i; 
+        if(trueCount > 0) {
+          const badge = document.createElement("span");
+          badge.className = "rod-count-badge";
+          badge.style.background = CUISENAIRE[i].hex;
+          badge.style.color = CUISENAIRE[i].text;
+          badge.textContent = `${CUISENAIRE[i].name}: ${Math.round(trueCount)}`;
+          countsContainer.appendChild(badge);
+        }
+      }
+      generateSeed();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+
+    // --- Core Logic ---
+    function createRod(length, basePos, axis, specificId = null) {
+      const rodId = specificId || THREE.MathUtils.generateUUID();
+      const cubesBefore = getAllCubes().length;
+      for(let i=0; i<length; i++) {
+        const pos = basePos.clone().add(axis.clone().multiplyScalar(i));
+        createSingleCube(pos, rodId, length, axis.clone());
+      }
+      if(!specificId) resolveCollisions(rodId);
+      drawRodEdges(rodId);
+      
+      // Show axis highlight when first rod is placed (before: 0 cubes, after: > 0 cubes)
+      const cubesAfter = getAllCubes().length;
+      if (cubesBefore === 0 && cubesAfter > 0 && app.axisHighlight) {
+        app.axisHighlight.visible = true;
+      }
+      
+      updateRodCounts();
+      return rodId;
+    }
+
+    function createSingleCube(pos, rodId, length, axis) {
+      const color = CUISENAIRE[length].hex;
+      const materials = Array(6).fill(new THREE.MeshLambertMaterial({ color, emissive: 0x000000 }));
+      const cube = new THREE.Mesh(GEOMETRY, materials);
+      cube.position.copy(pos);
+      cube.userData = { rodId, rodLength: length, axis: axis };
+      app.cubeGroup.add(cube);
+    }
+
+    function createRodEdgesGeometry(size, center) {
+      const group = new THREE.Group();
+      group.position.copy(center);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const r = 0.04; 
+      
+      const hw = size.x/2, hh = size.y/2, hd = size.z/2;
+      const edgePoints = [
+        [[-hw, -hh, -hd], [hw, -hh, -hd]], [[-hw, hh, -hd], [hw, hh, -hd]],
+        [[-hw, -hh, hd], [hw, -hh, hd]], [[-hw, hh, hd], [hw, hh, hd]],
+        
+        [[-hw, -hh, -hd], [-hw, hh, -hd]], [[hw, -hh, -hd], [hw, hh, -hd]],
+        [[-hw, -hh, hd], [-hw, hh, hd]], [[hw, -hh, hd], [hw, hh, hd]],
+        
+        [[-hw, -hh, -hd], [-hw, -hh, hd]], [[hw, -hh, -hd], [hw, -hh, hd]],
+        [[-hw, hh, -hd], [-hw, hh, hd]], [[hw, hh, -hd], [hw, hh, hd]]
+      ];
+      
+      const geomCyl = new THREE.CylinderGeometry(r, r, 1, 8);
+      geomCyl.rotateX(Math.PI / 2);
+      
+      edgePoints.forEach(pts => {
+        const p1 = new THREE.Vector3(...pts[0]);
+        const p2 = new THREE.Vector3(...pts[1]);
+        const dist = p1.distanceTo(p2);
+        
+        const cyl = new THREE.Mesh(geomCyl, mat);
+        cyl.scale.set(1, 1, dist);
+        cyl.position.copy(p1).add(p2).multiplyScalar(0.5);
+        cyl.lookAt(cyl.position.clone().add(p2.clone().sub(p1)));
+        group.add(cyl);
+      });
+      
+      const cornerGeo = new THREE.SphereGeometry(r, 8, 8);
+      const corners = [
+        [-hw,-hh,-hd], [hw,-hh,-hd], [-hw,hh,-hd], [hw,hh,-hd],
+        [-hw,-hh,hd], [hw,-hh,hd], [-hw,hh,hd], [hw,hh,hd]
+      ];
+      corners.forEach(pos => {
+        const sph = new THREE.Mesh(cornerGeo, mat);
+        sph.position.set(...pos);
+        group.add(sph);
+      });
+      
+      return group;
+    }
+
+    function drawRodEdges(rodId) {
+      const oldEdges = app.cubeGroup.children.filter(c => c.userData.isRodEdge && c.userData.rodId === rodId);
+      oldEdges.forEach(e => app.cubeGroup.remove(e));
+
+      const cubes = getCubesByRodId(rodId);
+      if (!cubes.length) return;
+
+      const box = new THREE.Box3();
+      cubes.forEach(c => box.expandByPoint(c.position));
+      
+      const size = new THREE.Vector3().subVectors(box.max, box.min).addScalar(CUBE_SIZE);
+      const center = new THREE.Vector3().addVectors(box.max, box.min).multiplyScalar(0.5);
+
+      const edges = createRodEdgesGeometry(size, center);
+      edges.userData = { rodId, isRodEdge: true };
+      edges.visible = document.getElementById("edges-toggle").checked;
+      app.cubeGroup.add(edges);
+    }
+
+    function getCubesByRodId(rodId) { return app.cubeGroup.children.filter(c => c.isMesh && c.userData.rodId === rodId); }
+    function getAllCubes() { return app.cubeGroup.children.filter(c => c.isMesh && c.geometry.type === "BoxGeometry"); }
+
+    function resolveCollisions(rodId) {
+        const myCubes = getCubesByRodId(rodId);
+        if (!myCubes.length) return;
+        const otherCubes = app.cubeGroup.children.filter(c => c.isMesh && c.userData.rodId !== rodId && c.geometry.type === "BoxGeometry");
+        
+        let hasCollision = true;
+        let loops = 0;
+        while(hasCollision && loops < 20) {
+            hasCollision = false;
+            let maxYShift = 0;
+            for(let mc of myCubes) {
+                for(let oc of otherCubes) {
+                    if (Math.abs(mc.position.x - oc.position.x) < 0.1 &&
+                        Math.abs(mc.position.y - oc.position.y) < 0.1 &&
+                        Math.abs(mc.position.z - oc.position.z) < 0.1) {
+                        hasCollision = true;
+                        let shift = (oc.position.y + 1) - mc.position.y;
+                        if(shift > maxYShift) maxYShift = shift;
+                    }
+                }
+            }
+            if(hasCollision) {
+                myCubes.forEach(c => c.position.y += Math.max(1, maxYShift));
+            }
+            loops++;
+        }
+    }
+
+    const Transforms = {
+      // Rot XY plane - rotate around Z axis (clockwise when looking from +Z)
+      // Grid is on XY plane, Z is vertical
+      rotXY: (pos, p) => {
+        const x = pos.x - p.x, y = pos.y - p.y, z = pos.z - p.z;
+        return new THREE.Vector3(p.x + y, p.y - x, p.z + z).round();
+      },
+      // Rot XZ plane - rotate around Y axis (clockwise when looking from +Y)
+      rotXZ: (pos, p) => {
+        const x = pos.x - p.x, y = pos.y - p.y, z = pos.z - p.z;
+        return new THREE.Vector3(p.x + z, p.y + y, p.z - x).round();
+      },
+      // Rot YZ plane - rotate around X axis (clockwise when looking from +X)
+      rotYZ: (pos, p) => {
+        const x = pos.x - p.x, y = pos.y - p.y, z = pos.z - p.z;
+        return new THREE.Vector3(p.x + x, p.y + z, p.z - y).round();
+      }
+    };
+
+    function applyTransform(transformFn) {
+      const cubes = getCubesByRodId(interaction.selectedRodId);
+      if(!cubes.length) return;
+      const pivot = interaction.pivotCube.position.clone();
+
+      let newPositions = cubes.map(c => transformFn(c.position, pivot));
+
+      let minY = Math.min(...newPositions.map(p => p.y));
+      let yShift = minY < 0 ? -minY : 0;
+
+      // Enforce Y >= 0 floor limit by shifting the entire rod up if necessary
+      cubes.forEach((cube, idx) => {
+        cube.position.copy(newPositions[idx]);
+        cube.position.y += yShift;
+      });
+
+      const oldAxis = cubes[0].userData.axis;
+      const fakePos = transformFn(pivot.clone().add(oldAxis), pivot);
+      const newAxis = fakePos.sub(pivot).normalize().round();
+      cubes.forEach(c => c.userData.axis = newAxis.clone());
+
+      resolveCollisions(interaction.selectedRodId);
+      drawRodEdges(interaction.selectedRodId);
+      highlightRod(cubes);
+      updateRodCounts();
+    }
+
+    function duplicateRod() {
+      const cubes = getCubesByRodId(interaction.selectedRodId);
+      const length = cubes[0].userData.rodLength;
+      const axis = cubes[0].userData.axis;
+      
+      const newRodId = THREE.MathUtils.generateUUID();
+      cubes.forEach(c => createSingleCube(c.position.clone().add(new THREE.Vector3(0, 1, 0)), newRodId, length, axis));
+      
+      resolveCollisions(newRodId);
+      drawRodEdges(newRodId);
+      showToast("Duplicated!");
+      updateRodCounts();
+    }
+
+    function deleteRod() {
+      const cubes = getCubesByRodId(interaction.selectedRodId);
+      cubes.forEach(cube => app.cubeGroup.remove(cube));
+      const edges = app.cubeGroup.children.find(c => c.userData.isRodEdge && c.userData.rodId === interaction.selectedRodId);
+      if(edges) app.cubeGroup.remove(edges);
+      
+      leaveEditMode();
+      updateRodCounts();
+    }
+
+    function enterEditMode(intersectedCube) {
+      interaction.state = "EDITING";
+      interaction.selectedRodId = intersectedCube.userData.rodId;
+      interaction.pivotCube = intersectedCube;
+      interaction.ghostGroup.clear();
+      updatePickerUI();
+      highlightRod(getCubesByRodId(interaction.selectedRodId));
+      document.getElementById("edit-panel").style.display = "flex";
+      showToast("Drag to move the rod!");
+    }
+
+    function leaveEditMode() {
+      interaction.state = "VIEWING"; 
+      interaction.selectedRodId = null;
+      interaction.pivotCube = null;
+      interaction.ghostGroup.clear(); // Clear ghost rod when leaving edit mode
+      unhighlightAll();
+      document.getElementById("edit-panel").style.display = "none";
+      interaction.ghostGroup.clear();
+      updatePickerUI();
+    }
+
+    function highlightRod(cubes) {
+      unhighlightAll();
+      cubes.forEach(c => {
+         if (c.material && c.geometry.type === "BoxGeometry") {
+            c.material.forEach(m => {
+              // Get the base color and brighten it for glow effect
+              const baseColor = m.color;
+              const glowColor = baseColor.clone().multiplyScalar(1.5);
+              m.emissive = glowColor;
+              m.emissiveIntensity = 0.8;
+            });
+         }
+      });
+    }
+
+    function unhighlightAll() {
+      app.cubeGroup.children.forEach(c => {
+        if(c.isMesh && c.material && c.geometry.type === "BoxGeometry") {
+          c.material.forEach(m => {
+            m.emissive = new THREE.Color(0x000000);
+            m.emissiveIntensity = 0;
+          });
+        }
+      });
+    }
+
+    function updatePointerRay(e) {
+      interaction.mousePx.x = e.clientX;
+      interaction.mousePx.y = e.clientY;
+      interaction.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      interaction.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      interaction.raycaster.setFromCamera(interaction.mouse, app.camera);
+    }
+
+    // Function to toggle fullscreen mode
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function setupEvents() {
+      const container = document.getElementById("container");
+      
+      window.addEventListener("wheel", (e) => {
+        if (interaction.state === "ADDING") {
+          e.preventDefault(); 
+          app.controls.enabled = false; 
+          
+          if (e.deltaY > 0) interaction.currentAxisIndex = (interaction.currentAxisIndex + 1) % 3; 
+          else interaction.currentAxisIndex = (interaction.currentAxisIndex + 2) % 3; 
+          
+          const fakeEvent = new PointerEvent("pointermove", { clientX: interaction.mousePx.x, clientY: interaction.mousePx.y });
+          container.dispatchEvent(fakeEvent);
+          setTimeout(() => { app.controls.enabled = true; }, 100);
+        }
+      }, { passive: false });
+
+      window.addEventListener("keydown", (e) => {
+        // Number keys 1-0 (0 for 10) to toggle adding rods
+        if (e.key >= '1' && e.key <= '9') {
+          const length = parseInt(e.key);
+          const btn = document.querySelector(`.cuisenaire-btn:nth-of-type(${length})`);
+          if (btn) btn.click();
+        } else if (e.key === '0') {
+          const btn = document.querySelector(`.cuisenaire-btn:nth-of-type(10)`);
+          if (btn) btn.click();
+        }
+
+        // Delete key to delete selected rod
+        if (e.key === 'Delete' && interaction.state === "EDITING" && interaction.selectedRodId) {
+          deleteRod();
+        }
+
+        // Arrow keys to move selected rod
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) &&
+            interaction.state === "EDITING" && interaction.selectedRodId) {
+          e.preventDefault(); // Prevent page scrolling
+          const cubes = getCubesByRodId(interaction.selectedRodId);
+          if (!cubes.length) return;
+
+          let dx = 0, dy = 0, dz = 0;
+          switch (e.key) {
+            case 'ArrowUp':    dz = -1; break; // Move along Z-axis (forward/backward)
+            case 'ArrowDown':  dz = 1;  break;
+            case 'ArrowLeft':  dx = -1; break; // Move along X-axis (left/right)
+            case 'ArrowRight': dx = 1;  break;
+          }
+
+          // Apply translation to all cubes of the selected rod
+          cubes.forEach(c => {
+            c.position.x += dx;
+            c.position.z += dz;
+            c.position.round(); // Ensure integer coordinates
+          });
+
+          // Auto-stacking is handled by resolveCollisions
+          resolveCollisions(interaction.selectedRodId);
+          drawRodEdges(interaction.selectedRodId);
+          highlightRod(cubes); // Re-highlight after move
+        }
+
+        // 'E' key to toggle edit mode
+        if (e.key === 'e' || e.key === 'E') {
+          if (interaction.state === "EDITING") {
+            leaveEditMode();
+          } else if (interaction.selectedRodId) { // Only enter if a rod is implicitly selected
+            enterEditMode(interaction.selectedRodId);
+          }
+        }
+
+        // 'P' key for Export PNG
+        if (e.key === 'p' || e.key === 'P') exportToPNG(false);
+
+        // 'C' key for Export Cabinet
+        if (e.key === 'c' || e.key === 'C') exportToPNG(true);
+
+        // 'F' key for Toggle Fullscreen
+        if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+
+        // 'V' key to cycle through camera views
+        if (e.key === 'v' || e.key === 'V') {
+          currentViewIndex = (currentViewIndex + 1) % predefinedViews.length;
+          const view = predefinedViews[currentViewIndex];
+          setCameraToView(view.direction, view.up);
+        }
+      });
+
+      window.addEventListener("pointerup", () => {
+          if (interaction.isDragging) {
+              interaction.isDragging = false;
+              app.controls.enabled = true;
+              
+              const cubes = getCubesByRodId(interaction.selectedRodId);
+              let minY = Math.min(...cubes.map(c => c.position.y));
+              if(minY < 0) {
+                 cubes.forEach(c => c.position.y += -minY);
+              }
+              cubes.forEach(c => c.position.round());
+              
+              resolveCollisions(interaction.selectedRodId);
+              drawRodEdges(interaction.selectedRodId);
+              updateRodCounts();
+          }
+      });
+
+      container.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        updatePointerRay(e);
+        const cubes = getAllCubes();
+        const intersects = interaction.raycaster.intersectObjects(cubes);
+        
+        if(intersects.length > 0) {
+          const hitId = intersects[0].object.userData.rodId;
+          if (interaction.state === "EDITING" && interaction.selectedRodId === hitId) leaveEditMode(); 
+          else enterEditMode(intersects[0].object);
+        } else {
+          leaveEditMode(); 
+        }
+      });
+
+      container.addEventListener("pointerdown", (e) => {
+        if(e.button !== 0) return;
+        updatePointerRay(e);
+
+        if (interaction.state === "EDITING") {
+          const cubes = app.cubeGroup.children.filter(c => c.isMesh && c.userData.rodId === interaction.selectedRodId && c.geometry.type === "BoxGeometry");
+          const intersects = interaction.raycaster.intersectObjects(cubes);
+          if (intersects.length > 0) {
+              interaction.isDragging = true;
+              app.controls.enabled = false;
+              
+              interaction.dragPlane.setFromNormalAndCoplanarPoint(
+                app.camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(-1),
+                intersects[0].point
+              );
+              interaction.raycaster.ray.intersectPlane(interaction.dragPlane, interaction.dragOffset);
+              interaction.dragOffset.sub(intersects[0].object.position);
+          }
+          return; 
+        }
+
+        if(interaction.state === "ADDING" && interaction.addPreviewPos) {
+          createRod(interaction.currentAddLength, interaction.addPreviewPos, interaction.addPreviewAxis);
+          container.dispatchEvent(new PointerEvent("pointermove", e));
+        }
+      });
+
+      container.addEventListener("pointermove", (e) => {
+        updatePointerRay(e);
+
+        if (interaction.state === "EDITING" && interaction.isDragging) {
+            const intersection = new THREE.Vector3();
+            interaction.raycaster.ray.intersectPlane(interaction.dragPlane, intersection);
+            if(intersection) {
+                const targetPos = intersection.sub(interaction.dragOffset).round();
+                targetPos.y = Math.max(0, targetPos.y);
+                
+                const pivot = interaction.pivotCube.position.clone();
+                const diff = targetPos.sub(pivot);
+                
+                if (diff.lengthSq() > 0) {
+                    const cubes = getCubesByRodId(interaction.selectedRodId);
+                    cubes.forEach(c => c.position.add(diff));
+                    
+                    resolveCollisions(interaction.selectedRodId);
+                    drawRodEdges(interaction.selectedRodId);
+                }
+            }
+            return;
+        }
+
+        if(interaction.state === "ADDING") {
+          const targets = [...getAllCubes(), app.floor];
+          const intersects = interaction.raycaster.intersectObjects(targets);
+          
+          if(intersects.length > 0) {
+            const hit = intersects[0];
+            let basePos;
+            if(hit.object === app.floor) {
+                basePos = hit.point.clone().setY(0).round();
+            } else {
+                let normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).round();
+                basePos = hit.object.position.clone().add(normal).round();
+            }
+            basePos.y = Math.max(0, basePos.y);
+
+            let axis = AXES[interaction.currentAxisIndex];
+            interaction.addPreviewPos = basePos;
+            interaction.addPreviewAxis = axis;
+            drawGhostRod(basePos, axis, interaction.currentAddLength);
+          } else {
+            interaction.ghostGroup.clear();
+            interaction.addPreviewPos = null;
+          }
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        app.camera.aspect = window.innerWidth / window.innerHeight;
+        app.camera.updateProjectionMatrix();
+        app.renderer.setSize(window.innerWidth, window.innerHeight);
+        if (app.axisHighlight) app.axisHighlight.visible = getAllCubes().length > 0; // Re-evaluate visibility
+      });
+
+      document.getElementById('btn-rot-x').onclick = () => applyTransform(Transforms.rotYZ);
+      document.getElementById('btn-rot-y').onclick = () => applyTransform(Transforms.rotXZ);
+      document.getElementById('btn-rot-z').onclick = () => applyTransform(Transforms.rotXY);
+      document.getElementById('btn-dup').onclick = duplicateRod;
+      document.getElementById('btn-del').onclick = deleteRod;
+      document.getElementById('btn-done').onclick = leaveEditMode;
+
+      document.getElementById("bg-color-picker").addEventListener("input", (e) => {
+        app.scene.background.set(e.target.value);
+        if(!document.body.classList.contains("dark-mode")) app.grid.material.color.setHex(0x000000);
+      });
+      
+      // BG reset button - click to reset to default
+      const defaultBgColor = "#f0f2f5";
+      document.getElementById("bg-reset-btn").addEventListener("click", () => {
+        const picker = document.getElementById("bg-color-picker");
+        picker.value = defaultBgColor;
+        app.scene.background.set(defaultBgColor);
+        if(!document.body.classList.contains("dark-mode")) app.grid.material.color.setHex(0x000000);
+      });
+      document.getElementById("edges-toggle").addEventListener("change", (e) => {
+        app.cubeGroup.children.forEach(c => { if(c.userData && c.userData.isRodEdge) c.visible = e.target.checked; });
+      });
+
+      document.getElementById("theme-btn").addEventListener("click", () => {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle("dark-mode", isDarkMode);
+        const bgVal = isDarkMode ? "#202020" : "#f0f2f5";
+        app.scene.background.set(bgVal);
+        document.getElementById("bg-color-picker").value = bgVal;
+        app.grid.material.color.setHex(isDarkMode ? 0xffffff : 0x000000);
+      });
+
+      document.getElementById("reset-btn").addEventListener("click", () => {
+        const allCubes = getAllCubes();
+        allCubes.forEach(c => app.cubeGroup.remove(c));
+        const allEdges = app.cubeGroup.children.filter(c => c.userData && c.userData.isRodEdge);
+        allEdges.forEach(e => app.cubeGroup.remove(e));
+        createRod(1, new THREE.Vector3(1, 0, 1), AXES[0]);
+        window.history.replaceState(null, null, ' ');
+        showToast("Scene reset!");
+      });
+
+      document.getElementById("preview-cancel").addEventListener("click", closePreviewModal);
+      document.getElementById("preview-save").addEventListener("click", savePreviewImage);
+      
+      // PNG/Cabinet export with optional Shift+Click for SVG
+      document.getElementById("export-png").addEventListener("click", (e) => {
+        lastExportType = "png";
+        exportToPNG();
+      });
+      document.getElementById("export-cabinet").addEventListener("click", (e) => {
+        lastExportType = "cabinet";
+        currentCabinetViewIndex = 0;
+        exportCabinet();
+      });
+
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const camParts = e.target.dataset.cam.split(',').map(Number);
+          const upParts = e.target.dataset.up.split(',').map(Number);
+          currentViewIndex = predefinedViews.findIndex(v => v.direction.distanceTo(new THREE.Vector3(...camParts)) < 0.1);
+          setCameraToView(new THREE.Vector3(...camParts), new THREE.Vector3(...upParts));
+        });
+      });
+
+      document.getElementById("copy-seed-btn").addEventListener("click", () => {
+        const seedInput = document.getElementById("seed-input");
+        seedInput.select();
+        navigator.clipboard.writeText(seedInput.value);
+        showToast("Seed copied!");
+      });
+
+      // Seed input: press Enter to load, auto-load on typing
+      const seedInput = document.getElementById("seed-input");
+      seedInput.removeAttribute("readonly");
+      
+      seedInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          loadSceneFromSeed(seedInput.value);
+        }
+      });
+      
+      seedInput.addEventListener("input", () => {
+        // Auto-load after a short delay when user types
+        clearTimeout(seedInput.autoLoadTimeout);
+        seedInput.autoLoadTimeout = setTimeout(() => {
+          if (seedInput.value && seedInput.value.length > 0) {
+            loadSceneFromSeed(seedInput.value);
+          }
+        }, 500);
+      });
+      
+      function loadSceneFromSeed(seed) {
+        if (!seed || seed.length === 0) return;
+        try {
+          // Clear existing cubes
+          const allCubes = getAllCubes();
+          allCubes.forEach(c => app.cubeGroup.remove(c));
+          const allEdges = app.cubeGroup.children.filter(c => c.userData && c.userData.isRodEdge);
+          allEdges.forEach(e => app.cubeGroup.remove(e));
+          
+          // Decode using ALPHABET (same as loadFromSeedOrGenerateDefault)
+          let bigNum = 0n;
+          for (let i = 0; i < seed.length; i++) {
+            let val = ALPHABET.indexOf(seed[i]);
+            if(val === -1) throw new Error("Invalid character in seed");
+            bigNum = bigNum * BASE + BigInt(val);
+          }
+          let bits = bigNum.toString(2);
+          bits = bits.substring(1); 
+
+          let cursor = 0;
+          const readBits = (len) => {
+              if(cursor + len > bits.length) return 0;
+              let res = parseInt(bits.substring(cursor, cursor + len), 2);
+              cursor += len;
+              return res;
+          };
+
+          const rods = [];
+          while(cursor < bits.length) {
+              let isRel = readBits(1);
+              if(isRel === 0) { 
+                  let isOrigin = readBits(1);
+                  let x = 0, y = 0, z = 0;
+                  
+                  if (isOrigin === 0) { 
+                      if(cursor + 18 > bits.length) break;
+                      x = readBits(6) - 32;
+                      y = readBits(6);
+                      z = readBits(6) - 32;
+                  } 
+
+                  if(cursor + 6 > bits.length) break;
+                  let len = readBits(4) + 1;
+                  let a = readBits(2);
+                  rods.push({x, y, z, len, axis: a});
+              } else {
+                  let pIdx = readBits(6);
+                  let face = readBits(3);
+                  let len = readBits(4) + 1;
+                  let a = readBits(2);
+                  let pCube = readBits(1) === 1 ? 0 : readBits(4);
+                  let cCube = readBits(1) === 1 ? 0 : readBits(4);
+
+                  if(pIdx < rods.length) {
+                      let pRod = rods[pIdx];
+                      let pAxisVec = AXES[pRod.axis];
+                      let pk = new THREE.Vector3(pRod.x, pRod.y, pRod.z).add(pAxisVec.clone().multiplyScalar(pCube));
+                      
+                      const faceVecs = [
+                          new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+                          new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
+                          new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
+                      ];
+                      let adj = pk.add(faceVecs[face]); 
+                      let cAxisVec = AXES[a];
+                      let cx = adj.x - cAxisVec.x * cCube;
+                      let cy = adj.y - cAxisVec.y * cCube;
+                      let cz = adj.z - cAxisVec.z * cCube;
+                      
+                      rods.push({x: Math.round(cx), y: Math.round(cy), z: Math.round(cz), len, axis: a});
+                  } else {
+                      rods.push({x:0, y:0, z:0, len, axis: a});
+                  }
+              }
+          }
+
+          // Floor safety check
+          if (rods.length > 0) {
+              let minY = Math.min(...rods.map(r => r.y));
+              if (minY < 0) {
+                  let shiftY = -minY;
+                  rods.forEach(r => r.y += shiftY);
+              }
+          }
+
+          rods.forEach(r => createRod(r.len, new THREE.Vector3(r.x, r.y, r.z), AXES[r.axis]));
+          
+          // Update URL hash
+          window.history.replaceState(null, null, `#${seed}`);
+          showToast("Seed loaded!");
+        } catch(e) {
+          console.error("Invalid seed:", e);
+          showToast("Invalid seed!");
+        }
+      }
+
+      // Seed export controls
+      document.getElementById("export-seed-toggle").addEventListener("change", (e) => {
+        exportSettings.showSeed = e.target.checked;
+        if (lastExportType === "png") exportToPNG();
+        else if (lastExportType === "cabinet") exportCabinet();
+      });
+
+      document.getElementById("export-seed-pos-btn").addEventListener("click", () => {
+        exportSettings.seedPosition = (exportSettings.seedPosition + 1) % 4;
+        if (lastExportType === "png") exportToPNG();
+        else if (lastExportType === "cabinet") exportCabinet();
+      });
+
+      document.getElementById("export-seed-size-down").addEventListener("click", () => {
+        exportSettings.seedSize = Math.max(0.3, exportSettings.seedSize - 0.2);
+        if (lastExportType === "png") exportToPNG();
+        else if (lastExportType === "cabinet") exportCabinet();
+      });
+
+      document.getElementById("export-seed-size-up").addEventListener("click", () => {
+        exportSettings.seedSize = Math.min(3.0, exportSettings.seedSize + 0.2);
+        if (lastExportType === "png") exportToPNG();
+        else if (lastExportType === "cabinet") exportCabinet();
+      });
+
+      // Cabinet view navigation (◀ / ▶ buttons in preview modal)
+      document.getElementById("camera-prev").addEventListener("click", () => {
+        if (!isCabinetExport) return;
+        currentCabinetViewIndex = (currentCabinetViewIndex - 1 + cabinetViews.length) % cabinetViews.length;
+        exportCabinet();
+      });
+      document.getElementById("camera-next").addEventListener("click", () => {
+        if (!isCabinetExport) return;
+        currentCabinetViewIndex = (currentCabinetViewIndex + 1) % cabinetViews.length;
+        exportCabinet();
+      });
+    }
+
+    function drawGhostRod(basePos, axis, length) {
+      interaction.ghostGroup.clear();
+      const color = CUISENAIRE[length].hex;
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, depthTest: false });
+      
+      for(let i=0; i<length; i++) {
+        const cube = new THREE.Mesh(GEOMETRY, mat);
+        cube.position.copy(basePos).add(axis.clone().multiplyScalar(i));
+        interaction.ghostGroup.add(cube);
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      app.controls.update();
+      updateCameraDebugInfo();
+      app.renderer.render(app.scene, app.camera);
+    }
+
+    function updateCameraDebugInfo() {
+      const infoDiv = document.getElementById("camera-debug-info");
+      if (!infoDiv || !app.camera || !app.controls) return;
+
+      const pos = app.camera.position;
+      const rot = app.camera.rotation;
+      const target = app.controls.target;
+      // For perspective camera, use zoom (which is part of controls) or fov-based calculation
+      const zoom = app.camera.fov;
+
+      const content = `
+        <strong>Position:</strong><br>
+        X: ${pos.x.toFixed(2)}<br>
+        Y: ${pos.y.toFixed(2)}<br>
+        Z: ${pos.z.toFixed(2)}<br>
+        <strong>Rotation:</strong><br>
+        _X: ${rot._x.toFixed(2)}<br>
+        _Y: ${rot._y.toFixed(2)}<br>
+        _Z: ${rot._z.toFixed(2)}<br>
+        <strong>Target:</strong><br>
+        X: ${target.x.toFixed(2)}<br>
+        Y: ${target.y.toFixed(2)}<br>
+        Z: ${target.z.toFixed(2)}<br>
+        <strong>FOV:</strong> ${zoom.toFixed(2)}
+      `;
+
+      infoDiv.innerHTML = content;
+    }
+
+    function generateSeed() {
+      const rawRods = [];
+      const visitedIds = new Set();
+      app.cubeGroup.children.forEach(c => {
+        if(c.isMesh && c.userData.rodId && !visitedIds.has(c.userData.rodId)) {
+          visitedIds.add(c.userData.rodId);
+          const cubes = getCubesByRodId(c.userData.rodId);
+          if(!cubes.length) return;
+          cubes.sort((a,b) => (a.position.x+a.position.y+a.position.z) - (b.position.x+b.position.y+b.position.z));
+          const root = cubes[0].position;
+          const axis = cubes[0].userData.axis;
+          let axisIdx = 0;
+          if(Math.abs(axis.y) > 0.5) axisIdx = 1;
+          if(Math.abs(axis.z) > 0.5) axisIdx = 2;
+          rawRods.push({x: Math.round(root.x), y: Math.round(root.y), z: Math.round(root.z), len: c.userData.rodLength, axis: axisIdx, visited: false});
+        }
+      });
+      
+      if(rawRods.length === 0) {
+        document.getElementById("seed-input").value = "";
+        window.history.replaceState(null, null, ' ');
+        return;
+      }
+
+      // Removed anchoring so rods keep their absolute position across 4 space zones.
+      const getFaceConnection = (pRod, cRod) => {
+        const faceVecs = [
+            {v: new THREE.Vector3(1,0,0), f:0}, {v: new THREE.Vector3(-1,0,0), f:1},
+            {v: new THREE.Vector3(0,1,0), f:2}, {v: new THREE.Vector3(0,-1,0), f:3},
+            {v: new THREE.Vector3(0,0,1), f:4}, {v: new THREE.Vector3(0,0,-1), f:5}
+        ];
+        let pAxisVec = AXES[pRod.axis];
+        let cAxisVec = AXES[cRod.axis];
+        for(let k=0; k<pRod.len; k++) {
+            let pk = new THREE.Vector3(pRod.x, pRod.y, pRod.z).add(pAxisVec.clone().multiplyScalar(k));
+            for(let fv of faceVecs) {
+                let adj = pk.clone().add(fv.v);
+                for(let m=0; m<cRod.len; m++) {
+                    let cm = new THREE.Vector3(cRod.x, cRod.y, cRod.z).add(cAxisVec.clone().multiplyScalar(m));
+                    if(Math.abs(adj.x - cm.x) < 0.1 && Math.abs(adj.y - cm.y) < 0.1 && Math.abs(adj.z - cm.z) < 0.1) {
+                        return { pCube: k, face: fv.f, cCube: m };
+                    }
+                }
+            }
+        }
+        return null;
+      };
+
+      const encodedRods = [];
+      
+      // Build Spanning Forest (Tree Paths)
+      while (true) {
+        let unvisited = rawRods.filter(r => !r.visited);
+        if (unvisited.length === 0) break;
+        
+        // Always pick the lowest block as root to prevent negative Y issues
+        unvisited.sort((a, b) => a.y - b.y);
+        let rootRod = unvisited[0];
+
+        rootRod.visited = true;
+        rootRod.encodedIndex = encodedRods.length;
+        encodedRods.push({ type: 'ABS', x: rootRod.x, y: rootRod.y, z: rootRod.z, l: rootRod.len, a: rootRod.axis });
+
+        let queue = [rootRod];
+        while(queue.length > 0) {
+            let parent = queue.shift();
+            for(let child of rawRods) {
+                if(child.visited) continue;
+                let conn = getFaceConnection(parent, child);
+                if(conn) {
+                    child.visited = true;
+                    child.encodedIndex = encodedRods.length;
+                    encodedRods.push({ type: 'REL', pIdx: parent.encodedIndex, pCube: conn.pCube, face: conn.face, cCube: conn.cCube, l: child.len, a: child.axis });
+                    queue.push(child);
+                }
+            }
+        }
+      }
+
+      let bits = "";
+      const addBits = (val, len) => { bits += val.toString(2).padStart(len, '0'); };
+
+      // Bit packing
+      encodedRods.forEach(er => {
+          if(er.type === 'ABS') {
+              addBits(0, 1); // 0 = Absolute Root Flag
+              // Origin Optimization (Skip XYZ entirely if it's 0,0,0)
+              if (er.x === 0 && er.y === 0 && er.z === 0) {
+                  addBits(1, 1); 
+              } else {
+                  addBits(0, 1);
+                  addBits(Math.max(0, Math.min(63, er.x + 32)), 6);
+                  addBits(Math.max(0, Math.min(63, er.y)), 6);
+                  addBits(Math.max(0, Math.min(63, er.z + 32)), 6);
+              }
+              addBits(er.l - 1, 4);
+              addBits(er.a, 2);
+          } else {
+              addBits(1, 1); // 1 = Relative Connected Face Flag
+              addBits(er.pIdx, 6); 
+              addBits(er.face, 3); 
+              addBits(er.l - 1, 4);
+              addBits(er.a, 2);
+              if(er.pCube === 0) addBits(1, 1); else { addBits(0, 1); addBits(er.pCube, 4); }
+              if(er.cCube === 0) addBits(1, 1); else { addBits(0, 1); addBits(er.cCube, 4); }
+          }
+      });
+
+      bits = "1" + bits; // Prepend 1 to preserve leading zeros
+      let bigNum = 0n;
+      for(let i=0; i<bits.length; i++) bigNum = (bigNum << 1n) | BigInt(bits[i]);
+
+      let encoded = "";
+      if (bigNum === 0n) encoded = ALPHABET[0];
+      while (bigNum > 0n) {
+          let rem = Number(bigNum % BASE);
+          encoded = ALPHABET[rem] + encoded;
+          bigNum = bigNum / BASE;
+      }
+
+      document.getElementById("seed-input").value = encoded;
+      document.getElementById("seed-panel-value").textContent = encoded;
+      window.history.replaceState(null, null, `#${encoded}`);
+    }
+    
+    // Seed panel click to copy
+    document.getElementById("seed-panel").addEventListener("click", () => {
+      const seedValue = document.getElementById("seed-input").value;
+      if(seedValue) {
+        navigator.clipboard.writeText(seedValue);
+        showToast("Seed ID copied!");
+      }
+    });
+
+    function loadFromSeedOrGenerateDefault() {
+      const hash = window.location.hash.substring(1);
+      if(hash) {
+        try {
+          let bigNum = 0n;
+          for (let i = 0; i < hash.length; i++) {
+            let val = ALPHABET.indexOf(hash[i]);
+            if(val === -1) throw new Error("Invalid character in seed");
+            bigNum = bigNum * BASE + BigInt(val);
+          }
+          let bits = bigNum.toString(2);
+          bits = bits.substring(1); 
+
+          let cursor = 0;
+          const readBits = (len) => {
+              if(cursor + len > bits.length) return 0;
+              let res = parseInt(bits.substring(cursor, cursor + len), 2);
+              cursor += len;
+              return res;
+          };
+
+          const rods = [];
+          while(cursor < bits.length) {
+              let isRel = readBits(1);
+              if(isRel === 0) { 
+                  let isOrigin = readBits(1);
+                  let x = 0, y = 0, z = 0;
+                  
+                  if (isOrigin === 0) { 
+                      if(cursor + 18 > bits.length) break;
+                      x = readBits(6) - 32;
+                      y = readBits(6);
+                      z = readBits(6) - 32;
+                  } 
+
+                  if(cursor + 6 > bits.length) break;
+                  let len = readBits(4) + 1;
+                  let a = readBits(2);
+                  rods.push({x, y, z, len, axis: a});
+              } else { 
+                  if(cursor + 15 > bits.length) break;
+                  let pIdx = readBits(6);
+                  let face = readBits(3);
+                  let len = readBits(4) + 1;
+                  let a = readBits(2);
+                  
+                  let pCube = readBits(1) === 1 ? 0 : readBits(4);
+                  let cCube = readBits(1) === 1 ? 0 : readBits(4);
+
+                  if(pIdx < rods.length) {
+                      let pRod = rods[pIdx];
+                      let pAxisVec = AXES[pRod.axis];
+                      let pk = new THREE.Vector3(pRod.x, pRod.y, pRod.z).add(pAxisVec.clone().multiplyScalar(pCube));
+                      
+                      const faceVecs = [
+                          new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+                          new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0),
+                          new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1)
+                      ];
+                      let adj = pk.add(faceVecs[face]); 
+                      let cAxisVec = AXES[a];
+                      let cx = adj.x - cAxisVec.x * cCube;
+                      let cy = adj.y - cAxisVec.y * cCube;
+                      let cz = adj.z - cAxisVec.z * cCube;
+                      
+                      rods.push({x: Math.round(cx), y: Math.round(cy), z: Math.round(cz), len, axis: a});
+                  } else {
+                      rods.push({x:0, y:0, z:0, len, axis: a});
+                  }
+              }
+          }
+
+          // Strict floor safety checking
+          if (rods.length > 0) {
+              let minLoadedY = Math.min(...rods.map(r => r.y));
+              if (minLoadedY < 0) {
+                  let shiftY = -minLoadedY;
+                  rods.forEach(r => r.y += shiftY);
+              }
+          }
+
+          rods.forEach(r => createRod(r.len, new THREE.Vector3(r.x, r.y, r.z), AXES[r.axis]));
+          return;
+        } catch(e) { console.error("Invalid seed string.", e); }
+      }
+      createRod(1, new THREE.Vector3(1, 0, 1), AXES[0]);
+    }
+
+    function closePreviewModal() {
+      document.getElementById("preview-overlay").style.display = "none";
+      currentExportDataURL = null;
+      isCabinetExport = false;
+      document.getElementById("camera-prev").style.display = "none";
+      document.getElementById("camera-next").style.display = "none";
+      document.getElementById("preview-info").textContent = "";
+    }
+
+    function showPreviewModal(dataURL, title = "Image Preview") {
+      document.getElementById("preview-title").textContent = title;
+      document.getElementById("preview-image").src = dataURL;
+      document.getElementById("preview-overlay").style.display = "flex";
+      currentExportDataURL = dataURL;
+    }
+
+    function isColorDark(hexColor) {
+      const hex = hexColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance < 0.5;
+    }
+
+    function calculateCropInPixelSpace(minNDC, maxNDC, config) {
+      const targetAspect = config.EXPORT_WIDTH / config.EXPORT_HEIGHT;
+      const objPixelWidth = ((maxNDC.x - minNDC.x) * config.RENDER_WIDTH) / 2;
+      const objPixelHeight = ((maxNDC.y - minNDC.y) * config.RENDER_HEIGHT) / 2;
+      let paddedPixelW = objPixelWidth * config.PADDING_FACTOR;
+      let paddedPixelH = objPixelHeight * config.PADDING_FACTOR;
+      if (paddedPixelW / paddedPixelH > targetAspect) paddedPixelH = paddedPixelW / targetAspect;
+      else paddedPixelW = paddedPixelH * targetAspect;
+      const finalCropW = paddedPixelW;
+      const finalCropH = paddedPixelH;
+      const centerPixelX = ((1 + (minNDC.x + maxNDC.x) / 2) * config.RENDER_WIDTH) / 2;
+      const centerPixelY = ((1 - (minNDC.y + maxNDC.y) / 2) * config.RENDER_HEIGHT) / 2;
+      const cropX = centerPixelX - finalCropW / 2;
+      const cropY = centerPixelY - finalCropH / 2;
+      return { cropX, cropY, finalCropW, finalCropH };
+    }
+
+    function drawSeedOnCanvas(ctx, seed) {
+      const width = ctx.canvas.width;
+      const height = ctx.canvas.height;
+      const padding = width * 0.015;
+      const baseFontSize = Math.max(40, Math.round(height * 0.025));
+      const fontSize = Math.round(baseFontSize * exportSettings.seedSize);
+      const text = `➡ ${seed}`;
+      ctx.save();
+      ctx.font = `bold ${fontSize}px monospace`;
+      const useSolidBg = document.getElementById("export-solid-bg").checked;
+      const bgColor = document.getElementById("bg-color-picker").value;
+      const isBgDark = useSolidBg ? isColorDark(bgColor) : isDarkMode;
+      ctx.fillStyle = isBgDark ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.7)";
+      ctx.textBaseline = "top";
+      let x, y, textAlign = "left";
+      switch (exportSettings.seedPosition) {
+        case 1: x = padding; y = padding; break;
+        case 3: x = width - padding; y = padding; textAlign = "right"; break;
+        case 2: x = width - padding; y = height - padding - fontSize; textAlign = "right"; break;
+        case 0: default: x = padding; y = height - padding - fontSize; break;
+      }
+      ctx.textAlign = textAlign;
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    async function exportToPNG() {
+      interaction.ghostGroup.clear();
+      app.grid.visible = false;
+      if (app.axisHighlight) app.axisHighlight.visible = false;
+      const wasEditing = interaction.state === "EDITING";
+      if(wasEditing) unhighlightAll();
+      isCabinetExport = false;
+      const EXPORT_CONFIG = { RENDER_WIDTH: 4096, RENDER_HEIGHT: 3072, EXPORT_WIDTH: 2000, EXPORT_HEIGHT: 1500, PADDING_FACTOR: 1.1 };
+      const originalSize = new THREE.Vector2();
+      app.renderer.getSize(originalSize);
+      const originalClearColor = new THREE.Color();
+      app.renderer.getClearColor(originalClearColor);
+      const originalClearAlpha = app.renderer.getClearAlpha();
+      const useSolidBg = document.getElementById("export-solid-bg").checked;
+      const bgColor = document.getElementById("bg-color-picker").value;
+      app.controls.enabled = false;
+
+      const cubes = getAllCubes();
+      if (cubes.length === 0) {
+        app.controls.enabled = true;
+        return;
+      }
+
+      const bbox = new THREE.Box3();
+      cubes.forEach(c => bbox.expandByObject(c));
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const frustumSize = maxDim * 2.5;
+      const aspect = EXPORT_CONFIG.RENDER_WIDTH / EXPORT_CONFIG.RENDER_HEIGHT;
+
+      const exportCamera = new THREE.OrthographicCamera(
+        -frustumSize * aspect / 2,
+        frustumSize * aspect / 2,
+        frustumSize / 2,
+        -frustumSize / 2,
+        0.1, 1000
+      );
+
+      const dir = new THREE.Vector3();
+      app.camera.getWorldDirection(dir);
+      const distance = maxDim * 3;
+      const center = new THREE.Vector3();
+      bbox.getCenter(center);
+      
+      exportCamera.position.copy(center).add(dir.clone().multiplyScalar(-distance));
+      exportCamera.lookAt(center);
+      exportCamera.up.copy(app.camera.up);
+      exportCamera.updateMatrixWorld();
+      exportCamera.updateProjectionMatrix();
+
+      app.renderer.setSize(EXPORT_CONFIG.RENDER_WIDTH, EXPORT_CONFIG.RENDER_HEIGHT, false);
+      if (!useSolidBg) app.renderer.setClearColor(0x000000, 0);
+      else app.renderer.setClearColor(new THREE.Color(bgColor), 1);
+
+      setTimeout(() => {
+        try {
+          app.renderer.render(app.scene, exportCamera);
+          
+          const min = new THREE.Vector2(1, 1);
+          const max = new THREE.Vector2(-1, -1);
+          const vertex = new THREE.Vector3();
+          app.cubeGroup.traverse((child) => {
+            if (child.isMesh && child.geometry && child.geometry.type === "BoxGeometry") {
+              const position = child.geometry.attributes.position;
+              for (let i = 0; i < position.count; i++) {
+                vertex.fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld);
+                vertex.project(exportCamera);
+                min.x = Math.min(min.x, vertex.x); min.y = Math.min(min.y, vertex.y);
+                max.x = Math.max(max.x, vertex.x); max.y = Math.max(max.y, vertex.y);
+              }
+            }
+          });
+          if (max.x < min.x) return;
+          const { cropX, cropY, finalCropW, finalCropH } = calculateCropInPixelSpace(min, max, EXPORT_CONFIG);
+          const finalCanvas = document.createElement("canvas");
+          finalCanvas.width = EXPORT_CONFIG.EXPORT_WIDTH; finalCanvas.height = EXPORT_CONFIG.EXPORT_HEIGHT;
+          const finalCtx = finalCanvas.getContext("2d");
+          finalCtx.imageSmoothingQuality = "high";
+          if (useSolidBg) {
+            const cornerRadius = 80;
+            finalCtx.fillStyle = bgColor;
+            finalCtx.beginPath();
+            finalCtx.roundRect(0, 0, finalCanvas.width, finalCanvas.height, cornerRadius);
+            finalCtx.fill();
+          }
+          finalCtx.drawImage(app.renderer.domElement, cropX, cropY, finalCropW, finalCropH, 0, 0, EXPORT_CONFIG.EXPORT_WIDTH, EXPORT_CONFIG.EXPORT_HEIGHT);
+          if (exportSettings.showSeed) drawSeedOnCanvas(finalCtx, document.getElementById("seed-input").value);
+          showPreviewModal(finalCanvas.toDataURL("image/png"), "Image Preview");
+        } finally {
+          app.renderer.setSize(originalSize.x, originalSize.y, false);
+          app.renderer.setClearColor(originalClearColor, originalClearAlpha);
+          app.grid.visible = true;
+          if (app.axisHighlight) app.axisHighlight.visible = true;
+          if(wasEditing) highlightRod(getCubesByRodId(interaction.selectedRodId));
+          app.controls.enabled = true;
+          app.renderer.render(app.scene, app.camera);
+        }
+      }, 200);
+    }
+
+    function getRotationMatrix(view) {
+      const m = new THREE.Matrix4();
+      switch (view) {
+        case "back": m.makeRotationY(Math.PI); break;
+        case "top": m.makeRotationX(Math.PI / 2); break;
+        case "bottom": m.makeRotationX(-Math.PI / 2); break;
+        case "left": m.makeRotationY(Math.PI / 2); break;
+        case "right": m.makeRotationY(-Math.PI / 2); break;
+      }
+      return m;
+    }
+
+    async function exportCabinet() {
+      interaction.ghostGroup.clear();
+      app.grid.visible = false;
+      if (app.axisHighlight) app.axisHighlight.visible = false;
+      const wasEditing = interaction.state === "EDITING";
+      if(wasEditing) unhighlightAll();
+      isCabinetExport = true;
+      const useSolidBg = document.getElementById("export-solid-bg").checked;
+      const bgColor = document.getElementById("bg-color-picker").value;
+      const view = cabinetViews[currentCabinetViewIndex];
+      const tempScene = new THREE.Scene();
+      const shearMatrix = new THREE.Matrix4().set(1, 0, -0.35, 0, 0, 1, -0.35, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+      const rotationMatrix = getRotationMatrix(view);
+      const transform = new THREE.Matrix4().multiplyMatrices(shearMatrix, rotationMatrix);
+      app.cubeGroup.children.forEach((child) => {
+        if (child.isMesh) {
+          const geom = child.geometry.clone();
+          geom.applyMatrix4(child.matrixWorld);
+          geom.applyMatrix4(transform);
+          const mat = Array.isArray(child.material) ? child.material.map(m => m.clone()) : child.material.clone();
+          tempScene.add(new THREE.Mesh(geom, mat));
+        } else if (child.userData.isRodEdge) {
+          child.children.forEach(edgeComp => {
+            const geom = edgeComp.geometry.clone();
+            geom.applyMatrix4(edgeComp.matrixWorld);
+            geom.applyMatrix4(transform);
+            tempScene.add(new THREE.Mesh(geom, edgeComp.material.clone()));
+          });
+        }
+      });
+      const bbox = new THREE.Box3().setFromObject(tempScene);
+      const center = bbox.getCenter(new THREE.Vector3());
+      const size = bbox.getSize(new THREE.Vector3());
+      const padding = 1.15;
+      const camAspect = 4/3;
+      const objAspect = size.x / size.y;
+      let camW, camH;
+      if (objAspect > camAspect) { camW = size.x * padding; camH = camW / camAspect; }
+      else { camH = size.y * padding; camW = camH * camAspect; }
+      const orthoCam = new THREE.OrthographicCamera(center.x - camW/2, center.x + camW/2, center.y + camH/2, center.y - camH/2, 0.1, 1000);
+      orthoCam.position.z = 100;
+      const tempRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      tempRenderer.setSize(4000, 3000);
+      tempRenderer.setClearColor(new THREE.Color(bgColor), useSolidBg ? 1 : 0);
+      
+      // Add full lighting setup to avoid dark colors
+      tempScene.add(new THREE.AmbientLight(0xffffff, 1.0));
+      const d1 = new THREE.DirectionalLight(0xffffff, 0.9);
+      d1.position.set(10, 30, 10);
+      tempScene.add(d1);
+      const d2 = new THREE.DirectionalLight(0xffffff, 0.5);
+      d2.position.set(-10, 10, -10);
+      tempScene.add(d2);
+
+      tempRenderer.render(tempScene, orthoCam);
+      const finalCanvas = document.createElement("canvas");
+      finalCanvas.width = 2000; finalCanvas.height = 1500;
+      const finalCtx = finalCanvas.getContext("2d");
+      if (useSolidBg) {
+        finalCtx.fillStyle = bgColor;
+        finalCtx.beginPath();
+        finalCtx.roundRect(0, 0, 2000, 1500, 60);
+        finalCtx.fill();
+      }
+      finalCtx.drawImage(tempRenderer.domElement, 0, 0, 2000, 1500);
+      if (exportSettings.showSeed) drawSeedOnCanvas(finalCtx, document.getElementById("seed-input").value);
+      document.getElementById("preview-info").textContent = `View: ${view.toUpperCase()}`;
+      document.getElementById("camera-prev").style.display = "block";
+      document.getElementById("camera-next").style.display = "block";
+      document.getElementById("camera-prev").style.display = "inline-flex";
+      document.getElementById("camera-next").style.display = "inline-flex";
+      showPreviewModal(finalCanvas.toDataURL("image/png"), "Cabinet Export");
+      tempRenderer.dispose();
+      if(wasEditing) highlightRod(getCubesByRodId(interaction.selectedRodId));
+      app.grid.visible = true;
+      if (app.axisHighlight) app.axisHighlight.visible = true;
+    }
+
+    function savePreviewImage() {
+      if (!currentExportDataURL) return;
+      const count = getAllCubes().length;
+      const seed = document.getElementById("seed-input").value || "NO_SEED";
+      const sanitizedSeed = seed.replace(/[<>:"|?*\x00-\x1f]/g, "_");
+      const now = new Date();
+      const datetimeStr = now.toISOString().slice(2,16).replace(/T|:/g,"_").replace(/-/g,"_");
+      const filename = `Rod ${count} - ${sanitizedSeed} - ${datetimeStr}.png`;
+
+      const link = document.createElement("a");
+      link.href = currentExportDataURL;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      closePreviewModal();
+      showToast("Image saved!");
+    }
+
+    // === Camera Animation System ===
+    function cancelViewTransition() {
+      if (app.viewTransitionRaf) {
+        cancelAnimationFrame(app.viewTransitionRaf);
+        app.viewTransitionRaf = null;
+      }
+      if (app.isViewTransitioning) {
+        app.isViewTransitioning = false;
+        app.controls.enabled = true;
+      }
+    }
+
+    function getFitDistanceFromBbox(bbox) {
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      // For perspective camera, calculate distance to keep the object in view
+      // Use a larger multiplier to ensure the full tower is visible
+      const fov = app.camera.fov * (Math.PI / 180);
+      const distance = (maxDim * 1.5) / (2 * Math.tan(fov / 2));
+      return Math.max(distance * 1.5, maxDim * 2);
+    }
+
+    function normalizeUpForDir(upVec, dirVec) {
+      const up = upVec.clone();
+      const dir = dirVec.clone().normalize();
+      up.addScaledVector(dir, -up.dot(dir));
+      if (up.lengthSq() < 1e-8) {
+        const fallback = Math.abs(dir.y) < 0.9
+          ? new THREE.Vector3(0, 1, 0)
+          : new THREE.Vector3(1, 0, 0);
+        up.copy(fallback).addScaledVector(dir, -fallback.dot(dir));
+      }
+      return up.normalize();
+    }
+
+    function buildCameraQuaternionFromDirUp(dirVec, upVec) {
+      const z = dirVec.clone().normalize();
+      const y = normalizeUpForDir(upVec, z);
+      const x = new THREE.Vector3().crossVectors(y, z).normalize();
+      const yFixed = new THREE.Vector3().crossVectors(z, x).normalize();
+      const basis = new THREE.Matrix4().makeBasis(x, yFixed, z);
+      return new THREE.Quaternion().setFromRotationMatrix(basis);
+    }
+
+    function animateCameraToState(targetPosition, targetLookAt, targetUp) {
+      cancelViewTransition();
+
+      const startPosition = app.camera.position.clone();
+      const startTarget = app.controls.target.clone();
+      const startUp = app.camera.up.clone().normalize();
+      const startOffset = startPosition.clone().sub(startTarget);
+      const endOffset = targetPosition.clone().sub(targetLookAt);
+      const startDir = startOffset.lengthSq() > 1e-8 ? startOffset.clone().normalize() : new THREE.Vector3(0, 0, 1);
+      const endDir = endOffset.lengthSq() > 1e-8 ? endOffset.clone().normalize() : startDir.clone();
+      const qStart = buildCameraQuaternionFromDirUp(startDir, startUp);
+      const qEnd = buildCameraQuaternionFromDirUp(endDir, targetUp);
+      const qCur = new THREE.Quaternion();
+      const durationMs = VIEW_TRANSITION_DURATION_MS;
+      const startTime = performance.now();
+
+      app.isViewTransitioning = true;
+      app.controls.enabled = false;
+
+      const easeLinear = (t) => t;
+
+      const tick = (now) => {
+        const t = Math.min((now - startTime) / durationMs, 1);
+        const e = easeLinear(t);
+
+        app.controls.target.lerpVectors(startTarget, targetLookAt, e);
+        const curTarget = app.controls.target;
+
+        const startLen = startOffset.length();
+        const endLen = endOffset.length();
+        const curLen = THREE.MathUtils.lerp(startLen, endLen, e);
+
+        qCur.slerpQuaternions(qStart, qEnd, e);
+        const curDir = new THREE.Vector3(0, 0, 1).applyQuaternion(qCur).normalize();
+        const curUp = new THREE.Vector3(0, 1, 0).applyQuaternion(qCur).normalize();
+
+        app.camera.position.copy(curTarget).add(curDir.multiplyScalar(curLen));
+        app.camera.up.copy(curUp);
+
+        app.controls.update();
+        app.renderer.render(app.scene, app.camera);
+
+        if (t < 1) {
+          app.viewTransitionRaf = requestAnimationFrame(tick);
+          return;
+        }
+
+        app.camera.position.copy(targetPosition);
+        app.controls.target.copy(targetLookAt);
+        app.camera.up.copy(targetUp);
+        app.controls.update();
+
+        app.viewTransitionRaf = null;
+        app.isViewTransitioning = false;
+        app.controls.enabled = true;
+      };
+
+      app.viewTransitionRaf = requestAnimationFrame(tick);
+    }
+
+    function setCameraToView(direction, upVector) {
+      const cubes = getAllCubes();
+      if (cubes.length === 0) return;
+
+      const bbox = new THREE.Box3();
+      cubes.forEach((cube) => {
+        if (cube.geometry && cube.geometry.type === "BoxGeometry") {
+          bbox.expandByObject(cube);
+        }
+      });
+
+      const center = new THREE.Vector3();
+      bbox.getCenter(center);
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      // Calculate distance based on bounding box to keep tower in view
+      const distance = Math.max(maxDim * 2.5, 15);
+      const cameraPos = direction.clone().normalize().multiplyScalar(distance).add(center);
+
+      // Adjust target center based on direction to keep object centered
+      let targetCenter = center.clone();
+      if (direction.y > 0.5) {
+        // Top view - shift target down a bit to show more of the tower
+        targetCenter.y = Math.max(0, center.y - size.y * 0.15);
+      } else if (direction.y < -0.5) {
+        // Bottom view - shift target up a bit
+        targetCenter.y = center.y + size.y * 0.1;
+      }
+
+      animateCameraToState(cameraPos, targetCenter, upVector);
+    }
+  </script>
+</body>
+</html>

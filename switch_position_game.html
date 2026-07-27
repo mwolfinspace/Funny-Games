@@ -1,0 +1,1239 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+        <title>Switch Position Game</title>
+        <script src="confetti.min.js"></script>
+    <style>
+        :root {
+            --left-bg: #b1d355;
+            --right-bg: #fdba4d;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            touch-action: manipulation; /* Enable panning/zooming but disable double-tap zoom */
+        }
+
+        /* Main Layout */
+        #game-board {
+            display: flex;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1vh 1vw;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #left-side {
+            background-color: var(--left-bg);
+        }
+
+        #right-side {
+            background-color: var(--right-bg);
+        }
+
+        .middle-separator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2vh;
+            padding: 0 1vw;
+            background: rgba(0,0,0,0.15);
+            border-left: 4px solid rgba(0,0,0,0.3);
+            border-right: 4px solid rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .separator-btn {
+            height: clamp(2.5rem, 6vh, 4rem);
+            width: clamp(2.5rem, 6vh, 4rem);
+            font-size: clamp(1.5rem, 4vh, 2.5rem);
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s;
+            padding: 0.5vh;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .separator-btn:hover { transform: scale(1.1); }
+        .separator-btn:active { transform: scale(0.95); }
+        .separator-btn.disabled { opacity: 0.4; pointer-events: none; }
+        #btn-mary:not(.active) { opacity: 0.4; }
+        #btn-mary.disabled { pointer-events: none; }
+        
+        #btn-mary img {
+            height: 100%;
+            width: 100%;
+            object-fit: contain;
+        }
+        
+        h1 {
+            font-size: clamp(1.2rem, 3vh, 2rem);
+            margin-bottom: 0.5vh;
+            text-align: center;
+        }        /* Rocks and Stacks */
+        .rocks-area {
+            display: flex;
+            flex: 1;
+            gap: 2vw;
+            width: 100%;
+            align-items: flex-end;
+            justify-content: space-evenly;
+            margin-bottom: 2vh;
+        }
+
+        .rock-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            position: relative;
+            width: 45%;
+            height: 100%;
+        }
+
+        .rock-img {
+            height: 18vh; /* Adaptive size */
+            width: 100%;
+            object-fit: contain;
+            z-index: 1;
+            margin-bottom: -3vh; /* Move up to cover transparent area */
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+            min-height: 45vh;
+            margin-bottom: -4vh; /* Relative overlap over the rock */
+            z-index: 2;
+            border: 3px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding-top: 2vh;
+        }
+
+        .pet {
+            height: 14vh;
+            width: auto;
+            max-width: 20vw;
+            object-fit: contain;
+            cursor: grab;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            margin-bottom: -4vh; /* Relative overlap for stacking */
+            flex-shrink: 0;
+            -webkit-user-drag: element;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            position: relative;
+            z-index: auto;
+        }
+        
+        .pet:active {
+            cursor: grabbing;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1vh;
+            width: 100%;
+            justify-content: flex-end;
+            flex: 1;
+        }
+
+        .btn-img {
+            height: 8vh; /* Scale with screen height */
+            width: auto;
+            cursor: pointer;
+            object-fit: contain;
+            transition: transform 0.1s;
+        }
+
+        .btn-img:active {
+            transform: scale(0.9);
+        }
+
+        .btn-img.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        .universal-buttons {
+            display: flex;
+            gap: 2vw;
+            background: rgba(255,255,255,0.4);
+            padding: 0.5vh 2vw;
+            border-radius: 15px;
+            align-items: center;
+            justify-content: center;
+            width: 90%;
+        }
+
+        /* Pets Bank */
+        .pets-bank {
+            display: flex;
+            gap: 2vw;
+            min-height: 0;
+            height: auto;
+            min-height: 10vh;
+            padding: 1vh;
+            background: rgba(0,0,0,0.1);
+            border-radius: 15px;
+            width: 95%;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pets-bank .pet {
+            height: 8vh;
+            margin-bottom: 0;
+        }
+
+        /* History Panel */
+        #history-panel {
+            display: flex;
+            height: auto;
+            min-height: 8vh;
+            background: #333;
+            color: white;
+            padding: 0.5vh 1vw;
+            overflow-x: auto;
+            align-items: center;
+            justify-content: center;
+            gap: 1vw;
+            position: relative;
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+
+        .history-item {
+            height: 8vh;
+            width: auto;
+            object-fit: contain;
+            border-radius: 8px;
+            padding: 0.5vh;
+            margin-top: -1vh;
+            margin-bottom: -1vh;
+        }
+
+        .history-title {
+            position: absolute;
+            left: 2vw;
+            font-size: clamp(1rem, 2.5vh, 1.5rem);
+            font-weight: bold;
+        }
+
+        /* --- Drag & Drop Highlight Styles --- */
+        body.is-dragging .pet:not(.dragging) {
+            pointer-events: none; 
+        }
+
+        .stack.drag-highlight {
+            background-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+        }
+
+        .stack.drag-highlight + .rock-img {
+            filter: drop-shadow(0 0 20px yellow) brightness(1.2);
+        }
+
+        .pets-bank.drag-highlight {
+            background-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+        }
+    </style>
+    </head>
+    <body>
+        <audio id="win-sound" src="kid_yeah.wav" preload="auto"></audio>
+
+        <div id="game-board">
+            <div id="left-side" class="side">
+                <h1>Current position</h1>
+
+                <div class="rocks-area">
+                    <div class="rock-container">
+                        <div class="stack" id="l-warm-stack"></div>
+                        <img
+                            src="pets/warm.png"
+                            class="rock-img"
+                            alt="Warm Rock"
+                        />
+                        <img
+                            src="pets/move_up.png"
+                            class="btn-img disabled l-control"
+                            id="l-up-warm"
+                            alt="Move Up"
+                        />
+                    </div>
+                    <div class="rock-container">
+                        <div class="stack" id="l-cold-stack"></div>
+                        <img
+                            src="pets/cold.png"
+                            class="rock-img"
+                            alt="Cold Rock"
+                        />
+                        <img
+                            src="pets/move_up.png"
+                            class="btn-img disabled l-control"
+                            id="l-up-cold"
+                            alt="Move Up"
+                        />
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <div class="universal-buttons">
+                        <img
+                            src="pets/move_left.png"
+                            class="btn-img disabled l-control"
+                            id="btn-left"
+                            alt="To Left"
+                        />
+                        <img
+                            src="pets/move_right.png"
+                            class="btn-img disabled l-control"
+                            id="btn-right"
+                            alt="To Right"
+                        />
+                        <img
+                            src="pets/switch.png"
+                            class="btn-img disabled l-control"
+                            id="btn-switch"
+                            alt="Switch"
+                        />
+                    </div>
+
+                    <div class="pets-bank" id="l-bank">
+                        <img
+                            src="pets/fluffy.png"
+                            class="pet"
+                            id="l-fluffy"
+                            data-pet="fluffy"
+                            draggable="true"
+                        />
+                        <img
+                            src="pets/lily.png"
+                            class="pet"
+                            id="l-lily"
+                            data-pet="lily"
+                            draggable="true"
+                        />
+                        <img
+                            src="pets/rocky.png"
+                            class="pet"
+                            id="l-rocky"
+                            data-pet="rocky"
+                            draggable="true"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div class="middle-separator">
+                <button
+                    class="separator-btn disabled l-control"
+                    id="btn-reset"
+                    title="Reset"
+                >
+                    🔄
+                </button>
+                <button class="separator-btn" id="lock-toggle">🔓</button>
+                <button class="separator-btn" id="btn-random" title="Random">🎲</button>
+                <button class="separator-btn" id="btn-mary" title="Toggle Mary">
+                    <img src="pets/mary.png" alt="Mary" />
+                </button>
+                <button
+                    class="separator-btn"
+                    onclick="window.location.href='index.html'"
+                    title="Home"
+                >
+                    🏠
+                </button>
+            </div>
+
+            <div id="right-side" class="side">
+                <h1>The King's Orders</h1>
+
+                <div class="rocks-area">
+                    <div class="rock-container">
+                        <div class="stack" id="r-warm-stack"></div>
+                        <img
+                            src="pets/warm.png"
+                            class="rock-img"
+                            alt="Warm Rock"
+                        />
+                        <img
+                            src="pets/move_up.png"
+                            class="btn-img disabled"
+                            alt="Move Up"
+                        />
+                    </div>
+                    <div class="rock-container">
+                        <div class="stack" id="r-cold-stack"></div>
+                        <img
+                            src="pets/cold.png"
+                            class="rock-img"
+                            alt="Cold Rock"
+                        />
+                        <img
+                            src="pets/move_up.png"
+                            class="btn-img disabled"
+                            alt="Move Up"
+                        />
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <div class="universal-buttons">
+                        <img
+                            src="pets/move_left.png"
+                            class="btn-img disabled"
+                            alt="To Left"
+                        />
+                        <img
+                            src="pets/move_right.png"
+                            class="btn-img disabled"
+                            alt="To Right"
+                        />
+                        <img
+                            src="pets/switch.png"
+                            class="btn-img disabled"
+                            alt="Switch"
+                        />
+                    </div>
+
+                    <div class="pets-bank" id="r-bank">
+                        <img
+                            src="pets/fluffy.png"
+                            class="pet"
+                            id="r-fluffy"
+                            data-pet="fluffy"
+                            draggable="true"
+                        />
+                        <img
+                            src="pets/lily.png"
+                            class="pet"
+                            id="r-lily"
+                            data-pet="lily"
+                            draggable="true"
+                        />
+                        <img
+                            src="pets/rocky.png"
+                            class="pet"
+                            id="r-rocky"
+                            data-pet="rocky"
+                            draggable="true"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="history-panel">
+            <div class="history-title">History:</div>
+        </div>
+
+                                <script>
+
+                                    document.addEventListener("DOMContentLoaded", () => {
+
+                                        let isMaryEnabled = false;
+
+                                        let isLocked = false;
+
+                                        let initialState = { warm: [], cold: [], bank: [] };
+
+                        
+
+                                        // --- DOM Elements ---
+
+                                        const lWarmStack = document.getElementById("l-warm-stack");
+
+                                        const lColdStack = document.getElementById("l-cold-stack");
+
+                                        const rWarmStack = document.getElementById("r-warm-stack");
+
+                                        const rColdStack = document.getElementById("r-cold-stack");
+
+                                        const lBank = document.getElementById("l-bank");
+
+                                        const rBank = document.getElementById("r-bank");
+
+                        
+
+                                        const lockBtn = document.getElementById("lock-toggle");
+
+                                        const historyPanel = document.getElementById("history-panel");
+
+                                        const winSound = document.getElementById("win-sound");
+
+                        
+
+                                        const leftControls = document.querySelectorAll(".l-control");
+
+                                        const btnUpWarm = document.getElementById("l-up-warm");
+
+                                        const btnUpCold = document.getElementById("l-up-cold");
+
+                                        const btnRight = document.getElementById("btn-right");
+
+                                        const btnLeft = document.getElementById("btn-left");
+
+                                        const btnSwitch = document.getElementById("btn-switch");
+
+                                        const btnReset = document.getElementById("btn-reset");
+
+                                        const randomBtn = document.getElementById("btn-random");
+
+                                        const btnMary = document.getElementById("btn-mary");
+
+                        
+
+                                        const petImageSources = {
+
+                                            fluffy: "pets/fluffy.png",
+
+                                            lily: "pets/lily.png",
+
+                                            rocky: "pets/rocky.png",
+
+                                            mary: "pets/mary.png",
+
+                                        };
+
+                        
+
+                                        function createPetElement(sidePrefix, petName) {
+
+                                            const petEl = document.createElement("img");
+
+                                            petEl.src = petImageSources[petName];
+
+                                            petEl.className = "pet";
+
+                                            petEl.id = `${sidePrefix}-${petName}`;
+
+                                            petEl.dataset.pet = petName;
+
+                                            petEl.draggable = true;
+
+                                            addPetEventListeners(petEl);
+
+                                            return petEl;
+
+                                        }
+
+                        
+
+                                        function addPetEventListeners(pet) {
+                                            // Disable native drag
+                                            pet.ondragstart = () => false;
+                                            
+                                            // Use pointer events for Chrome compatibility
+                                            pet.onpointerdown = handlePointerDown;
+                                            
+                                            // Keep touch events for mobile
+                                            pet.addEventListener("touchstart", handleTouchStart, { passive: false });
+                                            pet.addEventListener("touchmove", handleTouchMove, { passive: false });
+                                            pet.addEventListener("touchend", handleTouchEnd);
+                                        }
+
+                                        // ============================================
+                                        // CUSTOM POINTER-BASED DRAG IMPLEMENTATION
+                                        // ============================================
+                                        let draggedPet = null;
+                                        let dragGhost = null;
+                                        let startX = 0;
+                                        let startY = 0;
+                                        let ghostOffsetX = 0;
+                                        let ghostOffsetY = 0;
+                                        let currentDropZone = null;
+                                        let isDragging = false;
+
+                                        function handlePointerDown(e) {
+                                            // Only left mouse button (button === 0)
+                                            if (e.button !== 0) return;
+                                            
+                                            // Check if locked (left side pets can't be dragged when locked)
+                                            if (isLocked && this.id.startsWith("l-")) {
+                                                // Visual feedback that it's locked
+                                                this.style.transform = "scale(0.95)";
+                                                setTimeout(() => {
+                                                    this.style.transform = "";
+                                                }, 150);
+                                                return;
+                                            }
+
+                                            e.preventDefault(); // Prevent default browser drag
+                                            e.stopPropagation();
+
+                                            // Capture pointer to keep receiving events even outside element
+                                            this.setPointerCapture(e.pointerId);
+
+                                            // Store drag state
+                                            draggedPet = this;
+                                            isDragging = true;
+                                            
+                                            // Calculate offset from mouse to element corner
+                                            const rect = this.getBoundingClientRect();
+                                            ghostOffsetX = e.clientX - rect.left;
+                                            ghostOffsetY = e.clientY - rect.top;
+
+                                            // Create drag ghost (visual feedback)
+                                            createDragGhost(this, e.clientX, e.clientY);
+
+                                            // Visual feedback on original element
+                                            this.style.opacity = "0.4";
+                                            document.body.classList.add("is-dragging");
+                                            this.classList.add("dragging");
+
+                                            // Add move and up handlers
+                                            this.onpointermove = handlePointerMove;
+                                            this.onpointerup = handlePointerUp;
+                                        }
+
+                                        function createDragGhost(originalElement, clientX, clientY) {
+                                            dragGhost = originalElement.cloneNode(true);
+                                            dragGhost.style.position = 'fixed';
+                                            dragGhost.style.left = (clientX - ghostOffsetX) + 'px';
+                                            dragGhost.style.top = (clientY - ghostOffsetY) + 'px';
+                                            dragGhost.style.width = originalElement.offsetWidth + 'px';
+                                            dragGhost.style.height = originalElement.offsetHeight + 'px';
+                                            dragGhost.style.zIndex = '10000';
+                                            dragGhost.style.pointerEvents = 'none'; // Let events pass through
+                                            dragGhost.style.opacity = '0.8';
+                                            dragGhost.style.transform = 'scale(1.05)';
+                                            dragGhost.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+                                            dragGhost.id = 'drag-ghost';
+                                            
+                                            document.body.appendChild(dragGhost);
+                                        }
+
+                                        function handlePointerMove(e) {
+                                            if (!isDragging || !dragGhost) return;
+                                            
+                                            e.preventDefault();
+
+                                            // Move ghost with mouse
+                                            dragGhost.style.left = (e.clientX - ghostOffsetX) + 'px';
+                                            dragGhost.style.top = (e.clientY - ghostOffsetY) + 'px';
+
+                                            // Find drop zone under cursor
+                                            // Hide ghost temporarily to check what's underneath
+                                            dragGhost.hidden = true;
+                                            const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+                                            dragGhost.hidden = false;
+
+                                            if (!elemBelow) {
+                                                clearDropHighlight();
+                                                return;
+                                            }
+
+                                            const dropZone = elemBelow.closest('.stack, .pets-bank');
+                                            
+                                            if (dropZone) {
+                                                const isLeftPet = draggedPet.id.startsWith("l-");
+                                                const isLeftZone = dropZone.id.startsWith("l-");
+                                                
+                                                if (isLeftPet === isLeftZone) {
+                                                    // Valid drop zone
+                                                    if (currentDropZone !== dropZone) {
+                                                        clearDropHighlight();
+                                                        currentDropZone = dropZone;
+                                                        dropZone.classList.add("drag-highlight");
+                                                    }
+                                                } else {
+                                                    clearDropHighlight();
+                                                }
+                                            } else {
+                                                clearDropHighlight();
+                                            }
+                                        }
+
+                                        function handlePointerUp(e) {
+                                            if (!isDragging) return;
+                                            
+                                            e.preventDefault();
+                                            
+                                            // Release pointer capture
+                                            if (draggedPet) {
+                                                draggedPet.releasePointerCapture(e.pointerId);
+                                            }
+
+                                            // Determine drop target
+                                            if (dragGhost) {
+                                                dragGhost.hidden = true;
+                                                const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+                                                dragGhost.hidden = false;
+                                                
+                                                if (elemBelow) {
+                                                    const dropZone = elemBelow.closest('.stack, .pets-bank');
+                                                    
+                                                    if (dropZone && currentDropZone === dropZone) {
+                                                        const isLeftPet = draggedPet.id.startsWith("l-");
+                                                        const isLeftZone = dropZone.id.startsWith("l-");
+                                                        
+                                                        if (isLeftPet === isLeftZone) {
+                                                            // Valid drop - move the pet
+                                                            dropZone.appendChild(draggedPet);
+                                                            checkWin();
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Remove ghost
+                                                dragGhost.remove();
+                                                dragGhost = null;
+                                            }
+
+                                            // Cleanup
+                                            clearDropHighlight();
+                                            if (draggedPet) {
+                                                draggedPet.style.opacity = "1";
+                                                draggedPet.classList.remove("dragging");
+                                                draggedPet.onpointermove = null;
+                                                draggedPet.onpointerup = null;
+                                            }
+                                            
+                                            draggedPet = null;
+                                            isDragging = false;
+                                            currentDropZone = null;
+                                            document.body.classList.remove("is-dragging");
+                                        }
+
+                                        function clearDropHighlight() {
+                                            if (currentDropZone) {
+                                                currentDropZone.classList.remove("drag-highlight");
+                                                currentDropZone = null;
+                                            }
+                                        }
+
+                                        // ============================================
+                                        // TOUCH EVENT FALLBACK (for older mobile)
+                                        // ============================================
+                                        let touchDraggedPet = null;
+                                        let touchGhost = null;
+
+                                        function handleTouchStart(e) {
+                                            if (isLocked && this.id.startsWith("l-")) return;
+                                            e.preventDefault();
+                                            
+                                            touchDraggedPet = this;
+                                            
+                                            // Create ghost for touch
+                                            const rect = this.getBoundingClientRect();
+                                            touchGhost = this.cloneNode(true);
+                                            touchGhost.style.position = 'fixed';
+                                            touchGhost.style.left = rect.left + 'px';
+                                            touchGhost.style.top = rect.top + 'px';
+                                            touchGhost.style.width = rect.width + 'px';
+                                            touchGhost.style.height = rect.height + 'px';
+                                            touchGhost.style.zIndex = '10000';
+                                            touchGhost.style.pointerEvents = 'none';
+                                            touchGhost.style.opacity = '0.8';
+                                            touchGhost.style.transform = 'scale(1.05)';
+                                            
+                                            document.body.appendChild(touchGhost);
+                                            this.style.opacity = "0.4";
+                                        }
+
+                                        function handleTouchMove(e) {
+                                            if (!touchDraggedPet || !touchGhost) return;
+                                            e.preventDefault();
+                                            
+                                            const touch = e.touches[0];
+                                            touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2) + 'px';
+                                            touchGhost.style.top = (touch.clientY - touchGhost.offsetHeight/2) + 'px';
+                                        }
+
+                                        function handleTouchEnd(e) {
+                                            if (!touchDraggedPet) return;
+                                            e.preventDefault();
+                                            
+                                            const touch = e.changedTouches[0];
+                                            touchGhost.hidden = true;
+                                            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                                            touchGhost.hidden = false;
+                                            
+                                            const zone = elemBelow?.closest(".stack, .pets-bank");
+                                            
+                                            if (zone) {
+                                                const isLeftPet = touchDraggedPet.id.startsWith("l-");
+                                                const isLeftZone = zone.id.startsWith("l-");
+                                                if (isLeftPet === isLeftZone) {
+                                                    zone.appendChild(touchDraggedPet);
+                                                    checkWin();
+                                                }
+                                            }
+                                            
+                                            touchGhost.remove();
+                                            touchGhost = null;
+                                            touchDraggedPet.style.opacity = "1";
+                                            touchDraggedPet = null;
+                                        }
+
+                        
+
+                                        // Initial setup of pet elements
+
+                                        document.querySelectorAll('.pet').forEach(addPetEventListeners);
+
+                        
+
+                                        function resetPetsToBanks() {
+
+                                            const allGamePets = document.querySelectorAll('#left-side .pet, #right-side .pet');
+
+                                            allGamePets.forEach(pet => {
+
+                                                const petName = pet.dataset.pet;
+
+                                                if (pet.id.startsWith('l-')) {
+
+                                                    if (petName !== 'mary' || isMaryEnabled) {
+
+                                                        lBank.appendChild(pet);
+
+                                                    }
+
+                                                } else {
+
+                                                    if (petName !== 'mary' || isMaryEnabled) {
+
+                                                        rBank.appendChild(pet);
+
+                                                    }
+
+                                                }
+
+                                            });
+
+                                        }
+
+                                        
+
+                                        btnMary.addEventListener('click', () => {
+
+                                            if (isLocked) return;
+
+                        
+
+                                            isMaryEnabled = !isMaryEnabled;
+
+                                            btnMary.classList.toggle('active');
+
+                        
+
+                                            if (isMaryEnabled) {
+
+                                                // Add Mary to the game
+
+                                                if (!document.getElementById('l-mary')) {
+
+                                                    lBank.appendChild(createPetElement('l', 'mary'));
+
+                                                }
+
+                                                if (!document.getElementById('r-mary')) {
+
+                                                    rBank.appendChild(createPetElement('r', 'mary'));
+
+                                                }
+
+                                            } else {
+
+                                                // Remove Mary and reset other pets to banks
+
+                                                resetPetsToBanks();
+
+                                                const lMary = document.getElementById('l-mary');
+
+                                                const rMary = document.getElementById('r-mary');
+
+                                                if (lMary) lMary.remove();
+
+                                                if (rMary) rMary.remove();
+
+                                            }
+
+                                        });
+
+                        
+
+                                        function generateRandomPositions() {
+
+                                            if (isLocked) return;
+
+                        
+
+                                            const allPetElements = Array.from(document.querySelectorAll('#l-bank .pet, #l-warm-stack .pet, #l-cold-stack .pet'));
+
+                                            const allPets = [...new Set(allPetElements.map(p => p.dataset.pet))];
+
+                        
+
+                                            function shuffle(array) {
+
+                                                for (let i = array.length - 1; i > 0; i--) {
+
+                                                    const j = Math.floor(Math.random() * (i + 1));
+
+                                                    [array[i], array[j]] = [array[j], array[i]];
+
+                                                }
+
+                                                return array;
+
+                                            }
+
+                                            
+
+                                            function distributePets(sidePrefix, petList) {
+
+                                                const warmStack = document.getElementById(`${sidePrefix}-warm-stack`);
+
+                                                const coldStack = document.getElementById(`${sidePrefix}-cold-stack`);
+
+                                                const bank = document.getElementById(`${sidePrefix}-bank`);
+
+                                                
+
+                                                // Clear stacks and bank
+
+                                                warmStack.innerHTML = '';
+
+                                                coldStack.innerHTML = '';
+
+                                                bank.innerHTML = '';
+
+                        
+
+                                                const shuffledPets = shuffle([...petList]);
+
+                                                const warmCount = Math.floor(Math.random() * (shuffledPets.length + 1));
+
+                                                const warmPets = shuffledPets.slice(0, warmCount);
+
+                                                const coldPets = shuffledPets.slice(warmCount);
+
+                        
+
+                                                warmPets.forEach(p => warmStack.appendChild(createPetElement(sidePrefix, p)));
+
+                                                coldPets.forEach(p => coldStack.appendChild(createPetElement(sidePrefix, p)));
+
+                                            }
+
+                                            
+
+                                            distributePets('l', allPets);
+
+                                            distributePets('r', allPets);
+
+                                        }
+
+                                        
+
+
+                                        
+
+                                        // --- Control Button Logic ---
+
+                                        lockBtn.addEventListener("click", () => {
+
+                                            isLocked = !isLocked;
+
+                                            lockBtn.textContent = isLocked ? "🔒" : "🔓";
+
+                                            if (isLocked) {
+
+                                                initialState.warm = Array.from(lWarmStack.children).map(p => p.dataset.pet);
+
+                                                initialState.cold = Array.from(lColdStack.children).map(p => p.dataset.pet);
+
+                                                initialState.bank = Array.from(lBank.children).map(p => p.dataset.pet);
+
+                                                leftControls.forEach(btn => btn.classList.remove("disabled"));
+
+                                                btnMary.classList.add('disabled');
+
+                                                randomBtn.classList.add('disabled');
+
+                                            } else {
+
+                                                leftControls.forEach(btn => btn.classList.add("disabled"));
+
+                                                historyPanel.innerHTML = '<div class="history-title">History:</div>';
+
+                                                btnMary.classList.remove('disabled');
+
+                                                randomBtn.classList.remove('disabled');
+
+                                            }
+
+                                        });
+
+                        
+
+                                        randomBtn.addEventListener("click", generateRandomPositions);
+
+                        
+
+                                        btnReset.addEventListener("click", () => {
+
+                                            if (!isLocked) return;
+
+                                            // This needs to be smarter now
+
+                                            lWarmStack.innerHTML = '';
+
+                                            lColdStack.innerHTML = '';
+
+                                            lBank.innerHTML = '';
+
+                                            initialState.warm.forEach(p => lWarmStack.appendChild(createPetElement('l', p)));
+
+                                            initialState.cold.forEach(p => lColdStack.appendChild(createPetElement('l', p)));
+
+                                            initialState.bank.forEach(p => lBank.appendChild(createPetElement('l', p)));
+
+                                            historyPanel.innerHTML = '<div class="history-title">History:</div>';
+
+                                        });
+
+                                        
+
+                                        // --- Game Action Logic ---
+
+                                        function animateMove(element) {
+
+                                            element.style.opacity = "0.5";
+
+                                            setTimeout(() => (element.style.opacity = "1"), 150);
+
+                                        }
+
+                        
+
+                                        function addToHistory(imgSrc) {
+
+                                            const img = document.createElement("img");
+
+                                            img.src = imgSrc;
+
+                                            img.className = "history-item";
+
+                                            historyPanel.appendChild(img);
+
+                                        }
+
+                        
+
+                                        function checkWin() {
+
+                                            if (!isLocked) return;
+
+                                            const lWarmPets = Array.from(lWarmStack.children).map(p => p.dataset.pet).join(",");
+
+                                            const rWarmPets = Array.from(rWarmStack.children).map(p => p.dataset.pet).join(",");
+
+                                            const lColdPets = Array.from(lColdStack.children).map(p => p.dataset.pet).join(",");
+
+                                            const rColdPets = Array.from(rColdStack.children).map(p => p.dataset.pet).join(",");
+
+                        
+
+                                            if (lWarmPets === rWarmPets && lColdPets === rColdPets) {
+
+                                                winSound.play();
+
+                                                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+
+                                            }
+
+                                        }
+
+                        
+
+                                        function cycleStack(stackElement) {
+
+                                            if (stackElement.children.length > 1) {
+
+                                                const bottomPet = stackElement.firstElementChild;
+
+                                                stackElement.appendChild(bottomPet);
+
+                                                animateMove(bottomPet);
+
+                                            }
+
+                                        }
+
+                        
+
+                                        btnUpWarm.addEventListener("click", () => {
+
+                                            if (!isLocked) return;
+
+                                            cycleStack(lWarmStack);
+
+                                            addToHistory("pets/move_up.png");
+
+                                            checkWin();
+
+                                        });
+
+                        
+
+                                        btnUpCold.addEventListener("click", () => {
+
+                                            if (!isLocked) return;
+
+                                            cycleStack(lColdStack);
+
+                                            addToHistory("pets/move_up.png");
+
+                                            checkWin();
+
+                                        });
+
+                        
+
+                                        btnRight.addEventListener("click", () => {
+
+                                            if (!isLocked) return;
+
+                                            const topWarm = lWarmStack.lastElementChild;
+
+                                            if (topWarm) {
+
+                                                lColdStack.appendChild(topWarm);
+
+                                                animateMove(topWarm);
+
+                                                addToHistory("pets/move_right.png");
+
+                                                checkWin();
+
+                                            }
+
+                                        });
+
+                        
+
+                                        btnLeft.addEventListener("click", () => {
+
+                                            if (!isLocked) return;
+
+                                            const topCold = lColdStack.lastElementChild;
+
+                                            if (topCold) {
+
+                                                lWarmStack.appendChild(topCold);
+
+                                                animateMove(topCold);
+
+                                                addToHistory("pets/move_left.png");
+
+                                                checkWin();
+
+                                            }
+
+                                        });
+
+                        
+
+                                        btnSwitch.addEventListener("click", () => {
+
+                                            if (!isLocked) return;
+
+                                            const topWarm = lWarmStack.lastElementChild;
+
+                                            const topCold = lColdStack.lastElementChild;
+
+                                            if (topWarm) lColdStack.appendChild(topWarm);
+
+                                            if (topCold) lWarmStack.appendChild(topCold);
+
+                                            if (topWarm || topCold) {
+
+                                                addToHistory("pets/switch.png");
+
+                                                checkWin();
+
+                                            }
+
+                                        });
+
+                        
+
+                                        // --- Initial Game Setup ---
+
+                                        function initializeGame() {
+
+                                            if (isMaryEnabled) {
+
+                                                btnMary.classList.add('active');
+
+                                                if (!document.getElementById('l-mary')) {
+
+                                                    lBank.appendChild(createPetElement('l', 'mary'));
+
+                                                }
+
+                                                if (!document.getElementById('r-mary')) {
+
+                                                    rBank.appendChild(createPetElement('r', 'mary'));
+
+                                                }
+
+                                            } else {
+
+                                                 btnMary.classList.remove('active');
+
+                                            }
+
+                                            generateRandomPositions();
+
+                                        }
+
+                        
+
+                                        initializeGame();
+
+                                    });
+
+                                </script>    </body>
+</html>

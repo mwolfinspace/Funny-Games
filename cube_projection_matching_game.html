@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Cube Projection Matching Game</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 1.3em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.8em;
+        }
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #status {
+            font-size: 1em;
+            font-weight: bold;
+            color: #764ba2;
+        }
+        button, a.button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.95em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        button:hover, a.button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        select {
+            background: white;
+            border: 2px solid #667eea;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.95em;
+            cursor: pointer;
+            font-weight: 500;
+            color: #764ba2;
+            transition: all 0.2s;
+        }
+        select:hover {
+            border-color: #764ba2;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .flashcard {
+            aspect-ratio: 1;
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+        .flashcard:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .flashcard.selected {
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+        .flashcard.matched {
+            border-color: #10b981;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .flashcard img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .flashcard-label {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .check-mark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 4em;
+            color: #10b981;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            animation: checkPop 0.5s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes checkPop {
+            0% { transform: translate(-50%, -50%) scale(0) rotate(-45deg); }
+            50% { transform: translate(-50%, -50%) scale(1.2) rotate(5deg); }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+        }
+        .cross-mark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 10em;
+            color: #ef4444;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+            animation: crossPop 0.6s ease-out forwards;
+            pointer-events: none;
+            z-index: 2000;
+            font-weight: bold;
+        }
+        @keyframes crossPop {
+            0% { 
+                transform: translate(-50%, -50%) scale(0) rotate(-45deg);
+                opacity: 0;
+            }
+            30% { 
+                transform: translate(-50%, -50%) scale(1.3) rotate(5deg);
+                opacity: 1;
+            }
+            60% { 
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            100% { 
+                transform: translate(-50%, -50%) scale(0.8) rotate(0deg);
+                opacity: 0;
+            }
+        }
+        #loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+            #grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            h1 { font-size: 1.1em; }
+            .subtitle { font-size: 0.75em; }
+        }
+    </style>
+    <style>
+        a.return-to-menu {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            background-color: rgba(0,0,0,0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-decoration: none;
+            opacity: 0.5;
+            transition: opacity 0.3s, background-color 0.3s;
+            z-index: 1000;
+        }
+        a.return-to-menu:hover {
+            opacity: 1;
+            background-color: rgba(0,0,0,0.5);
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.164.1/build/three.module.js"
+        }
+    }
+    </script>
+</head>
+<body>
+<a class="return-to-menu" href="index.html">🏠</a>
+    <div id="game-container">
+        <h1>🎮 Cube Projection Matching Game</h1>
+        <p class="subtitle">Tìm các cặp hình khối có hình chiếu đứng giống nhau</p>
+        
+        <div id="controls">
+            <div id="status">Đã tìm thấy: 0/3 cặp</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <a href="index.html" class="button">🏠 Quay về menu</a>
+                <select id="difficulty-select">
+                    <option value="1">Độ khó 1 (5-7 khối)</option>
+                    <option value="2">Độ khó 2 (6-8 khối)</option>
+                    <option value="3">Độ khó 3 (7-9 khối)</option>
+                    <option value="4">Độ khó 4 (8-10 khối)</option>
+                    <option value="5">Độ khó 5 (9-12 khối)</option>
+                    <option value="6">Đặc biệt (5-15 khối)</option>
+                </select>
+                <button id="new-game">🔄 Trò chơi mới</button>
+            </div>
+        </div>
+        
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Đang tạo hình khối...</p>
+        </div>
+        
+        <div id="grid" style="display: none;"></div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const CUBE_SIZE = 1;
+        const NUM_PAIRS = 3;
+        const TOTAL_CARDS = 8;
+        
+        const DIFFICULTY_LEVELS = {
+            1: { min: 5, max: 7, name: 'Độ khó 1' },
+            2: { min: 6, max: 8, name: 'Độ khó 2' },
+            3: { min: 7, max: 9, name: 'Độ khó 3' },
+            4: { min: 8, max: 10, name: 'Độ khó 4' },
+            5: { min: 9, max: 12, name: 'Độ khó 5' },
+            6: { min: 5, max: 15, name: 'Đặc biệt' }
+        };
+        
+        // Khởi tạo Audio Context và tạo sound effects
+        function initAudio() {
+            if (!gameState.audioContext) {
+                gameState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        // Tạo âm thanh "correct" giống Windows success
+        function playCorrectSound() {
+            initAudio();
+            const ctx = gameState.audioContext;
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            // Âm thanh thành công: nốt nhạc đi lên
+            oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+            oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+            oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+            
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.4);
+        }
+        
+        // Tạo âm thanh "wrong" giống Windows error
+        function playWrongSound() {
+            initAudio();
+            const ctx = gameState.audioContext;
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            // Âm thanh lỗi: nốt thấp và khó chịu
+            oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+            
+            oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.3);
+        }
+        
+        const gameState = {
+            cards: [],
+            selectedCards: [],
+            matchedPairs: 0,
+            isProcessing: false,
+            difficulty: 1,
+            // Audio context cho sound effects
+            audioContext: null,
+            sounds: {
+                correct: null,
+                wrong: null
+            }
+        };
+
+        // Tạo hình khối ngẫu nhiên - đảm bảo tất cả khối liên kết mặt-mặt
+        function generateRandomShape() {
+            const diffLevel = DIFFICULTY_LEVELS[gameState.difficulty];
+            const numCubes = Math.floor(Math.random() * (diffLevel.max - diffLevel.min + 1)) + diffLevel.min;
+            const occupiedPositions = new Set();
+            const positions = [];
+            
+            const firstPos = new THREE.Vector3(0, 0, 0);
+            positions.push(firstPos.clone());
+            occupiedPositions.add(posToString(firstPos));
+            
+            const potentialGrowthPoints = [firstPos];
+            
+            for (let i = 1; i < numCubes; i++) {
+                let placed = false;
+                const maxAttempts = potentialGrowthPoints.length * 6;
+                let attempts = 0;
+                
+                while (!placed && potentialGrowthPoints.length > 0 && attempts < maxAttempts) {
+                    attempts++;
+                    const growthIndex = Math.floor(Math.random() * potentialGrowthPoints.length);
+                    const growthPos = potentialGrowthPoints[growthIndex];
+                    
+                    // 6 hướng chính: trái, phải, trên, dưới, trước, sau
+                    const directions = [
+                        new THREE.Vector3(1, 0, 0),   // phải
+                        new THREE.Vector3(-1, 0, 0),  // trái
+                        new THREE.Vector3(0, 1, 0),   // trên
+                        new THREE.Vector3(0, -1, 0),  // dưới
+                        new THREE.Vector3(0, 0, 1),   // trước
+                        new THREE.Vector3(0, 0, -1)   // sau
+                    ].sort(() => Math.random() - 0.5);
+                    
+                    for (const dir of directions) {
+                        const newPos = new THREE.Vector3().copy(growthPos).add(dir);
+                        const newPosStr = posToString(newPos);
+                        
+                        if (!occupiedPositions.has(newPosStr)) {
+                            // Kiểm tra xem vị trí mới có được hỗ trợ từ dưới hoặc kết nối chắc chắn không
+                            // (tránh tạo khối lơ lửng chỉ kết nối bằng cạnh)
+                            if (isValidPlacement(newPos, occupiedPositions)) {
+                                positions.push(newPos.clone());
+                                occupiedPositions.add(newPosStr);
+                                potentialGrowthPoints.push(newPos);
+                                placed = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!placed) {
+                        potentialGrowthPoints.splice(growthIndex, 1);
+                    }
+                }
+                
+                if (!placed && i < numCubes) {
+                    // Nếu không thể đặt thêm khối, dừng lại
+                    break;
+                }
+            }
+            
+            return positions;
+        }
+        
+        // Kiểm tra xem vị trí đặt khối có hợp lệ không (có hỗ trợ từ dưới hoặc nhiều mặt tiếp xúc)
+        function isValidPlacement(newPos, occupiedPositions) {
+            // Kiểm tra có khối bên dưới không (luôn hợp lệ nếu có support từ dưới)
+            const below = new THREE.Vector3(newPos.x, newPos.y - 1, newPos.z);
+            if (occupiedPositions.has(posToString(below))) {
+                return true;
+            }
+            
+            // Nếu không có support từ dưới, kiểm tra số mặt tiếp xúc
+            // Cần ít nhất 1 mặt tiếp xúc và phải ở cùng độ cao hoặc thấp hơn một khối đã có support
+            const adjacentDirections = [
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 1),
+                new THREE.Vector3(0, 0, -1)
+            ];
+            
+            let touchingFaces = 0;
+            for (const dir of adjacentDirections) {
+                const adjacentPos = new THREE.Vector3().copy(newPos).add(dir);
+                if (occupiedPositions.has(posToString(adjacentPos))) {
+                    touchingFaces++;
+                    
+                    // Kiểm tra khối liền kề này có được hỗ trợ không
+                    const adjacentBelow = new THREE.Vector3(adjacentPos.x, adjacentPos.y - 1, adjacentPos.z);
+                    if (occupiedPositions.has(posToString(adjacentBelow)) || adjacentPos.y === 0) {
+                        // Khối liền kề có support hoặc ở mặt đất
+                        return true;
+                    }
+                }
+            }
+            
+            // Nếu ở mặt đất (y = 0), chỉ cần 1 mặt tiếp xúc
+            if (newPos.y === 0 && touchingFaces >= 1) {
+                return true;
+            }
+            
+            // Không hợp lệ nếu không có support
+            return false;
+        }
+
+        function posToString(v) {
+            return `${Math.round(v.x)},${Math.round(v.y)},${Math.round(v.z)}`;
+        }
+
+        // Tính toán hình chiếu đứng (nhìn từ trên xuống)
+        function calculateTopProjection(positions) {
+            const projection = new Set();
+            positions.forEach(pos => {
+                projection.add(`${Math.round(pos.x)},${Math.round(pos.z)}`);
+            });
+            return Array.from(projection).sort().join('|');
+        }
+
+        // Tạo ảnh render từ hình khối với góc 3D đầy đủ
+        async function renderShapeToImage(positions, viewType = 'random') {
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf7f9fc);
+
+            const bbox = new THREE.Box3();
+            positions.forEach(p=>{
+                bbox.expandByPoint(p.clone().addScalar(.5));
+                bbox.expandByPoint(p.clone().addScalar(-.5));
+            });
+            const center = bbox.getCenter(new THREE.Vector3());
+            const size = bbox.getSize(new THREE.Vector3()).length();
+
+            const camera = new THREE.PerspectiveCamera(50,1,.1,100);
+            
+            const cameraAngles = [
+                { pos: [8, 6, 8], name: 'northeast-high' },      // Đông Bắc cao
+                { pos: [-8, 6, 8], name: 'northwest-high' },     // Tây Bắc cao
+                { pos: [8, 6, -8], name: 'southeast-high' },     // Đông Nam cao
+                { pos: [-8, 6, -8], name: 'southwest-high' },    // Tây Nam cao
+                { pos: [10, 4, 5], name: 'east-mid' },           // Đông thấp hơn
+                { pos: [-10, 4, 5], name: 'west-mid' },          // Tây thấp hơn
+                { pos: [5, 4, 10], name: 'north-mid' },          // Bắc thấp hơn
+                { pos: [5, 4, -10], name: 'south-mid' },         // Nam thấp hơn
+                { pos: [9, 8, 3], name: 'east-veryhigh' },       // Đông rất cao
+                { pos: [-9, 8, 3], name: 'west-veryhigh' },      // Tây rất cao
+                { pos: [3, 8, 9], name: 'north-veryhigh' },      // Bắc rất cao
+                { pos: [3, 8, -9], name: 'south-veryhigh' },     // Nam rất cao
+                { pos: [7, 3, 7], name: 'northeast-low' },       // Đông Bắc thấp
+                { pos: [-7, 3, -7], name: 'southwest-low' },     // Tây Nam thấp
+                { pos: [11, 5, 0], name: 'pure-east' },          // Thuần Đông
+                { pos: [0, 5, 11], name: 'pure-north' },         // Thuần Bắc
+            ];
+            const selectedAngle = cameraAngles[Math.floor(Math.random() * cameraAngles.length)];
+            const distance = size * 1.4; 
+            const direction = new THREE.Vector3(...selectedAngle.pos).normalize();
+            camera.position.copy(center).add(direction.multiplyScalar(distance));
+            camera.lookAt(center);
+            camera.up.set(0, 1, 0);
+
+            // LIGHTING (from nice_effect.html)
+            scene.add(new THREE.AmbientLight(0xffffff,0.85));
+
+            const main = new THREE.DirectionalLight(0xfff2d5,1.1);
+            main.position.set(6,10,6);
+            scene.add(main);
+
+            const fill = new THREE.DirectionalLight(0xdbeafe,.6);
+            fill.position.set(-6,4,-6);
+            scene.add(fill);
+
+            const rim = new THREE.DirectionalLight(0xffffff,.4);
+            rim.position.set(0,8,-10);
+            scene.add(rim);
+
+            const palette = [0x60a5fa,0x34d399,0xfbbf24,0xfb7185,0xa78bfa];
+            const baseColor = new THREE.Color(palette[Math.floor(Math.random()*palette.length)]);
+
+            positions.forEach(pos=>{
+                const geo = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
+                const colors=[];
+                for(let i=0;i<geo.attributes.position.count;i++){
+                    const y=geo.attributes.position.getY(i);
+                    const t=(y+0.5);
+                    const c=baseColor.clone().lerp(new THREE.Color(0xffffff),0.25+t*0.25);
+                    colors.push(c.r,c.g,c.b);
+                }
+                geo.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
+
+                const mat = new THREE.MeshStandardMaterial({
+                    vertexColors:true,
+                    roughness:.45,
+                    metalness:.15
+                });
+                const cube = new THREE.Mesh(geo,mat);
+                cube.position.copy(pos);
+                scene.add(cube);
+
+                const edges = new THREE.Group();
+                const edgeRadius = 0.02; // Thicker edges
+                const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Black edges
+                const half = CUBE_SIZE / 2;
+                const points = [
+                    new THREE.Vector3(-half, -half, -half), new THREE.Vector3(half, -half, -half),
+                    new THREE.Vector3(half, half, -half), new THREE.Vector3(-half, half, -half),
+                    new THREE.Vector3(-half, -half, half), new THREE.Vector3(half, -half, half),
+                    new THREE.Vector3(half, half, half), new THREE.Vector3(-half, half, half)
+                ];
+                const edgePairs = [
+                    [0, 1], [1, 2], [2, 3], [3, 0],
+                    [4, 5], [5, 6], [6, 7], [7, 4],
+                    [0, 4], [1, 5], [2, 6], [3, 7]
+                ];
+                edgePairs.forEach(pair => {
+                    const path = new THREE.LineCurve3(points[pair[0]], points[pair[1]]);
+                    const geo = new THREE.TubeGeometry(path, 1, edgeRadius, 4, false);
+                    const tube = new THREE.Mesh(geo, edgeMaterial);
+                    edges.add(tube);
+                });
+                edges.position.copy(pos);
+                scene.add(edges);
+            });
+
+            const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer: true});
+            renderer.setSize(512,512);
+            renderer.render(scene,camera);
+            const img = renderer.domElement.toDataURL();
+            
+            renderer.dispose();
+            scene.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) obj.material.dispose();
+            });
+
+            return img;
+        }
+
+        // Tạo bộ thẻ cho game
+        async function generateGameCards() {
+            const cards = [];
+            const usedProjections = new Set();
+            
+            // Tạo NUM_PAIRS cặp có projection giống nhau
+            for (let i = 0; i < NUM_PAIRS; i++) {
+                let shape1, projection1;
+                
+                // Tạo shape unique
+                do {
+                    shape1 = generateRandomShape();
+                    projection1 = calculateTopProjection(shape1);
+                } while (usedProjections.has(projection1));
+                
+                usedProjections.add(projection1);
+                
+                // Tạo 2 ảnh với góc nhìn CUC KỲ KHÁC BIỆT từ CÙNG MỘT hình
+                const img1 = await renderShapeToImage(shape1);
+                const img2 = await renderShapeToImage(shape1);
+                
+                cards.push({
+                    id: cards.length,
+                    projection: projection1,
+                    image: img1,
+                    pairId: i,
+                    shapeId: `shape${i}`
+                });
+                
+                cards.push({
+                    id: cards.length,
+                    projection: projection1,
+                    image: img2,
+                    pairId: i,
+                    shapeId: `shape${i}`
+                });
+            }
+            
+            // Thêm 2 thẻ lẻ - tạo hình KHÁC nhưng có thể có projection GIỐNG với một trong các cặp
+            // để tăng độ khó (người chơi phải tìm đúng CẶP)
+            for (let i = 0; i < TOTAL_CARDS - NUM_PAIRS * 2; i++) {
+                let shape, projection;
+                let attempts = 0;
+                
+                // 50% cơ hội tạo hình có projection giống một hình đã có (nhưng không phải cặp)
+                if (Math.random() > 0.5 && usedProjections.size > 0) {
+                    const existingProjections = Array.from(usedProjections);
+                    const targetProjection = existingProjections[Math.floor(Math.random() * existingProjections.length)];
+                    
+                    // Thử tạo hình khác nhưng có cùng projection
+                    do {
+                        shape = generateRandomShape();
+                        projection = calculateTopProjection(shape);
+                        attempts++;
+                    } while (projection !== targetProjection && attempts < 20);
+                    
+                    // Nếu không tạo được, tạo hình hoàn toàn mới
+                    if (projection !== targetProjection) {
+                        do {
+                            shape = generateRandomShape();
+                            projection = calculateTopProjection(shape);
+                        } while (usedProjections.has(projection));
+                        usedProjections.add(projection);
+                    }
+                } else {
+                    // Tạo hình với projection hoàn toàn mới
+                    do {
+                        shape = generateRandomShape();
+                        projection = calculateTopProjection(shape);
+                    } while (usedProjections.has(projection));
+                    usedProjections.add(projection);
+                }
+                
+                const img = await renderShapeToImage(shape);
+                
+                cards.push({
+                    id: cards.length,
+                    projection: projection,
+                    image: img,
+                    pairId: null,
+                    shapeId: `decoy${i}`
+                });
+            }
+            
+            // Xáo trộn
+            return cards.sort(() => Math.random() - 0.5);
+        }
+
+        // Render UI
+        function renderCards() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            
+            gameState.cards.forEach((card, index) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'flashcard';
+                cardEl.dataset.id = card.id;
+                
+                const label = String.fromCharCode(65 + index); // A, B, C...
+                cardEl.innerHTML = `
+                    <div class="flashcard-label">${label}</div>
+                    <img src="${card.image}" alt="Card ${label}">
+                `;
+                
+                cardEl.addEventListener('click', () => handleCardClick(card, cardEl));
+                grid.appendChild(cardEl);
+            });
+        }
+
+        // Xử lý click thẻ
+        function handleCardClick(card, cardEl) {
+            if (gameState.isProcessing) return;
+            if (cardEl.classList.contains('matched')) return;
+            if (gameState.selectedCards.find(s => s.card.id === card.id)) return;
+            
+            cardEl.classList.add('selected');
+            gameState.selectedCards.push({ card, element: cardEl });
+            
+            if (gameState.selectedCards.length === 2) {
+                gameState.isProcessing = true;
+                checkMatch();
+            }
+        }
+
+        // Kiểm tra ghép cặp
+        function checkMatch() {
+            const [first, second] = gameState.selectedCards;
+            
+            setTimeout(() => {
+                // Phải cùng projection VÀ cùng shapeId (cùng hình gốc)
+                if (first.card.projection === second.card.projection && 
+                    first.card.pairId !== null && 
+                    first.card.pairId === second.card.pairId &&
+                    first.card.shapeId === second.card.shapeId) {
+                    // Đúng!
+                    playCorrectSound();
+                    
+                    first.element.classList.add('matched');
+                    second.element.classList.add('matched');
+                    
+                    // Thêm dấu tick
+                    [first.element, second.element].forEach(el => {
+                        const check = document.createElement('div');
+                        check.className = 'check-mark';
+                        check.textContent = '✓';
+                        el.appendChild(check);
+                    });
+                    
+                    gameState.matchedPairs++;
+                    updateStatus();
+                    
+                    if (gameState.matchedPairs === NUM_PAIRS) {
+                        setTimeout(() => {
+                            alert('🎉 Chúc mừng! Bạn đã tìm được tất cả các cặp!');
+                        }, 500);
+                    }
+                } else {
+                    // Sai - hiển thị X lớn và phát âm thanh lỗi
+                    playWrongSound();
+                    
+                    const crossMark = document.createElement('div');
+                    crossMark.className = 'cross-mark';
+                    crossMark.textContent = '❌';
+                    document.body.appendChild(crossMark);
+                    
+                    setTimeout(() => {
+                        crossMark.remove();
+                    }, 600);
+                    
+                    first.element.classList.remove('selected');
+                    second.element.classList.remove('selected');
+                }
+                
+                gameState.selectedCards = [];
+                gameState.isProcessing = false;
+            }, 800);
+        }
+
+        // Cập nhật trạng thái
+        function updateStatus() {
+            document.getElementById('status').textContent = 
+                `Đã tìm thấy: ${gameState.matchedPairs}/${NUM_PAIRS} cặp`;
+        }
+
+        // Bắt đầu game mới
+        async function startNewGame() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('grid').style.display = 'none';
+            
+            gameState.cards = [];
+            gameState.selectedCards = [];
+            gameState.matchedPairs = 0;
+            gameState.isProcessing = false;
+            
+            updateStatus();
+            
+            gameState.cards = await generateGameCards();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('grid').style.display = 'grid';
+            
+            renderCards();
+        }
+
+        // Event listeners
+        document.getElementById('new-game').addEventListener('click', startNewGame);
+        document.getElementById('difficulty-select').addEventListener('change', (e) => {
+            gameState.difficulty = parseInt(e.target.value);
+            startNewGame();
+        });
+
+        // Khởi động game
+        startNewGame();
+    </script>
+</body>
+</html>
