@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Góc Học Tập & Trò Chơi Đoán Góc</title>
+  <style>
+    :root {
+      --primary: #F59E0B;
+      --primary-hover: #D97706;
+      --bg-cream: #FFFBEB;
+      --border-orange: #FCD34D;
+      --dark: #1E293B;
+      --shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+
+    body { background-color: #FEF3C7; color: var(--dark); width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    #topBar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: rgba(255,255,255,0.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 8px rgba(0,0,0,0.04); overflow-x: auto; scrollbar-width: none; z-index: 20; flex-shrink: 0; }
+    #topBar::-webkit-scrollbar { display: none; }
+    .btn-icon { border: none; border-radius: 14px; padding: 8px 10px; font-size: 15px; cursor: pointer; background: #F1F5F9; color: #334155; flex-shrink: 0; transition: background 0.15s; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-icon:hover { background: #E2E8F0; }
+    .logo { font-weight: 900; font-size: 14px; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; padding-right: 4px; color: #D97706; }
+    .sep { width: 1px; height: 22px; background: #E2E8F0; flex-shrink: 0; }
+    .mode-switch { display: flex; background-color: #F1F5F9; padding: 3px; border-radius: 20px; gap: 2px; flex-shrink: 0; }
+    .tab-btn { padding: 6px 14px; border: none; background: transparent; border-radius: 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; color: #64748B; transition: 0.2s; white-space: nowrap; font-family: inherit; }
+    .tab-btn.active { background-color: #D97706; color: #fff; }
+
+    main { flex: 1; padding: 12px; overflow: hidden; }
+    .mode-section { display: none; height: 100%; }
+    .mode-section.active { display: block; }
+    .app-layout { display: flex; height: 100%; gap: 16px; justify-content: center; }
+
+    /* Left Panel & Controls */
+    .left-panel { flex: 1; background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; max-width: 650px; overflow: hidden; }
+    .right-panel { height: 100%; aspect-ratio: 1; background: #ffffff; border-radius: 12px; box-shadow: var(--shadow); padding: 12px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; }
+
+    .panel-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 8px; color: #334155; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+
+    /* Sub-tabs inside Left Panel */
+    .sub-tabs { display: flex; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
+    .sub-tab-btn { flex: 1; padding: 6px 12px; border: 2px solid #E2E8F0; border-radius: 6px; background: #F8FAFC; font-weight: 800; font-size: 0.9rem; cursor: pointer; color: #64748B; text-align: center; }
+    .sub-tab-btn.active { background-color: #FEF3C7; border-color: var(--primary); color: #D97706; }
+
+    .global-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; background: #F8FAFC; padding: 10px; border-radius: 10px; margin-bottom: 10px; flex-shrink: 0; }
+    .control-group label { display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 2px; }
+    select, input[type="text"], input[type="number"] { width: 100%; padding: 5px 8px; border: 2px solid #CBD5E1; border-radius: 6px; font-size: 0.9rem; font-weight: bold; outline: none; }
+    
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; }
+    .toggle-label { font-size: 0.85rem; font-weight: 700; color: #334155; }
+    .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #CBD5E1; border-radius: 20px; transition: .2s; }
+    .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
+    /* Scrollable Container for Lines & Arcs */
+    .scroll-container { flex: 1; overflow-y: auto; padding-right: 6px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 10px; }
+    
+    /* Style Cards */
+    .item-card { background: #FFFFFF; border: 2px solid #E2E8F0; border-left: 6px solid var(--primary); border-radius: 8px; padding: 8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .card-title { font-size: 0.95rem; font-weight: 800; color: #1E293B; display: flex; align-items: center; gap: 8px; }
+    
+    .btn-small { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; font-weight: 700; transition: 0.15s; }
+    .btn-small:hover { background: #E2E8F0; }
+    .btn-del { background: #FEE2E2; color: #DC2626; border-color: #FCA5A5; }
+    .btn-del:hover { background: #FCA5A5; color: white; }
+
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: flex-end; }
+    input[type="color"] { border: 2px solid #E2E8F0; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; background: none; padding: 0; }
+    input[type="range"] { width: 100%; accent-color: var(--primary); height: 5px; cursor: pointer; }
+
+    .btn-add-line { background: #E0F2FE; color: #0369A1; border: 2px dashed #0284C7; padding: 6px; border-radius: 8px; font-size: 0.9rem; font-weight: 800; cursor: pointer; width: 100%; transition: 0.2s; margin-bottom: 6px; }
+    .btn-add-line:hover { background: #BAE6FD; }
+    .btn-action { background-color: #10B981; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 900; cursor: pointer; width: 100%; font-size: 1rem; flex-shrink: 0; text-transform: uppercase; }
+
+    /* Canvas Box */
+    .orange-box { width: 100%; height: 100%; border: 8px solid var(--border-orange); background-color: var(--bg-cream); border-radius: 12px; position: relative; transition: all 0.2s; }
+    .orange-box.no-bg { background-color: transparent !important; border-color: transparent !important; }
+    svg { width: 100%; height: 100%; overflow: visible; }
+
+    /* SVG Label Halos for Clean Legibility */
+    svg text {
+      paint-order: stroke fill;
+      stroke: #FFFBEB;
+      stroke-width: 6px;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .orange-box.no-bg svg text {
+      stroke: #FFFFFF;
+    }
+
+    /* Game UI */
+    .game-setup { display: flex; justify-content: center; align-items: center; height: 100%; }
+    .setup-card { background: white; padding: 32px; border-radius: 16px; text-align: center; box-shadow: var(--shadow); width: 400px; }
+    .timer-display { font-size: 2.5rem; font-weight: 900; background: #F1F5F9; padding: 4px 20px; border-radius: 12px; margin: 0 16px; color: #334155; }
+    .btn-main { background-color: #10B981; color: white; border: none; padding: 14px 20px; font-size: 1.3rem; font-weight: 900; border-radius: 10px; width: 100%; margin-top: 20px; cursor: pointer; box-shadow: 0 5px 0 #047857; transition: 0.1s; text-transform: uppercase; }
+    .btn-main:active { transform: translateY(5px); box-shadow: 0 0 0 #047857; }
+
+    .game-step-container { display: flex; flex-direction: column; flex: 1; margin-top: 8px; }
+    .answer-btn { background: white; border: 3px solid #E2E8F0; border-radius: 12px; font-size: 1.4rem; font-weight: 900; color: var(--dark); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 0 #CBD5E1; transition: all 0.1s ease; text-transform: uppercase; }
+    .answer-btn:active { transform: translateY(6px); box-shadow: 0 0 0 #CBD5E1; }
+    .answer-btn:disabled { opacity: 0.6; pointer-events: none; }
+    .answer-btn.correct { background: #D1FAE5 !important; border-color: #10B981 !important; color: #065F46 !important; box-shadow: 0 6px 0 #059669 !important; }
+    .answer-btn.wrong { background: #FEE2E2 !important; border-color: #EF4444 !important; color: #991B1B !important; box-shadow: 0 6px 0 #DC2626 !important; }
+
+    #step-1-container .answer-btn { flex: 1; margin-bottom: 16px; }
+    .value-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; flex: 1; }
+    .value-grid .answer-btn { margin: 0; font-size: 2rem; padding: 0; }
+    
+    .result-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 0; pointer-events: none; transition: 0.3s; }
+    .result-modal.show { opacity: 1; pointer-events: auto; }
+    .modal-content { background: white; padding: 32px; border-radius: 20px; text-align: center; transform: scale(0.8); transition: 0.3s; }
+    .result-modal.show .modal-content { transform: scale(1); }
+
+    .flying-star { position: fixed; font-size: 2.5rem; pointer-events: none; z-index: 1000; animation: fly-up 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+    @keyframes fly-up {
+      0% { transform: scale(1) translate(0, 0); opacity: 1; }
+      50% { transform: scale(1.8) translate(0, -60px); opacity: 1; }
+      100% { transform: scale(0.5) translate(var(--tx), var(--ty)); opacity: 0; }
+    }
+    #card-export-modal .modal-content {
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
+    }
+    #card-preview-box text.card-answer-text {
+      stroke: #FFFFFF;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      font-weight: 900;
+      font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Thư viện 20 màu -->
+  <datalist id="color-library">
+    <option value="#EF4444"></option> <option value="#F97316"></option> <option value="#F59E0B"></option> <option value="#EAB308"></option> 
+    <option value="#84CC16"></option> <option value="#22C55E"></option> <option value="#10B981"></option> <option value="#14B8A6"></option> 
+    <option value="#06B6D4"></option> <option value="#0EA5E9"></option> <option value="#3B82F6"></option> <option value="#6366F1"></option> 
+    <option value="#8B5CF6"></option> <option value="#A855F7"></option> <option value="#D946EF"></option> <option value="#EC4899"></option> 
+    <option value="#F43F5E"></option> <option value="#78716C"></option> <option value="#64748B"></option> <option value="#1E293B"></option>
+  </datalist>
+  <datalist id="bg-pastel-library">
+    <option value="#FEF2F2"></option> <option value="#FFF7ED"></option> <option value="#FFFBEB"></option> <option value="#FEFCE8"></option>
+    <option value="#F7FEE7"></option> <option value="#ECFDF5"></option> <option value="#F0FDFA"></option> <option value="#F0F9FF"></option>
+    <option value="#EFF6FF"></option> <option value="#EEF2FF"></option> <option value="#F5F3FF"></option> <option value="#FDF4FF"></option>
+    <option value="#FFF1F2"></option> <option value="#FAFAF9"></option> <option value="#F8FAFC"></option> <option value="#F1F5F9"></option>
+  </datalist>
+
+  <div id="topBar">
+    <a href="index.html" class="btn-icon" title="Về trang chủ">🏠</a>
+    <div class="logo">📐 Góc Học Tập</div>
+    <div class="sep"></div>
+    <div class="mode-switch">
+      <button class="tab-btn active" onclick="switchMode('study')">📖 Học Tập</button>
+      <button class="tab-btn" onclick="switchMode('game')">🎮 Trò Chơi</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- ================= CHẾ ĐỘ HỌC TẬP ================= -->
+    <section id="study-mode" class="mode-section active">
+      <div class="app-layout">
+        
+        <div class="left-panel">
+          <div class="panel-title"><span>🛠️ Cấu Hình Chung</span></div>
+          <div class="global-opts">
+            <div class="control-group">
+              <label style="color:#D97706;">Tâm hiển thị:</label>
+              <select id="center-mode" onchange="updateStudy()">
+                <option value="boundary">Căn giữa Khung Bao</option>
+                <option value="vertex">Tâm cố định tại Đỉnh O</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>Bắt dính:</label>
+              <select id="snap-mode" onchange="updateStudy()">
+                <option value="none">Tự do</option>
+                <option value="horizontal">Khóa tia 1 nằm ngang (0°)</option>
+                <option value="vertical">Khóa tia 1 thẳng đứng (90°)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>Vị trí số đo:</label>
+              <select id="text-pos" onchange="updateStudy()">
+                <option value="inside">Trong cung góc</option>
+                <option value="outside">Ngoại vi (Chỉ mũi tên)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                <label>Thu phóng (x):</label>
+                <input type="number" id="num-zoom" min="0.5" max="2.5" step="0.1" value="1.0" style="width:55px; padding:2px 4px; font-size:0.8rem; font-weight:bold;" oninput="syncZoomInput(this.value, 'num')">
+              </div>
+              <input type="range" id="zoom-level" min="0.5" max="2.5" step="0.1" value="1.0" oninput="syncZoomInput(this.value, 'range')">
+            </div>
+
+            <div class="control-group" style="grid-column: span 2;">
+              <label>Xem & 360°:</label>
+              <div style="display: flex; gap: 8px; margin-top: 2px;">
+                <button type="button" id="btn-flip-h" class="sub-tab-btn" style="flex:1;" onclick="toggleFlip('H')">↔️ Lật ngang</button>
+                <button type="button" id="btn-flip-v" class="sub-tab-btn" style="flex:1;" onclick="toggleFlip('V')">↕️ Lật dọc</button>
+                <button type="button" id="btn-full-circle" class="sub-tab-btn" style="flex:1;" onclick="toggleFullCircle()">🔄 360°</button>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <span class="toggle-label">Hiện tên đường/đỉnh</span>
+              <label class="switch"><input type="checkbox" id="show-labels" checked onchange="updateStudy()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">Hiện số đo góc</span>
+              <label class="switch"><input type="checkbox" id="show-value" checked onchange="updateStudy()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">Khung viền cam & nền</span>
+              <label class="switch"><input type="checkbox" id="toggle-bg" checked onchange="updateStudy()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">Hiệu ứng góc bay & xoay</span>
+              <label class="switch"><input type="checkbox" id="toggle-float" onchange="toggleFloat()"><span class="slider"></span></label>
+            </div>
+          </div>
+
+          <!-- Sub-tabs Chuyển Đổi Quản Lý Tia & Cung Góc -->
+          <div class="sub-tabs">
+            <button class="sub-tab-btn active" id="btn-tab-lines" onclick="switchSubTab('lines')">📏 Danh Sách Tia (<span id="count-lines">2</span>)</button>
+            <button class="sub-tab-btn" id="btn-tab-arcs" onclick="switchSubTab('arcs')">📐 Cung Góc Riêng (<span id="count-arcs">1</span>)</button>
+          </div>
+
+          <!-- Danh sách Cuộn Scrollable -->
+          <div class="scroll-container" id="scroll-lines-container">
+            <button class="btn-add-line" onclick="addLine()">➕ Thêm Đường Mới</button>
+            <div id="lines-list"></div>
+          </div>
+
+          <div class="scroll-container" id="scroll-arcs-container" style="display: none;">
+            <div id="arcs-list"></div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button class="btn-action" style="flex:1;" onclick="exportSVG()">📥 Xuất Bản Vẽ (SVG)</button>
+            <button class="btn-action" style="flex:1; background-color: #8B5CF6;" onclick="openCardExportModal()">🎴 Xuất Thẻ Trò Chơi</button>
+          </div>
+        </div>
+
+        <div class="right-panel">
+          <div class="orange-box" id="study-box">
+            <svg id="study-svg" viewBox="0 0 500 500"></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CHẾ ĐỘ TRÒ CHƠI ================= -->
+    <section id="game-mode" class="mode-section">
+      <div id="game-setup" class="game-setup">
+        <div class="setup-card">
+          <h2 style="font-size:2rem; color:#D97706; margin-bottom:8px;">🎮 Đoán Góc Nhanh</h2>
+          <p style="color:#64748B; font-size: 1rem; margin-bottom:24px;">Rèn luyện phản xạ và kỹ năng quan sát hình học!</p>
+          
+          <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 24px;">
+            <button class="btn-main" style="width:56px; height:56px; font-size:1.8rem; padding:0; margin:0; border-radius:14px;" onclick="changeTimer(-5)">−</button>
+            <input type="text" id="timer-display" value="01:00" style="width:130px; text-align:center; font-size:2.2rem; font-weight:900; padding:10px 8px; border:3px solid #D97706; border-radius:12px; outline:none; color:#92400E; background:#FFFBEB; cursor:text;" onblur="applyTimerDisplay()" onkeydown="if(event.key==='Enter')this.blur()">
+            <button class="btn-main" style="width:56px; height:56px; font-size:1.8rem; padding:0; margin:0; border-radius:14px;" onclick="changeTimer(5)">+</button>
+          </div>
+          
+          <select id="game-diff" style="width: 100%; padding: 12px; font-size:1.1rem; margin-bottom:8px; text-align:center;">
+            <option value="easy">Chế độ Dễ (Đáp án cách biệt lớn)</option>
+            <option value="hard">Chế độ Khó (Đáp án sát nhau)</option>
+          </select>
+
+          <button class="btn-main" onclick="startGame()">🚀 BẮT ĐẦU CHƠI</button>
+        </div>
+      </div>
+
+      <div id="game-play" class="app-layout" style="display: none;">
+        <div class="left-panel" style="display:flex; flex-direction:column;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 2px solid #eee; padding-bottom: 12px; flex-shrink:0;">
+            <span style="font-size:1.8rem; font-weight:900; color:#D97706;">ĐIỂM: <span id="star-count">0</span> ⭐</span>
+            <span style="background:#EF4444; color:white; padding:6px 16px; border-radius:12px; font-weight:900; font-size:1.4rem; box-shadow:0 4px 0 #991B1B;">⏳ <span id="game-timer">01:00</span></span>
+          </div>
+          
+          <div id="step-1-container" class="game-step-container">
+            <div class="panel-title" style="font-size:1.3rem;">BƯỚC 1: PHÂN LOẠI GÓC NÀY?</div>
+            <button class="answer-btn" onclick="checkType('Góc nhọn', event)">Góc nhọn (&lt; 90°)</button>
+            <button class="answer-btn" onclick="checkType('Góc vuông', event)">Góc vuông (= 90°)</button>
+            <button class="answer-btn" onclick="checkType('Góc tù', event)">Góc tù (&gt; 90°)</button>
+          </div>
+
+          <div id="step-2-container" class="game-step-container" style="display: none;">
+            <div class="panel-title" style="color: #10B981; font-size:1.3rem;">BƯỚC 2: CHỌN SỐ ĐO CHÍNH XÁC</div>
+            <div class="value-grid" id="value-options"></div>
+          </div>
+        </div>
+
+        <div class="right-panel">
+          <div class="orange-box">
+            <svg id="game-svg" viewBox="0 0 500 500"></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="result-modal" id="result-modal">
+    <div class="modal-content">
+      <h2 style="font-size: 3rem; color: #EF4444;">HẾT GIỜ!</h2>
+      <p style="font-size: 2rem; margin: 16px 0; color:#334155; font-weight:bold;">Số sao đạt được:</p>
+      <p style="font-size: 5rem; margin: 0; line-height:1;"><span id="final-stars" style="color: #D97706; font-weight: 900;">0</span> ⭐</p>
+      <button class="btn-main" style="font-size:1.5rem; padding: 16px; margin-top:24px;" onclick="resetToSetup()">🔄 Chơi Lại Từ Đầu</button>
+    </div>
+  </div>
+
+  <script>
+    const PALETTE = [
+      '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16',
+      '#22C55E', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9',
+      '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF',
+      '#EC4899', '#F43F5E', '#78716C', '#64748B', '#1E293B'
+    ];
+
+    const ARC_STYLES = [
+      { id: 'solid',         label: 'Liền' },
+      { id: 'none',          label: 'Ẩn (Không vẽ)' },
+      { id: 'square',        label: 'Vuông góc (☐)' },
+      { id: 'solid_t1',     label: 'Liền + 1 Gạch' },
+      { id: 'solid_t2',     label: 'Liền + 2 Gạch' },
+      { id: 'solid_t3',     label: 'Liền + 3 Gạch' },
+      { id: 'double',       label: '2 Cung' },
+      { id: 'double_t1',    label: '2 Cung + 1 Gạch' },
+      { id: 'double_t2',    label: '2 Cung + 2 Gạch' },
+      { id: 'double_t3',    label: '2 Cung + 3 Gạch' },
+      { id: 'triple',       label: '3 Cung' },
+      { id: 'triple_t1',    label: '3 Cung + 1 Gạch' },
+      { id: 'triple_t2',    label: '3 Cung + 2 Gạch' },
+      { id: 'triple_t3',    label: '3 Cung + 3 Gạch' },
+      { id: 'dash',         label: 'Đứt' },
+      { id: 'dash_t1',      label: 'Đứt + 1 Gạch' },
+      { id: 'dash_t2',      label: 'Đứt + 2 Gạch' }
+    ];
+
+    let lines = [
+      { id: 1, name: 'a', angle: 0, color: '#3B82F6', thickness: 4, style: 'solid' },
+      { id: 2, name: 'b', angle: 55, color: '#EF4444', thickness: 4, style: 'solid' }
+    ];
+
+    let arcStore = {}; 
+    let copiedLineStyle = null;
+    let copiedArcStyle = null;
+
+    let floatFrame = null, fX = 250, fY = 250, vX = 1.4, vY = 1.1;
+    let floatAngle = 0, floatRotSpeed = 0.8;
+    let isFlipH = false, isFlipV = false;
+    let fullCircle = false;
+
+    let gameTimer = 60, interval = null, stars = 0, currentPuzzle = null, attempts = 0;
+
+    function syncArcs() {
+      let sorted = [...lines].sort((a,b) => a.angle - b.angle);
+
+      for (let i = 0; i < sorted.length - 1; i++) {
+        let l1 = sorted[i], l2 = sorted[i+1];
+        let key = `adj_${l1.id}_${l2.id}`;
+        if (!arcStore[key]) {
+          arcStore[key] = {
+            id: key,
+            line1Id: l1.id,
+            line2Id: l2.id,
+            radius: 50,
+            color: l2.color,
+            thickness: 3,
+            style: 'solid',
+            showValue: true,
+            isCustom: false
+          };
+        }
+      }
+
+      Object.keys(arcStore).forEach(key => {
+        let arc = arcStore[key];
+        let l1Exists = lines.some(l => l.id === arc.line1Id);
+        let l2Exists = lines.some(l => l.id === arc.line2Id);
+        if (!l1Exists || !l2Exists) {
+          delete arcStore[key];
+        }
+      });
+
+      const countLinesEl = document.getElementById('count-lines');
+      const countArcsEl = document.getElementById('count-arcs');
+      if (countLinesEl) countLinesEl.textContent = lines.length;
+      if (countArcsEl) countArcsEl.textContent = Object.keys(arcStore).length;
+    }
+
+    function addCustomArc() {
+      const select1 = document.getElementById('select-arc-line1');
+      const select2 = document.getElementById('select-arc-line2');
+      if (!select1 || !select2) return;
+
+      const l1Id = parseInt(select1.value, 10);
+      const l2Id = parseInt(select2.value, 10);
+
+      if (isNaN(l1Id) || isNaN(l2Id) || l1Id === l2Id) {
+        alert('Vui lòng chọn 2 đường/tia khác nhau!');
+        return;
+      }
+
+      const l2Obj = lines.find(l => l.id === l2Id);
+      const key = `custom_${l1Id}_${l2Id}_${Date.now()}`;
+
+      arcStore[key] = {
+        id: key,
+        line1Id: l1Id,
+        line2Id: l2Id,
+        radius: 65,
+        color: l2Obj ? l2Obj.color : '#EF4444',
+        thickness: 3,
+        style: 'solid',
+        showValue: true,
+        isCustom: true
+      };
+
+      renderControls();
+      updateStudy();
+    }
+
+    function removeArc(key) {
+      delete arcStore[key];
+      renderControls();
+      updateStudy();
+    }
+
+    function switchSubTab(type) {
+      document.getElementById('btn-tab-lines').classList.toggle('active', type === 'lines');
+      document.getElementById('btn-tab-arcs').classList.toggle('active', type === 'arcs');
+      document.getElementById('scroll-lines-container').style.display = type === 'lines' ? 'flex' : 'none';
+      document.getElementById('scroll-arcs-container').style.display = type === 'arcs' ? 'flex' : 'none';
+    }
+
+    /* Controls Rendering */
+    function renderControls() {
+      syncArcs();
+      
+      // Render Lines Tab
+      const linesList = document.getElementById('lines-list');
+      if (linesList) {
+        linesList.innerHTML = '';
+        lines.forEach((line, idx) => {
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.style.borderLeftColor = line.color;
+          card.innerHTML = `
+            <div class="card-header">
+              <div class="card-title">
+                <span>Tia ${idx+1}:</span>
+                <input type="text" value="${line.name}" style="width:40px; text-align:center;" onchange="updateLineProp(${line.id}, 'name', this.value)">
+                <span id="badge-angle-${line.id}" style="color:#64748B; font-size:0.85rem;">(${line.angle}°)</span>
+              </div>
+              <div style="display:flex; gap:4px; align-items:center;">
+                <button class="btn-small" onclick="copyStyle('line', ${line.id})" title="Sao chép">✂️</button>
+                <button class="btn-small" onclick="pasteStyle('line', ${line.id})" ${!copiedLineStyle?'disabled style="opacity:0.4"':''} title="Dán">📋</button>
+                <input type="color" list="color-library" value="${line.color}" onchange="updateLineProp(${line.id}, 'color', this.value)">
+                ${lines.length > 2 ? `<button class="btn-small btn-del" onclick="removeLine(${line.id})">🗑️</button>` : ''}
+              </div>
+            </div>
+            <div class="card-grid">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                  <label style="font-size:0.75rem; color:#64748B; font-weight:700;">Xoay góc (°):</label>
+                  <input type="number" id="num-angle-${line.id}" min="0" max="360" value="${line.angle}" style="width:52px; padding:1px 4px; font-size:0.8rem;" oninput="syncLineInput(${line.id}, 'angle', this.value, 'num')">
+                </div>
+                <input type="range" id="range-angle-${line.id}" min="0" max="360" value="${line.angle}" oninput="syncLineInput(${line.id}, 'angle', this.value, 'range')">
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                  <label style="font-size:0.75rem; color:#64748B; font-weight:700;">Độ dày:</label>
+                  <input type="number" id="num-thick-${line.id}" min="1" max="10" value="${line.thickness}" style="width:45px; padding:1px 4px; font-size:0.8rem;" oninput="syncLineInput(${line.id}, 'thickness', this.value, 'num')">
+                </div>
+                <input type="range" id="range-thick-${line.id}" min="1" max="10" value="${line.thickness}" oninput="syncLineInput(${line.id}, 'thickness', this.value, 'range')">
+              </div>
+              <div>
+                <label style="font-size:0.75rem; color:#64748B; font-weight:700; display:block; margin-bottom:2px;">Nét vẽ:</label>
+                <select style="font-size:0.8rem; padding:2px;" onchange="updateLineProp(${line.id}, 'style', this.value)">
+                  <option value="solid" ${line.style==='solid'?'selected':''}>Liền</option>
+                  <option value="dashed" ${line.style==='dashed'?'selected':''}>Đứt</option>
+                  <option value="dotted" ${line.style==='dotted'?'selected':''}>Chấm</option>
+                </select>
+              </div>
+            </div>
+          `;
+          linesList.appendChild(card);
+        });
+      }
+
+      // Render Arcs Tab
+      const arcsList = document.getElementById('arcs-list');
+      if (arcsList) {
+        arcsList.innerHTML = '';
+
+        // Card 1: Add Custom Arc Creator Form
+        const creatorCard = document.createElement('div');
+        creatorCard.className = 'item-card';
+        creatorCard.style.borderLeftColor = '#0284C7';
+        creatorCard.style.background = '#F0F9FF';
+        creatorCard.style.marginBottom = '12px';
+        creatorCard.innerHTML = `
+          <div class="card-title" style="font-size:0.85rem; color:#0369A1; margin-bottom:6px; font-weight:bold;">➕ Tạo Cung Góc Tùy Chỉnh (Custom Arc)</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <select id="select-arc-line1" style="font-size:0.8rem; flex:1; padding:3px;">
+              ${lines.map(l => `<option value="${l.id}">Tia ${l.name} (${l.angle}°)</option>`).join('')}
+            </select>
+            <span style="font-size:0.8rem; font-weight:bold; color:#0369A1;">➔</span>
+            <select id="select-arc-line2" style="font-size:0.8rem; flex:1; padding:3px;">
+              ${lines.map((l, i) => `<option value="${l.id}" ${i===1?'selected':''}>Tia ${l.name} (${l.angle}°)</option>`).join('')}
+            </select>
+            <button class="btn-small" style="background:#0284C7; color:white; border:none; padding:4px 10px; cursor:pointer; font-weight:bold;" onclick="addCustomArc()">Thêm</button>
+          </div>
+        `;
+        arcsList.appendChild(creatorCard);
+
+        // List Arcs
+        Object.keys(arcStore).forEach(key => {
+          let arc = arcStore[key];
+          let l1 = lines.find(l => l.id === arc.line1Id);
+          let l2 = lines.find(l => l.id === arc.line2Id);
+          if (!l1 || !l2) return;
+
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.style.borderLeftColor = arc.color;
+          card.innerHTML = `
+            <div class="card-header">
+              <div class="card-title">
+                <span>Cung (${l1.name}O${l2.name}):</span>
+                ${arc.isCustom ? '<span style="font-size:0.7rem; background:#E0F2FE; color:#0369A1; padding:2px 6px; border-radius:4px; font-weight:bold;">Custom</span>' : ''}
+              </div>
+              <div style="display:flex; gap:4px; align-items:center;">
+                <div class="toggle-row" style="gap:4px;" title="Hiện/Ẩn số đo góc">
+                  <span style="font-size:0.75rem; font-weight:700;">📐</span>
+                  <label class="switch"><input type="checkbox" ${arc.showValue !== false ? 'checked' : ''} onchange="updateArcProp('${key}', 'showValue', this.checked)"><span class="slider"></span></label>
+                </div>
+                <button class="btn-small" onclick="copyStyle('arc', '${key}')" title="Sao chép">✂️</button>
+                <button class="btn-small" onclick="pasteStyle('arc', '${key}')" ${!copiedArcStyle?'disabled style="opacity:0.4"':''} title="Dán">📋</button>
+                <input type="color" list="color-library" value="${arc.color}" onchange="updateArcProp('${key}', 'color', this.value)">
+                <button class="btn-small btn-del" onclick="removeArc('${key}')" title="Xóa / Ẩn cung này">🗑️</button>
+              </div>
+            </div>
+            <div class="card-grid">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                  <label style="font-size:0.75rem; color:#64748B; font-weight:700;">Khoảng O (px):</label>
+                  <input type="number" id="num-arc-rad-${key}" min="15" max="140" value="${arc.radius}" style="width:50px; padding:1px 4px; font-size:0.8rem;" oninput="syncArcInput('${key}', 'radius', this.value, 'num')">
+                </div>
+                <input type="range" id="range-arc-rad-${key}" min="15" max="140" value="${arc.radius}" oninput="syncArcInput('${key}', 'radius', this.value, 'range')">
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                  <label style="font-size:0.75rem; color:#64748B; font-weight:700;">Độ dày:</label>
+                  <input type="number" id="num-arc-thick-${key}" min="1" max="10" value="${arc.thickness}" style="width:45px; padding:1px 4px; font-size:0.8rem;" oninput="syncArcInput('${key}', 'thickness', this.value, 'num')">
+                </div>
+                <input type="range" id="range-arc-thick-${key}" min="1" max="10" value="${arc.thickness}" oninput="syncArcInput('${key}', 'thickness', this.value, 'range')">
+              </div>
+              <div>
+                <label style="font-size:0.75rem; color:#64748B; font-weight:700; display:block; margin-bottom:2px;">Nét vẽ / Kiểu:</label>
+                <select style="font-size:0.8rem; padding:2px;" onchange="updateArcProp('${key}', 'style', this.value)">
+                  ${ARC_STYLES.map(s => `<option value="${s.id}" ${arc.style===s.id?'selected':''}>${s.label}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          `;
+          arcsList.appendChild(card);
+        });
+      }
+    }
+
+    /* Input syncing */
+    function syncZoomInput(val, source) {
+      let numVal = parseFloat(val);
+      if (isNaN(numVal)) return;
+      const rangeEl = document.getElementById('zoom-level');
+      const numEl = document.getElementById('num-zoom');
+      if (source === 'num' && rangeEl) rangeEl.value = numVal;
+      if (source === 'range' && numEl) numEl.value = numVal;
+      updateStudy();
+    }
+
+    function syncLineInput(id, prop, val, source) {
+      let numVal = parseFloat(val);
+      if (isNaN(numVal)) return;
+
+      const l = lines.find(line => line.id === id);
+      if (!l) return;
+      l[prop] = numVal;
+
+      if (prop === 'angle') {
+        const rangeEl = document.getElementById(`range-angle-${id}`);
+        const numEl = document.getElementById(`num-angle-${id}`);
+        const badgeEl = document.getElementById(`badge-angle-${id}`);
+        if (source === 'num' && rangeEl) rangeEl.value = numVal;
+        if (source === 'range' && numEl) numEl.value = numVal;
+        if (badgeEl) badgeEl.textContent = `(${numVal}°)`;
+      } else if (prop === 'thickness') {
+        const rangeEl = document.getElementById(`range-thick-${id}`);
+        const numEl = document.getElementById(`num-thick-${id}`);
+        if (source === 'num' && rangeEl) rangeEl.value = numVal;
+        if (source === 'range' && numEl) numEl.value = numVal;
+      }
+
+      updateStudy();
+    }
+
+    function syncArcInput(key, prop, val, source) {
+      let numVal = parseFloat(val);
+      if (isNaN(numVal)) return;
+
+      let a = arcStore[key];
+      if (!a) return;
+      a[prop] = numVal;
+
+      if (prop === 'radius') {
+        const rangeEl = document.getElementById(`range-arc-rad-${key}`);
+        const numEl = document.getElementById(`num-arc-rad-${key}`);
+        if (source === 'num' && rangeEl) rangeEl.value = numVal;
+        if (source === 'range' && numEl) numEl.value = numVal;
+      } else if (prop === 'thickness') {
+        const rangeEl = document.getElementById(`range-arc-thick-${key}`);
+        const numEl = document.getElementById(`num-arc-thick-${key}`);
+        if (source === 'num' && rangeEl) rangeEl.value = numVal;
+        if (source === 'range' && numEl) numEl.value = numVal;
+      }
+
+      updateStudy();
+    }
+
+    /* Copy & Paste Styles */
+    function copyStyle(type, id) {
+      if(type === 'line') {
+        let l = lines.find(line => line.id === id);
+        if(l) copiedLineStyle = { color: l.color, thickness: l.thickness, style: l.style };
+      } else {
+        let a = arcStore[id];
+        if(a) copiedArcStyle = { color: a.color, radius: a.radius, thickness: a.thickness, style: a.style };
+      }
+      renderControls();
+    }
+
+    function pasteStyle(type, id) {
+      if(type === 'line' && copiedLineStyle) {
+        let l = lines.find(line => line.id === id);
+        if(l) { Object.assign(l, copiedLineStyle); renderControls(); updateStudy(); }
+      } else if(type === 'arc' && copiedArcStyle) {
+        let a = arcStore[id];
+        if(a) { Object.assign(a, copiedArcStyle); renderControls(); updateStudy(); }
+      }
+    }
+
+    function addLine() {
+      const nextChar = String.fromCharCode(97 + lines.length);
+      const lastAngle = lines[lines.length - 1].angle;
+      const newAngle = (lastAngle + 45) % 360;
+      const newColor = PALETTE[lines.length % PALETTE.length];
+      lines.push({ id: Date.now(), name: nextChar, angle: newAngle, color: newColor, thickness: 4, style: 'solid' });
+      renderControls();
+      updateStudy();
+    }
+
+    function removeLine(id) {
+      if (lines.length <= 2) return;
+      lines = lines.filter(l => l.id !== id);
+      renderControls();
+      updateStudy();
+    }
+
+    function updateLineProp(id, prop, val) {
+      const l = lines.find(line => line.id === id);
+      if (l) { l[prop] = val; renderControls(); updateStudy(); }
+    }
+
+    function updateArcProp(key, prop, val) {
+      if(arcStore[key]) { arcStore[key][prop] = val; renderControls(); updateStudy(); }
+    }
+
+    function switchMode(m) {
+      document.querySelectorAll('.tab-btn, .mode-section').forEach(e => e.classList.remove('active'));
+      document.querySelectorAll('.tab-btn')[m==='study'?0:1].classList.add('active');
+      document.getElementById(m+'-mode').classList.add('active');
+      if(m==='study') updateStudy();
+    }
+
+    function toggleFlip(dir) {
+      if (dir === 'H') {
+        isFlipH = !isFlipH;
+        document.getElementById('btn-flip-h').classList.toggle('active', isFlipH);
+      } else if (dir === 'V') {
+        isFlipV = !isFlipV;
+        document.getElementById('btn-flip-v').classList.toggle('active', isFlipV);
+      }
+      updateStudy();
+    }
+
+    function toggleFullCircle() {
+      fullCircle = !fullCircle;
+      document.getElementById('btn-full-circle').classList.toggle('active', fullCircle);
+      updateStudy();
+    }
+
+    function getEffectiveAngle(angle, rot = 0, flipH = false, flipV = false) {
+      let a = angle + rot;
+      if (flipH) a = 180 - a;
+      if (flipV) a = -a;
+      return (a % 360 + 360) % 360;
+    }
+
+    function getCenterCoords(lineObjs, zoom, mode, rot = 0, flipH = false, flipV = false) {
+      const VIEW_SIZE = 500;
+      if (mode === 'vertex') return { cx: VIEW_SIZE/2, cy: VIEW_SIZE/2 };
+      const rayLen = 160 * zoom;
+      let minX = 0, maxX = 0, minY = 0, maxY = 0;
+      lineObjs.forEach(l => {
+        let effAngle = getEffectiveAngle(l.angle, rot, flipH, flipV);
+        let r = effAngle * Math.PI / 180;
+        let px = rayLen * Math.cos(r), py = -rayLen * Math.sin(r);
+        if (px < minX) minX = px; if (px > maxX) maxX = px;
+        if (py < minY) minY = py; if (py > maxY) maxY = py;
+      });
+      return { cx: (VIEW_SIZE/2) - (minX + maxX)/2, cy: (VIEW_SIZE/2) - (minY + maxY)/2 };
+    }
+
+    function drawSVG(svgEl, conf) {
+      svgEl.innerHTML = '';
+      const rayLen = 160 * conf.zoom;
+
+      let effectiveLines = conf.lines.map(l => ({
+        ...l,
+        effAngle: getEffectiveAngle(l.angle, conf.rot || 0, conf.flipH || false, conf.flipV || false)
+      }));
+
+      // Draw Rays
+      effectiveLines.forEach((l) => {
+        let dash = 'none';
+        if (l.style === 'dashed') dash = '10,8';
+        if (l.style === 'dotted') dash = '4,5';
+
+        let r = l.effAngle * Math.PI / 180;
+        let px = conf.cx + rayLen * Math.cos(r), py = conf.cy - rayLen * Math.sin(r);
+
+        let lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        lineEl.setAttribute('x1', conf.cx); lineEl.setAttribute('y1', conf.cy);
+        lineEl.setAttribute('x2', px); lineEl.setAttribute('y2', py);
+        lineEl.setAttribute('stroke', l.color); 
+        lineEl.setAttribute('stroke-width', l.thickness); 
+        lineEl.setAttribute('stroke-dasharray', dash);
+        lineEl.setAttribute('stroke-linecap', 'round');
+        svgEl.appendChild(lineEl);
+
+        if(conf.showL) {
+          // Ray Label (a, b...) placed 28px past tip
+          let tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          let labelDist = rayLen + 28;
+          tx.setAttribute('x', conf.cx + labelDist * Math.cos(r));
+          tx.setAttribute('y', conf.cy - labelDist * Math.sin(r));
+          tx.setAttribute('fill', l.color); 
+          tx.setAttribute('font-weight', '900');
+          tx.setAttribute('font-size', '24');
+          tx.setAttribute('font-family', "'Segoe UI', Calibri, Arial, sans-serif");
+          tx.setAttribute('text-anchor', 'middle'); 
+          tx.setAttribute('dy', '0.35em');
+          tx.textContent = l.name;
+          svgEl.appendChild(tx);
+        }
+      });
+
+      // Smart Dynamic Vertex Label 'O' Placement (Largest Empty Sector Bisector)
+      if(conf.showL) {
+        let sortedAngles = effectiveLines.map(l => l.effAngle).sort((a,b) => a - b);
+        let maxGap = -1;
+        let bisectorAngle = 225; // Fallback angle
+
+        if (sortedAngles.length === 1) {
+          bisectorAngle = (sortedAngles[0] + 180) % 360;
+        } else {
+          let n = sortedAngles.length;
+          for (let i = 0; i < n; i++) {
+            let a1 = sortedAngles[i];
+            let a2 = (i === n - 1) ? sortedAngles[0] + 360 : sortedAngles[i + 1];
+            let gap = a2 - a1;
+            if (gap > maxGap) {
+              maxGap = gap;
+              bisectorAngle = (a1 + gap / 2) % 360;
+            }
+          }
+        }
+
+        let dist = 28;
+        let rad = bisectorAngle * Math.PI / 180;
+        let ox = conf.cx + dist * Math.cos(rad);
+        let oy = conf.cy - dist * Math.sin(rad); // SVG Y space
+
+        let v = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        v.setAttribute('x', ox); 
+        v.setAttribute('y', oy);
+        v.setAttribute('fill', '#1E293B'); 
+        v.setAttribute('font-weight', '900');
+        v.setAttribute('font-size', '24');
+        v.setAttribute('font-family', "'Segoe UI', Calibri, Arial, sans-serif");
+        v.setAttribute('text-anchor', 'middle');
+        v.setAttribute('dy', '0.35em');
+        v.textContent = 'O'; 
+        svgEl.appendChild(v);
+      }
+
+      // Draw Arcs
+      Object.keys(arcStore).forEach(key => {
+        let arcObj = arcStore[key];
+        let l1 = effectiveLines.find(l => l.id === arcObj.line1Id);
+        let l2 = effectiveLines.find(l => l.id === arcObj.line2Id);
+        if (!l1 || !l2) return;
+
+        let d1 = l1.effAngle, d2 = l2.effAngle;
+        let diff, arcStart;
+
+        if (conf.fullCircle) {
+          diff = (d2 - d1 + 360) % 360;
+          if (diff === 0) diff = 360;
+          arcStart = d1;
+        } else {
+          let raw = (d2 - d1 + 360) % 360;
+          if (raw <= 180) {
+            diff = raw;
+            arcStart = d1;
+          } else {
+            diff = 360 - raw;
+            arcStart = d2;
+          }
+        }
+
+        let aR = arcObj.radius * conf.zoom;
+        let arcColor = arcObj.color;
+        let st = arcObj.style;
+        let dash = '6,4';
+
+        function svgNS() { return 'http://www.w3.org/2000/svg'; }
+
+        // 1. DRAW ARC PATH (Only if style is not 'none')
+        if (st !== 'none') {
+          if (st === 'square') {
+            let s = aR * 0.5;
+            let rad1 = d1 * Math.PI / 180;
+            let rad2 = d2 * Math.PI / 180;
+            
+            let px1 = conf.cx + s * Math.cos(rad1);
+            let py1 = conf.cy - s * Math.sin(rad1);
+            let px2 = conf.cx + s * Math.cos(rad2);
+            let py2 = conf.cy - s * Math.sin(rad2);
+            let pxCorner = px1 + (px2 - conf.cx);
+            let pyCorner = py1 + (py2 - conf.cy);
+
+            let poly = document.createElementNS(svgNS(), 'polyline');
+            poly.setAttribute('points', `${px1},${py1} ${pxCorner},${pyCorner} ${px2},${py2}`);
+            poly.setAttribute('fill', 'none');
+            poly.setAttribute('stroke', arcColor);
+            poly.setAttribute('stroke-width', arcObj.thickness);
+            poly.setAttribute('stroke-linecap', 'round');
+            poly.setAttribute('stroke-linejoin', 'miter');
+            svgEl.appendChild(poly);
+          } else {
+            let arcCount = 1, tickCount = 0, isDash = false;
+            if (st.startsWith('double')) arcCount = 2;
+            if (st.startsWith('triple')) arcCount = 3;
+            if (st.startsWith('dash')) { isDash = true; arcCount = 1; }
+            if (st.endsWith('_t1')) tickCount = 1;
+            if (st.endsWith('_t2')) tickCount = 2;
+            if (st.endsWith('_t3')) tickCount = 3;
+
+            function drawArcPath(radius, dashArr, thickness) {
+              let p = document.createElementNS(svgNS(), 'path');
+              let f = conf.fullCircle ? 0 : ((d2 - d1 + 360) % 360 < 180 ? 0 : 1);
+              let la = conf.fullCircle ? (diff > 180 ? 1 : 0) : 0;
+              p.setAttribute('d', `M ${conf.cx + radius * Math.cos(d1 * Math.PI / 180)} ${conf.cy - radius * Math.sin(d1 * Math.PI / 180)} A ${radius} ${radius} 0 ${la} ${f} ${conf.cx + radius * Math.cos(d2 * Math.PI / 180)} ${conf.cy - radius * Math.sin(d2 * Math.PI / 180)}`);
+              p.setAttribute('fill', 'none');
+              p.setAttribute('stroke', arcColor);
+              p.setAttribute('stroke-width', thickness);
+              if (dashArr !== 'none') p.setAttribute('stroke-dasharray', dashArr);
+              p.setAttribute('stroke-linecap', 'round');
+              svgEl.appendChild(p);
+            }
+
+            function drawTickMark(radius, angleDeg, len) {
+              let rad = angleDeg * Math.PI / 180;
+              let tx = conf.cx + radius * Math.cos(rad);
+              let ty = conf.cy - radius * Math.sin(rad);
+              let half = (len || 14) * conf.zoom;
+              let t = document.createElementNS(svgNS(), 'line');
+              t.setAttribute('x1', tx + half * Math.cos(rad));
+              t.setAttribute('y1', ty - half * Math.sin(rad));
+              t.setAttribute('x2', tx - half * Math.cos(rad));
+              t.setAttribute('y2', ty + half * Math.sin(rad));
+              t.setAttribute('stroke', arcColor);
+              t.setAttribute('stroke-width', arcObj.thickness);
+              t.setAttribute('stroke-linecap', 'round');
+              svgEl.appendChild(t);
+            }
+
+            let arcDash = isDash ? dash : 'none';
+            let gap = 8 * conf.zoom;
+            for (let a = 0; a < arcCount; a++) {
+              drawArcPath(aR - a * gap, arcDash, arcObj.thickness);
+            }
+
+            if (tickCount > 0) {
+              let tickR = aR - (arcCount - 1) * gap / 2;
+              let tickLen = arcCount >= 2 ? 20 : 14;
+              let zoneStart = arcStart + diff / 3;
+              let zoneSpan = diff / 3;
+              if (tickCount === 1) {
+                drawTickMark(tickR, zoneStart + zoneSpan / 2, tickLen);
+              } else {
+                for (let t = 0; t < tickCount; t++) {
+                  drawTickMark(tickR, zoneStart + t * zoneSpan / (tickCount - 1), tickLen);
+                }
+              }
+            }
+          }
+        }
+
+        // 2. DRAW DEGREE ANGLE VALUE
+        if (conf.showV && arcObj.showValue !== false) {
+          let m = conf.fullCircle ? (d1 + diff / 2) : ((d1 + d2) / 2 + (Math.abs(d2 - d1) > 180 ? 180 : 0));
+          let mr = m * Math.PI / 180;
+          if (conf.vPos === 'inside') {
+            let vt = document.createElementNS(svgNS(), 'text');
+            vt.setAttribute('x', conf.cx + (aR + 35) * Math.cos(mr));
+            vt.setAttribute('y', conf.cy - (aR + 35) * Math.sin(mr));
+            vt.setAttribute('fill', arcColor);
+            vt.setAttribute('font-weight', '900');
+            vt.setAttribute('font-size', '20');
+            vt.setAttribute('font-family', "'Segoe UI', Calibri, Arial, sans-serif");
+            vt.setAttribute('text-anchor', 'middle');
+            vt.setAttribute('dy', '0.35em');
+            vt.textContent = `${Math.round(diff)}°`;
+            svgEl.appendChild(vt);
+          } else {
+            let tx = conf.cx + (aR + 55) * Math.cos(mr), ty = conf.cy - (aR + 55) * Math.sin(mr);
+            let al = document.createElementNS(svgNS(), 'line');
+            al.setAttribute('x1', tx); al.setAttribute('y1', ty);
+            al.setAttribute('x2', conf.cx + (aR + 10) * Math.cos(mr)); al.setAttribute('y2', conf.cy - (aR + 10) * Math.sin(mr));
+            al.setAttribute('stroke', '#EF4444'); al.setAttribute('stroke-width', 2); al.setAttribute('stroke-dasharray', '4,3');
+            svgEl.appendChild(al);
+
+            let vt = document.createElementNS(svgNS(), 'text');
+            vt.setAttribute('x', tx + (Math.cos(mr) > 0 ? 16 : -16));
+            vt.setAttribute('y', ty);
+            vt.setAttribute('fill', '#EF4444'); vt.setAttribute('font-weight', '900'); vt.setAttribute('font-size', '20');
+            vt.setAttribute('font-family', "'Segoe UI', Calibri, Arial, sans-serif");
+            vt.setAttribute('text-anchor', 'middle'); vt.setAttribute('dy', '0.35em');
+            vt.textContent = `${Math.round(diff)}°`;
+            svgEl.appendChild(vt);
+          }
+        }
+      });
+    }
+
+    function updateStudy() {
+      let zoom = parseFloat(document.getElementById('zoom-level').value);
+      let centerMode = document.getElementById('center-mode').value;
+      let snap = document.getElementById('snap-mode').value;
+      if (snap === 'horizontal' && lines.length > 0) lines[0].angle = 0;
+      if (snap === 'vertical' && lines.length > 0) lines[0].angle = 90;
+
+      let bg = document.getElementById('toggle-bg').checked;
+      let box = document.getElementById('study-box');
+      bg ? box.classList.remove('no-bg') : box.classList.add('no-bg');
+
+      let isFloat = document.getElementById('toggle-float').checked;
+      let currentRot = isFloat ? floatAngle : 0;
+
+      let cPts = getCenterCoords(lines, zoom, centerMode, currentRot, isFlipH, isFlipV);
+      let finalCx = cPts.cx, finalCy = cPts.cy;
+
+      if (isFloat) { finalCx += (fX - 250); finalCy += (fY - 250); }
+
+      drawSVG(document.getElementById('study-svg'), {
+        cx: finalCx, cy: finalCy, lines: lines, zoom: zoom,
+        showL: document.getElementById('show-labels').checked,
+        showV: document.getElementById('show-value').checked,
+        vPos: document.getElementById('text-pos').value,
+        rot: currentRot,
+        flipH: isFlipH,
+        flipV: isFlipV,
+        fullCircle: fullCircle
+      });
+    }
+
+    function toggleFloat() {
+      if(document.getElementById('toggle-float').checked) {
+        floatRotSpeed = (Math.random() < 0.5 ? 1 : -1) * 0.8;
+        loopF();
+      } else {
+        cancelAnimationFrame(floatFrame);
+        fX = 250; fY = 250; floatAngle = 0;
+        updateStudy();
+      }
+    }
+
+    function loopF() {
+      if(!document.getElementById('toggle-float').checked) return;
+      fX += vX; fY += vY;
+      if(fX<160 || fX>340) vX*=-1;
+      if(fY<160 || fY>340) vY*=-1;
+
+      floatAngle = (floatAngle + floatRotSpeed) % 360;
+
+      updateStudy();
+      floatFrame = requestAnimationFrame(loopF);
+    }
+
+    function exportSVG() {
+      let svgEl = document.getElementById('study-svg').cloneNode(true);
+
+      svgEl.querySelectorAll('text').forEach(t => {
+        t.removeAttribute('stroke');
+        t.removeAttribute('stroke-width');
+        t.removeAttribute('stroke-linejoin');
+      });
+
+      let bgChecked = document.getElementById('toggle-bg').checked;
+      
+      if(bgChecked) {
+        let bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', '#FFFBEB');
+        bgRect.setAttribute('stroke', '#FCD34D');
+        bgRect.setAttribute('stroke-width', '16');
+        svgEl.insertBefore(bgRect, svgEl.firstChild);
+      }
+
+      let angleVal = '';
+      if (lines.length >= 2) {
+        let sorted = [...lines].sort((a,b) => a.angle - b.angle);
+        let diffs = [];
+        for (let i = 0; i < sorted.length - 1; i++) {
+          let raw = (sorted[i+1].angle - sorted[i].angle + 360) % 360;
+          diffs.push(Math.round(raw <= 180 ? raw : 360 - raw));
+        }
+        angleVal = diffs[0] || '';
+      }
+
+      let now = new Date();
+      let ts = now.getFullYear()
+        + String(now.getMonth()+1).padStart(2,'0')
+        + String(now.getDate()).padStart(2,'0') + '_'
+        + String(now.getHours()).padStart(2,'0')
+        + String(now.getMinutes()).padStart(2,'0')
+        + String(now.getSeconds()).padStart(2,'0');
+
+      let src = new XMLSerializer().serializeToString(svgEl);
+      if(!src.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) src = src.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      let a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([src], {type: "image/svg+xml;charset=utf-8"}));
+      a.download = `angle_${angleVal}_${ts}.svg`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    /* Game Logic */
+    function changeTimer(d) {
+      gameTimer = Math.max(10, gameTimer + d);
+      document.getElementById('timer-display').value = formatTimer(gameTimer);
+    }
+
+    function applyTimerDisplay() {
+      let raw = document.getElementById('timer-display').value.trim();
+      let parts = raw.split(':');
+      let m = parseInt(parts[0]) || 0;
+      let s = parseInt(parts[1]) || 0;
+      gameTimer = Math.max(10, m * 60 + s);
+      document.getElementById('timer-display').value = formatTimer(gameTimer);
+    }
+
+    function formatTimer(sec) {
+      return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+    }
+
+    function startGame() {
+      document.getElementById('game-setup').style.display = 'none';
+      document.getElementById('game-play').style.display = 'flex';
+      stars = 0; document.getElementById('star-count').textContent = stars;
+      let t = gameTimer;
+      document.getElementById('game-timer').textContent = formatTimer(t);
+      interval = setInterval(() => {
+        t--; document.getElementById('game-timer').textContent = formatTimer(t);
+        if(t<=0) { clearInterval(interval); document.getElementById('final-stars').textContent = stars; document.getElementById('result-modal').classList.add('show'); }
+      }, 1000);
+      nextPuzz();
+    }
+
+    function nextPuzz() {
+      attempts = 0; 
+      document.getElementById('step-1-container').style.display = 'flex'; 
+      document.getElementById('step-2-container').style.display = 'none';
+
+      const types360 = ['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt', 'Góc lật'];
+      const types180 = ['Góc nhọn', 'Góc nhọn', 'Góc nhọn', 'Góc nhọn', 'Góc vuông', 'Góc vuông', 'Góc tù', 'Góc tù', 'Góc tù', 'Góc tù'];
+      const types = fullCircle ? types360 : types180;
+
+      const labels = {
+        'Góc nhọn': 'Góc nhọn (&lt; 90°)',
+        'Góc vuông': 'Góc vuông (= 90°)',
+        'Góc tù': 'Góc tù (&gt; 90° &amp; &lt; 180°)',
+        'Góc bẹt': 'Góc bẹt (= 180°)',
+        'Góc lật': 'Góc lật (&gt; 180°)'
+      };
+
+      let t = types[Math.floor(Math.random()*types.length)];
+      let v = 90;
+      if(t==='Góc nhọn') v = Math.floor(Math.random()*65)+20;
+      else if(t==='Góc tù') v = Math.floor(Math.random()*79)+101;
+      else if(t==='Góc bẹt') v = 180;
+      else if(t==='Góc lật') v = Math.floor(Math.random()*169)+181;
+      let bR = Math.floor(Math.random()*360);
+
+      const sl0 = lines[0] || {}, sl1 = lines[1] || {};
+      const c0 = sl0.color || '#1E293B', t0 = sl0.thickness || 5, s0 = sl0.style || 'solid';
+      const c1 = sl1.color || '#1E293B', t1 = sl1.thickness || 5, s1style = sl1.style || 'solid';
+
+      const gameLines = [
+        { id:1, name:'a', angle: bR, color: c0, thickness: t0, style: s0 },
+        { id:2, name:'b', angle: bR + v, color: c1, thickness: t1, style: s1style }
+      ];
+
+      const gKey = '1-2';
+      if(!arcStore[gKey]) arcStore[gKey] = {};
+      const srcArc = arcStore['1-2'] || arcStore[Object.keys(arcStore)[0]] || {};
+      arcStore[gKey].radius  = srcArc.radius  || 50;
+      arcStore[gKey].color   = srcArc.color   || c1;
+      arcStore[gKey].thickness = srcArc.thickness || 3;
+      arcStore[gKey].style   = srcArc.style   || 'solid';
+      arcStore[gKey].line1Name = 'a';
+      arcStore[gKey].line2Name = 'b';
+
+      currentPuzzle = { t, v, lines: gameLines };
+      let cPts = getCenterCoords(gameLines, 1.6, 'boundary');
+      drawSVG(document.getElementById('game-svg'), { cx: cPts.cx, cy: cPts.cy, lines: gameLines, arcStore: arcStore, zoom: 1.6, showL: false, showV: false, fullCircle: v > 180 });
+
+      let s1 = document.getElementById('step-1-container');
+      s1.innerHTML = '<div class="panel-title" style="font-size:1.3rem;">BƯỚC 1: PHÂN LOẠI GÓC NÀY?</div>';
+      const showTypes = fullCircle ? types360 : ['Góc nhọn', 'Góc vuông', 'Góc tù'];
+      showTypes.forEach(tt => {
+        let b = document.createElement('button');
+        b.className = 'answer-btn';
+        b.setAttribute('onclick', `checkType('${tt}', event)`);
+        b.innerHTML = labels[tt];
+        s1.appendChild(b);
+      });
+      document.getElementById('step-1-container').style.display = 'flex';
+      document.getElementById('step-2-container').style.display = 'none';
+    }
+
+    function spawnStar(btnEvent) {
+      if(!btnEvent) return;
+      const star = document.createElement('div');
+      star.className = 'flying-star'; star.textContent = '⭐';
+      
+      const rect = btnEvent.target.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2 - 20;
+      const startY = rect.top + rect.height / 2 - 20;
+      
+      const target = document.getElementById('star-count').getBoundingClientRect();
+      const endX = target.left + target.width / 2;
+      const endY = target.top + target.height / 2;
+      
+      star.style.left = startX + 'px'; star.style.top = startY + 'px';
+      star.style.setProperty('--tx', (endX - startX) + 'px');
+      star.style.setProperty('--ty', (endY - startY) + 'px');
+      
+      document.body.appendChild(star);
+      setTimeout(() => star.remove(), 800);
+    }
+
+    function checkType(t, event) {
+      let btns = document.querySelectorAll('#step-1-container .answer-btn');
+      if(t === currentPuzzle.t) {
+        spawnStar(event);
+        stars++; document.getElementById('star-count').textContent = stars;
+        btns.forEach(b => { if(b.textContent.includes(t)) b.classList.add('correct'); b.disabled = true; });
+        if (currentPuzzle.v === 90) {
+          setTimeout(nextPuzz, 600);
+        } else {
+          setTimeout(() => { document.getElementById('step-1-container').style.display = 'none'; drawStep2(); }, 600);
+        }
+      } else {
+        attempts++; 
+        btns.forEach(b => { if(b.textContent.includes(t)) { b.classList.add('wrong'); b.disabled = true; }});
+        if(document.getElementById('game-diff').value === 'hard' || attempts >= 2) setTimeout(nextPuzz, 700);
+      }
+    }
+
+    function drawStep2() {
+      document.getElementById('step-2-container').style.display = 'flex';
+      let c = document.getElementById('value-options'); c.innerHTML = ''; attempts = 0;
+      let set = new Set([currentPuzzle.v]), diff = document.getElementById('game-diff').value;
+      let maxV = fullCircle ? 350 : 180;
+      
+      while(set.size < 6) {
+        let f = diff === 'easy' ? Math.floor(Math.random()*(maxV-15))+15 : currentPuzzle.v + [-20,-15,-10,-5,5,10,15,20][Math.floor(Math.random()*8)];
+        if(f >= 5 && f <= maxV && f !== currentPuzzle.v && Math.abs(f-currentPuzzle.v) > (diff==='easy'?10:0)) set.add(f);
+      }
+      
+      Array.from(set).sort((a,b)=>a-b).forEach(v => {
+        let b = document.createElement('button'); 
+        b.className = 'answer-btn'; 
+        b.textContent = `${v}°`;
+        b.onclick = (event) => {
+          if(v === currentPuzzle.v) { 
+            spawnStar(event);
+            b.classList.add('correct'); 
+            stars += (attempts===0?3:attempts===1?2:1); 
+            document.getElementById('star-count').textContent = stars; 
+            Array.from(c.children).forEach(btn => btn.disabled = true);
+            setTimeout(nextPuzz, 700); 
+          } else { 
+            b.classList.add('wrong'); b.disabled = true; attempts++; 
+            if(diff==='hard' || attempts>=3) setTimeout(nextPuzz, 700); 
+          }
+        }; 
+        c.appendChild(b);
+      });
+    }
+
+    function resetToSetup() {
+      document.getElementById('result-modal').classList.remove('show');
+      document.getElementById('game-play').style.display = 'none';
+      document.getElementById('game-setup').style.display = 'flex';
+      clearInterval(interval);
+    }
+
+    /* ================= GAME CARD EXPORT SYSTEM ================= */
+
+    let cardConfig = {
+      fontSize: 28,
+      textColor: '#1E293B',
+      bgEnabled: true,
+      borderColor: '#FCD34D',
+      bgColor: '#FFFBEB',
+      zoom: 1.0,
+      snap: 'none',
+      diffMode: 'easy',
+      answers: ['', '', '', '', '', '']
+    };
+
+    function openCardExportModal() {
+      loadCardConfigUI();
+      if (!cardConfig.answers[0]) { autoGenAnswers(); }
+      syncAngleInput();
+      updateCardPreview();
+      document.getElementById('card-export-modal').classList.add('show');
+    }
+
+    function closeCardExportModal() {
+      document.getElementById('card-export-modal').classList.remove('show');
+    }
+
+    function loadCardConfigUI() {
+      document.getElementById('card-snap-lock').value = cardConfig.snap;
+      document.getElementById('card-diff-mode').value = cardConfig.diffMode;
+      document.getElementById('card-font-size').value = cardConfig.fontSize;
+      document.getElementById('card-font-color').value = cardConfig.textColor;
+      document.getElementById('card-zoom').value = cardConfig.zoom;
+      document.getElementById('card-bg-toggle').checked = cardConfig.bgEnabled;
+      document.getElementById('card-border-color').value = cardConfig.borderColor;
+      document.getElementById('card-bg-color').value = cardConfig.bgColor;
+      populateAnswerInputs();
+    }
+
+    function saveCardConfig() {}
+
+    function syncCardStyle(key, val) {
+      cardConfig[key] = val;
+      updateCardPreview();
+    }
+
+    function populateAnswerInputs() {
+      const ids = ['ans-tl', 'ans-tm', 'ans-tr', 'ans-bl', 'ans-bm', 'ans-br'];
+      ids.forEach((id, idx) => { document.getElementById(id).value = cardConfig.answers[idx] || ''; });
+    }
+
+    function updateCardAnswersFromInputs() {
+      const ids = ['ans-tl', 'ans-tm', 'ans-tr', 'ans-bl', 'ans-bm', 'ans-br'];
+      cardConfig.answers = ids.map(id => document.getElementById(id).value.trim());
+      updateCardPreview();
+    }
+
+    function autoAppendDegree(btn) {
+      let v = btn.value.trim();
+      if (/^\d+$/.test(v)) {
+        btn.value = v + '°';
+        updateCardAnswersFromInputs();
+      }
+    }
+
+    function getCurrentStudyAngleValue() {
+      let sorted = [...lines].sort((a,b) => a.angle - b.angle);
+      let angleVal = 55;
+      if (sorted.length >= 2) {
+        let raw = (sorted[1].angle - sorted[0].angle + 360) % 360;
+        angleVal = Math.round(fullCircle ? raw : (raw <= 180 ? raw : 360 - raw));
+      }
+      return angleVal;
+    }
+
+    function autoGenAnswers() {
+      let correctVal = getCurrentStudyAngleValue();
+      let diff = document.getElementById('card-diff-mode').value;
+      cardConfig.diffMode = diff;
+      let maxV = fullCircle ? 350 : 180;
+      let set = new Set([`${correctVal}°`]);
+      while(set.size < 6) {
+        let distractor;
+        if (diff === 'easy') { distractor = Math.floor(Math.random()*(maxV-15))+15; }
+        else { let offset = [-20, -15, -10, -5, 5, 10, 15, 20][Math.floor(Math.random() * 8)]; distractor = correctVal + offset; }
+        if (distractor >= 5 && distractor <= maxV && distractor !== correctVal) { set.add(`${distractor}°`); }
+      }
+      let arr = Array.from(set).sort(() => Math.random() - 0.5);
+      cardConfig.answers = arr;
+      populateAnswerInputs();
+      updateCardPreview();
+    }
+
+    function syncAngleInput() {
+      let v = getCurrentStudyAngleValue();
+      document.getElementById('card-angle-input').value = v;
+    }
+
+    function applyAngleInput() {
+      let v = parseInt(document.getElementById('card-angle-input').value);
+      if (isNaN(v) || v < 1 || v > 350) return;
+      if (lines.length >= 2) {
+        lines[1].angle = (lines[0].angle + v) % 360;
+      }
+      renderControls();
+      updateStudy();
+      autoGenAnswers();
+    }
+
+    function generateRandomCard() {
+      let snap = document.getElementById('card-snap-lock').value;
+      cardConfig.snap = snap;
+      let baseAngle = 0;
+      if (snap === 'horizontal') baseAngle = 0;
+      else if (snap === 'vertical') baseAngle = 90;
+      else baseAngle = Math.floor(Math.random() * 360);
+      let angleDiff = fullCircle ? Math.floor(Math.random() * 330) + 20 : Math.floor(Math.random() * 140) + 20;
+      if (lines.length >= 2) {
+        lines[0].angle = baseAngle;
+        lines[1].angle = (baseAngle + angleDiff) % 360;
+      }
+      if (!arcStore['1-2']) arcStore['1-2'] = {};
+      arcStore['1-2'].color = lines[1].color;
+      arcStore['1-2'].thickness = lines[1].thickness || 3;
+      arcStore['1-2'].style = lines[1].style || 'solid';
+      renderControls();
+      updateStudy();
+      autoGenAnswers();
+      syncAngleInput();
+    }
+
+    function rotateRandomCard() {
+      if (lines.length < 2) return;
+      let shift = Math.floor(Math.random() * 360);
+      lines[0].angle = (lines[0].angle + shift) % 360;
+      lines[1].angle = (lines[1].angle + shift) % 360;
+      if (!arcStore['1-2']) arcStore['1-2'] = {};
+      arcStore['1-2'].color = lines[1].color;
+      renderControls();
+      updateStudy();
+      updateCardPreview();
+      syncAngleInput();
+    }
+
+    function updateCardPreview() {
+      const svgEl = document.getElementById('card-svg');
+      svgEl.innerHTML = '';
+      let zoom = parseFloat(cardConfig.zoom);
+      let cPts = getCenterCoords(lines, zoom, 'boundary');
+      drawSVG(svgEl, {
+        cx: cPts.cx, cy: cPts.cy, lines: lines, zoom: zoom,
+        showL: document.getElementById('show-labels').checked,
+        showV: false, vPos: 'inside', fullCircle: false
+      });
+      if (cardConfig.bgEnabled) {
+        let bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', cardConfig.bgColor);
+        bgRect.setAttribute('stroke', cardConfig.borderColor);
+        bgRect.setAttribute('stroke-width', '16');
+        bgRect.setAttribute('rx', '12');
+        svgEl.insertBefore(bgRect, svgEl.firstChild);
+      }
+      const topY = 40;
+      const bottomY = 500 - (cardConfig.fontSize * 0.35 + 25);
+      const positions = [
+        { x: 35,  y: topY,   anchor: 'start'  },
+        { x: 250, y: topY,   anchor: 'middle' },
+        { x: 465, y: topY,   anchor: 'end'    },
+        { x: 35,  y: bottomY, anchor: 'start'  },
+        { x: 250, y: bottomY, anchor: 'middle' },
+        { x: 465, y: bottomY, anchor: 'end'    }
+      ];
+      positions.forEach((pos, idx) => {
+        let val = cardConfig.answers[idx] || '';
+        if (!val) return;
+        let txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.setAttribute('x', pos.x);
+        txt.setAttribute('y', pos.y);
+        txt.setAttribute('fill', cardConfig.textColor);
+        txt.setAttribute('font-size', cardConfig.fontSize);
+        txt.setAttribute('font-family', "'Segoe UI', Calibri, Arial, sans-serif");
+        txt.setAttribute('text-anchor', pos.anchor);
+        txt.setAttribute('dy', '0.35em');
+        txt.setAttribute('class', 'card-answer-text');
+        txt.textContent = val;
+        svgEl.appendChild(txt);
+      });
+    }
+
+    function downloadCardSVG() {
+      let svgEl = document.getElementById('card-svg').cloneNode(true);
+      let angleVal = getCurrentStudyAngleValue();
+      const now = new Date();
+      const ts = now.getFullYear()
+        + String(now.getMonth()+1).padStart(2,'0')
+        + String(now.getDate()).padStart(2,'0') + '_'
+        + String(now.getHours()).padStart(2,'0')
+        + String(now.getMinutes()).padStart(2,'0')
+        + String(now.getSeconds()).padStart(2,'0');
+      const fileName = `game_card_angle_${angleVal}_${ts}.svg`;
+
+      svgEl.querySelectorAll('text').forEach(t => {
+        t.removeAttribute('stroke');
+        t.removeAttribute('stroke-width');
+        t.removeAttribute('stroke-linejoin');
+        t.removeAttribute('class');
+      });
+      svgEl.removeAttribute('class');
+
+      let src = new XMLSerializer().serializeToString(svgEl);
+      if (!src.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) src = src.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      let a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([src], { type: "image/svg+xml;charset=utf-8" }));
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    window.onload = () => { renderControls(); updateStudy(); };
+  </script>
+<!-- ================= MODAL XUẤT THẺ TRÒ CHƠI ================= -->
+<div class="result-modal" id="card-export-modal">
+  <div class="modal-content" style="max-width: 1150px; width: 95vw; height: 90vh; padding: 20px; display: flex; flex-direction: column; text-align: left;">
+    
+    <!-- Modal Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px; margin-bottom: 12px; flex-shrink: 0;">
+      <h2 style="font-size: 1.4rem; color: #6D28D9; font-weight: 900;">🎴 Tạo & In Thẻ Bài Đoán Góc (Game Card)</h2>
+      <button class="btn-small" style="font-size: 1.2rem; padding: 4px 12px;" onclick="closeCardExportModal()">✖</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div style="display: flex; gap: 16px; flex: 1; overflow: hidden;">
+      
+      <!-- Left Panel: Controls -->
+      <div style="flex: 1; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 10px;">
+        
+        <!-- Random Generator Box -->
+        <div class="item-card" style="border-left-color: #8B5CF6; background: #F5F3FF;">
+          <div class="card-title" style="margin-bottom: 6px; color: #6D28D9;">🎲 Tạo Thẻ Ngẫu Nhiên Nhanh</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: end;">
+            <div class="control-group">
+              <label>Khóa hướng góc:</label>
+              <select id="card-snap-lock" onchange="cardConfig.snap = this.value; saveCardConfig();">
+                <option value="none">Tự do (Xoay ngẫu nhiên)</option>
+                <option value="horizontal">Khóa ngang (0°)</option>
+                <option value="vertical">Khóa dọc (90°)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>Độ khó đáp án:</label>
+              <select id="card-diff-mode" onchange="cardConfig.diffMode = this.value; autoGenAnswers();">
+                <option value="easy">Chế độ Dễ</option>
+                <option value="hard">Chế độ Khó</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>Góc Đáp Án:</label>
+              <input type="number" id="card-angle-input" min="1" max="350" style="width:80px; text-align:center; font-size:1rem; font-weight:900; padding:6px 4px; border:2px solid #8B5CF6; border-radius:8px; outline:none; color:#6D28D9;" oninput="applyAngleInput()" onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-main" style="flex:1; margin-top: 0; font-size: 0.95rem; padding: 8px; background-color: #8B5CF6; box-shadow: 0 4px 0 #6D28D9;" onclick="generateRandomCard()">🔄 Sinh Góc Mới</button>
+            <button class="btn-main" style="flex:1; margin-top: 0; font-size: 0.95rem; padding: 8px; background-color: #F59E0B; box-shadow: 0 4px 0 #D97706;" onclick="rotateRandomCard()">🔀 Xoay Góc</button>
+          </div>
+        </div>
+
+        <!-- Answer Values Grid (6 Options) -->
+        <div class="item-card" style="border-left-color: #3B82F6;">
+          <div class="card-header">
+            <span class="card-title">📝 6 Đáp Án (3 Trên / 3 Dưới)</span>
+            <button class="btn-small" onclick="autoGenAnswers()">⚡ Tự động tính lại</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 6px;">
+            <div><label style="font-size:0.75rem; font-weight:bold;">Góc Trái Trên</label><input type="text" id="ans-tl" oninput="updateCardAnswersFromInputs()" onblur="autoAppendDegree(this)"></div>
+            <div><label style="font-size:0.75rem; font-weight:bold;">Giữa Trên</label><input type="text" id="ans-tm" oninput="updateCardAnswersFromInputs()" onblur="autoAppendDegree(this)"></div>
+            <div><label style="font-size:0.75rem; font-weight:bold;">Góc Phải Trên</label><input type="text" id="ans-tr" oninput="updateCardAnswersFromInputs()" onblur="autoAppendDegree(this)"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <div><label style="font-size:0.75rem; font-weight:bold;">Góc Trái Dưới</label><input type="text" id="ans-bl" oninput="updateCardAnswersFromInputs()" onblur="autoAppendDegree(this)"></div>
+            <div><label style="font-size:0.75rem; font-weight:bold;">Giữa Dưới</label><input type="text" id="ans-bm" oninput="updateCardAnswersFromInputs()" onblur="autoAppendDegree(this)"></div>
+            <div><label style="font-size:0.75rem; font-weight:bold;">Góc Phải Dưới</label><input type="text" id="ans-br" oninput="updateCardAnswersFromInputs()" onblur="autoAppendDegree(this)"></div>
+          </div>
+        </div>
+
+        <!-- Styling Controls -->
+        <div class="item-card" style="border-left-color: #10B981;">
+          <div class="card-title" style="margin-bottom: 6px;">🎨 Định Dạng Chữ & Nền Thẻ</div>
+          
+          <div class="card-grid" style="margin-bottom: 8px;">
+            <div>
+              <label style="font-size:0.75rem; font-weight:700;">Cỡ chữ đáp án:</label>
+              <input type="range" id="card-font-size" min="16" max="48" value="28" oninput="syncCardStyle('fontSize', this.value)">
+            </div>
+            <div>
+              <label style="font-size:0.75rem; font-weight:700;">Màu chữ:</label>
+              <input type="color" list="color-library" id="card-font-color" value="#1E293B" onchange="syncCardStyle('textColor', this.value)">
+            </div>
+            <div>
+              <label style="font-size:0.75rem; font-weight:700;">Thu phóng hình:</label>
+              <input type="range" id="card-zoom" min="0.5" max="2.0" step="0.1" value="1.0" oninput="syncCardStyle('zoom', this.value)">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: center;">
+            <div class="toggle-row">
+              <span class="toggle-label" style="font-size:0.8rem;">Bật Nền Thẻ</span>
+              <label class="switch"><input type="checkbox" id="card-bg-toggle" checked onchange="syncCardStyle('bgEnabled', this.checked)"><span class="slider"></span></label>
+            </div>
+            <div>
+              <label style="font-size:0.75rem; font-weight:700;">Màu Viền Nền:</label>
+              <input type="color" list="color-library" id="card-border-color" value="#FCD34D" onchange="syncCardStyle('borderColor', this.value)">
+            </div>
+            <div>
+              <label style="font-size:0.75rem; font-weight:700;">Màu Nền Nhẹ:</label>
+              <input type="color" list="bg-pastel-library" id="card-bg-color" value="#FFFBEB" onchange="syncCardStyle('bgColor', this.value)">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Panel: Card Live Preview -->
+      <div style="flex: 1; background: #F8FAFC; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #CBD5E1;">
+        <div style="width: 100%; aspect-ratio: 1; max-width: 420px; border-radius: 8px; overflow: hidden;" id="card-preview-box">
+          <svg id="card-svg" viewBox="0 0 500 500"></svg>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div style="margin-top: 12px; border-top: 2px solid #E2E8F0; padding-top: 10px; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
+      <button class="btn-small" style="padding: 8px 16px; font-size: 0.95rem;" onclick="closeCardExportModal()">Hủy</button>
+      <button class="btn-action" style="width: auto; padding: 8px 24px; background-color: #10B981;" onclick="downloadCardSVG()">📥 Xuất File Thẻ In (SVG)</button>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
