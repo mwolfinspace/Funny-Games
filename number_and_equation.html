@@ -432,7 +432,11 @@ document.addEventListener('keydown', e => {
     if (equationTokens.length) removeToken(equationTokens[equationTokens.length - 1].id);
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    document.getElementById('runBtn').click();
+    if (currentMode === 2 && m2State === 'PLAYING' && !m2Winner && document.getElementById('m2Result').innerText !== '') {
+      advanceTurn();
+    } else {
+      document.getElementById('runBtn').click();
+    }
   } else if (e.key === 'Escape') {
     e.preventDefault();
     document.getElementById('resetBtn').click();
@@ -635,6 +639,10 @@ function generateNewPuzzle() {
 }
 
 document.getElementById('resetBtn').addEventListener('click', () => {
+  if (currentMode === 2 && m2State === 'PLAYING' && !m2Winner && document.getElementById('m2Result').innerText !== '') {
+    advanceTurn();
+    return;
+  }
   equationTokens = [];
   renderEquation();
   showToast("Round reset! Build a new equation.");
@@ -854,13 +862,15 @@ function handleMode2Run() {
   renderMode2();
 }
 
-document.getElementById('btnNextTurn').addEventListener('click', () => {
+function advanceTurn() {
   equationTokens = []; renderEquation();
   document.getElementById('m2Result').innerText = '';
   document.getElementById('runBtn').style.pointerEvents = 'auto';
   m2Turn = m2Turn === 1 ? 2 : 1;
   renderMode2();
-});
+}
+
+document.getElementById('btnNextTurn').addEventListener('click', advanceTurn);
 
 document.getElementById('btnRestartM2').addEventListener('click', () => {
   document.getElementById('runBtn').style.pointerEvents = 'auto';
