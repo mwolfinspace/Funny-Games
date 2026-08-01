@@ -110,23 +110,55 @@
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   }
 
-  /* Mode 2 Specific */
-  #mode2Container { display: none; width: 100%; height: 100%; padding: 20px; gap: 20px; align-items: stretch; justify-content: space-between; }
-  .team-zone { flex: 1; display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.5); border-radius: var(--radius); padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-  .center-stage { flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+  /* Mode 2 Specific (Connect 4 setup) */
+  #mode2Container { display: none; width: 100%; height: 100%; padding: 20px; align-items: center; justify-content: center; }
+  .m2-stage { display: flex; width: 95%; max-width: 1100px; justify-content: space-between; align-items: center; gap: 20px; }
 
-  .bingo-board {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px;
-    width: 100%; max-width: 300px; aspect-ratio: 1;
+  .team-panel {
+    background: var(--panel); border: 3px solid var(--border); border-radius: 20px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px; width: 280px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   }
-  .bingo-cell {
-    background: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    font-size: 24px; font-weight: 800; cursor: pointer; border: 2px solid transparent; position: relative;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  .team-panel.t1 { border-color: #e63946; box-shadow: 0 10px 30px rgba(230,57,70,0.15); }
+  .team-panel.t2 { border-color: #0077b6; box-shadow: 0 10px 30px rgba(0,119,182,0.15); }
+  .team-title { font-size: 18px; font-weight: 900; letter-spacing: 1px; display: flex; align-items: center; gap: 6px; }
+
+  .grid-4x4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+  .cell-4x4 {
+    aspect-ratio: 1; background: #fff; border: 2px solid var(--border); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900;
+    color: var(--text); cursor: pointer; transition: all 0.15s; position: relative;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
   }
-  .bingo-cell:hover { background: #f0f0f5; }
-  .bingo-cell.marked { background: var(--success); color: #fff; }
-  .bingo-cell.locked { cursor: default; }
+  .cell-4x4:hover { background: #f0f1f5; transform: scale(1.05); }
+  .cell-4x4.marked { color: #fff; border-color: #fff; }
+  .cell-4x4.marked.t1-mark { background: #e63946; box-shadow: 0 0 12px rgba(230,57,70,0.5); }
+  .cell-4x4.marked.t2-mark { background: #0077b6; box-shadow: 0 0 12px rgba(0,119,182,0.5); }
+  .cell-4x4.locked { cursor: default; }
+  .cell-4x4.line-active::after {
+    content: ""; position: absolute; inset: 0; border-radius: 8px; pointer-events: none;
+  }
+  .cell-4x4.line-active.t1-line::after { background: rgba(230,57,70,0.45); border: 2px solid #e63946; }
+  .cell-4x4.line-active.t2-line::after { background: rgba(0,119,182,0.45); border: 2px solid #0077b6; }
+
+  .panel-actions { display: flex; gap: 8px; width: 100%; }
+  .action-btn {
+    border: none; padding: 9px 16px; border-radius: 10px; font-weight: 800; font-size: 13px;
+    cursor: pointer; transition: all 0.15s; font-family: inherit; flex: 1;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.15);
+  }
+  .action-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.15); }
+  .action-btn.green { background: #2a9d8f; color: #fff; box-shadow: 0 3px 0 #1d7065; }
+  .action-btn.red { background: #e63946; color: #fff; box-shadow: 0 3px 0 #b02a34; }
+  .action-btn.gold { background: linear-gradient(180deg, #ffd166, #f5a623); color: #5c4000; box-shadow: 0 3px 0 #c98a1b; }
+  .action-btn.big { font-size: 16px; padding: 12px 28px; }
+  .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .m2-center-zone { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+  .m2-stage-title { font-size: 26px; font-weight: 900; color: var(--accent); }
+  .m2-hint { color: #999; max-width: 300px; font-size: 14px; font-weight: 700; line-height: 1.6; }
+  .turn-indicator { font-size: 20px; font-weight: 900; padding: 8px 20px; border-radius: 30px; background: rgba(0,0,0,0.06); border: 2px solid var(--border); }
+  .m2-result { font-size: 40px; font-weight: 900; color: var(--accent); }
 
   /* BOTTOM ZONE (Compact horizontal calculator bar) */
   #bottomZone {
@@ -224,11 +256,6 @@
   #confettiHost { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 280; }
   .confetti-piece { position: absolute; top: -20px; width: 10px; height: 20px; border-radius: 2px; animation: confFall linear forwards; }
   @keyframes confFall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(600deg); opacity: 0; } }
-
-  .strike-line {
-    position: absolute; background: var(--accent); z-index: 10; border-radius: 4px; pointer-events: none;
-    box-shadow: 0 0 10px var(--accent); transform-origin: left center;
-  }
 </style>
 </head>
 <body>
@@ -262,10 +289,6 @@
     </div>
     <button class="text-btn" id="btnNewPuzzle">🔄 New Puzzle</button>
   </div>
-  <div class="options-bar" id="mode2Options" style="display:none;">
-    <button class="btn" id="btnCleanAll">🧹 Clean All</button>
-    <button class="btn" id="btnLockToggle">🔓 Unlocked</button>
-  </div>
 </div>
 
 <div id="middleZone">
@@ -278,22 +301,35 @@
   <div class="help-hint"><kbd>Click card</kbd> Remove &nbsp; <b>Auto-Fit</b> keeps everything visible &nbsp; toggle bottom-left for <kbd>Wheel</kbd> Zoom / <kbd>Right-drag</kbd> Pan</div>
 
   <div id="mode2Container">
-    <div class="team-zone">
-      <h2>Team 1</h2>
-      <div class="bingo-board" id="boardT1"></div>
-      <div id="linesT1" style="margin-top:10px; color:var(--accent); font-weight:bold;">Lines: 0/3</div>
-    </div>
-    <div class="center-stage">
-      <div id="m2TurnInfo" style="font-size:24px; font-weight:800; margin-bottom:20px;">Setup Phase</div>
-      <div id="m2EquationArea" style="display:flex; align-items:center; transform: scale(0.8);"></div>
-      <div id="m2Result" style="font-size:48px; font-weight:800; color:var(--success); margin-top:20px;"></div>
-      <button class="btn" id="btnNextTurn" style="display:none; margin-top:20px; padding:15px 30px; font-size:20px;">Next Turn ➔</button>
-      <button class="btn" id="btnRestartM2" style="display:none; margin-top:20px; padding:15px 30px; font-size:20px;">Restart Mode 2</button>
-    </div>
-    <div class="team-zone">
-      <h2>Team 2</h2>
-      <div class="bingo-board" id="boardT2"></div>
-      <div id="linesT2" style="margin-top:10px; color:var(--accent); font-weight:bold;">Lines: 0/3</div>
+    <div class="m2-stage">
+      <div class="team-panel t1">
+        <div class="team-title" id="titleT1">🔴 TEAM 1</div>
+        <div class="grid-4x4" id="boardT1"></div>
+        <div class="panel-actions">
+          <button class="action-btn red" id="btnClean1">🧹 Clean All</button>
+          <button class="action-btn gold" id="btnLock1">🔒 Lock</button>
+        </div>
+      </div>
+
+      <div class="m2-center-zone">
+        <h2 class="m2-stage-title" id="m2StageTitle">STAGE 1: SETUP</h2>
+        <p class="m2-hint" id="m2Hint">Fill numbers 1 to 16 on both boards, then click 🔒 Lock on each.</p>
+        <div class="turn-indicator" id="m2TurnInfo">Setup Phase</div>
+        <div id="m2EquationArea" style="display:flex; align-items:center;"></div>
+        <div class="m2-result" id="m2Result"></div>
+        <button class="action-btn green big" id="btnStartM2" style="display:none;">🚀 START GAME</button>
+        <button class="action-btn green big" id="btnNextTurn" style="display:none;">➔ Next Turn</button>
+        <button class="action-btn gold big" id="btnRestartM2" style="display:none;">🔄 Restart</button>
+      </div>
+
+      <div class="team-panel t2">
+        <div class="team-title" id="titleT2">🔵 TEAM 2</div>
+        <div class="grid-4x4" id="boardT2"></div>
+        <div class="panel-actions">
+          <button class="action-btn red" id="btnClean2">🧹 Clean All</button>
+          <button class="action-btn gold" id="btnLock2">🔒 Lock</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -507,7 +543,6 @@ function initMode1() {
   document.getElementById('btnMode1').classList.add('active');
   document.getElementById('btnMode2').classList.remove('active');
   document.getElementById('mode1Options').style.display = 'flex';
-  document.getElementById('mode2Options').style.display = 'none';
   gameStage.style.display = 'flex';
   document.getElementById('mode2Container').style.display = 'none';
 
@@ -557,13 +592,14 @@ let m2Turn = 1;
 let boards = { 1: Array(16).fill(null), 2: Array(16).fill(null) };
 let marked = { 1: Array(16).fill(false), 2: Array(16).fill(false) };
 let recentlyCleared = { 1: 1, 2: 1 };
+let locked = { 1: false, 2: false };
+let m2Winner = null;
 
 function initMode2() {
   currentMode = 2;
   document.getElementById('btnMode2').classList.add('active');
   document.getElementById('btnMode1').classList.remove('active');
   document.getElementById('mode1Options').style.display = 'none';
-  document.getElementById('mode2Options').style.display = 'flex';
   gameStage.style.display = 'none';
   document.getElementById('mode2Container').style.display = 'flex';
 
@@ -571,49 +607,82 @@ function initMode2() {
 }
 
 function resetMode2() {
-  m2State = 'SETUP'; m2Turn = 1;
+  m2State = 'SETUP'; m2Turn = 1; m2Winner = null;
   boards = { 1: Array(16).fill(null), 2: Array(16).fill(null) };
   marked = { 1: Array(16).fill(false), 2: Array(16).fill(false) };
   recentlyCleared = { 1: 1, 2: 1 };
+  locked = { 1: false, 2: false };
 
-  document.getElementById('btnLockToggle').innerText = '🔓 Unlocked';
-  document.getElementById('btnLockToggle').style.background = '#aaa';
-  document.getElementById('btnLockToggle').style.color = '#fff';
-  document.getElementById('btnCleanAll').disabled = false;
-
-  document.getElementById('m2TurnInfo').innerText = "Setup Phase: Mark 1-16";
+  document.getElementById('m2TurnInfo').innerText = "Setup Phase";
+  document.getElementById('m2TurnInfo').style.color = "var(--text)";
   document.getElementById('m2Result').innerText = "";
-  document.getElementById('btnNextTurn').style.display = 'none';
-  document.getElementById('btnRestartM2').style.display = 'none';
 
   equationTokens = []; renderEquation();
-  renderBingoBoards();
+  renderMode2();
 }
 
-function renderBingoBoards() {
+function renderMode2() {
   [1, 2].forEach(team => {
     const container = document.getElementById(`boardT${team}`);
     container.innerHTML = '';
-
-    const lines = container.querySelectorAll('.strike-line');
-    lines.forEach(l => l.remove());
-    document.getElementById(`linesT${team}`).innerText = `Lines: ${checkWinLines(team)}/3`;
+    const lineRes = checkWinLines(team);
+    const teamName = team === 1 ? '🔴 TEAM 1' : '🔵 TEAM 2';
+    document.getElementById(`titleT${team}`).innerText = m2State === 'PLAYING' ? `${teamName} (${lineRes.count}/3)` : teamName;
+    document.getElementById(`btnLock${team}`).innerText = locked[team] ? '🔓 Unlock' : '🔒 Lock';
+    document.getElementById(`btnClean${team}`).disabled = locked[team] || m2State === 'PLAYING';
 
     for(let i=0; i<16; i++) {
       const cell = document.createElement('div');
-      cell.className = 'bingo-cell';
+      cell.className = 'cell-4x4';
       if (boards[team][i] !== null) cell.innerText = boards[team][i];
-      if (marked[team][i]) cell.classList.add('marked');
-      if (m2State === 'PLAYING') cell.classList.add('locked');
-
+      if (marked[team][i]) {
+        cell.classList.add('marked', team === 1 ? 't1-mark' : 't2-mark');
+        if (lineRes.activeIdx.includes(i)) cell.classList.add('line-active', team === 1 ? 't1-line' : 't2-line');
+      }
+      if (m2State === 'PLAYING' || locked[team]) cell.classList.add('locked');
       cell.addEventListener('click', () => handleCellClick(team, i));
       container.appendChild(cell);
     }
   });
+
+  const stageTitle = document.getElementById('m2StageTitle');
+  const hint = document.getElementById('m2Hint');
+  const eqArea = document.getElementById('m2EquationArea');
+  const startBtn = document.getElementById('btnStartM2');
+  const nextBtn = document.getElementById('btnNextTurn');
+  const restartBtn = document.getElementById('btnRestartM2');
+  const turnInfo = document.getElementById('m2TurnInfo');
+
+  if (m2State === 'SETUP') {
+    stageTitle.style.display = 'block';
+    hint.style.display = 'block';
+    eqArea.style.display = 'none';
+    startBtn.style.display = (locked[1] && locked[2]) ? 'block' : 'none';
+    nextBtn.style.display = 'none';
+    restartBtn.style.display = 'none';
+    turnInfo.innerText = 'Setup Phase: Mark 1-16';
+    turnInfo.style.color = 'var(--text)';
+  } else {
+    stageTitle.style.display = 'none';
+    hint.style.display = 'none';
+    eqArea.style.display = 'flex';
+    startBtn.style.display = 'none';
+    if (m2Winner) {
+      turnInfo.innerText = `🏆 ${m2Winner} WINS!`;
+      turnInfo.style.color = 'var(--success)';
+      nextBtn.style.display = 'none';
+      restartBtn.style.display = 'block';
+    } else {
+      turnInfo.innerText = `${m2Turn === 1 ? '🔴 Team 1' : '🔵 Team 2'} Turn`;
+      turnInfo.style.color = m2Turn === 1 ? '#e63946' : '#0077b6';
+      nextBtn.style.display = 'block';
+      restartBtn.style.display = 'none';
+    }
+  }
 }
 
 function handleCellClick(team, index) {
-  if (m2State !== 'SETUP') return;
+  if (m2State !== 'SETUP' || locked[team]) return;
 
   if (boards[team][index] !== null) {
     recentlyCleared[team] = boards[team][index];
@@ -625,39 +694,46 @@ function handleCellClick(team, index) {
     boards[team][index] = target;
     recentlyCleared[team] = target + 1;
   }
-  renderBingoBoards();
+  renderMode2();
 }
 
-document.getElementById('btnCleanAll').addEventListener('click', () => {
-  if (m2State === 'SETUP') {
-    boards = { 1: Array(16).fill(null), 2: Array(16).fill(null) };
-    recentlyCleared = { 1: 1, 2: 1 };
-    renderBingoBoards();
-  }
-});
+function clearTeam(team) {
+  if (m2State !== 'SETUP' || locked[team]) return;
+  boards[team] = Array(16).fill(null);
+  recentlyCleared[team] = 1;
+  renderMode2();
+}
 
-document.getElementById('btnLockToggle').addEventListener('click', (e) => {
-  if (m2State === 'PLAYING') return;
-
-  let b1Ready = !boards[1].includes(null);
-  let b2Ready = !boards[2].includes(null);
-
-  if (!b1Ready || !b2Ready) {
-    showToast("Both boards must be filled 1-16!");
+function toggleLock(team) {
+  if (m2State !== 'SETUP') return;
+  const isFull = boards[team].every(v => v !== null);
+  if (!locked[team] && !isFull) {
+    showToast(`Fill all 16 cells before locking!`);
     return;
   }
+  locked[team] = !locked[team];
+  renderMode2();
+}
 
-  m2State = 'PLAYING';
-  e.target.innerText = '🔒 Locked';
-  e.target.style.background = 'var(--accent)';
-  document.getElementById('btnCleanAll').disabled = true;
-  document.getElementById('m2TurnInfo').innerText = `Team 1's Turn`;
+function startMode2Game() {
+  if (locked[1] && locked[2]) {
+    m2State = 'PLAYING';
+    m2Turn = 1;
+    equationTokens = [];
+    renderEquation();
+    renderMode2();
+  }
+}
 
-  renderBingoBoards();
-});
+document.getElementById('btnClean1').addEventListener('click', () => clearTeam(1));
+document.getElementById('btnClean2').addEventListener('click', () => clearTeam(2));
+document.getElementById('btnLock1').addEventListener('click', () => toggleLock(1));
+document.getElementById('btnLock2').addEventListener('click', () => toggleLock(2));
+document.getElementById('btnStartM2').addEventListener('click', startMode2Game);
 
 function handleMode2Run() {
   if (m2State !== 'PLAYING') return showToast("Lock boards to start!");
+  if (m2Winner) return;
   if (equationTokens.length === 0) return;
 
   let result = evaluateTokens();
@@ -675,63 +751,44 @@ function handleMode2Run() {
     }
   });
 
-  renderBingoBoards();
-  checkAndDrawLines();
-
   document.getElementById('runBtn').style.pointerEvents = 'none';
 
-  let p1Lines = checkWinLines(1);
-  let p2Lines = checkWinLines(2);
+  let p1 = checkWinLines(1).count;
+  let p2 = checkWinLines(2).count;
 
-  if (p1Lines >= 3 || p2Lines >= 3) {
-    let winner = p1Lines >= 3 && p2Lines >= 3 ? "Draw!" : (p1Lines >= 3 ? "Team 1 Wins!" : "Team 2 Wins!");
-    document.getElementById('m2TurnInfo').innerText = winner;
-    document.getElementById('m2TurnInfo').style.color = "var(--success)";
-    document.getElementById('m2TurnInfo').style.fontSize = "40px";
+  if (p1 >= 3 || p2 >= 3) {
+    m2Winner = p1 >= 3 && p2 >= 3 ? "Draw!" : (p1 >= 3 ? "Team 1" : "Team 2");
     launchConfetti();
-    document.getElementById('btnRestartM2').style.display = 'block';
-  } else {
-    document.getElementById('btnNextTurn').style.display = 'block';
   }
+  renderMode2();
 }
 
 document.getElementById('btnNextTurn').addEventListener('click', () => {
   equationTokens = []; renderEquation();
   document.getElementById('m2Result').innerText = '';
-  document.getElementById('btnNextTurn').style.display = 'none';
   document.getElementById('runBtn').style.pointerEvents = 'auto';
-
   m2Turn = m2Turn === 1 ? 2 : 1;
-  document.getElementById('m2TurnInfo').innerText = `Team ${m2Turn}'s Turn`;
+  renderMode2();
 });
 
 document.getElementById('btnRestartM2').addEventListener('click', () => {
   document.getElementById('runBtn').style.pointerEvents = 'auto';
-  document.getElementById('m2TurnInfo').style.color = "var(--text)";
-  document.getElementById('m2TurnInfo').style.fontSize = "24px";
   resetMode2();
 });
 
 function checkWinLines(team) {
   let grid = marked[team];
-  let lines = 0;
-
-  for(let i=0; i<4; i++) {
-    if (grid[i*4] && grid[i*4+1] && grid[i*4+2] && grid[i*4+3]) lines++;
-  }
-  for(let i=0; i<4; i++) {
-    if (grid[i] && grid[i+4] && grid[i+8] && grid[i+12]) lines++;
-  }
-  if (grid[0] && grid[5] && grid[10] && grid[15]) lines++;
-  if (grid[3] && grid[6] && grid[9] && grid[12]) lines++;
-
-  return lines;
-}
-
-function checkAndDrawLines() {
-  [1, 2].forEach(team => {
-    document.getElementById(`linesT${team}`).innerText = `Lines: ${checkWinLines(team)}/3`;
+  let count = 0;
+  const activeIdx = [];
+  const lines = [
+    [0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],
+    [0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15],
+    [0,5,10,15],[3,6,9,12]
+  ];
+  lines.forEach(indices => {
+    if (indices.every(i => grid[i])) { count++; activeIdx.push(...indices); }
   });
+  return { count, activeIdx };
 }
 
 let toastTimer = null;
