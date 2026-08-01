@@ -128,7 +128,8 @@
   .team-panel.t2 { border-color: #0077b6; box-shadow: 0 10px 30px rgba(0,119,182,0.15); }
   .team-title { font-size: 18px; font-weight: 900; letter-spacing: 1px; display: flex; align-items: center; gap: 6px; }
 
-  .grid-4x4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+  .grid-4x4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; position: relative; }
+  .win-line-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
   .cell-4x4 {
     aspect-ratio: 1; background: #fff; border: 2px solid var(--border); border-radius: 10px;
     display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900;
@@ -724,6 +725,7 @@ function renderMode2() {
       cell.addEventListener('click', () => handleCellClick(team, i));
       container.appendChild(cell);
     }
+    renderWinLines(container, lineRes.wonLines, team === 1 ? '#e63946' : '#0077b6');
   });
 
   const stageTitle = document.getElementById('m2StageTitle');
@@ -881,15 +883,55 @@ function checkWinLines(team) {
   let grid = marked[team];
   let count = 0;
   const activeIdx = [];
+  const wonLines = [];
   const lines = [
     [0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15],
     [0,4,8,12],[1,5,9,13],[2,6,10,14],[3,7,11,15],
     [0,5,10,15],[3,6,9,12]
   ];
   lines.forEach(indices => {
-    if (indices.every(i => grid[i])) { count++; activeIdx.push(...indices); }
+    if (indices.every(i => grid[i])) { count++; activeIdx.push(...indices); wonLines.push(indices); }
   });
-  return { count, activeIdx };
+  return { count, activeIdx, wonLines };
+}
+
+function renderWinLines(boardEl, wonLines, color) {
+  let svg = boardEl.querySelector('svg.win-line-svg');
+  const w = boardEl.clientWidth, h = boardEl.clientHeight;
+  if (w <= 0 || h <= 0) return;
+
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'win-line-svg');
+    boardEl.appendChild(svg);
+  }
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = '';
+
+  const gap = 8;
+  const cell = (w - gap * 3) / 4;
+  const center = idx => {
+    const row = Math.floor(idx / 4), col = idx % 4;
+    return { x: col * (cell + gap) + cell / 2, y: row * (cell + gap) + cell / 2 };
+  };
+
+  wonLines.forEach(line => {
+    const a = center(line[0]), b = center(line[3]);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return;
+    const ext = 10;
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    el.setAttribute('x1', (a.x - (dx / len) * ext).toFixed(1));
+    el.setAttribute('y1', (a.y - (dy / len) * ext).toFixed(1));
+    el.setAttribute('x2', (b.x + (dx / len) * ext).toFixed(1));
+    el.setAttribute('y2', (b.y + (dy / len) * ext).toFixed(1));
+    el.setAttribute('stroke', color);
+    el.setAttribute('stroke-width', '6');
+    el.setAttribute('stroke-linecap', 'round');
+    el.setAttribute('opacity', '0.85');
+    svg.appendChild(el);
+  });
 }
 
 let toastTimer = null;
