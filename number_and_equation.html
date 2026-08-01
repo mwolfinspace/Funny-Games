@@ -323,7 +323,7 @@
   </div>
   <div class="zoom-indicator" id="zoomIndicator">ZOOM 100%</div>
   <button class="auto-fit-btn" id="btnAutoFit">🔒 Auto-Fit</button>
-  <div class="help-hint"><kbd>Click card</kbd> Remove &nbsp; <b>Auto-Fit</b> keeps everything visible &nbsp; toggle bottom-left for <kbd>Wheel</kbd> Zoom / <kbd>Right-drag</kbd> Pan</div>
+  <div class="help-hint"><kbd>Click card</kbd> Remove &nbsp; <kbd>0-9</kbd> <kbd>+ − × ÷</kbd> <kbd>( )</kbd> type on keyboard &nbsp; <kbd>⌫</kbd> undo &nbsp; <kbd>Enter</kbd> run &nbsp; <b>Auto-Fit</b> keeps everything visible &nbsp; toggle bottom-left for <kbd>Wheel</kbd> Zoom / <kbd>Right-drag</kbd> Pan</div>
 
   <div id="mode2Container">
     <div class="m2-stage" id="m2Stage">
@@ -406,6 +406,34 @@ document.querySelectorAll('.op-btn').forEach(btn => {
     let val = e.target.dataset.val;
     addToken({ type: 'operator', val: val, display: e.target.innerText });
   });
+});
+
+const OP_DISPLAY = { '+': '➕', '-': '➖', '*': '✖️', '/': '➗', '(': '(', ')': ')' };
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  if (e.key >= '0' && e.key <= '9') {
+    e.preventDefault();
+    addToken({ type: 'number', val: parseInt(e.key, 10) });
+  } else if ('+-*/()'.includes(e.key)) {
+    e.preventDefault();
+    addToken({ type: 'operator', val: e.key, display: OP_DISPLAY[e.key] });
+  } else if (e.key === 'x' || e.key === 'X' || e.key === '×') {
+    e.preventDefault();
+    addToken({ type: 'operator', val: '*', display: '✖️' });
+  } else if (e.key === '÷') {
+    e.preventDefault();
+    addToken({ type: 'operator', val: '/', display: '➗' });
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    if (equationTokens.length) removeToken(equationTokens[equationTokens.length - 1].id);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('runBtn').click();
+  }
 });
 
 function adjustOpt(key, delta) {
