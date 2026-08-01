@@ -80,6 +80,9 @@
   }
   .text-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #b45309; }
   .text-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #b45309; }
+  .text-btn.active { background: linear-gradient(180deg, #a7f3d0, #10b981); border-color: #047857; color: #064e3b; box-shadow: 0 3px 0 #065f46; }
+  .text-btn.active:hover { box-shadow: 0 4px 0 #065f46; }
+  .text-btn.active:active { box-shadow: 0 1px 0 #065f46; }
 
   /* MIDDLE ZONE (2/3) */
   #middleZone {
@@ -311,6 +314,7 @@
   </div>
   <div class="options-bar" id="mode2Options" style="display:none;">
     <button class="text-btn" id="btnRandomSetup">🎲 Random Setup</button>
+    <button class="text-btn" id="btnLimitMode">🎯 Limit Mode: OFF</button>
   </div>
 </div>
 
@@ -401,6 +405,33 @@ for(let i=0; i<=9; i++) {
   card.addEventListener('click', () => addToken({ type: 'number', val: i }));
   numbersBank.appendChild(card);
 }
+const bankCards = Array.from(numbersBank.children);
+
+let limitMode = false;
+const LIMIT_CARDS = [1, 2, 4, 8];
+
+function applyBankFilter() {
+  const restricted = currentMode === 2 && limitMode;
+  bankCards.forEach(card => {
+    const val = parseInt(card.dataset.val, 10);
+    card.style.display = (restricted && !LIMIT_CARDS.includes(val)) ? 'none' : '';
+  });
+}
+
+document.getElementById('btnLimitMode').addEventListener('click', () => {
+  limitMode = !limitMode;
+  const btn = document.getElementById('btnLimitMode');
+  btn.classList.toggle('active', limitMode);
+  btn.innerText = limitMode ? '🎯 Limit Mode: ON' : '🎯 Limit Mode: OFF';
+  if (limitMode) {
+    equationTokens = [];
+    renderEquation();
+    showToast("Limit mode: use 1, 2, 4, 8 — each once!");
+  } else {
+    showToast("Limit mode off.");
+  }
+  applyBankFilter();
+});
 
 document.querySelectorAll('.op-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
@@ -465,6 +496,16 @@ function adjustOpt(key, delta) {
 }
 
 function addToken(token) {
+  if (currentMode === 2 && limitMode && token.type === 'number') {
+    if (!LIMIT_CARDS.includes(token.val)) {
+      showToast("Limit mode: only 1, 2, 4, 8 cards!");
+      return;
+    }
+    if (equationTokens.some(t => t.type === 'number' && t.val === token.val)) {
+      showToast("Use each card once!");
+      return;
+    }
+  }
   if (currentMode === 1) {
     const limit = config.limit;
     const numCards = equationTokens.filter(t => t.type === 'number').length;
@@ -626,6 +667,7 @@ function initMode1() {
   gameStage.style.display = 'flex';
   document.getElementById('mode2Container').style.display = 'none';
 
+  applyBankFilter();
   equationTokens = [];
   generateNewPuzzle();
 }
@@ -696,6 +738,7 @@ function initMode2() {
   gameStage.style.display = 'none';
   document.getElementById('mode2Container').style.display = 'flex';
 
+  applyBankFilter();
   resetMode2();
   requestAnimationFrame(autoScaleStage);
 }
@@ -848,6 +891,14 @@ function handleMode2Run() {
   if (m2State !== 'PLAYING') return showToast("Lock boards to start!");
   if (m2Winner) return;
   if (equationTokens.length === 0) return;
+
+  if (limitMode) {
+    const nums = equationTokens.filter(t => t.type === 'number').map(t => t.val);
+    if (nums.length !== 4 || !LIMIT_CARDS.every(v => nums.includes(v))) {
+      showToast("Limit mode: use all four cards 1, 2, 4, 8 once!");
+      return;
+    }
+  }
 
   let result = evaluateTokens();
   if (result === null || result % 1 !== 0 || result < 1 || result > 16) {
