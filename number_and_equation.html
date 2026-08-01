@@ -227,6 +227,7 @@
     border: 1px solid var(--border);
   }
   .card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 18px rgba(234,30,124,0.3); }
+  .card.used { filter: grayscale(1); opacity: 0.4; cursor: default; pointer-events: none; }
   .card:active, .op-btn:active { transform: scale(0.9); }
   .card img { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; padding: 4px; }
 
@@ -445,6 +446,17 @@ function applyBankFilter() {
     const val = parseInt(card.dataset.val, 10);
     card.style.display = (restricted && !LIMIT_CARDS.includes(val)) ? 'none' : '';
   });
+  applyBankState();
+}
+
+function applyBankState() {
+  const used = new Set();
+  if (currentMode === 2 && limitMode) {
+    equationTokens.filter(t => t.type === 'number').forEach(t => used.add(t.val));
+  }
+  bankCards.forEach(card => {
+    card.classList.toggle('used', used.has(parseInt(card.dataset.val, 10)));
+  });
 }
 
 document.getElementById('btnLimitMode').addEventListener('click', () => {
@@ -582,6 +594,7 @@ function renderEquation() {
   });
 
   autoScaleStage();
+  applyBankState();
 }
 
 function evaluateTokens() {
