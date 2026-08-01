@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Equation Balatro</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Quicksand:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --text: #222222;
+    --accent: #EA1E7C;
+    --accent-soft: rgba(234,30,124,0.2);
+    --success: #3E9C4E;
+    --board-bg: #e9eaeF;
+    --card-bg: #ffffff;
+    --card-text: #111111;
+    --shadow: 0 4px 12px rgba(0,0,0,0.12);
+    --radius: 12px;
+    --border: #d0d0d5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* TOP BAR */
+  #topBar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 2px solid var(--border);
+    z-index: 20;
+  }
+  .logo { font-family: 'Quicksand', sans-serif; font-weight: 800; color: var(--accent); font-size: 18px; }
+  .btn {
+    border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer;
+    background: #e4e4e9; color: var(--text); transition: 0.1s; box-shadow: 0 3px 0 #c4c4ca;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #c4c4ca; }
+  .sep { width: 2px; height: 24px; background: var(--border); }
+
+  .mode-tabs { display: flex; gap: 2px; background: #eceef0; padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
+  .mode-tab { padding: 6px 14px; background: transparent; border: none; color: #6b7280; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; cursor: pointer; border-radius: 7px; transition: all 0.2s; }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active { background: linear-gradient(180deg, #F472B6, #EA1E7C); color: #fff; box-shadow: 0 2px 8px rgba(234,30,124,0.4), inset 0 1px 0 rgba(255,255,255,0.3); }
+
+  .options-bar { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .opt-group { display: flex; align-items: center; background: #f4f5f7; padding: 3px 8px; border-radius: 8px; gap: 6px; font-weight: 800; font-size: 13px; color: #555; }
+  .opt-btn {
+    border: none; background: linear-gradient(180deg, #38bdf8, #0ea5e9); color: #fff; width: 22px; height: 22px;
+    border-radius: 6px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 0 #0369a1; transition: all 0.08s;
+  }
+  .opt-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #0369a1; }
+
+  .text-btn {
+    background: linear-gradient(180deg, #fde68a, #f59e0b); border: 2px solid #d97706; color: #78350f;
+    padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: all 0.15s; box-shadow: 0 3px 0 #b45309;
+  }
+  .text-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #b45309; }
+  .text-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #b45309; }
+
+  /* MIDDLE ZONE (2/3) */
+  #middleZone {
+    flex: 1;
+    position: relative;
+    background: var(--board-bg);
+    overflow: hidden;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #middleZone:active { cursor: grabbing; }
+
+  #gameStage {
+    position: absolute;
+    transform-origin: center center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--radius);
+    background: rgba(255,255,255,0.45);
+  }
+
+  /* Mode 1 Specific */
+  #puzzleTarget {
+    font-size: 64px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-left: 20px;
+    padding: 20px;
+    background: rgba(255,255,255,0.7);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  }
+
+  /* Mode 2 Specific */
+  #mode2Container { display: none; width: 100%; height: 100%; padding: 20px; gap: 20px; align-items: stretch; justify-content: space-between; }
+  .team-zone { flex: 1; display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.5); border-radius: var(--radius); padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+  .center-stage { flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+
+  .bingo-board {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px;
+    width: 100%; max-width: 300px; aspect-ratio: 1;
+  }
+  .bingo-cell {
+    background: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 800; cursor: pointer; border: 2px solid transparent; position: relative;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  }
+  .bingo-cell:hover { background: #f0f0f5; }
+  .bingo-cell.marked { background: var(--success); color: #fff; }
+  .bingo-cell.locked { cursor: default; }
+
+  /* BOTTOM ZONE (Compact horizontal calculator bar) */
+  #bottomZone {
+    flex: 0 0 auto;
+    background: var(--panel);
+    border-top: 2px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 20;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.03);
+  }
+  .bank-area {
+    display: flex; flex: 1; gap: 16px; align-items: center; justify-content: center; min-width: 0;
+  }
+  .numbers-bank { display: flex; flex-wrap: nowrap; gap: 10px; justify-content: flex-start; flex: 1; overflow-x: auto; padding: 6px 4px; scrollbar-width: thin; scrollbar-color: #d0d0d5 transparent; }
+  .numbers-bank::-webkit-scrollbar { height: 6px; }
+  .numbers-bank::-webkit-scrollbar-track { background: transparent; }
+  .numbers-bank::-webkit-scrollbar-thumb { background: #d0d0d5; border-radius: 3px; }
+  .operators-bank { display: flex; flex-wrap: nowrap; gap: 10px; justify-content: center; flex-shrink: 0; }
+
+  .card, .op-btn {
+    width: 70px; height: 100px; border-radius: 8px; background: var(--card-bg); color: var(--card-text);
+    display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;
+    box-shadow: var(--shadow); cursor: pointer; transition: transform 0.1s; position: relative; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .card:active, .op-btn:active { transform: scale(0.9); }
+  .card img { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; padding: 8px; }
+
+  .op-btn {
+    width: 58px; height: 58px; border-radius: 12px; font-size: 26px; border: 2px solid;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.08s; flex-shrink: 0; position: relative;
+  }
+  .op-add   { --op-deep: #15803d; background: linear-gradient(180deg, #7be3a0, #22c55e); border-color: var(--op-deep); box-shadow: 0 5px 0 var(--op-deep), 0 7px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .op-sub   { --op-deep: #991b1b; background: linear-gradient(180deg, #fda4af, #ef4444); border-color: var(--op-deep); box-shadow: 0 5px 0 var(--op-deep), 0 7px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .op-mul   { --op-deep: #6b21a8; background: linear-gradient(180deg, #d8b4fe, #a855f7); border-color: var(--op-deep); box-shadow: 0 5px 0 var(--op-deep), 0 7px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .op-div   { --op-deep: #1d4ed8; background: linear-gradient(180deg, #93c5fd, #3b82f6); border-color: var(--op-deep); box-shadow: 0 5px 0 var(--op-deep), 0 7px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .op-paren { --op-deep: #475569; background: linear-gradient(180deg, #cbd5e1, #94a3b8); border-color: var(--op-deep); box-shadow: 0 5px 0 var(--op-deep), 0 7px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); font-size: 24px; }
+  .op-btn:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--op-deep), 0 9px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .op-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--op-deep), 0 3px 6px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+  .stage-op { font-size: 48px; font-weight: 800; color: #777; margin: 0 10px; }
+
+  #runBtn {
+    width: 108px; height: 108px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #f9a8d4, #EA1E7C);
+    border: 4px solid #fff; color: #fff;
+    font-size: 24px; font-weight: 800; cursor: pointer; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 8px 0 #b31560, 0 12px 24px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.5), inset 0 -4px 8px rgba(0,0,0,0.15);
+    transition: all 0.1s;
+  }
+  #runBtn:hover { transform: translateY(-2px); box-shadow: 0 10px 0 #b31560, 0 14px 28px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.5), inset 0 -4px 8px rgba(0,0,0,0.15); }
+  #runBtn:active { transform: translateY(6px); box-shadow: 0 2px 0 #b31560, 0 4px 8px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.5), inset 0 -4px 8px rgba(0,0,0,0.15); }
+
+  .zoom-indicator {
+    position: absolute; bottom: 12px; left: 12px;
+    background: rgba(255,255,255,0.92); border: 1px solid var(--border); color: #666;
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08); z-index: 10; pointer-events: none;
+  }
+  .auto-fit-btn {
+    position: absolute; bottom: 12px; left: 96px;
+    background: linear-gradient(180deg, #4ade80, #22c55e); border: 1px solid #16a34a; color: #fff;
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; z-index: 10;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12); transition: all 0.12s;
+  }
+  .auto-fit-btn:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .auto-fit-btn.off { background: #e2e8f0; border-color: #cbd5e1; color: #64748b; }
+  .help-hint {
+    position: absolute; bottom: 12px; right: 12px;
+    background: rgba(255,255,255,0.92); border: 1px solid var(--border); color: #777;
+    padding: 6px 12px; border-radius: 6px; font-size: 11px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08); z-index: 10; pointer-events: none; line-height: 1.7;
+  }
+  .help-hint kbd { background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-family: monospace; color: #333; }
+
+  /* Effects */
+  .correct-border { border: 4px solid var(--success) !important; box-shadow: 0 0 30px rgba(62, 156, 78, 0.4) !important; }
+  @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+  .pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+  /* Confetti & Toast */
+  #toast {
+    position: fixed; left: 50%; bottom: 40vh; transform: translate(-50%, 20px); background: rgba(30,30,40,0.95);
+    color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 16px; font-weight: 700;
+    opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 250;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  #confettiHost { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 280; }
+  .confetti-piece { position: absolute; top: -20px; width: 10px; height: 20px; border-radius: 2px; animation: confFall linear forwards; }
+  @keyframes confFall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(600deg); opacity: 0; } }
+
+  .strike-line {
+    position: absolute; background: var(--accent); z-index: 10; border-radius: 4px; pointer-events: none;
+    box-shadow: 0 0 10px var(--accent); transform-origin: left center;
+  }
+</style>
+</head>
+<body>
+
+<div id="topBar">
+  <div class="logo">🧮 EqBalatro</div>
+  <div class="sep"></div>
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="btnMode1">FIND EQUATION</button>
+    <button class="mode-tab" id="btnMode2">CONNECT 4</button>
+  </div>
+  <div class="sep"></div>
+  <div class="options-bar" id="mode1Options">
+    <div class="opt-group">
+      <span>Min</span>
+      <button class="opt-btn" onclick="adjustOpt('min', -1)">−</button>
+      <span id="val-min">0</span>
+      <button class="opt-btn" onclick="adjustOpt('min', 1)">+</button>
+    </div>
+    <div class="opt-group">
+      <span>Max</span>
+      <button class="opt-btn" onclick="adjustOpt('max', -1)">−</button>
+      <span id="val-max">10</span>
+      <button class="opt-btn" onclick="adjustOpt('max', 1)">+</button>
+    </div>
+    <div class="opt-group">
+      <span>Cards</span>
+      <button class="opt-btn" onclick="adjustOpt('limit', -1)">−</button>
+      <span id="val-limit">3</span>
+      <button class="opt-btn" onclick="adjustOpt('limit', 1)">+</button>
+    </div>
+    <button class="text-btn" id="btnNewPuzzle">🔄 New Puzzle</button>
+  </div>
+  <div class="options-bar" id="mode2Options" style="display:none;">
+    <button class="btn" id="btnCleanAll">🧹 Clean All</button>
+    <button class="btn" id="btnLockToggle">🔓 Unlocked</button>
+  </div>
+</div>
+
+<div id="middleZone">
+  <div id="gameStage">
+    <div id="equationArea" style="display:flex; align-items:center;"></div>
+    <div id="puzzleTarget">= 9</div>
+  </div>
+  <div class="zoom-indicator" id="zoomIndicator">ZOOM 100%</div>
+  <button class="auto-fit-btn" id="btnAutoFit">🔒 Auto-Fit</button>
+  <div class="help-hint"><kbd>Click card</kbd> Remove &nbsp; <b>Auto-Fit</b> keeps everything visible &nbsp; toggle bottom-left for <kbd>Wheel</kbd> Zoom / <kbd>Right-drag</kbd> Pan</div>
+
+  <div id="mode2Container">
+    <div class="team-zone">
+      <h2>Team 1</h2>
+      <div class="bingo-board" id="boardT1"></div>
+      <div id="linesT1" style="margin-top:10px; color:var(--accent); font-weight:bold;">Lines: 0/3</div>
+    </div>
+    <div class="center-stage">
+      <div id="m2TurnInfo" style="font-size:24px; font-weight:800; margin-bottom:20px;">Setup Phase</div>
+      <div id="m2EquationArea" style="display:flex; align-items:center; transform: scale(0.8);"></div>
+      <div id="m2Result" style="font-size:48px; font-weight:800; color:var(--success); margin-top:20px;"></div>
+      <button class="btn" id="btnNextTurn" style="display:none; margin-top:20px; padding:15px 30px; font-size:20px;">Next Turn ➔</button>
+      <button class="btn" id="btnRestartM2" style="display:none; margin-top:20px; padding:15px 30px; font-size:20px;">Restart Mode 2</button>
+    </div>
+    <div class="team-zone">
+      <h2>Team 2</h2>
+      <div class="bingo-board" id="boardT2"></div>
+      <div id="linesT2" style="margin-top:10px; color:var(--accent); font-weight:bold;">Lines: 0/3</div>
+    </div>
+  </div>
+</div>
+
+<div id="bottomZone">
+  <div class="bank-area">
+    <div class="numbers-bank" id="numbersBank"></div>
+    <div class="operators-bank">
+      <div class="op-btn op-add" data-val="+">➕</div>
+      <div class="op-btn op-sub" data-val="-">➖</div>
+      <div class="op-btn op-mul" data-val="*">✖️</div>
+      <div class="op-btn op-div" data-val="/">➗</div>
+      <div class="op-btn op-paren" data-val="(">(</div>
+      <div class="op-btn op-paren" data-val=")">)</div>
+    </div>
+  </div>
+  <button id="runBtn">🏃<br>RUN</button>
+</div>
+
+<div id="toast"></div>
+<div id="confettiHost"></div>
+
+<script>
+let currentMode = 1;
+let equationTokens = [];
+let targetNumber = 9;
+let config = { min: 0, max: 10, limit: 3 };
+
+const middleZone = document.getElementById('middleZone');
+const gameStage = document.getElementById('gameStage');
+const equationArea = document.getElementById('equationArea');
+const numbersBank = document.getElementById('numbersBank');
+const toastEl = document.getElementById('toast');
+const confettiHost = document.getElementById('confettiHost');
+
+for(let i=0; i<=9; i++) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.val = i;
+  card.dataset.type = 'number';
+  card.innerHTML = `<img src="./number/${i}.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span style="display:none;">${i}</span>`;
+  card.addEventListener('click', () => addToken({ type: 'number', val: i }));
+  numbersBank.appendChild(card);
+}
+
+document.querySelectorAll('.op-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    let val = e.target.dataset.val;
+    addToken({ type: 'operator', val: val, display: e.target.innerText });
+  });
+});
+
+function adjustOpt(key, delta) {
+  if (key === 'min') config.min = Math.max(-50, Math.min(config.max - 1, config.min + delta));
+  if (key === 'max') config.max = Math.max(config.min + 1, Math.min(50, config.max + delta));
+  if (key === 'limit') config.limit = Math.max(1, Math.min(10, config.limit + delta));
+  const el = document.getElementById('val-' + key);
+  if (el) el.innerText = config[key];
+  if (currentMode === 1) generateNewPuzzle();
+}
+
+function addToken(token) {
+  if (currentMode === 1) {
+    const limit = config.limit;
+    const numCards = equationTokens.filter(t => t.type === 'number').length;
+    if (token.type === 'number' && numCards >= limit) {
+      showToast(`Limit reached (${limit} cards)`);
+      return;
+    }
+  } else if (currentMode === 2 && m2State !== 'PLAYING') {
+    return;
+  }
+
+  token.id = Date.now() + Math.random();
+  equationTokens.push(token);
+  renderEquation();
+}
+
+function removeToken(id) {
+  equationTokens = equationTokens.filter(t => t.id !== id);
+  renderEquation();
+}
+
+function renderEquation() {
+  const targetArea = currentMode === 1 ? equationArea : document.getElementById('m2EquationArea');
+  targetArea.innerHTML = '';
+
+  equationTokens.forEach(token => {
+    if (token.type === 'number') {
+      const card = document.createElement('div');
+      card.className = 'card pop-in';
+      card.style.margin = '0 5px';
+      card.innerHTML = `<img src="./number/${token.val}.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span style="display:none;">${token.val}</span>`;
+
+      card.addEventListener('contextmenu', (e) => { e.preventDefault(); removeToken(token.id); });
+      card.addEventListener('click', () => { removeToken(token.id); });
+      targetArea.appendChild(card);
+    } else {
+      const op = document.createElement('div');
+      op.className = 'stage-op pop-in';
+      op.innerText = token.display || token.val;
+      op.addEventListener('contextmenu', (e) => { e.preventDefault(); removeToken(token.id); });
+      op.addEventListener('click', () => { removeToken(token.id); });
+      targetArea.appendChild(op);
+    }
+  });
+
+  autoScaleStage();
+}
+
+function evaluateTokens() {
+  if (equationTokens.length === 0) return null;
+  let str = equationTokens.map(t => t.val).join('');
+  try {
+    let result = new Function(`return ${str}`)();
+    if (!isFinite(result)) return null;
+    return result;
+  } catch(e) {
+    return null;
+  }
+}
+
+let scale = 1, panX = 0, panY = 0;
+let isPanning = false, startX, startY, startPanX, startPanY;
+let autoFit = true;
+let fitTween = null, tweenRunning = false;
+
+middleZone.addEventListener('wheel', e => {
+  if (autoFit) return;
+  e.preventDefault();
+  const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+  scale = Math.max(0.3, Math.min(scale * zoomFactor, 3));
+  updateTransform();
+  updateZoomIndicator();
+});
+
+middleZone.addEventListener('mousedown', e => {
+  if (autoFit) return;
+  if (e.button === 2 || e.altKey) {
+    e.preventDefault();
+    isPanning = true;
+    startX = e.clientX; startY = e.clientY;
+    startPanX = panX; startPanY = panY;
+  }
+});
+
+document.addEventListener('mousemove', e => {
+  if (isPanning) {
+    panX = startPanX + (e.clientX - startX);
+    panY = startPanY + (e.clientY - startY);
+    updateTransform();
+  }
+});
+
+document.addEventListener('mouseup', () => { isPanning = false; });
+middleZone.addEventListener('contextmenu', e => e.preventDefault());
+
+function updateTransform() {
+  gameStage.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+}
+
+function updateZoomIndicator() {
+  const zi = document.getElementById('zoomIndicator');
+  if (zi) zi.innerText = `ZOOM ${Math.round(scale * 100)}%`;
+}
+
+function autoScaleStage() {
+  if (!autoFit || currentMode !== 1) return;
+  const vw = middleZone.clientWidth;
+  const vh = middleZone.clientHeight;
+  const cw = gameStage.clientWidth;
+  const ch = gameStage.clientHeight;
+  if (cw <= 0 || ch <= 0) return;
+
+  const padX = 48, padY = 48;
+  const fitZoom = Math.max(0.2, Math.min(3, Math.min((vw - padX) / cw, (vh - padY) / ch)));
+  const target = { zoom: fitZoom, x: 0, y: 0 };
+
+  const deltaZoom = Math.abs(target.zoom - scale);
+  if (deltaZoom < 0.01) {
+    scale = target.zoom; panX = 0; panY = 0;
+    updateTransform();
+    updateZoomIndicator();
+    return;
+  }
+
+  fitTween = {
+    start: performance.now(),
+    duration: 400,
+    from: { x: panX, y: panY, zoom: scale },
+    to: target
+  };
+  if (!tweenRunning) { tweenRunning = true; requestAnimationFrame(tweenLoop); }
+}
+
+function tweenLoop(now) {
+  if (!fitTween) { tweenRunning = false; return; }
+  const t = Math.min(1, (now - fitTween.start) / fitTween.duration);
+  const eased = 1 - Math.pow(1 - t, 3);
+  scale = fitTween.from.zoom + (fitTween.to.zoom - fitTween.from.zoom) * eased;
+  panX = fitTween.from.x + (fitTween.to.x - fitTween.from.x) * eased;
+  panY = fitTween.from.y + (fitTween.to.y - fitTween.from.y) * eased;
+  updateTransform();
+  updateZoomIndicator();
+  if (t >= 1) { fitTween = null; tweenRunning = false; return; }
+  requestAnimationFrame(tweenLoop);
+}
+
+function initMode1() {
+  currentMode = 1;
+  document.getElementById('btnMode1').classList.add('active');
+  document.getElementById('btnMode2').classList.remove('active');
+  document.getElementById('mode1Options').style.display = 'flex';
+  document.getElementById('mode2Options').style.display = 'none';
+  gameStage.style.display = 'flex';
+  document.getElementById('mode2Container').style.display = 'none';
+
+  equationTokens = [];
+  generateNewPuzzle();
+}
+
+function generateNewPuzzle() {
+  const min = config.min;
+  const max = config.max;
+  targetNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+
+  const pt = document.getElementById('puzzleTarget');
+  const digits = String(targetNumber).split('');
+  pt.innerHTML = `<span style="display:flex; align-items:center; gap:8px;">
+    <span style="font-size:64px; font-weight:800; color:var(--accent);">=</span>
+    ${digits.map(d => `<div class="card pop-in">
+      <img src="./number/${d}.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span style="display:none;">${d}</span>
+    </div>`).join('')}
+  </span>`;
+  document.getElementById('gameStage').classList.remove('correct-border');
+
+  equationTokens = [];
+  renderEquation();
+}
+
+document.getElementById('runBtn').addEventListener('click', () => {
+  if (currentMode === 1) {
+    let result = evaluateTokens();
+    if (result === null) {
+      showToast("Invalid Equation!");
+    } else if (result === targetNumber) {
+      document.getElementById('gameStage').classList.add('correct-border');
+      launchConfetti();
+      showToast("Correct! Loading next...");
+      setTimeout(() => { generateNewPuzzle(); }, 2000);
+    } else {
+      showToast(`Result was ${result}, need ${targetNumber}`);
+    }
+  } else if (currentMode === 2) {
+    handleMode2Run();
+  }
+});
+
+let m2State = 'SETUP';
+let m2Turn = 1;
+let boards = { 1: Array(16).fill(null), 2: Array(16).fill(null) };
+let marked = { 1: Array(16).fill(false), 2: Array(16).fill(false) };
+let recentlyCleared = { 1: 1, 2: 1 };
+
+function initMode2() {
+  currentMode = 2;
+  document.getElementById('btnMode2').classList.add('active');
+  document.getElementById('btnMode1').classList.remove('active');
+  document.getElementById('mode1Options').style.display = 'none';
+  document.getElementById('mode2Options').style.display = 'flex';
+  gameStage.style.display = 'none';
+  document.getElementById('mode2Container').style.display = 'flex';
+
+  resetMode2();
+}
+
+function resetMode2() {
+  m2State = 'SETUP'; m2Turn = 1;
+  boards = { 1: Array(16).fill(null), 2: Array(16).fill(null) };
+  marked = { 1: Array(16).fill(false), 2: Array(16).fill(false) };
+  recentlyCleared = { 1: 1, 2: 1 };
+
+  document.getElementById('btnLockToggle').innerText = '🔓 Unlocked';
+  document.getElementById('btnLockToggle').style.background = '#aaa';
+  document.getElementById('btnLockToggle').style.color = '#fff';
+  document.getElementById('btnCleanAll').disabled = false;
+
+  document.getElementById('m2TurnInfo').innerText = "Setup Phase: Mark 1-16";
+  document.getElementById('m2Result').innerText = "";
+  document.getElementById('btnNextTurn').style.display = 'none';
+  document.getElementById('btnRestartM2').style.display = 'none';
+
+  equationTokens = []; renderEquation();
+  renderBingoBoards();
+}
+
+function renderBingoBoards() {
+  [1, 2].forEach(team => {
+    const container = document.getElementById(`boardT${team}`);
+    container.innerHTML = '';
+
+    const lines = container.querySelectorAll('.strike-line');
+    lines.forEach(l => l.remove());
+    document.getElementById(`linesT${team}`).innerText = `Lines: ${checkWinLines(team)}/3`;
+
+    for(let i=0; i<16; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'bingo-cell';
+      if (boards[team][i] !== null) cell.innerText = boards[team][i];
+      if (marked[team][i]) cell.classList.add('marked');
+      if (m2State === 'PLAYING') cell.classList.add('locked');
+
+      cell.addEventListener('click', () => handleCellClick(team, i));
+      container.appendChild(cell);
+    }
+  });
+}
+
+function handleCellClick(team, index) {
+  if (m2State !== 'SETUP') return;
+
+  if (boards[team][index] !== null) {
+    recentlyCleared[team] = boards[team][index];
+    boards[team][index] = null;
+  } else {
+    let target = recentlyCleared[team];
+    while (boards[team].includes(target) && target <= 16) { target++; }
+    if (target > 16) return showToast(`Team ${team} board full!`);
+    boards[team][index] = target;
+    recentlyCleared[team] = target + 1;
+  }
+  renderBingoBoards();
+}
+
+document.getElementById('btnCleanAll').addEventListener('click', () => {
+  if (m2State === 'SETUP') {
+    boards = { 1: Array(16).fill(null), 2: Array(16).fill(null) };
+    recentlyCleared = { 1: 1, 2: 1 };
+    renderBingoBoards();
+  }
+});
+
+document.getElementById('btnLockToggle').addEventListener('click', (e) => {
+  if (m2State === 'PLAYING') return;
+
+  let b1Ready = !boards[1].includes(null);
+  let b2Ready = !boards[2].includes(null);
+
+  if (!b1Ready || !b2Ready) {
+    showToast("Both boards must be filled 1-16!");
+    return;
+  }
+
+  m2State = 'PLAYING';
+  e.target.innerText = '🔒 Locked';
+  e.target.style.background = 'var(--accent)';
+  document.getElementById('btnCleanAll').disabled = true;
+  document.getElementById('m2TurnInfo').innerText = `Team 1's Turn`;
+
+  renderBingoBoards();
+});
+
+function handleMode2Run() {
+  if (m2State !== 'PLAYING') return showToast("Lock boards to start!");
+  if (equationTokens.length === 0) return;
+
+  let result = evaluateTokens();
+  if (result === null || result % 1 !== 0 || result < 1 || result > 16) {
+    showToast(`Result ${result} invalid. Must be integer 1-16.`);
+    return;
+  }
+
+  document.getElementById('m2Result').innerText = `= ${result}`;
+
+  [1, 2].forEach(team => {
+    let idx = boards[team].indexOf(result);
+    if (idx !== -1 && !marked[team][idx]) {
+      marked[team][idx] = true;
+    }
+  });
+
+  renderBingoBoards();
+  checkAndDrawLines();
+
+  document.getElementById('runBtn').style.pointerEvents = 'none';
+
+  let p1Lines = checkWinLines(1);
+  let p2Lines = checkWinLines(2);
+
+  if (p1Lines >= 3 || p2Lines >= 3) {
+    let winner = p1Lines >= 3 && p2Lines >= 3 ? "Draw!" : (p1Lines >= 3 ? "Team 1 Wins!" : "Team 2 Wins!");
+    document.getElementById('m2TurnInfo').innerText = winner;
+    document.getElementById('m2TurnInfo').style.color = "var(--success)";
+    document.getElementById('m2TurnInfo').style.fontSize = "40px";
+    launchConfetti();
+    document.getElementById('btnRestartM2').style.display = 'block';
+  } else {
+    document.getElementById('btnNextTurn').style.display = 'block';
+  }
+}
+
+document.getElementById('btnNextTurn').addEventListener('click', () => {
+  equationTokens = []; renderEquation();
+  document.getElementById('m2Result').innerText = '';
+  document.getElementById('btnNextTurn').style.display = 'none';
+  document.getElementById('runBtn').style.pointerEvents = 'auto';
+
+  m2Turn = m2Turn === 1 ? 2 : 1;
+  document.getElementById('m2TurnInfo').innerText = `Team ${m2Turn}'s Turn`;
+});
+
+document.getElementById('btnRestartM2').addEventListener('click', () => {
+  document.getElementById('runBtn').style.pointerEvents = 'auto';
+  document.getElementById('m2TurnInfo').style.color = "var(--text)";
+  document.getElementById('m2TurnInfo').style.fontSize = "24px";
+  resetMode2();
+});
+
+function checkWinLines(team) {
+  let grid = marked[team];
+  let lines = 0;
+
+  for(let i=0; i<4; i++) {
+    if (grid[i*4] && grid[i*4+1] && grid[i*4+2] && grid[i*4+3]) lines++;
+  }
+  for(let i=0; i<4; i++) {
+    if (grid[i] && grid[i+4] && grid[i+8] && grid[i+12]) lines++;
+  }
+  if (grid[0] && grid[5] && grid[10] && grid[15]) lines++;
+  if (grid[3] && grid[6] && grid[9] && grid[12]) lines++;
+
+  return lines;
+}
+
+function checkAndDrawLines() {
+  [1, 2].forEach(team => {
+    document.getElementById(`linesT${team}`).innerText = `Lines: ${checkWinLines(team)}/3`;
+  });
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+
+function launchConfetti() {
+  const colors = ["#EA1E7C","#FFC94D","#4CAF50","#3F8EFA","#E0554A"];
+  for (let i=0; i<50; i++) {
+    const p = document.createElement("div");
+    p.className = "confetti-piece";
+    p.style.left = Math.random() * 100 + "%";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 0.4) + "s";
+    p.style.animationDuration = (1.6 + Math.random() * 1.2) + "s";
+    confettiHost.appendChild(p);
+    setTimeout(() => p.remove(), 3200);
+  }
+}
+
+document.getElementById('btnMode1').addEventListener('click', initMode1);
+document.getElementById('btnMode2').addEventListener('click', initMode2);
+document.getElementById('btnNewPuzzle').addEventListener('click', () => {
+  if (currentMode === 1) generateNewPuzzle();
+});
+
+const btnAutoFit = document.getElementById('btnAutoFit');
+btnAutoFit.addEventListener('click', () => {
+  autoFit = !autoFit;
+  btnAutoFit.classList.toggle('off', !autoFit);
+  btnAutoFit.innerText = autoFit ? '🔒 Auto-Fit' : '🔓 Manual';
+  if (autoFit) {
+    fitTween = null;
+    autoScaleStage();
+  }
+});
+
+window.addEventListener('resize', () => { if (autoFit) autoScaleStage(); });
+
+initMode1();
+</script>
+</body>
+</html>
