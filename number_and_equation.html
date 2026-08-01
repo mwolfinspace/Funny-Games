@@ -433,7 +433,18 @@ document.addEventListener('keydown', e => {
     if (equationTokens.length) removeToken(equationTokens[equationTokens.length - 1].id);
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    if (currentMode === 2 && m2State === 'PLAYING' && !m2Winner && document.getElementById('m2Result').innerText !== '') {
+    if (currentMode === 1) {
+      const nextBtn = document.getElementById('btnNextPuzzle');
+      if (nextBtn.style.display !== 'none') {
+        if (!nextPuzzleTmo) {
+          const wait = Math.max(0, confettiEnd - performance.now());
+          if (wait > 0) showToast("Next puzzle coming...");
+          nextPuzzleTmo = setTimeout(() => { nextPuzzleTmo = null; generateNewPuzzle(); }, wait);
+        }
+      } else {
+        document.getElementById('runBtn').click();
+      }
+    } else if (currentMode === 2 && m2State === 'PLAYING' && !m2Winner && document.getElementById('m2Result').innerText !== '') {
       advanceTurn();
     } else {
       document.getElementById('runBtn').click();
@@ -620,6 +631,7 @@ function initMode1() {
 }
 
 function generateNewPuzzle() {
+  if (nextPuzzleTmo) { clearTimeout(nextPuzzleTmo); nextPuzzleTmo = null; }
   const min = config.min;
   const max = config.max;
   targetNumber = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -942,8 +954,11 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
 }
 
+let confettiEnd = 0;
+let nextPuzzleTmo = null;
 function launchConfetti() {
   const colors = ["#EA1E7C","#FFC94D","#4CAF50","#3F8EFA","#E0554A"];
+  confettiEnd = performance.now() + 3200;
   for (let i=0; i<50; i++) {
     const p = document.createElement("div");
     p.className = "confetti-piece";
