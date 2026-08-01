@@ -305,6 +305,8 @@
   .correct-border { border: 4px solid var(--success) !important; box-shadow: 0 0 30px rgba(62, 156, 78, 0.4) !important; }
   @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
   .pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  @keyframes popOut { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
+  .pop-out { animation: popOut 0.22s ease-in forwards; }
 
   /* Confetti & Toast */
   #toast {
@@ -478,6 +480,7 @@ document.getElementById('btnLimitMode').addEventListener('click', () => {
   if (limitMode) {
     equationTokens = [];
     renderEquation();
+    requestAnimationFrame(autoScaleStage);
     showToast("Limit mode: use 1, 2, 4, 8 — each once!");
   } else {
     showToast("Limit mode off — board reset to setup.");
@@ -581,31 +584,61 @@ function removeToken(id) {
   renderEquation();
 }
 
+function createTokenEl(token) {
+  if (token.type === 'number') {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.id = token.id;
+    card.style.margin = '0 5px';
+    card.innerHTML = `<img src="./number/${token.val}.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span style="display:none;">${token.val}</span>`;
+
+    card.addEventListener('contextmenu', (e) => { e.preventDefault(); removeToken(token.id); });
+    card.addEventListener('click', () => { removeToken(token.id); });
+    return card;
+  }
+  const op = document.createElement('div');
+  op.className = 'stage-op';
+  op.dataset.id = token.id;
+  op.innerText = token.display || token.val;
+  op.addEventListener('contextmenu', (e) => { e.preventDefault(); removeToken(token.id); });
+  op.addEventListener('click', () => { removeToken(token.id); });
+  return op;
+}
+
 function renderEquation() {
   const targetArea = currentMode === 1 ? equationArea : document.getElementById('m2EquationArea');
-  targetArea.innerHTML = '';
+  const idSet = new Set(equationTokens.map(t => t.id));
+  const order = new Map(equationTokens.map((t, i) => [t.id, i]));
 
-  equationTokens.forEach(token => {
-    if (token.type === 'number') {
-      const card = document.createElement('div');
-      card.className = 'card pop-in';
-      card.style.margin = '0 5px';
-      card.innerHTML = `<img src="./number/${token.val}.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><span style="display:none;">${token.val}</span>`;
-
-      card.addEventListener('contextmenu', (e) => { e.preventDefault(); removeToken(token.id); });
-      card.addEventListener('click', () => { removeToken(token.id); });
-      targetArea.appendChild(card);
-    } else {
-      const op = document.createElement('div');
-      op.className = 'stage-op pop-in';
-      op.innerText = token.display || token.val;
-      op.addEventListener('contextmenu', (e) => { e.preventDefault(); removeToken(token.id); });
-      op.addEventListener('click', () => { removeToken(token.id); });
-      targetArea.appendChild(op);
+  Array.from(targetArea.children).forEach(child => {
+    if (!idSet.has(parseFloat(child.dataset.id))) {
+      child.classList.remove('pop-in');
+      child.classList.add('pop-out');
+      const done = () => child.remove();
+      child.addEventListener('animationend', done, { once: true });
+      setTimeout(done, 300);
     }
   });
 
-  autoScaleStage();
+  const byId = new Map(Array.from(targetArea.children).map(c => [parseFloat(c.dataset.id), c]));
+  let prev = null;
+  equationTokens.forEach(token => {
+    let el = byId.get(token.id);
+    if (!el) {
+      el = createTokenEl(token);
+      el.classList.add('pop-in');
+      byId.set(token.id, el);
+    }
+    if (prev) {
+      if (el.previousElementSibling !== prev) {
+        prev.parentNode.insertBefore(el, prev.nextSibling);
+      }
+    } else if (targetArea.firstElementChild !== el) {
+      targetArea.insertBefore(el, targetArea.firstChild);
+    }
+    prev = el;
+  });
+
   applyBankState();
 }
 
@@ -746,6 +779,7 @@ function generateNewPuzzle() {
 
   equationTokens = [];
   renderEquation();
+  requestAnimationFrame(autoScaleStage);
 }
 
 document.getElementById('resetBtn').addEventListener('click', () => {
@@ -811,6 +845,7 @@ function resetMode2() {
 
   equationTokens = []; renderEquation();
   renderMode2();
+  requestAnimationFrame(autoScaleStage);
 }
 
 function renderMode2() {
