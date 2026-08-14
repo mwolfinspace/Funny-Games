@@ -1429,8 +1429,8 @@ function renderPillPanel() {
   container.appendChild(uRow);
 
   const lockBtn = document.getElementById('btnLock');
-  lockBtn.style.display = State.mode === 2 ? 'flex' : 'none';
-  if (State.mode === 2) {
+  lockBtn.style.display = (State.mode === 2 || State.mode === 3) ? 'flex' : 'none';
+  if (State.mode === 2 || State.mode === 3) {
     lockBtn.classList.toggle('locked', State.meaningsLocked);
     lockBtn.textContent = State.meaningsLocked ? '🔓 Unlock to Edit' : '🔒 Lock Meanings';
   }
@@ -1477,8 +1477,8 @@ function flashPill(sym, action) {
 // ============= SIMULATION =============
 function startPlay() {
   if (State.starts.length === 0) { toast('Add at least one Start marker first', 'warn'); return; }
-  if (State.mode === 2 && !State.meaningsLocked) { toast('Lock your meaning assignments first', 'warn'); return; }
-  if (State.mode === 2 && (!State.meanings.circle || !State.meanings.square || !State.meanings.triangle)) {
+  if ((State.mode === 2 || State.mode === 3) && !State.meaningsLocked) { toast('Lock your meaning assignments first', 'warn'); return; }
+  if ((State.mode === 2 || State.mode === 3) && (!State.meanings.circle || !State.meanings.square || !State.meanings.triangle)) {
     // Check if all symbols on map have meanings
     const present = new Set();
     for (const v of Object.values(State.signs)) if (v && v !== 'uturn') present.add(v);
@@ -2030,7 +2030,7 @@ function loadFromData(data) {
     State.meaningsLocked = false;
   } else if (State.mode === 3) {
     State.meanings = { ...State.answerMeanings };
-    State.meaningsLocked = true;
+    State.meaningsLocked = false;
     // In Mode 3, hide signs (student places them)
     // But keep them in answerMeanings backup
     State.signs = {};
@@ -2063,7 +2063,7 @@ function setMode(mode) {
     info.innerHTML = '<strong>Build the Signs</strong>Meanings and start/end pairs are given. Place signs on intersections to route trucks from starts to matching exits.';
     caption.textContent = 'Build the signs';
     State.meanings = { ...State.answerMeanings };
-    State.meaningsLocked = true;
+    State.meaningsLocked = false;
   }
   resetPlay(); renderBoard(); renderPillPanel(); updatePlayButton(); updateDeviceCaption();
 }
@@ -2098,10 +2098,10 @@ function updateCityCode() {
 function updatePlayButton() {
   const btn = document.getElementById('btnPlay');
   let enabled = State.starts.length > 0;
-  if (State.mode === 2 && !State.meaningsLocked) enabled = false;
+  if ((State.mode === 2 || State.mode === 3) && !State.meaningsLocked) enabled = false;
   btn.disabled = !enabled;
   if (!enabled && State.starts.length === 0) btn.title = 'Add a Start marker first';
-  else if (State.mode === 2 && !State.meaningsLocked) btn.title = 'Lock meanings first';
+  else if ((State.mode === 2 || State.mode === 3) && !State.meaningsLocked) btn.title = 'Lock meanings first';
   else btn.title = 'Play / Pause';
 }
 
@@ -2113,7 +2113,7 @@ function updateDeviceCaption() {
     cap.textContent = `🚚 Trucks rolling... (${pending} active)`;
   } else if (State.starts.length === 0) {
     cap.textContent = 'Place a Start marker to begin';
-  } else if (State.mode === 2 && !State.meaningsLocked) {
+  } else if ((State.mode === 2 || State.mode === 3) && !State.meaningsLocked) {
     cap.textContent = 'Assign meanings, then Lock';
   } else if (State.ends.length === 0 && State.mode === 1) {
     cap.textContent = 'Predict exits by placing End markers';
@@ -2215,7 +2215,7 @@ function quickPlay() {
       State.ends.push({ num: i + 1, gate: pairs[i].end });
     }
     State.signs = {};
-    State.meaningsLocked = true;
+    State.meaningsLocked = false;
   }
 
   // Safety net: a gateway is only in (Start) or out (End), never both
