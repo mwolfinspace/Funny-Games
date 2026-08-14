@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign City — Traffic Deduce</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FBF6EC;
+  --bg-2: #F2EAD3;
+  --card: #FFFFFF;
+  --ink: #2A2520;
+  --ink-2: #6B6358;
+  --muted: #B0A89B;
+  --border: #E8DFC9;
+  --accent: #FF8A4C;
+  --accent-2: #5B8DEF;
+  --good: #43A047;
+  --bad: #E53935;
+  --warn: #F5B301;
+  --road: #FFFFFF;
+  --block-1: #B5DC95;
+  --block-2: #87C263;
+  --block-3: #6BA84A;
+  --sign-yellow: #F5B301;
+  --sign-blue: #2E9BD6;
+  --sign-red: #E0554A;
+  --sign-purple: #8E5DC7;
+  --sign-yellow-light: #FBD98C;
+  --sign-blue-light: #A6D8F0;
+  --sign-red-light: #F3A5A0;
+  --sign-purple-light: #CEB7E8;
+  --device-shell-1: #FFB347;
+  --device-shell-2: #FF8A4C;
+  --device-screen: #FFF8E7;
+  --device-border: #C9601B;
+  --shadow-sm: 0 2px 6px rgba(60,40,20,0.06);
+  --shadow-md: 0 6px 18px rgba(60,40,20,0.10);
+  --shadow-lg: 0 12px 40px rgba(60,40,20,0.14);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255,180,80,0.10), transparent),
+    radial-gradient(ellipse 700px 500px at 110% 110%, rgba(91,141,239,0.08), transparent),
+    linear-gradient(180deg, #FBF6EC 0%, #F4EBD3 100%);
+  color: var(--ink);
+  font-family: 'Baloo 2', system-ui, sans-serif;
+  overflow: hidden;
+  font-size: 14px;
+}
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+/* TOP BAR */
+.top-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px;
+  background: rgba(255,255,255,0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, var(--shadow-sm);
+  z-index: 20; flex-wrap: wrap;
+}
+.brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
+.brand-mark {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, #FFB347, #FF6B35);
+  border-radius: 9px; display: grid; place-items: center;
+  color: white; font-size: 16px;
+  box-shadow: 0 3px 10px rgba(255,138,76,0.45), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.divider { width: 1px; height: 26px; background: var(--border); }
+.pill-group {
+  display: flex; background: rgba(232,223,201,0.55);
+  border-radius: 11px; padding: 3px; gap: 2px;
+}
+.pill-btn {
+  border: 0; background: transparent;
+  padding: 6px 12px; border-radius: 8px;
+  font: 500 12.5px 'Baloo 2'; color: var(--ink-2);
+  cursor: pointer; transition: all 0.18s;
+  white-space: nowrap;
+}
+.pill-btn:hover { color: var(--ink); background: rgba(255,255,255,0.6); }
+.pill-btn.active {
+  background: white; color: var(--accent);
+  font-weight: 600; box-shadow: var(--shadow-sm);
+}
+.toggle-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); user-select: none; }
+.ios-toggle {
+  position: relative; width: 38px; height: 22px;
+  background: #D6CCB5; border-radius: 22px; cursor: pointer;
+  transition: background 0.22s; flex-shrink: 0;
+}
+.ios-toggle.on { background: var(--good); }
+.ios-toggle::after {
+  content: ''; position: absolute;
+  width: 18px; height: 18px; background: white;
+  border-radius: 50%; top: 2px; left: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.22s;
+}
+.ios-toggle.on::after { transform: translateX(16px); }
+.seed-input {
+  border: 1px solid var(--border); background: white;
+  border-radius: 8px; padding: 7px 10px;
+  font: 12px 'JetBrains Mono'; width: 140px; outline: none;
+  transition: border-color 0.15s;
+}
+.seed-input:focus { border-color: var(--accent); }
+.seed-display {
+  font: 11px 'JetBrains Mono'; background: var(--bg-2);
+  border-radius: 7px; padding: 7px 10px; cursor: pointer;
+  color: var(--ink-2); max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.seed-display:hover { background: white; color: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--border); background: white;
+  border-radius: 9px; padding: 7px 11px;
+  font: 500 12.5px 'Baloo 2'; color: var(--ink);
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.icon-btn:hover { background: var(--bg-2); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.icon-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+.icon-btn.primary:hover { background: #FF7028; box-shadow: 0 4px 12px rgba(255,138,76,0.4); }
+
+/* MAIN */
+.main { display: grid; grid-template-columns: 290px 1fr 320px; min-height: 0; position: relative; }
+.canvas-wrap {
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  padding: 70px 20px 90px; overflow: hidden;
+}
+.canvas-stage {
+  position: absolute; inset: 0;
+  transform-origin: 0 0;
+  user-select: none; -webkit-user-select: none;
+  touch-action: none;
+}
+.canvas-stage.panning { cursor: grabbing; }
+#board {
+  display: block;
+  width: 100%;
+  height: calc(100% - 180px);
+  margin-top: 86px;
+  filter: drop-shadow(0 10px 30px rgba(60,40,20,0.12));
+}
+
+/* BUILD TOOLBAR */
+.build-toolbar {
+  position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 3px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 5px;
+  box-shadow: var(--shadow-md);
+  z-index: 8;
+}
+.tool-btn {
+  width: 42px; height: 42px; border: 0;
+  background: transparent; border-radius: 10px;
+  cursor: pointer; display: grid; place-items: center;
+  transition: all 0.15s; position: relative;
+}
+.tool-btn:hover { background: var(--bg-2); }
+.tool-btn.active { transform: scale(0.92); box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+.tool-btn[data-tool="circle"].active { background: var(--sign-yellow-light); }
+.tool-btn[data-tool="square"].active { background: var(--sign-blue-light); }
+.tool-btn[data-tool="triangle"].active { background: var(--sign-red-light); }
+.tool-btn[data-tool="uturn"].active { background: var(--sign-purple-light); }
+.tool-btn[data-tool="start"].active { background: #A8C8F7; }
+.tool-btn[data-tool="end"].active { background: #A4D7A7; }
+.tool-btn[data-tool="erase"].active { background: #B0A89B; }
+.tool-tip {
+  position: absolute; bottom: -28px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10.5px; color: var(--ink-2);
+  background: white; padding: 3px 8px; border-radius: 5px;
+  white-space: nowrap; opacity: 0; pointer-events: none;
+  box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+  transition: opacity 0.15s;
+}
+.tool-btn:hover .tool-tip { opacity: 1; }
+.tool-sep { width: 1px; background: var(--border); margin: 5px 3px; }
+
+/* LEGEND PANEL */
+.legend-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.4));
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-left: 1px solid var(--border);
+  padding: 18px 16px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.legend-panel::-webkit-scrollbar { width: 6px; }
+.legend-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.mode-info {
+  background: white; border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px;
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.55;
+  box-shadow: var(--shadow-sm);
+}
+.mode-info strong { color: var(--ink); display: block; margin-bottom: 5px; font-size: 13.5px; }
+.mode-info .tag {
+  display: inline-block; background: var(--accent); color: white;
+  padding: 1px 7px; border-radius: 5px; font-size: 10px;
+  font-weight: 600; margin-right: 5px; vertical-align: middle;
+}
+
+/* DEVICE */
+.device {
+  background: linear-gradient(180deg, var(--device-shell-1), var(--device-shell-2));
+  border: 3px solid var(--device-border);
+  border-radius: 22px; padding: 13px;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.45),
+    inset 0 -2px 6px rgba(0,0,0,0.18),
+    0 10px 24px rgba(201,96,27,0.32);
+  position: relative;
+}
+.device-top { display: flex; justify-content: space-between; margin-bottom: 9px; padding: 0 4px; }
+.dev-led {
+  width: 11px; height: 11px; border-radius: 50%;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.35), 0 0 8px currentColor;
+}
+.dev-led.red { background: #FF4444; color: #FF4444; animation: ledBlink 2s infinite; }
+.dev-led.green { background: #4CAF50; color: #4CAF50; }
+@keyframes ledBlink { 50% { opacity: 0.4; } }
+.device-screen {
+  background: var(--device-screen);
+  border-radius: 12px; padding: 12px 11px 10px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.09);
+  border: 1px solid rgba(201,96,27,0.2);
+}
+.device-title {
+  font-weight: 700; font-size: 15px; color: var(--ink);
+  text-align: center; margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed rgba(201,96,27,0.25);
+}
+.device-title small {
+  display: block; font-weight: 400; font-size: 10.5px;
+  color: var(--ink-2); margin-top: 3px; letter-spacing: 0.02em;
+}
+.symbol-row {
+  display: flex; align-items: center; gap: 7px; margin-bottom: 7px;
+}
+.symbol-icon { width: 30px; height: 30px; display: grid; place-items: center; flex-shrink: 0; }
+.pills { display: flex; gap: 3px; flex: 1; }
+.pill {
+  flex: 1; border: 1.5px solid var(--border);
+  background: white; border-radius: 7px;
+  padding: 5px 2px; font: 500 10.5px 'Baloo 2';
+  color: var(--ink-2); cursor: pointer; text-align: center;
+  transition: all 0.15s; position: relative; user-select: none;
+  line-height: 1.1;
+}
+.pill:hover { border-color: var(--ink-2); transform: translateY(-1px); }
+.pill.active {
+  background: var(--accent); color: white;
+  border-color: var(--accent); font-weight: 600;
+  box-shadow: 0 2px 7px rgba(255,138,76,0.42);
+}
+.pill.auto-disabled {
+  opacity: 0.32; cursor: not-allowed; background: var(--bg-2);
+  pointer-events: none;
+}
+.pill.auto-disabled::after {
+  content: '✕'; position: absolute; inset: 0;
+  display: grid; place-items: center; color: var(--bad);
+  font-size: 14px; font-weight: 700;
+}
+.pill.scratch {
+  background: white; border: 2px dashed var(--warn);
+  color: var(--ink-2); text-decoration: line-through;
+  text-decoration-color: var(--warn); text-decoration-thickness: 2px;
+}
+.pill.flash {
+  animation: pillFlash 0.5s ease;
+}
+@keyframes pillFlash {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent); }
+  40% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(255,138,76,0.4); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+.pill.uturn-pill {
+  border: 1.5px dashed var(--sign-purple);
+  background: rgba(142,93,199,0.1);
+  color: var(--sign-purple);
+  font-weight: 600;
+  cursor: default;
+}
+.device-caption {
+  background: rgba(201,96,27,0.08); border-radius: 6px;
+  padding: 7px 8px; font: 500 11px 'Baloo 2';
+  color: var(--ink); text-align: center; margin-top: 9px;
+  min-height: 28px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.device-caption.good { background: rgba(67,160,71,0.15); color: var(--good); }
+.device-caption.bad { background: rgba(229,57,53,0.12); color: var(--bad); }
+.device-bottom {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px; padding: 0 6px;
+}
+.dev-eye { font-size: 11px; color: rgba(0,0,0,0.45); }
+.dev-bar {
+  flex: 1; margin: 0 8px; height: 6px;
+  background: rgba(0,0,0,0.18); border-radius: 3px; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+}
+.dev-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 4px rgba(76,175,80,0.6);
+}
+.lock-btn {
+  width: 100%; border: 0;
+  background: var(--ink); color: white;
+  border-radius: 10px; padding: 11px;
+  font: 600 13.5px 'Baloo 2'; cursor: pointer;
+  transition: all 0.15s; display: flex;
+  align-items: center; justify-content: center; gap: 6px;
+}
+.lock-btn:hover { background: var(--ink-2); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.lock-btn.locked { background: var(--good); }
+.lock-btn.locked:hover { background: #2E8B32; }
+.clear-btn {
+  width: 100%; border: 1px solid var(--border);
+  background: white; color: var(--ink-2);
+  border-radius: 10px; padding: 9px;
+  font: 500 12.5px 'Baloo 2'; cursor: pointer;
+  transition: all 0.15s;
+}
+.clear-btn:hover { background: var(--bg-2); color: var(--ink); }
+
+/* PLAY BAR */
+.play-bar {
+  position: absolute; bottom: 18px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px; padding: 8px 12px;
+  box-shadow: var(--shadow-lg);
+  z-index: 8;
+}
+.pb-btn {
+  width: 38px; height: 38px; border: 0;
+  background: var(--bg-2); border-radius: 10px;
+  cursor: pointer; font-size: 16px;
+  display: grid; place-items: center;
+  transition: all 0.15s; color: var(--ink);
+}
+.pb-btn:hover { background: var(--border); }
+.pb-btn.play { background: var(--good); color: white; width: 50px; font-size: 18px; }
+.pb-btn.play:hover { background: #2E8B32; box-shadow: 0 4px 12px rgba(67,160,71,0.4); }
+.pb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pb-btn.pause { background: var(--warn); color: white; width: 50px; }
+.pb-btn.pause:hover { background: #E09E00; }
+.pb-divider { width: 1px; height: 24px; background: var(--border); }
+.pb-readout {
+  font: 500 12px 'JetBrains Mono'; color: var(--ink-2);
+  min-width: 38px; text-align: center;
+}
+.pb-stepper { display: flex; align-items: center; gap: 4px; }
+.pb-stepper button {
+  width: 26px; height: 26px;
+  border: 1px solid var(--border); background: white;
+  border-radius: 6px; cursor: pointer;
+  display: grid; place-items: center; font-size: 14px;
+  color: var(--ink); transition: all 0.15s;
+}
+.pb-stepper button:hover { background: var(--bg-2); }
+.pb-tracks-wrap { display: flex; align-items: center; gap: 8px; }
+.pb-tracks { display: flex; align-items: center; gap: 4px; }
+.pb-track-btn {
+  width: 28px; height: 28px; padding: 0;
+  border: 1.5px solid var(--border); background: var(--bg-2);
+  border-radius: 50%; cursor: pointer;
+  display: grid; place-items: center;
+  font: 700 11px 'Baloo 2'; color: var(--ink-3);
+  transition: all 0.15s; line-height: 1;
+}
+.pb-track-btn:hover { transform: translateY(-1px); }
+.pb-track-btn.off { background: white; border-color: #C7C2B9; color: #9B968C; opacity: 0.85; }
+
+/* TOAST */
+.toast-host {
+  position: fixed; right: 18px; bottom: 18px; left: auto; top: auto;
+  z-index: 200; display: flex; flex-direction: column;
+  align-items: flex-end; gap: 8px; pointer-events: none;
+  max-width: calc(100vw - 36px);
+}
+.toast {
+  background: var(--ink); color: white;
+  border-radius: 10px; padding: 10px 18px;
+  font: 500 13px 'Baloo 2';
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.3s ease, toastOut 0.4s ease 2.7s forwards;
+  pointer-events: auto; max-width: 280px;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.good { background: var(--good); }
+.toast.bad { background: var(--bad); }
+.toast.warn { background: var(--warn); color: var(--ink); }
+@keyframes toastIn { from { transform: translateY(16px); opacity: 0; } }
+@keyframes toastOut { to { transform: translateY(16px); opacity: 0; } }
+
+/* LEFT LOG SIDEBAR (desktop) */
+.log-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.4));
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  min-height: 0; overflow: hidden;
+}
+.log-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  font: 600 12.5px 'Baloo 2'; color: var(--ink-2);
+  flex-shrink: 0;
+}
+.log-actions { display: flex; align-items: center; gap: 6px; }
+.log-btn {
+  border: 0; background: var(--bg-2); border-radius: 7px;
+  padding: 4px 9px; font: 600 12px 'Baloo 2'; color: var(--ink-2);
+  cursor: pointer; transition: all 0.15s;
+}
+.log-btn:hover { background: var(--border); color: var(--ink); }
+.log-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.log-body {
+  overflow-y: auto; padding: 7px 12px;
+  font: 11.5px 'JetBrains Mono'; color: var(--ink-2);
+  display: flex; flex-direction: column; gap: 4px;
+  scrollbar-width: thin; flex: 1; min-height: 0;
+}
+.log-body::-webkit-scrollbar { width: 5px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.log-item { line-height: 1.4; word-break: break-word; }
+.log-item.good { color: #2E8B32; }
+.log-item.bad { color: var(--bad); }
+.log-item.warn { color: #B47D00; }
+.log-item.dim { color: #A8A298; }
+
+/* CONFETTI */
+.confetti-host {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 150; overflow: hidden;
+}
+.confetti-piece {
+  position: absolute; width: 9px; height: 14px;
+  animation: confettiFall 2.8s linear forwards;
+  border-radius: 2px;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(-30px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* MODAL */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(40,30,20,0.45);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  z-index: 300; display: none;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; animation: fadeIn 0.2s; }
+@keyframes fadeIn { from { opacity: 0; } }
+.modal {
+  background: white; border-radius: 18px;
+  padding: 20px; max-width: 820px; width: 100%;
+  max-height: 88vh; display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+}
+@keyframes modalIn { from { transform: scale(0.94); opacity: 0; } }
+.modal-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 14px;
+}
+.modal-header h2 { margin: 0; font-size: 19px; }
+.help-content { overflow-y: auto; padding-right: 6px; }
+.help-content h3 { font-size: 15px; margin: 14px 0 6px; color: var(--accent); }
+.help-content h3:first-child { margin-top: 4px; }
+.help-content p, .help-content ul {
+  font-size: 13px; line-height: 1.65; color: var(--ink-2); margin: 4px 0;
+}
+.help-content ul { padding-left: 22px; }
+.help-content li { margin: 3px 0; }
+.help-content code {
+  background: var(--bg-2); padding: 1px 7px;
+  border-radius: 4px; font-family: 'JetBrains Mono'; font-size: 11.5px;
+}
+.help-content strong { color: var(--ink); }
+
+.export-grid {
+  display: grid; grid-template-columns: 1fr 220px;
+  gap: 16px; flex: 1; min-height: 0;
+}
+.export-preview {
+  background: var(--bg-2); border-radius: 12px;
+  padding: 12px; overflow: auto;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 320px;
+}
+.export-options { display: flex; flex-direction: column; gap: 8px; }
+.export-options label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--ink-2); cursor: pointer;
+  padding: 6px 8px; border-radius: 6px;
+  transition: background 0.15s;
+}
+.export-options label:hover { background: var(--bg-2); }
+.export-options input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* SVG board styles */
+.node-hit { cursor: pointer; }
+.gw-hit { cursor: pointer; }
+.gateway-marker { transition: filter 0.3s; }
+.gateway-marker.correct {
+  animation: gwFlash 0.7s ease-in-out infinite;
+}
+.gateway-marker.correct .gw-bg { fill: #43A047; }
+.gateway-marker.correct .gw-arrow { fill: #43A047; }
+.gateway-marker.correct .gw-badge { fill: #43A047; }
+.gateway-marker.wrong {
+  filter: drop-shadow(0 0 10px #E53935);
+}
+@keyframes gwFlash {
+  0%, 100% { filter: drop-shadow(0 0 8px #43A047); }
+  50% { filter: drop-shadow(0 0 22px #43A047) drop-shadow(0 0 8px #43A047); }
+}
+.track-line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.truck { transition: none; pointer-events: none; }
+
+/* Mobile */
+@media (max-width: 980px) {
+  .main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .legend-panel { border-left: 0; border-top: 1px solid var(--border); max-height: 38vh; }
+  .log-panel { border-right: 0; border-bottom: 1px solid var(--border); max-height: 24vh; }
+  .top-bar { padding: 8px 12px; gap: 8px; }
+  .seed-input { width: 100px; }
+}
+@media (max-width: 640px) {
+  .canvas-wrap { padding: 70px 10px 90px; }
+  .build-toolbar { top: 10px; }
+  .play-bar { padding: 6px 8px; gap: 5px; }
+  .pb-btn { width: 34px; height: 34px; }
+  .pb-btn.play, .pb-btn.pause { width: 44px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top-bar">
+    <div class="brand">
+      <div class="brand-mark">🚦</div>
+      <span>Sign City</span>
+    </div>
+    <div class="divider"></div>
+    <div class="pill-group" id="modeGroup">
+      <button class="pill-btn active" data-mode="1">Predict</button>
+      <button class="pill-btn" data-mode="2">Decode</button>
+      <button class="pill-btn" data-mode="3">Build</button>
+    </div>
+    <div class="divider"></div>
+    <div class="pill-group" id="gridGroup">
+      <button class="pill-btn active" data-grid="2,2">2×2</button>
+      <button class="pill-btn" data-grid="2,3">2×3</button>
+      <button class="pill-btn" data-grid="3,2">3×2</button>
+      <button class="pill-btn" data-grid="3,3">3×3</button>
+    </div>
+    <div class="divider"></div>
+    <label class="toggle-row">Tracks</label>
+    <div class="ios-toggle on" id="tglTracks"></div>
+    <label class="toggle-row">Auto-fit</label>
+    <div class="ios-toggle on" id="tglZoom" title="On: fit map. Off: scroll to zoom, drag to pan"></div>
+    <div class="divider"></div>
+    <input class="seed-input" id="seedInput" placeholder="Paste seed…">
+    <button class="icon-btn" id="btnLoadSeed">📥</button>
+    <div class="seed-display" id="seedDisplay" title="Click to copy">…</div>
+    <div class="divider"></div>
+    <button class="icon-btn primary" id="btnQuickPlay">⚡ Quick Play</button>
+    <button class="icon-btn" id="btnExport">⬇️ Export</button>
+    <button class="icon-btn" id="btnHelp">❓</button>
+  </header>
+
+  <div class="main">
+    <aside class="log-panel">
+      <div class="log-head">
+        <span>📋 Activity Log</span>
+        <div class="log-actions">
+          <button class="log-btn" id="btnUndo" title="Undo (Ctrl+Z)" disabled>↩</button>
+          <button class="log-btn" id="btnRedo" title="Redo (Ctrl+Y)" disabled>↪</button>
+          <button class="log-btn" id="btnLogClear" title="Clear log">🗑</button>
+        </div>
+      </div>
+      <div class="log-body" id="logBody"></div>
+    </aside>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="build-toolbar" id="buildToolbar">
+        <button class="tool-btn" data-tool="circle">
+          <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="#F5B301"/></svg>
+          <span class="tool-tip">Yellow Circle</span>
+        </button>
+        <button class="tool-btn" data-tool="square">
+          <svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="3" width="16" height="16" rx="3" fill="#2E9BD6"/></svg>
+          <span class="tool-tip">Blue Square</span>
+        </button>
+        <button class="tool-btn" data-tool="triangle">
+          <svg width="22" height="22" viewBox="0 0 22 22"><polygon points="11,3 19,18 3,18" fill="#E0554A"/></svg>
+          <span class="tool-tip">Red Triangle</span>
+        </button>
+        <button class="tool-btn" data-tool="uturn">
+          <svg width="22" height="22" viewBox="0 0 22 22"><path d="M5 16 L5 10 Q5 5 11 5 Q17 5 17 10 L17 14 M14 11 L17 14 L20 11" fill="none" stroke="#8E5DC7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="tool-tip">U-turn</span>
+        </button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" data-tool="start">
+          <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" fill="#5B8DEF"/><text x="11" y="15" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Baloo 2">S</text></svg>
+          <span class="tool-tip">Start Gateway</span>
+        </button>
+        <button class="tool-btn" data-tool="end">
+          <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" fill="#E53935"/><text x="11" y="15" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Baloo 2">E</text></svg>
+          <span class="tool-tip">End Gateway</span>
+        </button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" data-tool="erase">
+          <svg width="22" height="22" viewBox="0 0 22 22"><path d="M5 17 L5 13 L13 5 L17 9 L9 17 Z" fill="none" stroke="#6B6358" stroke-width="2" stroke-linejoin="round"/></svg>
+          <span class="tool-tip">Erase</span>
+        </button>
+      </div>
+
+      <div class="canvas-stage" id="canvasStage">
+        <svg id="board" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+
+      <div class="play-bar" id="playBar">
+        <button class="pb-btn" id="btnReset" title="Reset">⏮</button>
+        <button class="pb-btn play" id="btnPlay" title="Play / Pause" disabled>▶</button>
+        <div class="pb-tracks-wrap" id="pbTracksWrap" style="display:none;">
+          <div class="pb-divider"></div>
+          <div class="pb-tracks" id="pbTracks"></div>
+        </div>
+        <div class="pb-divider"></div>
+        <button class="pb-btn" id="btnSpeedDown" title="Slower">🐢</button>
+        <div class="pb-readout" id="speedReadout">1×</div>
+        <button class="pb-btn" id="btnSpeedUp" title="Faster">🐇</button>
+        <div class="pb-divider"></div>
+        <div class="pb-stepper">
+          <button id="btnCarsDown">−</button>
+          <span class="pb-readout" id="carsReadout">🚗</span>
+          <button id="btnCarsUp">+</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="legend-panel">
+      <div class="mode-info" id="modeInfo"></div>
+
+      <div class="device" id="device">
+        <div class="device-top">
+          <div class="dev-led red"></div>
+          <div class="dev-led green"></div>
+        </div>
+        <div class="device-screen">
+          <div class="device-title">
+            City <span id="cityCode">A-22</span>
+            <small id="modeCaption">Predict the exit</small>
+          </div>
+          <div id="symbolRows"></div>
+          <div class="device-caption" id="deviceCaption">Place a Start marker to begin</div>
+        </div>
+        <div class="device-bottom">
+          <span class="dev-eye">👁</span>
+          <div class="dev-bar"><div class="dev-bar-fill" id="devBar"></div></div>
+          <span class="dev-eye">🔊</span>
+        </div>
+      </div>
+
+      <button class="lock-btn" id="btnLock" style="display:none;">🔒 Lock Meanings</button>
+      <button class="clear-btn" id="btnClear">🧹 Clear Tracks & Trucks</button>
+    </aside>
+  </div>
+</div>
+
+<div class="toast-host" id="toastHost"></div>
+
+<div class="confetti-host" id="confettiHost"></div>
+
+<div class="modal-backdrop" id="helpModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🚦 How to Play Sign City</h2>
+      <button class="icon-btn" id="btnCloseHelp">✕</button>
+    </div>
+    <div class="help-content">
+      <h3>🎯 Goal</h3>
+      <p>Trucks enter the city from numbered gateways. Each sign (🟡 🟦 🔺) tells the truck what to do — turn <strong>left</strong>, go <strong>straight</strong>, or turn <strong>right</strong>. Solve the puzzle depending on the mode you're in.</p>
+
+      <h3>🎮 Three Modes</h3>
+      <ul>
+        <li><strong>Mode 1 · Predict the Exit:</strong> Build the map and predict which gateway each truck exits from. Place End markers, then Play to verify.</li>
+        <li><strong>Mode 2 · Decode the Meaning:</strong> The map is set up. Figure out what each sign means. Click pills to assign, right-click to scratch out. Some maps hide a few signs on the route — place the correct ones too. Lock when ready, then Play.</li>
+        <li><strong>Mode 3 · Build the Signs:</strong> Meanings and start/end pairs are given. Place signs on intersections to route trucks correctly.</li>
+      </ul>
+
+      <h3>🛠 Building Tools</h3>
+      <ul>
+        <li>Click a tool above the map to arm it (Yellow, Blue, Red, U-turn, Start, End, Erase).</li>
+        <li>Click on the map to place; right-click to remove.</li>
+        <li>Press <code>Esc</code> or click the active tool again to disarm.</li>
+        <li>Empty intersections = truck goes straight.</li>
+      </ul>
+
+      <h3>💊 Meaning Pills</h3>
+      <ul>
+        <li>Left-click a pill to assign that meaning to the symbol.</li>
+        <li>Right-click to scratch it out — a thinking aid, doesn't affect logic.</li>
+        <li>Each meaning (Left / Straight / Right) is used by exactly one symbol.</li>
+      </ul>
+
+      <h3>🚗 Simulation</h3>
+      <ul>
+        <li>Press <code>▶</code> to launch trucks from each Start gateway in round-robin order.</li>
+        <li>Adjust speed with 🐢 / 🐇 and number of cars with − / +.</li>
+        <li>Track lines appear in each Start's color.</li>
+        <li>Match the End number to the Start number for a correct arrival.</li>
+      </ul>
+
+      <h3>🌱 Seeds</h3>
+      <p>Every map has a seed code. Click the seed display to copy it. Paste into the seed box and click 📥 to recreate the exact puzzle.</p>
+
+      <h3>⌨️ Keyboard</h3>
+      <ul>
+        <li><code>Space</code> — Play / Pause</li>
+        <li><code>R</code> — Reset</li>
+        <li><code>1</code> / <code>2</code> / <code>3</code> — Switch modes</li>
+        <li><code>Esc</code> — Exit current tool</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="exportModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⬇️ Export Map</h2>
+      <button class="icon-btn" id="btnCloseExport">✕</button>
+    </div>
+    <div class="export-grid">
+      <div class="export-preview" id="exportPreview"></div>
+      <div class="export-options">
+        <label><input type="checkbox" id="expSigns" checked> Show signs</label>
+        <label><input type="checkbox" id="expNumbers" checked> Show numbers</label>
+        <label><input type="checkbox" id="expTracks"> Show tracks</label>
+        <label><input type="checkbox" id="expLegend"> Include legend</label>
+        <div class="pb-divider" style="margin: 4px 0;"></div>
+        <button class="icon-btn primary" id="btnSavePng">💾 Save PNG</button>
+        <button class="icon-btn" id="btnSaveSvg">⬇️ Save SVG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============= STATE =============
+const State = {
+  mode: 1,
+  rows: 2, cols: 2,
+  signs: {},
+  meanings: { circle: null, square: null, triangle: null },
+  answerMeanings: { circle: null, square: null, triangle: null },
+  starts: [],
+  ends: [],
+  scratch: { circle: new Set(), square: new Set(), triangle: new Set() },
+  meaningsLocked: false,
+  activeTool: null,
+  tracksVisible: true,
+  autoZoom: true,
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  playing: false,
+  paused: false,
+  speed: 1,
+  numCars: 1,
+  trucks: [],
+  tracks: [],
+  spawnTimer: 0,
+  lastTime: 0,
+  spawnIndex: 0,
+  winShown: false,
+  lastLoopWarn: 0,
+  nextTruckId: 0,
+  cityFromSeed: false,
+  trackOn: {},
+};
+
+const TRACK_COLORS = ['#E0554A','#3F8EFA','#4CAF50','#F5B301','#9B59B6','#16A2A2','#F2884B','#EA1E7C','#6B7A8F','#8BC34A'];
+const SIGN_COLORS = { circle:'#F5B301', square:'#2E9BD6', triangle:'#E0554A', uturn:'#8E5DC7' };
+const HEADINGS = { N:{dx:0,dy:-1}, E:{dx:1,dy:0}, S:{dx:0,dy:1}, W:{dx:-1,dy:0} };
+const HEADING_NEXT = { N:'E', E:'S', S:'W', W:'N' };
+const HEADING_PREV = { N:'W', W:'S', S:'E', E:'N' };
+const HEADING_REV  = { N:'S', S:'N', E:'W', W:'E' };
+
+// ============= SFX (Web Audio, no assets) =============
+const Sfx = {
+  ctx: null,
+  lastTickAt: 0,
+  ensure() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) this.ctx = new AC();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    return this.ctx;
+  },
+  tone(freq, at, dur, type, vol) {
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, at);
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(vol, at + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(at); o.stop(at + dur + 0.02);
+  },
+  // "Tin tin" — two bright notes for a correct arrival
+  ting() {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(1318.5, t, 0.16, 'triangle', 0.2);
+    this.tone(1760, t + 0.09, 0.26, 'triangle', 0.2);
+  },
+  // "Tick" — one short click per intersection interaction
+  tick() {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const now = performance.now();
+    if (now - this.lastTickAt < 55) return;
+    this.lastTickAt = now;
+    this.tone(1560, ctx.currentTime, 0.05, 'square', 0.05);
+  }
+};
+
+// ============= GEOMETRY =============
+const GEO = { U: 110, roadW: 38, stubLen: 62, margin: 44, signR: 17, gwBadge: 17 };
+
+function geoFor(rows, cols) {
+  const U = GEO.U, stub = GEO.stubLen, m = GEO.margin;
+  const boardW = (cols - 1) * U + 2 * stub + 2 * m;
+  const boardH = (rows - 1) * U + 2 * stub + 2 * m;
+  return { U, stub, m, boardW, boardH, originX: m + stub, originY: m + stub };
+}
+function nodePos(r, c) {
+  const g = geoFor(State.rows, State.cols);
+  return { x: g.originX + c * g.U, y: g.originY + r * g.U };
+}
+function gatewayPos(gate) {
+  const g = geoFor(State.rows, State.cols);
+  const side = gate[0]; const idx = parseInt(gate.slice(1)) - 1;
+  if (side === 'L') return { x: g.originX - g.stub, y: g.originY + idx * g.U, dir: 'E', side, idx };
+  if (side === 'R') return { x: g.originX + (State.cols - 1) * g.U + g.stub, y: g.originY + idx * g.U, dir: 'W', side, idx };
+  if (side === 'T') return { x: g.originX + idx * g.U, y: g.originY - g.stub, dir: 'S', side, idx };
+  if (side === 'B') return { x: g.originX + idx * g.U, y: g.originY + (State.rows - 1) * g.U + g.stub, dir: 'N', side, idx };
+}
+function exitGatewayFrom(r, c, heading) {
+  if (heading === 'N' && r === 0) return 'T' + (c + 1);
+  if (heading === 'S' && r === State.rows - 1) return 'B' + (c + 1);
+  if (heading === 'W' && c === 0) return 'L' + (r + 1);
+  if (heading === 'E' && c === State.cols - 1) return 'R' + (r + 1);
+  return null;
+}
+function entryFromGateway(gate) {
+  const g = gatewayPos(gate);
+  if (g.side === 'L') return { r: g.idx, c: 0, heading: 'E' };
+  if (g.side === 'R') return { r: g.idx, c: State.cols - 1, heading: 'W' };
+  if (g.side === 'T') return { r: 0, c: g.idx, heading: 'S' };
+  if (g.side === 'B') return { r: State.rows - 1, c: g.idx, heading: 'N' };
+}
+function getAllGateways() {
+  const list = [];
+  for (let r = 1; r <= State.rows; r++) { list.push('L' + r); list.push('R' + r); }
+  for (let c = 1; c <= State.cols; c++) { list.push('T' + c); list.push('B' + c); }
+  return list;
+}
+
+// ============= SVG HELPERS =============
+const svg = document.getElementById('board');
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs = {}, parent = svg) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ============= VIEW (ZOOM & PAN) =============
+function applyViewTransform() {
+  const stage = document.getElementById('canvasStage');
+  if (!stage) return;
+  if (State.autoZoom) {
+    State.zoom = 1; State.panX = 0; State.panY = 0;
+    // Clean fit: the compact board (smaller stubs) already renders large
+    stage.style.transformOrigin = '0 0';
+    stage.style.transform = '';
+    stage.classList.remove('panning');
+  } else {
+    stage.style.transformOrigin = '0 0';
+    stage.style.transform = `translate(${State.panX}px, ${State.panY}px) scale(${State.zoom})`;
+  }
+}
+
+function attachViewEvents() {
+  const svgEl = document.getElementById('board');
+  const stage = document.getElementById('canvasStage');
+  if (!svgEl || !stage) return;
+
+  // Scroll / pinch to zoom around the cursor (Auto-fit OFF)
+  svgEl.addEventListener('wheel', e => {
+    if (State.autoZoom) return;
+    e.preventDefault();
+    const wrapRect = document.getElementById('canvasWrap').getBoundingClientRect();
+    const cx = e.clientX - wrapRect.left;
+    const cy = e.clientY - wrapRect.top;
+    const z0 = State.zoom;
+    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    const z1 = Math.min(4, Math.max(0.25, z0 * factor));
+    State.panX = cx - (cx - State.panX) * (z1 / z0);
+    State.panY = cy - (cy - State.panY) * (z1 / z0);
+    State.zoom = z1;
+    applyViewTransform();
+  }, { passive: false });
+
+  // Drag to pan — middle mouse button only (left/right stay for placing/removing)
+  let panDrag = null;
+  const suppressClickOnce = ev => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    svgEl.removeEventListener('click', suppressClickOnce, true);
+  };
+  svgEl.addEventListener('mousedown', e => {
+    if (State.autoZoom) return;
+    if (e.button === 1) e.preventDefault();
+  });
+  svgEl.addEventListener('pointerdown', e => {
+    if (State.autoZoom) return;
+    if (e.pointerType !== 'mouse' || e.button !== 1) return;
+    panDrag = { sx: e.clientX, sy: e.clientY, px: State.panX, py: State.panY, moved: false };
+    stage.classList.add('panning');
+    svgEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  svgEl.addEventListener('pointermove', e => {
+    if (!panDrag) return;
+    const dx = e.clientX - panDrag.sx;
+    const dy = e.clientY - panDrag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 4) panDrag.moved = true;
+    State.panX = panDrag.px + dx;
+    State.panY = panDrag.py + dy;
+    applyViewTransform();
+  });
+  const endPan = () => {
+    if (panDrag && panDrag.moved) svgEl.addEventListener('click', suppressClickOnce, true);
+    panDrag = null;
+    stage.classList.remove('panning');
+  };
+  svgEl.addEventListener('pointerup', endPan);
+  svgEl.addEventListener('pointercancel', endPan);
+
+  // Double-click resets the view (Auto-fit OFF)
+  svgEl.addEventListener('dblclick', e => {
+    if (State.autoZoom) return;
+    State.zoom = 1; State.panX = 0; State.panY = 0;
+    applyViewTransform();
+  });
+
+  window.addEventListener('resize', applyViewTransform);
+}
+
+// ============= GATEWAY SNAP (START / END) =============
+const GATEWAY_SNAP = 56;
+
+function screenToBoard(clientX, clientY) {
+  const pt = svg.createSVGPoint();
+  pt.x = clientX; pt.y = clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  return pt.matrixTransform(ctm.inverse());
+}
+
+function nearestEmptyGateway(clientX, clientY, maxDist) {
+  const bp = screenToBoard(clientX, clientY);
+  if (!bp) return null;
+  let best = null, bestDist = maxDist;
+  for (const gate of getAllGateways()) {
+    if (State.starts.find(s => s.gate === gate) || State.ends.find(e => e.gate === gate)) continue;
+    const p = gatewayPos(gate);
+    const d = Math.hypot(bp.x - p.x, bp.y - p.y);
+    if (d < bestDist) { bestDist = d; best = gate; }
+  }
+  return best;
+}
+
+function nearestGateway(clientX, clientY, maxDist) {
+  const bp = screenToBoard(clientX, clientY);
+  if (!bp) return null;
+  let best = null, bestDist = maxDist;
+  for (const gate of getAllGateways()) {
+    const p = gatewayPos(gate);
+    const d = Math.hypot(bp.x - p.x, bp.y - p.y);
+    if (d < bestDist) { bestDist = d; best = gate; }
+  }
+  return best;
+}
+
+function attachGatewaySnap() {
+  const svgEl = document.getElementById('board');
+  if (!svgEl) return;
+
+  // Click anywhere within snap range places the flag on the nearest empty gateway
+  svgEl.addEventListener('click', e => {
+    if (State.playing || e.button !== 0) return;
+    if (State.activeTool === 'erase') {
+      // Eraser removes Start/End markers by left-click on an occupied gateway
+      const gate = nearestGateway(e.clientX, e.clientY, GATEWAY_SNAP);
+      if (gate) handleGatewayClick(gate);
+    } else if (State.activeTool === 'start' || State.activeTool === 'end') {
+      const gate = nearestEmptyGateway(e.clientX, e.clientY, GATEWAY_SNAP);
+      if (gate) handleGatewayClick(gate);
+    }
+  });
+
+  // Continuous hover highlight along the road (no flicker between tiny hit zones)
+  svgEl.addEventListener('pointermove', e => {
+    if (State.playing) return;
+    if (State.activeTool !== 'start' && State.activeTool !== 'end') return;
+    const gate = nearestEmptyGateway(e.clientX, e.clientY, GATEWAY_SNAP);
+    if (gate) showGhostGateway(gate);
+    else hideGhost();
+  });
+}
+
+// ============= RENDER BOARD =============
+function renderBoard() {
+  const g = geoFor(State.rows, State.cols);
+  svg.setAttribute('viewBox', `0 0 ${g.boardW} ${g.boardH}`);
+  svg.innerHTML = '';
+
+  // Defs
+  const defs = el('defs', {}, null);
+  const rg = el('radialGradient', { id: 'blockGrad', cx: '50%', cy: '45%', r: '70%' }, defs);
+  el('stop', { offset: '0%', 'stop-color': '#C8E6A8' }, rg);
+  el('stop', { offset: '70%', 'stop-color': '#92C26C' }, rg);
+  el('stop', { offset: '100%', 'stop-color': '#6BA84A' }, rg);
+
+  const rg2 = el('radialGradient', { id: 'boardGrad', cx: '50%', cy: '50%', r: '70%' }, defs);
+  el('stop', { offset: '0%', 'stop-color': '#E8F4D9' }, rg2);
+  el('stop', { offset: '100%', 'stop-color': '#D4E8C0' }, rg2);
+
+  svg.appendChild(defs);
+
+  // Board background
+  el('rect', { x: 0, y: 0, width: g.boardW, height: g.boardH, rx: 12, ry: 12, fill: 'url(#boardGrad)' });
+  el('rect', { x: 0.5, y: 0.5, width: g.boardW - 1, height: g.boardH - 1, rx: 11.5, ry: 11.5, fill: 'none', stroke: '#C9601B', 'stroke-width': 1.5, opacity: 0.3 });
+
+  // City blocks (R+1) x (C+1)
+  const blocksG = el('g', { id: 'blocks' });
+  for (let i = 0; i <= State.rows; i++) {
+    for (let j = 0; j <= State.cols; j++) {
+      const cx = g.originX + (j - 0.5) * g.U;
+      const cy = g.originY + (i - 0.5) * g.U;
+      const size = g.U * 0.78;
+      el('rect', {
+        x: cx - size/2, y: cy - size/2, width: size, height: size,
+        rx: 14, ry: 14, fill: 'url(#blockGrad)',
+        opacity: 0.92
+      }, blocksG);
+      // Soft inner highlight
+      el('rect', {
+        x: cx - size/2 + 4, y: cy - size/2 + 4, width: size - 8, height: 6,
+        rx: 3, fill: 'white', opacity: 0.25
+      }, blocksG);
+    }
+  }
+
+  // Roads
+  const roadsG = el('g', { id: 'roads' });
+  // Horizontal roads — run edge-to-edge so they reach the board sides, flat ends
+  for (let r = 0; r < State.rows; r++) {
+    const p = nodePos(r, 0);
+    el('line', { x1: 0, y1: p.y, x2: g.boardW, y2: p.y, stroke: 'white', 'stroke-width': GEO.roadW, 'stroke-linecap': 'butt' }, roadsG);
+    el('line', { x1: 6, y1: p.y, x2: g.boardW - 6, y2: p.y, stroke: '#FFC107', 'stroke-width': 1.5, 'stroke-dasharray': '6 8', opacity: 0.55 }, roadsG);
+  }
+  // Vertical roads — run edge-to-edge so they reach the board sides, flat ends
+  for (let c = 0; c < State.cols; c++) {
+    const p = nodePos(0, c);
+    el('line', { x1: p.x, y1: 0, x2: p.x, y2: g.boardH, stroke: 'white', 'stroke-width': GEO.roadW, 'stroke-linecap': 'butt' }, roadsG);
+    el('line', { x1: p.x, y1: 6, x2: p.x, y2: g.boardH - 6, stroke: '#FFC107', 'stroke-width': 1.5, 'stroke-dasharray': '6 8', opacity: 0.55 }, roadsG);
+  }
+
+  // Tracks layer
+  el('g', { id: 'tracksLayer', 'pointer-events': 'none' });
+
+  // Signs at intersections
+  const signsG = el('g', { id: 'signsLayer' });
+  for (let r = 0; r < State.rows; r++) {
+    for (let c = 0; c < State.cols; c++) {
+      const p = nodePos(r, c);
+      el('circle', { cx: p.x, cy: p.y, r: 28, fill: 'transparent', class: 'node-hit', 'data-r': r, 'data-c': c }, signsG);
+      const sign = State.signs[`${r},${c}`];
+      if (sign) drawSign(signsG, p.x, p.y, sign);
+      else el('circle', { cx: p.x, cy: p.y, r: 4, fill: '#B0A89B', opacity: 0.4, 'pointer-events': 'none' }, signsG);
+    }
+  }
+
+  // Gateway markers
+  const gwG = el('g', { id: 'gatewaysLayer' });
+  drawGateways(gwG);
+
+  // Trucks layer
+  el('g', { id: 'trucksLayer', 'pointer-events': 'none' });
+  // Ghost layer
+  el('g', { id: 'ghostLayer', 'pointer-events': 'none' });
+
+  attachBoardEvents();
+  renderTrackToggles();
+  renderTracks();
+  renderTrucks();
+}
+
+function drawSign(parent, x, y, sign) {
+  const g = el('g', { transform: `translate(${x},${y})`, class: 'sign', 'pointer-events': 'none' }, parent);
+  const color = SIGN_COLORS[sign];
+  // White plate
+  el('circle', { cx: 0, cy: 0, r: GEO.signR + 4, fill: 'white', stroke: color, 'stroke-width': 2.5 }, g);
+  el('circle', { cx: 0, cy: 0, r: GEO.signR + 4, fill: 'none', stroke: 'rgba(0,0,0,0.1)', 'stroke-width': 1 }, g);
+
+  if (sign === 'circle') {
+    el('circle', { cx: 0, cy: 0, r: GEO.signR - 3, fill: color }, g);
+  } else if (sign === 'square') {
+    el('rect', { x: -(GEO.signR-5), y: -(GEO.signR-5), width: (GEO.signR-5)*2, height: (GEO.signR-5)*2, rx: 3, fill: color }, g);
+  } else if (sign === 'triangle') {
+    const s = GEO.signR - 3;
+    el('polygon', { points: `0,${-s} ${s*0.95},${s*0.7} ${-s*0.95},${s*0.7}`, fill: color }, g);
+  } else if (sign === 'uturn') {
+    el('path', { d: 'M -8 8 L -8 -3 Q -8 -10 0 -10 Q 8 -10 8 -3 L 8 3 M 4 0 L 8 4 L 12 0', fill: 'none', stroke: color, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+  }
+  return g;
+}
+
+function drawGateways(parent) {
+  for (const gate of getAllGateways()) {
+    const p = gatewayPos(gate);
+    const start = State.starts.find(s => s.gate === gate);
+    const end = State.ends.find(e => e.gate === gate);
+
+    el('circle', { cx: p.x, cy: p.y, r: 36, fill: 'transparent', class: 'gw-hit', 'data-gate': gate }, parent);
+
+    if (start) drawGatewayMarker(parent, p, start.num, 'start');
+    else if (end) drawGatewayMarker(parent, p, end.num, 'end');
+    else {
+      el('circle', { cx: p.x, cy: p.y, r: 5, fill: 'white', stroke: '#B0A89B', 'stroke-width': 1.5, opacity: 0.6, 'stroke-dasharray': '2 2', 'pointer-events': 'none' }, parent);
+      if (State.activeTool === 'start' || State.activeTool === 'end') {
+        const c = State.activeTool === 'start' ? '#5B8DEF' : '#E53935';
+        el('circle', { cx: p.x, cy: p.y, r: 21, fill: 'none', stroke: c, 'stroke-width': 1.5, opacity: 0.5, 'stroke-dasharray': '4 4', 'pointer-events': 'none' }, parent);
+      }
+    }
+  }
+}
+
+function drawGatewayMarker(parent, p, num, type) {
+  const color = type === 'start' ? '#5B8DEF' : '#E53935';
+  const isInward = type === 'start';
+  const dirVec = HEADINGS[p.dir];
+  const arrowDir = isInward ? dirVec : { dx: -dirVec.dx, dy: -dirVec.dy };
+  const offset = 24;
+  let arrowPos, numPos;
+  if (isInward) {
+    arrowPos = { x: p.x, y: p.y };
+    numPos = { x: p.x - dirVec.dx * offset, y: p.y - dirVec.dy * offset };
+  } else {
+    numPos = { x: p.x, y: p.y };
+    arrowPos = { x: p.x - dirVec.dx * offset, y: p.y - dirVec.dy * offset };
+  }
+
+  const g = el('g', { class: 'gateway-marker', 'data-gate': p.side + (p.idx + 1), 'data-type': type, 'data-num': num, 'pointer-events': 'none' }, parent);
+
+  // Glow background
+  el('circle', { cx: numPos.x, cy: numPos.y, r: GEO.gwBadge + 2, fill: color, opacity: 0.2, class: 'gw-bg' }, g);
+
+  // Arrow
+  const ang = Math.atan2(arrowDir.dy, arrowDir.dx) * 180 / Math.PI;
+  el('path', {
+    d: 'M -10 -7 L 9 0 L -10 7 L -6 0 Z',
+    fill: color, transform: `translate(${arrowPos.x},${arrowPos.y}) rotate(${ang})`,
+    stroke: 'white', 'stroke-width': 1.5, class: 'gw-arrow'
+  }, g);
+
+  // Number badge
+  el('circle', { cx: numPos.x, cy: numPos.y, r: GEO.gwBadge, fill: color, stroke: 'white', 'stroke-width': 2.5, class: 'gw-badge' }, g);
+  el('text', {
+    x: numPos.x, y: numPos.y + 5.5, 'text-anchor': 'middle',
+    'font-family': 'Baloo 2', 'font-size': 16, 'font-weight': 700, fill: 'white'
+  }, g).textContent = num;
+}
+
+// ============= EVENTS =============
+function attachBoardEvents() {
+  svg.querySelectorAll('.node-hit').forEach(n => {
+    n.addEventListener('click', e => {
+      if (!State.activeTool || State.playing) return;
+      handleNodeClick(+n.dataset.r, +n.dataset.c);
+    });
+    n.addEventListener('mouseenter', () => {
+      if (!State.activeTool || State.playing) return;
+      showGhostSign(+n.dataset.r, +n.dataset.c);
+    });
+    n.addEventListener('mouseleave', hideGhost);
+    n.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      if (State.playing) return;
+      const r = +n.dataset.r, c = +n.dataset.c;
+      const key = `${r},${c}`;
+      if (!State.signs[key]) return;
+      recordHistory();
+      const removed = State.signs[key];
+      delete State.signs[key];
+      renderBoard(); updateSeed(); updateDeviceCaption();
+      toast(`🗑 Removed ${SYMBOL_LABEL[removed]} at (${r + 1},${c + 1})`, 'normal');
+    });
+  });
+  svg.querySelectorAll('.gw-hit').forEach(n => {
+    n.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      if (State.playing) return;
+      const gate = n.dataset.gate;
+      const hadStart = State.starts.some(s => s.gate === gate);
+      const hadEnd = State.ends.some(en => en.gate === gate);
+      if (!hadStart && !hadEnd) return;
+      recordHistory();
+      State.starts = State.starts.filter(s => s.gate !== gate);
+      State.ends = State.ends.filter(en => en.gate !== gate);
+      renumberMarkers();
+      renderBoard(); updatePlayButton(); updateSeed(); updateDeviceCaption();
+      toast(`🗑 Removed ${hadStart ? 'Start' : ''}${hadStart && hadEnd ? ' & ' : ''}${hadEnd ? 'End' : ''} at ${gate}`, 'normal');
+    });
+  });
+}
+
+function handleNodeClick(r, c) {
+  const key = `${r},${c}`;
+  const tool = State.activeTool;
+  if (tool === 'erase') {
+    if (!State.signs[key]) return;
+    recordHistory();
+    const removed = State.signs[key];
+    delete State.signs[key];
+    toast(`🧹 Erased ${SYMBOL_LABEL[removed]} at (${r + 1},${c + 1})`, 'normal');
+  } else if (['circle','square','triangle','uturn'].includes(tool)) {
+    if (State.signs[key] === tool) return;
+    recordHistory();
+    State.signs[key] = tool;
+    toast(`${SYMBOL_LABEL[tool]} placed at (${r + 1},${c + 1})`, 'normal');
+  } else return;
+  renderBoard(); updateSeed(); renderPillPanel(); updateDeviceCaption();
+}
+
+function handleGatewayClick(gate) {
+  if (State.activeTool === 'start') {
+    if (State.starts.find(s => s.gate === gate) || State.ends.find(e => e.gate === gate)) return;
+    recordHistory();
+    State.starts.push({ num: State.starts.length + 1, gate });
+    toast(`🚦 Start ${State.starts.length} at ${gate}`, 'normal');
+  } else if (State.activeTool === 'end') {
+    if (State.ends.find(e => e.gate === gate) || State.starts.find(s => s.gate === gate)) return;
+    recordHistory();
+    State.ends.push({ num: State.ends.length + 1, gate });
+    toast(`🏁 End ${State.ends.length} at ${gate}`, 'normal');
+  } else if (State.activeTool === 'erase') {
+    if (!State.starts.find(s => s.gate === gate) && !State.ends.find(e => e.gate === gate)) return;
+    recordHistory();
+    State.starts = State.starts.filter(s => s.gate !== gate);
+    State.ends = State.ends.filter(e => e.gate !== gate);
+    renumberMarkers();
+    toast(`🧹 Cleared markers at ${gate}`, 'normal');
+  } else return;
+  renderBoard(); updatePlayButton(); updateSeed(); updateDeviceCaption();
+}
+
+function renumberMarkers() {
+  State.starts.forEach((s, i) => s.num = i + 1);
+  State.ends.forEach((e, i) => e.num = i + 1);
+}
+
+function showGhostSign(r, c) {
+  if (!['circle','square','triangle','uturn'].includes(State.activeTool)) return;
+  const ghost = document.getElementById('ghostLayer');
+  ghost.innerHTML = '';
+  const p = nodePos(r, c);
+  const g = el('g', { transform: `translate(${p.x},${p.y})`, opacity: 0.4, 'pointer-events': 'none' }, ghost);
+  const color = SIGN_COLORS[State.activeTool];
+  if (State.activeTool === 'circle') el('circle', { cx: 0, cy: 0, r: GEO.signR, fill: color }, g);
+  else if (State.activeTool === 'square') el('rect', { x: -GEO.signR, y: -GEO.signR, width: GEO.signR*2, height: GEO.signR*2, rx: 3, fill: color }, g);
+  else if (State.activeTool === 'triangle') el('polygon', { points: `0,${-GEO.signR} ${GEO.signR*0.95},${GEO.signR*0.7} ${-GEO.signR*0.95},${GEO.signR*0.7}`, fill: color }, g);
+  else if (State.activeTool === 'uturn') el('path', { d: 'M -8 8 L -8 -3 Q -8 -10 0 -10 Q 8 -10 8 -3 L 8 3 M 4 0 L 8 4 L 12 0', fill: 'none', stroke: color, 'stroke-width': 3 }, g);
+  // Dashed ring
+  el('circle', { cx: 0, cy: 0, r: GEO.signR + 8, fill: 'none', stroke: color, 'stroke-width': 1.5, 'stroke-dasharray': '4 3', opacity: 0.6 }, g);
+}
+
+function showGhostGateway(gate) {
+  const ghost = document.getElementById('ghostLayer');
+  ghost.innerHTML = '';
+  if (!['start','end'].includes(State.activeTool)) return;
+  if (State.starts.find(s => s.gate === gate) || State.ends.find(e => e.gate === gate)) return;
+  const p = gatewayPos(gate);
+  const num = State.activeTool === 'start' ? State.starts.length + 1 : State.ends.length + 1;
+  const color = State.activeTool === 'start' ? '#5B8DEF' : '#E53935';
+  const isInward = State.activeTool === 'start';
+  const dirVec = HEADINGS[p.dir];
+  const arrowDir = isInward ? dirVec : { dx: -dirVec.dx, dy: -dirVec.dy };
+  const offset = 24;
+  const numPos = isInward
+    ? { x: p.x - dirVec.dx * offset, y: p.y - dirVec.dy * offset }
+    : { x: p.x, y: p.y };
+  const arrowPos = isInward
+    ? { x: p.x, y: p.y }
+    : { x: p.x - dirVec.dx * offset, y: p.y - dirVec.dy * offset };
+  const ang = Math.atan2(arrowDir.dy, arrowDir.dx) * 180 / Math.PI;
+  // Highlight the entry lane so you can see exactly where the flag will go
+  const entry = entryFromGateway(gate);
+  const ep = nodePos(entry.r, entry.c);
+  el('line', { x1: p.x, y1: p.y, x2: ep.x, y2: ep.y, stroke: color, 'stroke-width': 16, opacity: 0.16, 'stroke-linecap': 'round' }, ghost);
+  el('line', { x1: p.x, y1: p.y, x2: ep.x, y2: ep.y, stroke: color, 'stroke-width': 2.5, opacity: 0.55, 'stroke-linecap': 'round', 'stroke-dasharray': '7 6' }, ghost);
+  el('circle', { cx: numPos.x, cy: numPos.y, r: GEO.gwBadge, fill: color, opacity: 0.45, 'stroke-dasharray': '4 3', stroke: 'white', 'stroke-width': 2 }, ghost);
+  el('path', { d: 'M -9 -6 L 8 0 L -9 6 L -5 0 Z', fill: color, opacity: 0.45, transform: `translate(${arrowPos.x},${arrowPos.y}) rotate(${ang})` }, ghost);
+  el('text', { x: numPos.x, y: numPos.y + 5.5, 'text-anchor': 'middle', 'font-family': 'Baloo 2', 'font-size': 16, 'font-weight': 700, fill: 'white', opacity: 0.75 }, ghost).textContent = num;
+}
+
+function hideGhost() {
+  const g = document.getElementById('ghostLayer');
+  if (g) g.innerHTML = '';
+}
+
+// ============= PILL PANEL =============
+function renderPillPanel() {
+  const container = document.getElementById('symbolRows');
+  container.innerHTML = '';
+  const symbols = ['circle', 'square', 'triangle'];
+
+  for (const sym of symbols) {
+    const row = document.createElement('div');
+    row.className = 'symbol-row';
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'symbol-icon';
+    const color = SIGN_COLORS[sym];
+    let icon = '';
+    if (sym === 'circle') icon = `<circle cx="14" cy="14" r="10" fill="${color}"/>`;
+    else if (sym === 'square') icon = `<rect x="4" y="4" width="20" height="20" rx="3" fill="${color}"/>`;
+    else if (sym === 'triangle') icon = `<polygon points="14,4 24,23 4,23" fill="${color}"/>`;
+    iconWrap.innerHTML = `<svg width="28" height="28" viewBox="0 0 28 28">${icon}</svg>`;
+    row.appendChild(iconWrap);
+
+    const pillsDiv = document.createElement('div');
+    pillsDiv.className = 'pills';
+    for (const action of ['left', 'straight', 'right']) {
+      const pill = document.createElement('div');
+      pill.className = 'pill';
+      pill.dataset.symbol = sym; pill.dataset.action = action;
+      pill.textContent = action === 'left' ? 'Left' : action === 'straight' ? 'Straight' : 'Right';
+
+      if (State.meanings[sym] === action) pill.classList.add('active');
+      else {
+        for (const other of symbols) {
+          if (other !== sym && State.meanings[other] === action) {
+            pill.classList.add('auto-disabled');
+            pill.title = `Already used by ${other}`;
+          }
+        }
+      }
+      if (State.scratch[sym].has(action)) pill.classList.add('scratch');
+
+      pill.addEventListener('click', () => onPillClick(sym, action));
+      pill.addEventListener('contextmenu', e => { e.preventDefault(); onPillRightClick(sym, action); });
+
+      pillsDiv.appendChild(pill);
+    }
+    row.appendChild(pillsDiv);
+    container.appendChild(row);
+  }
+
+  // U-turn row — fixed behavior, single long pill that flashes when a truck hits a U-turn
+  const uRow = document.createElement('div');
+  uRow.className = 'symbol-row';
+  const uIcon = document.createElement('div');
+  uIcon.className = 'symbol-icon';
+  uIcon.innerHTML = `<svg width="28" height="28" viewBox="0 0 28 28"><path d="M6 20 L6 13 Q6 7 14 7 Q22 7 22 13 L22 17 M18 14 L22 17 L26 14" fill="none" stroke="${SIGN_COLORS.uturn}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  uRow.appendChild(uIcon);
+  const uPill = document.createElement('div');
+  uPill.className = 'pill uturn-pill';
+  uPill.dataset.symbol = 'uturn';
+  uPill.textContent = 'Reverse 180°';
+  uRow.appendChild(uPill);
+  container.appendChild(uRow);
+
+  const lockBtn = document.getElementById('btnLock');
+  lockBtn.style.display = State.mode === 2 ? 'flex' : 'none';
+  if (State.mode === 2) {
+    lockBtn.classList.toggle('locked', State.meaningsLocked);
+    lockBtn.textContent = State.meaningsLocked ? '🔓 Unlock to Edit' : '🔒 Lock Meanings';
+  }
+}
+
+function onPillClick(sym, action) {
+  if (State.meaningsLocked) { toast('Unlock meanings to edit', 'warn'); return; }
+  if (State.playing) { toast('Reset simulation to edit', 'warn'); return; }
+  recordHistory();
+  if (State.meanings[sym] === action) {
+    State.meanings[sym] = null;
+    toast(`${SYMBOL_LABEL[sym]} meaning cleared`, 'normal');
+  } else {
+    State.meanings[sym] = action;
+    toast(`${SYMBOL_LABEL[sym]} → ${action}`, 'normal');
+  }
+  // Sync answerMeanings for non-Mode-2
+  if (State.mode !== 2) State.answerMeanings = { ...State.meanings };
+  renderPillPanel(); updateSeed(); updatePlayButton();
+}
+function onPillRightClick(sym, action) {
+  if (State.meaningsLocked || State.playing) return;
+  recordHistory();
+  if (State.scratch[sym].has(action)) {
+    State.scratch[sym].delete(action);
+    toast(`✏️ Unscratched ${SYMBOL_LABEL[sym]} ${action}`, 'normal');
+  } else {
+    State.scratch[sym].add(action);
+    toast(`✏️ Scratched ${SYMBOL_LABEL[sym]} ${action}`, 'normal');
+  }
+  renderPillPanel();
+}
+function flashPill(sym, action) {
+  const pill = sym === 'uturn'
+    ? document.querySelector(`.pill[data-symbol="uturn"]`)
+    : document.querySelector(`.pill[data-symbol="${sym}"][data-action="${action}"]`);
+  if (pill) {
+    pill.classList.remove('flash');
+    void pill.offsetWidth;
+    pill.classList.add('flash');
+  }
+}
+
+// ============= SIMULATION =============
+function startPlay() {
+  if (State.starts.length === 0) { toast('Add at least one Start marker first', 'warn'); return; }
+  if (State.mode === 2 && !State.meaningsLocked) { toast('Lock your meaning assignments first', 'warn'); return; }
+  if (State.mode === 2 && (!State.meanings.circle || !State.meanings.square || !State.meanings.triangle)) {
+    // Check if all symbols on map have meanings
+    const present = new Set();
+    for (const v of Object.values(State.signs)) if (v && v !== 'uturn') present.add(v);
+    for (const s of present) if (!State.meanings[s]) { toast(`Assign a meaning to all symbols first`, 'warn'); return; }
+  }
+  State.playing = true; State.paused = false;
+  State.trucks = []; State.tracks = [];
+  State.spawnTimer = 0; State.spawnIndex = 0;
+  State.winShown = false;
+  State.lastTime = performance.now();
+
+  document.getElementById('btnPlay').textContent = '⏸';
+  document.getElementById('btnPlay').classList.add('pause');
+  document.getElementById('btnPlay').classList.remove('play');
+  document.getElementById('btnPlay').title = 'Pause';
+
+  // Clear visuals
+  const tl = document.getElementById('tracksLayer'); if (tl) tl.innerHTML = '';
+  document.querySelectorAll('.gateway-marker').forEach(g => g.classList.remove('correct', 'wrong'));
+  updateDeviceCaption();
+
+  // Launch the first truck immediately so it appears at its Start gateway right away
+  spawnTruck();
+  renderTrucks(); renderTracks();
+  toast('▶ Simulation started', 'normal');
+  requestAnimationFrame(tick);
+}
+
+function pausePlay() {
+  State.paused = true;
+  document.getElementById('btnPlay').textContent = '▶';
+  document.getElementById('btnPlay').classList.add('play');
+  document.getElementById('btnPlay').classList.remove('pause');
+  toast('⏸ Paused', 'dim');
+}
+function resumePlay() {
+  State.paused = false;
+  State.lastTime = performance.now();
+  document.getElementById('btnPlay').textContent = '⏸';
+  document.getElementById('btnPlay').classList.add('pause');
+  document.getElementById('btnPlay').classList.remove('play');
+  toast('▶ Resumed', 'dim');
+  requestAnimationFrame(tick);
+}
+function resetPlay() {
+  State.playing = false; State.paused = false;
+  State.trucks = []; State.tracks = [];
+  State.spawnTimer = 0; State.spawnIndex = 0;
+  State.winShown = false;
+  document.getElementById('btnPlay').textContent = '▶';
+  document.getElementById('btnPlay').classList.add('play');
+  document.getElementById('btnPlay').classList.remove('pause');
+  const tl = document.getElementById('tracksLayer'); if (tl) tl.innerHTML = '';
+  const trl = document.getElementById('trucksLayer'); if (trl) trl.innerHTML = '';
+  document.querySelectorAll('.gateway-marker').forEach(g => g.classList.remove('correct', 'wrong'));
+  document.getElementById('devBar').style.width = '0%';
+  updatePlayButton(); updateDeviceCaption();
+}
+
+function tick(now) {
+  if (!State.playing || State.paused) return;
+  const dt = Math.min(50, now - State.lastTime);
+  State.lastTime = now;
+
+  const step = dt / 1000 * (State.speed / 4);
+  for (let i = State.trucks.length - 1; i >= 0; i--) {
+    updateTruck(State.trucks[i], step);
+    if (State.trucks[i].done) State.trucks.splice(i, 1);
+  }
+  // Spawn staggering by ROUTE PROGRESS: the next truck launches once the most recently spawned
+  // truck has covered 1/N of its route (N = number of cars). 2 cars → 50%, 3 → 33%, 4 → 25%.
+  const interval = 1 / State.numCars;
+  const maxTrucks = State.numCars === 1 ? 1 : State.numCars * 2;
+  const ref = (State.lastSpawnedTruck != null) ? State.trucks.find(t => t.truckId === State.lastSpawnedTruck) : null;
+  const refPct = ref ? ref.traveled / Math.max(1, ref.routeDist) : 1;
+  if (State.trucks.length < maxTrucks && refPct >= interval) spawnTruck();
+  // Safety net: never leave the board empty
+  if (State.trucks.length === 0) spawnTruck();
+
+  renderTrucks(); renderTracks();
+  checkWin(); updateProgressBar();
+
+  if (State.playing && !State.paused) requestAnimationFrame(tick);
+}
+
+function spawnTruck() {
+  if (State.starts.length === 0) return;
+  // Skip starts whose track is toggled OFF
+  let attempts = 0, start;
+  do {
+    start = State.starts[State.spawnIndex % State.starts.length];
+    State.spawnIndex++;
+    attempts++;
+  } while (attempts < State.starts.length && State.trackOn[start.num] === false);
+  if (State.trackOn[start.num] === false) return;
+  const entry = entryFromGateway(start.gate);
+  const gwPos = gatewayPos(start.gate);
+  const entryPos = nodePos(entry.r, entry.c);
+  const color = TRACK_COLORS[(start.num - 1) % TRACK_COLORS.length];
+  const truckId = ++State.nextTruckId;
+  // Expected full route distance (runtime meanings = how the truck actually drives)
+  const pre = simulateRouteFull(start.gate) || { dist: 2000 };
+
+  const truck = {
+    num: start.num, r: entry.r, c: entry.c, heading: entry.heading,
+    fromX: gwPos.x, fromY: gwPos.y, toX: entryPos.x, toY: entryPos.y,
+    progress: 0, nextR: null, nextC: null,
+    exiting: false, exitGate: null, headingOut: entry.heading,
+    done: false, steps: 0, color, justSpawned: true, truckId,
+    traveled: 0, routeDist: pre.dist
+  };
+  State.lastSpawnedTruck = truckId;
+  State.trucks.push(truck);
+  State.tracks.push({
+    num: start.num, color, points: [{ x: gwPos.x, y: gwPos.y }], status: 'pending', truckId
+  });
+  toast(`🚚 Truck ${start.num} entered from ${start.gate}`, 'dim');
+}
+
+function updateTruck(truck, dt) {
+  if (truck.done) return;
+  const dist = Math.hypot(truck.toX - truck.fromX, truck.toY - truck.fromY);
+  const speed = 220;
+  const inc = (speed * dt) / Math.max(1, dist);
+  truck.progress += inc;
+  truck.traveled += inc * dist;
+
+  if (truck.progress >= 1) {
+    truck.progress = 1;
+    const track = State.tracks.find(t => t.truckId === truck.truckId);
+    if (track) track.points.push({ x: truck.toX, y: truck.toY });
+
+    if (truck.exiting) {
+      handleTruckExit(truck);
+      truck.done = true;
+      return;
+    }
+    if (!truck.justSpawned) {
+      truck.r = truck.nextR; truck.c = truck.nextC;
+      truck.heading = truck.headingOut;
+      truck.steps++;
+      if (truck.steps > 200) {
+        if (performance.now() - State.lastLoopWarn > 3000) {
+          State.lastLoopWarn = performance.now();
+          toast('This route never leaves the city — check your signs!', 'warn');
+        }
+        truck.done = true;
+        return;
+      }
+    }
+    truck.justSpawned = false;
+    planNextMove(truck);
+  }
+}
+
+function planNextMove(truck) {
+  Sfx.tick(); // every intersection the truck interacts with
+  const sign = State.signs[`${truck.r},${truck.c}`] || null;
+  let headingOut = truck.heading;
+  if (sign === 'uturn') headingOut = HEADING_REV[truck.heading];
+  else if (sign) {
+    const meaning = State.meanings[sign];
+    if (meaning === 'left') headingOut = HEADING_PREV[truck.heading];
+    else if (meaning === 'right') headingOut = HEADING_NEXT[truck.heading];
+    else if (meaning === 'straight') headingOut = truck.heading;
+  }
+  if (sign === 'uturn') flashPill('uturn');
+  else if (sign && State.meanings[sign]) flashPill(sign, State.meanings[sign]);
+
+  truck.headingOut = headingOut;
+  const d = HEADINGS[headingOut];
+  const exitGate = exitGatewayFrom(truck.r, truck.c, headingOut);
+
+  if (exitGate) {
+    truck.exiting = true; truck.exitGate = exitGate;
+    const from = nodePos(truck.r, truck.c);
+    const gw = gatewayPos(exitGate);
+    truck.fromX = from.x; truck.fromY = from.y;
+    truck.toX = gw.x; truck.toY = gw.y;
+    truck.progress = 0;
+  } else {
+    truck.exiting = false;
+    const from = nodePos(truck.r, truck.c);
+    const to = nodePos(truck.r + d.dy, truck.c + d.dx);
+    truck.fromX = from.x; truck.fromY = from.y;
+    truck.toX = to.x; truck.toY = to.y;
+    truck.progress = 0;
+    truck.nextR = truck.r + d.dy; truck.nextC = truck.c + d.dx;
+  }
+}
+
+function handleTruckExit(truck) {
+  const track = State.tracks.find(t => t.truckId === truck.truckId);
+  if (!track) return;
+  const end = State.ends.find(e => e.gate === truck.exitGate);
+  const marker = document.querySelector(`.gateway-marker[data-gate="${truck.exitGate}"]`);
+
+  if (end && end.num === truck.num) {
+    track.status = 'correct';
+    track.color = TRACK_COLORS[(truck.num - 1) % TRACK_COLORS.length];
+    if (marker) marker.classList.add('correct');
+    Sfx.ting(); // correct arrival — "tin tin"
+    toast(`✓ Truck ${truck.num} arrived at Exit ${end.num}`, 'good');
+  } else if (end) {
+    track.status = 'wrong';
+    track.color = '#B0A89B';
+    if (marker) marker.classList.add('wrong');
+    toast(`✗ Truck ${truck.num} exited at ${truck.exitGate} (Exit ${end.num}) — mismatch`, 'bad');
+  } else {
+    track.status = 'neutral';
+    track.color = '#B0A89B';
+    toast(`🚚 Truck ${truck.num} exited at ${truck.exitGate} — no Exit marker`, 'dim');
+  }
+  trimTrackHistory();
+}
+
+function trimTrackHistory() {
+  const MAX_REST = 12, MAX_CORRECT = 8;
+  const nums = [...new Set(State.tracks.map(t => t.num))];
+  for (const num of nums) {
+    const done = State.tracks.filter(t => t.num === num && t.status !== 'pending');
+    const correct = done.filter(t => t.status === 'correct');
+    const rest = done.filter(t => t.status !== 'correct');
+    while (rest.length > MAX_REST) { State.tracks.splice(State.tracks.indexOf(rest.shift()), 1); }
+    while (correct.length > MAX_CORRECT) { State.tracks.splice(State.tracks.indexOf(correct.shift()), 1); }
+  }
+}
+
+function renderTrucks() {
+  const layer = document.getElementById('trucksLayer');
+  if (!layer) return;
+  layer.innerHTML = '';
+  for (const truck of State.trucks) {
+    if (truck.done) continue;
+    if (State.trackOn[truck.num] === false) continue;
+    const x = truck.fromX + (truck.toX - truck.fromX) * truck.progress;
+    const y = truck.fromY + (truck.toY - truck.fromY) * truck.progress;
+    const angle = Math.atan2(truck.toY - truck.fromY, truck.toX - truck.fromX) * 180 / Math.PI;
+    const g = el('g', { transform: `translate(${x},${y}) rotate(${angle})`, class: 'truck' }, layer);
+    // Truck body
+    el('rect', { x: -14, y: -8, width: 22, height: 16, rx: 3, fill: truck.color, stroke: 'white', 'stroke-width': 2 }, g);
+    // Cab
+    el('rect', { x: 8, y: -7, width: 6, height: 14, rx: 1.5, fill: '#3a3a3a' }, g);
+    // Window
+    el('rect', { x: -10, y: -6, width: 7, height: 12, rx: 1, fill: 'rgba(255,255,255,0.5)' }, g);
+    // Wheels
+    el('circle', { cx: -8, cy: 9, r: 3, fill: '#222' }, g);
+    el('circle', { cx: 4, cy: 9, r: 3, fill: '#222' }, g);
+    // Number badge
+    el('circle', { cx: -3, cy: 0, r: 6, fill: 'white', stroke: truck.color, 'stroke-width': 1.5 }, g);
+    el('text', { x: -3, y: 2.5, 'text-anchor': 'middle', 'font-family': 'Baloo 2', 'font-size': 8, 'font-weight': 700, fill: truck.color }, g).textContent = truck.num;
+  }
+}
+
+function renderTracks() {
+  const layer = document.getElementById('tracksLayer');
+  if (!layer) return;
+  layer.innerHTML = '';
+  if (!State.tracksVisible) return;
+
+  for (const track of State.tracks) {
+    if (State.trackOn[track.num] === false) continue;
+    const points = [...track.points];
+    // Add live truck position (matched by unique id so new cars never stitch onto old tracks)
+    const truck = State.trucks.find(t => t.truckId === track.truckId);
+    if (truck) {
+      const x = truck.fromX + (truck.toX - truck.fromX) * truck.progress;
+      const y = truck.fromY + (truck.toY - truck.fromY) * truck.progress;
+      points.push({ x, y });
+    }
+    if (points.length < 2) continue;
+
+    const isDashed = track.status === 'wrong' || track.status === 'neutral';
+    el('polyline', {
+      points: points.map(p => `${p.x},${p.y}`).join(' '),
+      fill: 'none', stroke: track.color, 'stroke-width': 6,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      opacity: track.status === 'correct' ? 0.85 : 0.65,
+      'stroke-dasharray': isDashed ? '10 8' : 'none',
+      class: 'track-line'
+    }, layer);
+
+    // Inner highlight
+    el('polyline', {
+      points: points.map(p => `${p.x},${p.y}`).join(' '),
+      fill: 'none', stroke: 'white', 'stroke-width': 2,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      opacity: 0.4
+    }, layer);
+  }
+}
+
+// Per-track show/hide toggles in the play bar (one per Start point)
+function renderTrackToggles() {
+  const host = document.getElementById('pbTracks');
+  const wrap = document.getElementById('pbTracksWrap');
+  if (!host || !wrap) return;
+  host.innerHTML = '';
+  const hasStarts = State.starts.length > 0;
+  wrap.style.display = hasStarts ? 'flex' : 'none';
+  for (const start of State.starts) {
+    const num = start.num;
+    const color = TRACK_COLORS[(num - 1) % TRACK_COLORS.length];
+    const on = State.trackOn[num] !== false;
+    const b = document.createElement('button');
+    b.className = 'pb-track-btn' + (on ? '' : ' off');
+    b.title = (on ? 'Hide' : 'Show') + ' track ' + num;
+    b.textContent = '🚚' + num;
+    if (on) {
+      b.style.borderColor = color;
+      b.style.background = color;
+      b.style.color = '#fff';
+    }
+    b.addEventListener('click', () => toggleTrack(num));
+    host.appendChild(b);
+  }
+}
+
+function toggleTrack(num) {
+  const turnOn = State.trackOn[num] === false;
+  recordHistory();
+  State.trackOn[num] = turnOn;
+  if (!turnOn) State.trucks = State.trucks.filter(t => t.num !== num);
+  renderTrackToggles();
+  renderTrucks(); renderTracks();
+  toast(turnOn ? `🚚 Track ${num} shown` : `🚫 Track ${num} hidden`, 'normal');
+}
+
+function checkWin() {
+  if (State.ends.length === 0 || State.winShown) return;
+  const allLit = State.ends.every(end =>
+    State.tracks.some(t => t.status === 'correct' && t.num === end.num)
+  );
+  if (allLit) {
+    State.winShown = true;
+    fireConfetti();
+    toast('🎉 All trucks arrived! Puzzle solved!', 'good');
+  }
+}
+
+function fireConfetti() {
+  const host = document.getElementById('confettiHost');
+  for (let i = 0; i < 100; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.top = -20 + 'px';
+    piece.style.background = TRACK_COLORS[Math.floor(Math.random() * TRACK_COLORS.length)];
+    piece.style.animationDelay = (Math.random() * 0.4) + 's';
+    piece.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+    host.appendChild(piece);
+    setTimeout(() => piece.remove(), 3500);
+  }
+}
+
+function updateProgressBar() {
+  const total = State.ends.length || 1;
+  const correct = State.tracks.filter(t => t.status === 'correct').length;
+  const pct = Math.min(100, (correct / total) * 100);
+  document.getElementById('devBar').style.width = pct + '%';
+}
+
+// ============= SEED =============
+// Super-compact Base-81 seed: the whole game state packs into one BigInt
+// (grid size, 3 meanings, signs as a base-5 integer, up to 3 starts + 3 ends as
+// a mixed-radix gateway code) and then encodes to a short Base-81 string.
+const BASE81_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_=-+[]{};";
+const MEANING_MAP = { null: 0, 'left': 1, 'straight': 2, 'right': 3 };
+const REV_MEANING_MAP = [null, 'left', 'straight', 'right'];
+const SIGN_MAP = { null: 0, 'circle': 1, 'square': 2, 'triangle': 3, 'uturn': 4 };
+const REV_SIGN_MAP = [null, 'circle', 'square', 'triangle', 'uturn'];
+
+function bigIntToBase81(num) {
+  if (num === 0n) return BASE81_CHARS[0];
+  let res = "";
+  let n = num;
+  const base = BigInt(BASE81_CHARS.length);
+  while (n > 0n) {
+    const rem = Number(n % base);
+    res = BASE81_CHARS[rem] + res;
+    n = n / base;
+  }
+  return res;
+}
+function base81ToBigInt(str) {
+  let res = 0n;
+  const base = BigInt(BASE81_CHARS.length);
+  for (let i = 0; i < str.length; i++) {
+    const idx = BASE81_CHARS.indexOf(str[i]);
+    if (idx === -1) throw new Error("Invalid Base81 character: " + str[i]);
+    res = res * base + BigInt(idx);
+  }
+  return res;
+}
+function getAllGatewaysForGrid(rows, cols) {
+  const list = [];
+  for (let r = 1; r <= rows; r++) { list.push('L' + r); list.push('R' + r); }
+  for (let c = 1; c <= cols; c++) { list.push('T' + c); list.push('B' + c); }
+  return list;
+}
+function packGateways(indices, Ngw) {
+  const k = indices.length;
+  if (k === 0) return 0;
+  if (k === 1) return 1 + indices[0];
+  if (k === 2) return 1 + Ngw + indices[0] * Ngw + indices[1];
+  if (k === 3) return 1 + Ngw + Ngw * Ngw + indices[0] * Ngw * Ngw + indices[1] * Ngw + indices[2];
+  return 0;
+}
+function unpackGateways(code, Ngw) {
+  if (code === 0) return [];
+  if (code <= Ngw) return [code - 1];
+  const max2 = 1 + Ngw + Ngw * Ngw;
+  if (code < max2) {
+    let rem = code - (1 + Ngw);
+    return [Math.floor(rem / Ngw), rem % Ngw];
+  }
+  let rem = code - max2;
+  const i1 = Math.floor(rem / (Ngw * Ngw));
+  rem = rem % (Ngw * Ngw);
+  return [i1, Math.floor(rem / Ngw), rem % Ngw];
+}
+
+function encodeSeed() {
+  try {
+    const rows = State.rows;
+    const cols = State.cols;
+    const rIdx = rows - 2;
+    const cIdx = cols - 2;
+    const vGrid = BigInt(rIdx * 2 + cIdx);
+
+    // Meanings (answer key; fall back to the live pills when the key is still blank)
+    const mg = (State.answerMeanings && (State.answerMeanings.circle || State.answerMeanings.square || State.answerMeanings.triangle))
+      ? State.answerMeanings
+      : State.meanings;
+    const cM = MEANING_MAP[mg.circle || null] || 0;
+    const sM = MEANING_MAP[mg.square || null] || 0;
+    const tM = MEANING_MAP[mg.triangle || null] || 0;
+    const vMeanings = BigInt(cM + 4 * sM + 16 * tM);
+
+    // Node signs as a base-5 integer (none=0, circle=1, square=2, triangle=3, uturn=4)
+    let vSigns = 0n;
+    let signPower = 1n;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const sign = State.signs[`${r},${c}`] || null;
+        vSigns += BigInt(SIGN_MAP[sign] || 0) * signPower;
+        signPower *= 5n;
+      }
+    }
+
+    // Gateways (Starts & Ends), up to 3 each, ordered by marker number
+    const gwList = getAllGatewaysForGrid(rows, cols);
+    const Ngw = gwList.length;
+    const startsSorted = [...State.starts].sort((a, b) => a.num - b.num);
+    const startIndices = startsSorted.map(s => gwList.indexOf(s.gate)).filter(idx => idx !== -1);
+    const startsCode = packGateways(startIndices, Ngw);
+    const endsSorted = [...State.ends].sort((a, b) => a.num - b.num);
+    const endIndices = endsSorted.map(e => gwList.indexOf(e.gate)).filter(idx => idx !== -1);
+    const endsCode = packGateways(endIndices, Ngw);
+
+    const maxCode = 1 + Ngw + Ngw * Ngw + Ngw * Ngw * Ngw;
+    const vGateways = BigInt(startsCode) + BigInt(maxCode) * BigInt(endsCode);
+
+    // Combine into a single integer
+    const maxSignsVal = 5n ** BigInt(rows * cols);
+    const vTotal = vGrid + 4n * (vMeanings + 64n * (vSigns + maxSignsVal * vGateways));
+
+    return bigIntToBase81(vTotal);
+  } catch (e) {
+    console.error("Seed encode error:", e);
+    return "0";
+  }
+}
+function decodeSeed(seed) {
+  try {
+    if (!seed || typeof seed !== 'string') return null;
+    seed = seed.trim();
+    const vTotal = base81ToBigInt(seed);
+    let rem = vTotal;
+
+    // Grid size
+    const vGrid = Number(rem % 4n);
+    rem = rem / 4n;
+    const rows = Math.floor(vGrid / 2) + 2;
+    const cols = (vGrid % 2) + 2;
+
+    // Meanings
+    const vMeanings = Number(rem % 64n);
+    rem = rem / 64n;
+    const answerMeanings = {
+      circle: REV_MEANING_MAP[vMeanings % 4],
+      square: REV_MEANING_MAP[Math.floor(vMeanings / 4) % 4],
+      triangle: REV_MEANING_MAP[Math.floor(vMeanings / 16) % 4]
+    };
+
+    // Node signs
+    const maxSignsVal = 5n ** BigInt(rows * cols);
+    let vSigns = rem % maxSignsVal;
+    rem = rem / maxSignsVal;
+    const signs = {};
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const sVal = Number(vSigns % 5n);
+        vSigns = vSigns / 5n;
+        if (sVal > 0) signs[`${r},${c}`] = REV_SIGN_MAP[sVal];
+      }
+    }
+
+    // Gateways
+    const gwList = getAllGatewaysForGrid(rows, cols);
+    const Ngw = gwList.length;
+    const maxCode = 1 + Ngw + Ngw * Ngw + Ngw * Ngw * Ngw;
+    const startsCode = Number(rem % BigInt(maxCode));
+    const endsCode = Number(rem / BigInt(maxCode));
+    const startIndices = unpackGateways(startsCode, Ngw);
+    const endIndices = unpackGateways(endsCode, Ngw);
+
+    return {
+      g: [rows, cols],
+      s: signs,
+      mg: answerMeanings,
+      st: startIndices.map((gwIdx, i) => ({ num: i + 1, gate: gwList[gwIdx] })),
+      en: endIndices.map((gwIdx, i) => ({ num: i + 1, gate: gwList[gwIdx] }))
+    };
+  } catch (e) {
+    console.error("Seed decode error:", e);
+    return null;
+  }
+}
+function updateSeed() {
+  document.getElementById('seedDisplay').textContent = encodeSeed();
+}
+function loadFromData(data) {
+  State.cityFromSeed = true;
+  if (data.g) {
+    State.rows = data.g[0]; State.cols = data.g[1];
+    document.querySelectorAll('#gridGroup .pill-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.grid === State.rows + ',' + State.cols);
+    });
+  }
+  State.signs = data.s || {};
+  State.answerMeanings = data.mg || { circle: null, square: null, triangle: null };
+  State.starts = data.st || []; State.ends = data.en || [];
+
+  // Apply mode visibility
+  if (State.mode === 2) {
+    State.meanings = { circle: null, square: null, triangle: null };
+    State.meaningsLocked = false;
+  } else if (State.mode === 3) {
+    State.meanings = { ...State.answerMeanings };
+    State.meaningsLocked = true;
+    // In Mode 3, hide signs (student places them)
+    // But keep them in answerMeanings backup
+    State.signs = {};
+  } else {
+    State.meanings = { ...State.answerMeanings };
+    State.meaningsLocked = false;
+  }
+  resetPlay(); renderBoard(); renderPillPanel(); updateSeed(); updateCityCode(); updatePlayButton(); updateDeviceCaption();
+}
+
+// ============= MODES =============
+function setMode(mode) {
+  State.mode = mode;
+  State.meaningsLocked = false;
+  State.winShown = false;
+  document.querySelectorAll('#modeGroup .pill-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.mode === mode);
+  });
+  const info = document.getElementById('modeInfo');
+  const caption = document.getElementById('modeCaption');
+  if (mode === 1) {
+    info.innerHTML = '<strong>Predict the Exit</strong>Build the map: place signs, assign meanings, mark start gateways. Then predict exits by placing End markers. Press Play to verify.';
+    caption.textContent = 'Predict the exit';
+  } else if (mode === 2) {
+    info.innerHTML = '<strong>Decode the Meaning</strong>The map is set. Figure out what each sign means. Click pills to assign, right-click to scratch out. Lock when ready, then Play to test.';
+    caption.textContent = 'Decode the meaning';
+    State.answerMeanings = { ...State.meanings };
+    State.meanings = { circle: null, square: null, triangle: null };
+  } else if (mode === 3) {
+    info.innerHTML = '<strong>Build the Signs</strong>Meanings and start/end pairs are given. Place signs on intersections to route trucks from starts to matching exits.';
+    caption.textContent = 'Build the signs';
+    State.meanings = { ...State.answerMeanings };
+    State.meaningsLocked = true;
+  }
+  resetPlay(); renderBoard(); renderPillPanel(); updatePlayButton(); updateDeviceCaption();
+}
+
+function setGrid(rows, cols) {
+  State.rows = rows; State.cols = cols;
+  State.cityFromSeed = false;
+  // Clear out-of-bounds
+  const newSigns = {};
+  for (const [k, v] of Object.entries(State.signs)) {
+    const [r, c] = k.split(',').map(Number);
+    if (r < rows && c < cols) newSigns[k] = v;
+  }
+  State.signs = newSigns;
+  const validGates = new Set(getAllGateways());
+  State.starts = State.starts.filter(s => validGates.has(s.gate));
+  State.ends = State.ends.filter(e => validGates.has(e.gate));
+  renumberMarkers();
+  document.querySelectorAll('#gridGroup .pill-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.grid === rows + ',' + cols);
+  });
+  resetPlay(); renderBoard(); renderPillPanel(); updateSeed(); updateCityCode(); updatePlayButton(); updateDeviceCaption();
+}
+
+function updateCityCode() {
+  // Letter = game mode (A=1, B=2, C=3...), or Z when the map was loaded from a seed
+  const letter = State.cityFromSeed ? 'Z' : String.fromCharCode(64 + State.mode);
+  const code = letter + '-' + State.rows + State.cols;
+  document.getElementById('cityCode').textContent = code;
+}
+
+function updatePlayButton() {
+  const btn = document.getElementById('btnPlay');
+  let enabled = State.starts.length > 0;
+  if (State.mode === 2 && !State.meaningsLocked) enabled = false;
+  btn.disabled = !enabled;
+  if (!enabled && State.starts.length === 0) btn.title = 'Add a Start marker first';
+  else if (State.mode === 2 && !State.meaningsLocked) btn.title = 'Lock meanings first';
+  else btn.title = 'Play / Pause';
+}
+
+function updateDeviceCaption() {
+  const cap = document.getElementById('deviceCaption');
+  cap.classList.remove('good', 'bad');
+  if (State.playing && !State.paused) {
+    const pending = State.tracks.filter(t => t.status === 'pending').length;
+    cap.textContent = `🚚 Trucks rolling... (${pending} active)`;
+  } else if (State.starts.length === 0) {
+    cap.textContent = 'Place a Start marker to begin';
+  } else if (State.mode === 2 && !State.meaningsLocked) {
+    cap.textContent = 'Assign meanings, then Lock';
+  } else if (State.ends.length === 0 && State.mode === 1) {
+    cap.textContent = 'Predict exits by placing End markers';
+  } else if (State.mode === 3 && Object.keys(State.signs).length === 0) {
+    cap.textContent = 'Place signs on intersections';
+  } else {
+    cap.textContent = 'Ready — press Play ▶';
+  }
+}
+
+// ============= QUICK PLAY =============
+function updateCarsReadout() {
+  const n = State.numCars;
+  const readout = document.getElementById('carsReadout');
+  if (!readout) return;
+  readout.textContent = n < 4 ? '🚗'.repeat(n) : '🚗 × ' + n;
+}
+
+function quickPlay() {
+  recordHistory();
+  // Generate on the CURRENT grid size so players master a size before moving up
+  const r = State.rows, c = State.cols;
+
+  State.signs = {}; State.starts = []; State.ends = [];
+  State.scratch = { circle: new Set(), square: new Set(), triangle: new Set() };
+  State.meaningsLocked = false;
+  setGrid(r, c);
+
+  // Assign random meanings
+  const actions = ['left', 'straight', 'right'].sort(() => Math.random() - 0.5);
+  State.meanings = { circle: actions[0], square: actions[1], triangle: actions[2] };
+  State.answerMeanings = { ...State.meanings };
+
+  // Place signs densely (no free "empty = straight" tells). Retry until enough routes stay
+  // solvable; only relax to a couple of empty intersections when a dense board won't solve.
+  // A fully empty board is never produced — that would make the puzzle trivially predictable.
+  // Mode 1 (Predict) is ALWAYS full sign coverage: an empty intersection would just hand the
+  // student "go straight", and since one symbol is always assigned the straight meaning, blanks
+  // are unnecessary. Blanks stay reserved for Mode 2's missing-sign variant (turn intersections).
+  const pairTarget = State.mode === 3 ? (State.rows === 2 && State.cols <= 3 ? 2 : 3) : 2;
+  let solvable = false;
+  for (let attempt = 0; attempt < 16 && !solvable; attempt++) {
+    placeRandomSigns(r, c, State.mode === 1 ? 0 : (attempt >= 8 ? 2 : 0));
+    solvable = countSolvableStarts() >= pairTarget;
+  }
+  if (!solvable) placeRandomSigns(r, c, State.mode === 1 ? 0 : 1);
+
+  if (State.mode === 1) {
+    // Pick starts whose natural exits are DIFFERENT free gateways, so Ends can always be placed
+    let starts = pickValidStarts(2);
+    // Absolute emergency only: if a full board somehow yields no starts, relax once rather
+    // than presenting a broken (starts-less) puzzle.
+    if (starts.length === 0) { placeRandomSigns(r, c, 1); starts = pickValidStarts(2); }
+    for (let i = 0; i < starts.length; i++) State.starts.push({ num: i + 1, gate: starts[i] });
+  } else if (State.mode === 2) {
+    // Hide meanings, give 1 confirmed pair
+    State.meanings = { circle: null, square: null, triangle: null };
+    const pair = findValidPair();
+    if (pair) {
+      State.starts.push({ num: 1, gate: pair.start });
+      State.ends.push({ num: 1, gate: pair.end });
+      // ~half the time this is a "missing sign" map: intersections along the confirmed route
+      // (where the correct action is a TURN) are left blank. The player does TWO jobs — pick the
+      // meaning pills AND place the right signs — so the truck can actually reach the End.
+      if (Math.random() < 0.5) {
+        const route = simulateRoute(pair.start);
+        const budget = Math.min(3, Math.max(1, Math.floor((r * c) / 3)));
+        const seen = new Set();
+        const candidates = [];
+        for (const n of (route ? route.path : [])) {
+          if (!n.sign || seen.has(n.key)) continue;
+          seen.add(n.key);
+          if (n.sign === 'uturn') candidates.push(n.key);
+          else {
+            const m = State.answerMeanings[n.sign];
+            if (m === 'left' || m === 'right') candidates.push(n.key);
+          }
+        }
+        candidates.sort(() => Math.random() - 0.5);
+        for (let i = 0; i < Math.min(budget, candidates.length); i++) delete State.signs[candidates[i]];
+        if (candidates.length) toast('🔎 Signs missing on the route — place the correct ones', 'normal');
+      }
+      // Add an extra Start whose natural exit is a FREE gateway (so it can get its own End)
+      const extra = freeExitStarts(pair);
+      if (extra.length) State.starts.push({ num: 2, gate: extra[Math.floor(Math.random() * extra.length)] });
+    }
+  } else if (State.mode === 3) {
+    // Build pairs from the REAL hidden signs, then hide the signs for the student
+    let pairs = findValidPairs(pairTarget);
+    if (pairs.length < pairTarget) {
+      // Retry on fresh dense boards before ever settling for an empty/trivial one
+      for (let attempt = 0; attempt < 8 && pairs.length < pairTarget; attempt++) {
+        placeRandomSigns(r, c, attempt >= 5 ? 2 : 0);
+        pairs = findValidPairs(pairTarget);
+      }
+    }
+    for (let i = 0; i < pairs.length; i++) {
+      State.starts.push({ num: i + 1, gate: pairs[i].start });
+      State.ends.push({ num: i + 1, gate: pairs[i].end });
+    }
+    State.signs = {};
+    State.meaningsLocked = true;
+  }
+
+  // Safety net: a gateway is only in (Start) or out (End), never both
+  if (!puzzleValid()) {
+    State.starts = []; State.ends = [];
+    toast('Generation conflict — try again', 'bad');
+  }
+
+  resetPlay(); renderBoard(); renderPillPanel(); updateSeed(); updateCityCode(); updatePlayButton(); updateDeviceCaption();
+  toast('⚡ New puzzle generated!', 'good');
+}
+
+// ============= QUICK PLAY SIGN GENERATION =============
+function placeRandomSigns(r, c, emptyBudget) {
+  State.signs = {};
+  const allNodes = [];
+  for (let i = 0; i < r; i++) for (let j = 0; j < c; j++) allNodes.push([i, j]);
+  allNodes.sort(() => Math.random() - 0.5);
+  // DENSE by default: every intersection gets a sign, so "empty = go straight" never hands the
+  // path away. Only when a sparse fallback is explicitly allowed (emptyBudget > 0) leave a few
+  // intersections blank — always capped well below half so the board stays a real puzzle.
+  let numSigns = allNodes.length;
+  if (emptyBudget > 0) {
+    const empties = Math.min(emptyBudget, Math.max(0, allNodes.length - 3));
+    if (empties > 0) numSigns -= Math.floor(Math.random() * (empties + 1));
+  }
+  numSigns = Math.min(numSigns, allNodes.length);
+
+  // Guarantee one of each base symbol first, then fill the rest
+  const base = ['circle', 'square', 'triangle'];
+  for (let i = 0; i < Math.min(numSigns, base.length); i++) {
+    const [nr, nc] = allNodes[i];
+    State.signs[`${nr},${nc}`] = base[i];
+  }
+  // Fill remaining intersections; U-turn cap scales with map size (1 on 2×2, 2 on 6-node, 3 on 3×3)
+  // and they only appear after all three bases exist
+  let uturns = 0;
+  const maxUturns = Math.max(1, Math.min(3, Math.floor(allNodes.length / 3)));
+  const fill = ['circle', 'circle', 'square', 'square', 'triangle', 'triangle'];
+  for (let i = base.length; i < numSigns; i++) {
+    const [nr, nc] = allNodes[i];
+    if (uturns < maxUturns && Math.random() < 0.22) { State.signs[`${nr},${nc}`] = 'uturn'; uturns++; }
+    else State.signs[`${nr},${nc}`] = fill[Math.floor(Math.random() * fill.length)];
+  }
+}
+// Number of distinct starts whose natural exit is a different, unused gateway
+function countSolvableStarts() {
+  const used = new Set();
+  let n = 0;
+  for (const g of getAllGateways().sort(() => Math.random() - 0.5)) {
+    if (used.has(g)) continue;
+    const exit = simulate(g);
+    if (exit && !used.has(exit) && exit !== g) { n++; used.add(g); used.add(exit); }
+  }
+  return n;
+}
+// Gateways that exit at a gateway free of the confirmed pair (safe extra Start candidates)
+function freeExitStarts(pair) {
+  const list = [];
+  for (const g of getAllGateways()) {
+    if (g === pair.start || g === pair.end) continue;
+    const exit = simulate(g);
+    if (exit && exit !== g && exit !== pair.start && exit !== pair.end) list.push(g);
+  }
+  return list;
+}
+
+function findValidPair() {
+  // Prefer the route that visits the MOST intersections — long routes make better puzzles
+  let best = null;
+  for (const gate of getAllGateways().sort(() => Math.random() - 0.5)) {
+    const route = simulateRoute(gate);
+    if (!route || route.exit === gate) continue;
+    if (!best || route.length > best.length) best = { start: gate, end: route.exit, length: route.length };
+  }
+  return best;
+}
+function findValidPairs(count) {
+  const pairs = [];
+  const used = new Set();
+  const candidates = [];
+  for (const gate of getAllGateways()) {
+    const route = simulateRoute(gate);
+    if (route && route.exit !== gate) candidates.push({ start: gate, end: route.exit, length: route.length });
+  }
+  // Long routes first, so the generated tracks weave through many intersections
+  candidates.sort((a, b) => b.length - a.length);
+  for (const cand of candidates) {
+    if (pairs.length >= count) break;
+    if (used.has(cand.start) || used.has(cand.end)) continue;
+    pairs.push({ start: cand.start, end: cand.end });
+    used.add(cand.start); used.add(cand.end);
+  }
+  return pairs;
+}
+// Starts whose natural exits are distinct free gateways, favoring long meandering routes
+function pickValidStarts(count) {
+  const starts = [];
+  const used = new Set();
+  const candidates = [];
+  for (const gate of getAllGateways()) {
+    const route = simulateRoute(gate);
+    if (route && route.exit !== gate) candidates.push({ gate, exit: route.exit, length: route.length });
+  }
+  candidates.sort((a, b) => b.length - a.length);
+  for (const cand of candidates) {
+    if (starts.length >= count) break;
+    if (used.has(cand.gate) || used.has(cand.exit)) continue;
+    starts.push(cand.gate);
+    used.add(cand.gate); used.add(cand.exit);
+  }
+  return starts;
+}
+function puzzleValid() {
+  const used = new Set();
+  for (const s of State.starts) {
+    if (used.has(s.gate)) return false;
+    used.add(s.gate);
+  }
+  for (const e of State.ends) {
+    if (used.has(e.gate)) return false;
+    used.add(e.gate);
+  }
+  return true;
+}
+function simulateRoute(startGate) {
+  const entry = entryFromGateway(startGate);
+  let r = entry.r, c = entry.c, heading = entry.heading;
+  const visited = new Set();
+  const path = [];
+  for (let i = 0; i < 200; i++) {
+    const key = `${r},${c},${heading}`;
+    if (visited.has(key)) return null;
+    visited.add(key);
+    const sign = State.signs[`${r},${c}`] || null;
+    path.push({ key: `${r},${c}`, sign, heading });
+    let headingOut = heading;
+    if (sign === 'uturn') headingOut = HEADING_REV[heading];
+    else if (sign) {
+      const m = State.answerMeanings[sign];
+      if (m === 'left') headingOut = HEADING_PREV[heading];
+      else if (m === 'right') headingOut = HEADING_NEXT[heading];
+    }
+    const exit = exitGatewayFrom(r, c, headingOut);
+    if (exit) return { exit, length: i + 1, path };
+    const d = HEADINGS[headingOut];
+    r += d.dy; c += d.dx; heading = headingOut;
+  }
+  return null;
+}
+function simulate(startGate) {
+  const route = simulateRoute(startGate);
+  return route ? route.exit : null;
+}
+// Full expected route using RUNTIME meanings (what the truck will actually do): returns
+// { exit, length, dist } where dist is the total pixel distance from gateway to exit
+function simulateRouteFull(startGate) {
+  const entry = entryFromGateway(startGate);
+  let r = entry.r, c = entry.c, heading = entry.heading;
+  const visited = new Set();
+  let dist = Math.hypot(gatewayPos(startGate).x - nodePos(entry.r, entry.c).x,
+                       gatewayPos(startGate).y - nodePos(entry.r, entry.c).y);
+  let prevX = nodePos(entry.r, entry.c).x, prevY = nodePos(entry.r, entry.c).y;
+  for (let i = 0; i < 200; i++) {
+    const key = `${r},${c},${heading}`;
+    if (visited.has(key)) return null;
+    visited.add(key);
+    const sign = State.signs[`${r},${c}`] || null;
+    let headingOut = heading;
+    if (sign === 'uturn') headingOut = HEADING_REV[heading];
+    else if (sign) {
+      const m = State.meanings[sign];
+      if (m === 'left') headingOut = HEADING_PREV[heading];
+      else if (m === 'right') headingOut = HEADING_NEXT[heading];
+    }
+    const exit = exitGatewayFrom(r, c, headingOut);
+    if (exit) {
+      dist += Math.hypot(nodePos(r, c).x - gatewayPos(exit).x, nodePos(r, c).y - gatewayPos(exit).y);
+      return { exit, length: i + 1, dist };
+    }
+    const d = HEADINGS[headingOut];
+    r += d.dy; c += d.dx; heading = headingOut;
+    const np = nodePos(r, c);
+    dist += Math.hypot(prevX - np.x, prevY - np.y);
+    prevX = np.x; prevY = np.y;
+  }
+  return null;
+}
+
+// ============= EXPORT =============
+function openExport() {
+  renderExportPreview();
+  document.getElementById('exportModal').classList.add('open');
+}
+function renderExportPreview() {
+  const preview = document.getElementById('exportPreview');
+  preview.innerHTML = '';
+  const clone = svg.cloneNode(true);
+  ['ghostLayer', 'trucksLayer'].forEach(id => {
+    const e = clone.querySelector('#' + id); if (e) e.remove();
+  });
+  if (!document.getElementById('expSigns').checked) {
+    const s = clone.querySelector('#signsLayer'); if (s) s.remove();
+  }
+  if (!document.getElementById('expNumbers').checked) {
+    clone.querySelectorAll('.gateway-marker').forEach(g => g.remove());
+  }
+  if (!document.getElementById('expTracks').checked) {
+    const t = clone.querySelector('#tracksLayer'); if (t) t.remove();
+  }
+  clone.setAttribute('width', '560');
+  clone.setAttribute('height', '560');
+  preview.appendChild(clone);
+}
+function exportSVG() {
+  const preview = document.getElementById('exportPreview');
+  const clone = preview.querySelector('svg').cloneNode(true);
+  // Resolve CSS vars to literal colors (basic bake)
+  const serializer = new XMLSerializer();
+  let str = serializer.serializeToString(clone);
+  str = '<?xml version="1.0" encoding="UTF-8"?>\n' + str;
+  const blob = new Blob([str], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `sign-city-${Date.now()}.svg`; a.click();
+  URL.revokeObjectURL(url);
+  toast('SVG exported', 'good');
+}
+function exportPNG() {
+  const preview = document.getElementById('exportPreview');
+  const clone = preview.querySelector('svg').cloneNode(true);
+  const serializer = new XMLSerializer();
+  const str = serializer.serializeToString(clone);
+  const blob = new Blob([str], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1400; canvas.height = 1400;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, 1400, 1400);
+    canvas.toBlob(b => {
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u; a.download = `sign-city-${Date.now()}.png`; a.click();
+      URL.revokeObjectURL(u);
+    });
+    URL.revokeObjectURL(url);
+    toast('PNG exported', 'good');
+  };
+  img.src = url;
+}
+
+// ============= UI HELPERS =============
+function logEntry(msg, kind) {
+  const cls = kind === 'good' ? 'good' : kind === 'bad' ? 'bad' : kind === 'warn' ? 'warn' : kind === 'dim' ? 'dim' : 'normal';
+  const body = document.getElementById('logBody');
+  if (!body) return;
+  const item = document.createElement('div');
+  item.className = 'log-item ' + cls;
+  item.textContent = msg;
+  body.appendChild(item);
+  while (body.children.length > 300) body.removeChild(body.firstChild);
+  body.scrollTop = body.scrollHeight;
+}
+function toast(msg, kind = 'normal') {
+  logEntry(msg, kind);
+  // Floating popups only for important messages so they never cover the pill meanings
+  if (kind === 'bad' || kind === 'warn') {
+    const host = document.getElementById('toastHost');
+    const t = document.createElement('div');
+    t.className = 'toast ' + kind;
+    t.textContent = msg;
+    host.appendChild(t);
+    setTimeout(() => t.remove(), 3100);
+  }
+}
+
+// ============= UNDO / REDO =============
+const History = { undo: [], redo: [], max: 60 };
+const SYMBOL_LABEL = { circle: '🟡 Circle', square: '🟦 Square', triangle: '🔺 Triangle', uturn: '🔄 U-turn' };
+
+function snapshotState() {
+  return {
+    rows: State.rows, cols: State.cols,
+    cityFromSeed: State.cityFromSeed,
+    signs: { ...State.signs },
+    starts: State.starts.map(s => ({ num: s.num, gate: s.gate })),
+    ends: State.ends.map(e => ({ num: e.num, gate: e.gate })),
+    scratch: {
+      circle: new Set(State.scratch.circle),
+      square: new Set(State.scratch.square),
+      triangle: new Set(State.scratch.triangle)
+    },
+    meanings: { ...State.meanings },
+    answerMeanings: { ...State.answerMeanings },
+    meaningsLocked: State.meaningsLocked,
+    trackOn: { ...State.trackOn }
+  };
+}
+
+function recordHistory() {
+  History.undo.push(snapshotState());
+  if (History.undo.length > History.max) History.undo.shift();
+  History.redo = [];
+  updateHistoryButtons();
+}
+
+function applySnapshot(snap) {
+  if (State.playing || State.paused) resetPlay();
+  if (snap.rows !== State.rows || snap.cols !== State.cols) setGrid(snap.rows, snap.cols);
+  State.cityFromSeed = snap.cityFromSeed;
+  State.signs = snap.signs;
+  State.starts = snap.starts;
+  State.ends = snap.ends;
+  State.scratch = snap.scratch;
+  State.meanings = snap.meanings;
+  State.answerMeanings = snap.answerMeanings;
+  State.meaningsLocked = snap.meaningsLocked;
+  State.trackOn = snap.trackOn;
+  resetPlay();
+  renderBoard(); renderPillPanel(); renderTrackToggles();
+  updateSeed(); updateCityCode(); updatePlayButton(); updateDeviceCaption();
+}
+
+function undo() {
+  if (!History.undo.length) return;
+  History.redo.push(snapshotState());
+  applySnapshot(History.undo.pop());
+  updateHistoryButtons();
+  toast('↩️ Undo', 'normal');
+}
+
+function redo() {
+  if (!History.redo.length) return;
+  History.undo.push(snapshotState());
+  applySnapshot(History.redo.pop());
+  updateHistoryButtons();
+  toast('↪️ Redo', 'normal');
+}
+
+function updateHistoryButtons() {
+  const u = document.getElementById('btnUndo');
+  const r = document.getElementById('btnRedo');
+  if (u) u.disabled = History.undo.length === 0;
+  if (r) r.disabled = History.redo.length === 0;
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function setTool(tool) {
+  State.activeTool = (State.activeTool === tool) ? null : tool;
+  document.querySelectorAll('.tool-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tool === State.activeTool);
+  });
+  renderBoard();
+  if (!State.activeTool) hideGhost();
+}
+
+// ============= INIT =============
+function init() {
+  // Mode
+  document.querySelectorAll('#modeGroup .pill-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const mode = +b.dataset.mode;
+      if (mode !== State.mode) {
+        setMode(mode);
+        toast(`🎮 Switched to ${['', 'Predict', 'Decode', 'Build'][mode]} mode`, 'normal');
+      }
+    });
+  });
+  // Grid
+  document.querySelectorAll('#gridGroup .pill-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const [r, c] = b.dataset.grid.split(',').map(Number);
+      if (r === State.rows && c === State.cols) return;
+      recordHistory();
+      setGrid(r, c);
+      toast(`🗺 New ${r}×${c} grid`, 'normal');
+    });
+  });
+  // Tools
+  document.querySelectorAll('.tool-btn').forEach(b => {
+    b.addEventListener('click', () => setTool(b.dataset.tool));
+  });
+  // Toggles
+  document.getElementById('tglTracks').addEventListener('click', e => {
+    e.currentTarget.classList.toggle('on');
+    State.tracksVisible = e.currentTarget.classList.contains('on');
+    renderTracks();
+  });
+  document.getElementById('tglZoom').addEventListener('click', e => {
+    e.currentTarget.classList.toggle('on');
+    State.autoZoom = e.currentTarget.classList.contains('on');
+    applyViewTransform();
+  });
+  // Seed
+  document.getElementById('btnLoadSeed').addEventListener('click', () => {
+    const val = document.getElementById('seedInput').value.trim();
+    if (!val) { toast('Paste a seed first', 'warn'); return; }
+    const data = decodeSeed(val);
+    if (!data) { toast("That seed doesn't look right — check for typos", 'bad'); return; }
+    recordHistory();
+    loadFromData(data);
+    toast('Seed loaded', 'good');
+  });
+  document.getElementById('seedDisplay').addEventListener('click', () => {
+    const seed = encodeSeed();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(seed).then(() => toast('Seed copied to clipboard', 'good'));
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = seed; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      toast('Seed copied', 'good');
+    }
+  });
+  // Buttons
+  document.getElementById('btnQuickPlay').addEventListener('click', quickPlay);
+  document.getElementById('btnExport').addEventListener('click', openExport);
+  document.getElementById('btnHelp').addEventListener('click', () => {
+    document.getElementById('helpModal').classList.add('open');
+  });
+  document.getElementById('btnCloseHelp').addEventListener('click', () => closeModal('helpModal'));
+  document.getElementById('btnCloseExport').addEventListener('click', () => closeModal('exportModal'));
+  document.getElementById('btnLock').addEventListener('click', () => {
+    recordHistory();
+    State.meaningsLocked = !State.meaningsLocked;
+    if (State.meaningsLocked) {
+      // Check all symbols on map have meanings
+      const present = new Set();
+      for (const v of Object.values(State.signs)) if (v && v !== 'uturn') present.add(v);
+      for (const s of present) {
+        if (!State.meanings[s]) {
+          State.meaningsLocked = false;
+          toast(`Assign a meaning to ${s} first`, 'warn');
+          return;
+        }
+      }
+      toast('Meanings locked — ready to Play', 'good');
+    } else {
+      // Clear trucks/tracks on unlock
+      resetPlay();
+      toast('Meanings unlocked', 'normal');
+    }
+    renderPillPanel(); updatePlayButton(); updateDeviceCaption();
+  });
+  document.getElementById('btnClear').addEventListener('click', () => {
+    State.tracks = []; State.trucks = [];
+    if (State.playing) resetPlay();
+    else {
+      const tl = document.getElementById('tracksLayer'); if (tl) tl.innerHTML = '';
+      const trl = document.getElementById('trucksLayer'); if (trl) trl.innerHTML = '';
+      document.querySelectorAll('.gateway-marker').forEach(g => g.classList.remove('correct', 'wrong'));
+      document.getElementById('devBar').style.width = '0%';
+    }
+    toast('Tracks cleared', 'normal');
+  });
+  function clearLogBodies() {
+    const body = document.getElementById('logBody');
+    if (body) body.innerHTML = '';
+  }
+  document.getElementById('btnLogClear').addEventListener('click', () => { clearLogBodies(); toast('Log cleared', 'normal'); });
+  document.getElementById('btnUndo').addEventListener('click', undo);
+  document.getElementById('btnRedo').addEventListener('click', redo);
+  // Play bar
+  document.getElementById('btnPlay').addEventListener('click', () => {
+    Sfx.ensure(); // unlock audio on this user gesture
+    if (!State.playing) startPlay();
+    else if (State.paused) resumePlay();
+    else pausePlay();
+  });
+  document.getElementById('btnReset').addEventListener('click', () => { resetPlay(); toast('⏮ Simulation reset', 'normal'); });
+  document.getElementById('btnSpeedDown').addEventListener('click', () => {
+    const speeds = [0.5, 1, 2, 4, 10, 20];
+    const i = speeds.indexOf(State.speed);
+    if (i > 0) State.speed = speeds[i - 1];
+    document.getElementById('speedReadout').textContent = (State.speed % 1 === 0 ? State.speed : State.speed.toFixed(1)) + '×';
+    toast(`🐢 Speed ${State.speed % 1 === 0 ? State.speed : State.speed.toFixed(1)}×`, 'dim');
+  });
+  document.getElementById('btnSpeedUp').addEventListener('click', () => {
+    const speeds = [0.5, 1, 2, 4, 10, 20];
+    const i = speeds.indexOf(State.speed);
+    if (i < speeds.length - 1) State.speed = speeds[i + 1];
+    document.getElementById('speedReadout').textContent = (State.speed % 1 === 0 ? State.speed : State.speed.toFixed(1)) + '×';
+    toast(`🐇 Speed ${State.speed % 1 === 0 ? State.speed : State.speed.toFixed(1)}×`, 'dim');
+  });
+  document.getElementById('btnCarsDown').addEventListener('click', () => {
+    if (State.numCars > 1) { State.numCars--; toast(`🚗 Cars: ${State.numCars}`, 'dim'); }
+    updateCarsReadout();
+  });
+  document.getElementById('btnCarsUp').addEventListener('click', () => {
+    if (State.numCars < 6) { State.numCars++; toast(`🚗 Cars: ${State.numCars}`, 'dim'); }
+    updateCarsReadout();
+  });
+  // Export
+  document.getElementById('btnSaveSvg').addEventListener('click', exportSVG);
+  document.getElementById('btnSavePng').addEventListener('click', exportPNG);
+  ['expSigns','expNumbers','expTracks','expLegend'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderExportPreview);
+  });
+  // Modal backdrop click
+  document.getElementById('helpModal').addEventListener('click', e => {
+    if (e.target.id === 'helpModal') closeModal('helpModal');
+  });
+  document.getElementById('exportModal').addEventListener('click', e => {
+    if (e.target.id === 'exportModal') closeModal('exportModal');
+  });
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'Escape') {
+      setTool(null);
+      closeModal('helpModal'); closeModal('exportModal');
+    } else if (e.key === ' ') {
+      e.preventDefault();
+      const btn = document.getElementById('btnPlay');
+      if (!btn.disabled) btn.click();
+    } else if (e.key === 'r' || e.key === 'R') resetPlay();
+    else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); }
+    else if (e.key === '1') setMode(1);
+    else if (e.key === '2') setMode(2);
+    else if (e.key === '3') setMode(3);
+  });
+
+  // Initial demo puzzle
+  setMode(1);
+  State.signs = { '0,0': 'circle', '0,1': 'triangle', '1,0': 'square' };
+  State.meanings = { circle: 'left', square: 'straight', triangle: 'right' };
+  State.answerMeanings = { ...State.meanings };
+  State.starts = [{ num: 1, gate: 'L1' }];
+  State.ends = [{ num: 1, gate: 'T1' }];
+
+  renderBoard(); renderPillPanel(); updateSeed(); updateCityCode(); updatePlayButton(); updateDeviceCaption();
+  updateCarsReadout();
+  attachViewEvents();
+  attachGatewaySnap();
+  applyViewTransform();
+}
+
+init();
+</script>
+</body>
+</html>
