@@ -1733,17 +1733,22 @@
                 if (!ev) { status = 'stuck'; break; }
 
                 if (ev.type === 'inside_return' || ev.type === 'intersection_180') {
-                  // 180° reflect: draw a tight U-turn. The two lanes sit at
-                  // ±LANE around the beam axis, and the arc's outer bulge is
-                  // snapped so the gap centers on the middle of the turning
-                  // cell (boundary contacts clamp >= 1/3 cell inside).
-                  const rawX = (ev.type === 'inside_return' ? px : ev.x) + dx / 3;
-                  const rawY = (ev.type === 'inside_return' ? py : ev.y) + dy / 3;
-                  let ux = rawX, uy = rawY;
-                  if (dy !== 0) uy = Math.floor(rawY) + 0.5 - dy * LANE;
-                  else ux = Math.floor(rawX) + 0.5 - dx * LANE;
-                  ux = Math.min(Math.max(ux, 1 / 3), state.cols - 1 / 3);
-                  uy = Math.min(Math.max(uy, 1 / 3), state.rows - 1 / 3);
+                  // 180° reflect drawn as a tight U-turn with lanes at
+                  // ±LANE around the beam axis.
+                  // - Long reflect (touch point inside the grid, e.g. two
+                  //   shields overlapping): bounce right AT the circle touch
+                  //   point — no extra penetration.
+                  // - Corner/boundary contact (off-grid touch point) or
+                  //   shooter inside a bulge: penetrate ~1/3 cell first.
+                  const offGrid = ev.x <= 1e-6 || ev.x >= state.cols - 1e-6 ||
+                                  ev.y <= 1e-6 || ev.y >= state.rows - 1e-6;
+                  let ux = ev.x, uy = ev.y;
+                  if (offGrid || ev.type === 'inside_return') {
+                    const rawX = (ev.type === 'inside_return' ? px : ev.x) + dx / 4;
+                    const rawY = (ev.type === 'inside_return' ? py : ev.y) + dy / 4;
+                    ux = Math.min(Math.max(rawX, 1 / 4), state.cols - 1 / 4);
+                    uy = Math.min(Math.max(rawY, 1 / 4), state.rows - 1 / 4);
+                  }
                   const nx = -dy * LANE, ny = dx * LANE;
                   // jog onto the inbound lane, then sweep the semicircle
                   push(ux - nx, uy - ny, 'bounce180');
