@@ -810,6 +810,50 @@
                 width: 100%;
                 justify-content: center;
             }
+            /* 3-way laser mode selector (Off | Manual | All) */
+            .ex-mode {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding: 7px 8px;
+                border-radius: 8px;
+            }
+            .ex-mode:hover {
+                background: var(--surface-3);
+            }
+            .ex-mode .txt b {
+                font-size: 12.5px;
+                font-weight: 600;
+            }
+            .ex-mode .txt small {
+                font-size: 10.5px;
+                color: var(--fg-mute);
+            }
+            .ex-seg {
+                display: flex;
+                gap: 4px;
+            }
+            .ex-seg button {
+                flex: 1;
+                border: 1px solid var(--border);
+                background: var(--surface-2);
+                color: var(--fg-dim);
+                font: 600 11px var(--font);
+                padding: 4px 0;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+            .ex-seg button:hover {
+                color: var(--fg);
+            }
+            .ex-seg button.on {
+                background: linear-gradient(135deg, var(--accent), var(--accent-2));
+                color: #fff;
+                border-color: transparent;
+            }
+            #exportPreview [data-ex-key] {
+                cursor: pointer;
+            }
             @media (max-width: 760px) {
                 .modal.export-modal {
                     height: auto;
@@ -1237,11 +1281,14 @@
                     <aside class="export-side">
                         <div class="export-side-title">Export options</div>
 
-                        <label class="ex-toggle">
-                            <span class="txt"><b>Lasers</b><small>Full-length beams</small></span>
-                            <input type="checkbox" id="exOptLaser" checked>
-                            <span class="ex-switch"></span>
-                        </label>
+                        <div class="ex-mode">
+                            <div class="txt"><b>Lasers</b><small>Off · pick ships · All</small></div>
+                            <div class="ex-seg" id="exLaserSeg">
+                                <button type="button" data-mode="off">Off</button>
+                                <button type="button" data-mode="manual">Manual</button>
+                                <button type="button" data-mode="all" class="on">All</button>
+                            </div>
+                        </div>
                         <label class="ex-toggle">
                             <span class="txt"><b>Laser start / end markers</b><small>Dots at beam entry & exit points</small></span>
                             <input type="checkbox" id="exOptMarkers" checked>
@@ -3895,7 +3942,7 @@
                 const $ = (id) => document.getElementById(id);
 
                 const exOpts = {
-                    laser: true,
+                    laserMode: 'all',   // 'off' | 'manual' | 'all'
                     enemy: true,
                     friendly: true,
                     background: true,
@@ -3903,6 +3950,7 @@
                     labels: true,
                     markers: true
                 };
+                const exShipOff = new Set(); // slot keys with beam disabled (manual mode)
 
                 function exIsDark() {
                     const t = document.documentElement.getAttribute('data-theme');
@@ -3960,6 +4008,9 @@
                     };
                     const add = (src) => {
                         try {
+                            // Manual mode: skip ships the user turned off
+                            const key = src.side + ':' + src.index;
+                            if (exOpts.laserMode === 'manual' && exShipOff.has(key)) return;
                             let lp = computeLaserPath(src);
                             if (!lp || !Array.isArray(lp.pts) || lp.pts.length < 2) return;
                             // parallel lanes + card endpoints (all modes)
@@ -4022,7 +4073,7 @@
 
                     const showEnemy = o.enemy;
                     const showFriendly = o.friendly || o.laser;
-                    const showLaser = o.laser;
+                    const showLaser = o.laserMode !== 'off';
                     const seedVal = ($('seedInput') ? $('seedInput').value : '').trim();
 
                     /* FIXED card layout (grid core → ring 1 ships → ring 2 labels
@@ -4162,9 +4213,10 @@
                             else if (res.type === 'pair') { lbl = String(res.pairId); fill = res.color || C.label; bold = ' font-weight="700"'; }
                             // Opaque light tint of the beam color — beams stay hidden
                             const cardFill = (typeof lightenHex === 'function' && lightenHex(fill)) || C.card;
-                            out.push(`<rect x="${X(gx) - 0.45 * S}" y="${Y(gy) - 0.45 * S}" width="${0.9 * S}" height="${0.9 * S}" rx="${0.1 * S}" fill="${cardFill}" stroke="${fill}" stroke-width="2"/>`);
+                            const mkey = res.position.side + ':' + res.position.index;
+                            out.push(`<g data-ex-key="${mkey}"><rect x="${X(gx) - 0.45 * S}" y="${Y(gy) - 0.45 * S}" width="${0.9 * S}" height="${0.9 * S}" rx="${0.1 * S}" fill="${cardFill}" stroke="${fill}" stroke-width="2"/>`);
                             const fs = res.type === 'hit' ? FS_HIT : FS_PAIR;
-                            out.push(`<text x="${X(gx)}" y="${Y(gy) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${fs}"${bold} fill="${fill}">${esc(lbl)}</text>`);
+                            out.push(`<text x="${X(gx)}" y="${Y(gy) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${fs}"${bold} fill="${fill}">${esc(lbl)}</text></g>`);
                         }
                     }
 
@@ -4183,8 +4235,9 @@
                             const col = f.color || LASER_COLORS[0];
                             // Opaque light tint of the beam color — beams stay hidden
                             const cardFill = (typeof lightenHex === 'function' && lightenHex(col)) || col;
-                            out.push(`<rect x="${cx - bw / 2}" y="${cy - bw / 2}" width="${bw}" height="${bw}" rx="${0.1 * S}" fill="${cardFill}" stroke="${col}" stroke-width="2"/>`);
-                            out.push(`<text x="${cx}" y="${cy + S * 0.16}" text-anchor="middle" font-size="${FS_FRIENDLY}">${f.emoji}</text>`);
+                            const fkey = f.side + ':' + f.index;
+                            out.push(`<g data-ex-key="${fkey}"><rect x="${cx - bw / 2}" y="${cy - bw / 2}" width="${bw}" height="${bw}" rx="${0.1 * S}" fill="${cardFill}" stroke="${col}" stroke-width="2"/>`);
+                            out.push(`<text x="${cx}" y="${cy + S * 0.16}" text-anchor="middle" font-size="${FS_FRIENDLY}">${f.emoji}</text></g>`);
                         }
                     }
 
@@ -4229,7 +4282,6 @@
 
                 /* option toggles */
                 [
-                    ['exOptLaser', 'laser'],
                     ['exOptMarkers', 'markers'],
                     ['exOptEnemy', 'enemy'],
                     ['exOptFriendly', 'friendly'],
@@ -4242,6 +4294,35 @@
                     el.checked = exOpts[key];
                     el.addEventListener('change', () => { exOpts[key] = el.checked; exRefresh(); });
                 });
+
+                /* laser mode: Off | Manual | All */
+                const seg = $('exLaserSeg');
+                if (seg) {
+                    seg.querySelectorAll('button').forEach((b) => {
+                        b.addEventListener('click', () => {
+                            exOpts.laserMode = b.dataset.mode;
+                            if (exOpts.laserMode !== 'manual') exShipOff.clear();
+                            seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+                            exRefresh();
+                        });
+                    });
+                }
+
+                /* Manual mode: click a ship/hint card in the preview to
+                   toggle its beam on/off */
+                const previewEl = $('exportPreview');
+                if (previewEl) {
+                    previewEl.addEventListener('click', (e) => {
+                        if (exOpts.laserMode !== 'manual') return;
+                        const t = typeof e.target.closest === 'function'
+                            ? e.target.closest('[data-ex-key]') : null;
+                        if (!t) return;
+                        const k = t.dataset.exKey;
+                        if (exShipOff.has(k)) exShipOff.delete(k);
+                        else exShipOff.add(k);
+                        exRefresh();
+                    });
+                }
 
                 $('copyExportBtn').addEventListener('click', async () => {
                     const svgStr = exBuildSVG();
