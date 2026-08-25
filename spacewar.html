@@ -1398,6 +1398,9 @@
             const ENEMY_EMOJIS = ['🛸', '👾'];
             const FRIENDLY_EMOJIS = ['🛰️', '🚀'];
             const SHIELD_R = Math.SQRT2; // circle passes through the 8 neighbor cell centers
+            // Reflect-back beams draw as two parallel lanes ±LANE around the
+            // cell-center line, joined by a U-turn arc of the same radius
+            const LANE = 0.08;
             // Light tint of a beam color for opaque hint-card backgrounds
             function lightenHex(hex, amt = 0.82) {
               const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
@@ -1729,32 +1732,42 @@
                 const ev = findNextEvent(px, py, dx, dy);
                 if (!ev) { status = 'stuck'; break; }
 
-                if (ev.type === 'inside_return') {
-                  // Shooter starts inside a boundary bulge: reflect straight
-                  // back, but penetrate ~1/3 cell into the grid first
-                  const tx = Math.min(Math.max(px + dx / 3, 1 / 3), state.cols - 1 / 3);
-                  const ty = Math.min(Math.max(py + dy / 3, 1 / 3), state.rows - 1 / 3);
-                  push(tx, ty, 'bounce180');
+                if (ev.type === 'inside_return' || ev.type === 'intersection_180') {
+                  // 180° reflect: draw a tight U-turn. The two lanes sit at
+                  // ±LANE around the beam axis, and the arc's outer bulge is
+                  // snapped so the gap centers on the middle of the turning
+                  // cell (boundary contacts clamp >= 1/3 cell inside).
+                  const rawX = (ev.type === 'inside_return' ? px : ev.x) + dx / 3;
+                  const rawY = (ev.type === 'inside_return' ? py : ev.y) + dy / 3;
+                  let ux = rawX, uy = rawY;
+                  if (dy !== 0) uy = Math.floor(rawY) + 0.5 - dy * LANE;
+                  else ux = Math.floor(rawX) + 0.5 - dx * LANE;
+                  ux = Math.min(Math.max(ux, 1 / 3), state.cols - 1 / 3);
+                  uy = Math.min(Math.max(uy, 1 / 3), state.rows - 1 / 3);
+                  const nx = -dy * LANE, ny = dx * LANE;
+                  // jog onto the inbound lane, then sweep the semicircle
+                  push(ux - nx, uy - ny, 'bounce180');
+                  const aStart = Math.atan2((uy - ny) - uy, (ux - nx) - ux);
+                  for (let i = 1; i <= 8; i++) {
+                    push(
+                      ux + LANE * Math.cos(aStart + Math.PI * i / 8),
+                      uy + LANE * Math.sin(aStart + Math.PI * i / 8),
+                      'uturn'
+                    );
+                  }
                   dx = -dx; dy = -dy;
-                  push(tx + dx * 0.35, ty + dy * 0.35, 'end');
-                  status = 'hit_source';
-                  hitShip = friendly;
-                  break;
+                  px = ux + nx; py = uy + ny;
+                  if (ev.type === 'inside_return') {
+                    push(px + dx * 0.35, py + dy * 0.35, 'end');
+                    status = 'hit_source';
+                    hitShip = friendly;
+                    break;
+                  }
+                  bounces++;
                 } else if (ev.type === 'exit') {
                   push(ev.x, ev.y, 'exitBoundary');
                   status = 'exit';
                   break;
-                } else if (ev.type === 'intersection_180') {
-                  // Penetrate ~1/3 cell past the contact point before
-                  // turning back so the reflect reads clearly inside the
-                  // grid (boundary ships contact off-map, so clamp the
-                  // turn point to at least 1/3 cell inside the border)
-                  const tx = Math.min(Math.max(ev.x + dx / 3, 1 / 3), state.cols - 1 / 3);
-                  const ty = Math.min(Math.max(ev.y + dy / 3, 1 / 3), state.rows - 1 / 3);
-                  push(tx, ty, 'bounce180');
-                  dx = -dx; dy = -dy;
-                  px = tx; py = ty;
-                  bounces++;
                 } else if (ev.type === 'reflect_90') {
                   push(ev.x, ev.y, 'bounce90');
                   dx = ev.newDirX; dy = ev.newDirY;
@@ -2771,7 +2784,7 @@
                   state.hitFlashes = [];
                   state.lasers = sources.map((f, i) => {
                     let lp = computeLaserPath(f);
-                    if (state.mode === 3) lp = extendLaserToCards(lp, f);
+                    lp = extendLaserToCards(lp, f);
                     return {
                       ...lp,
                       color: f.color || LASER_COLORS[i % LASER_COLORS.length],
@@ -2871,18 +2884,39 @@
                   });
                 }
 
-                // Mode 3: extend the traced route so each end sits under the
-                // center of its result card (start slot, and target slot when
-                // the beam lands on another slot)
+                // Mode 3: extend the traced route so each end sits under its
+                // result card. For straight reflect-back beams, shift the
+                // outbound leg to one side of the axis and the return leg to
+                // the other (±LANE) so both lines are parallel with the gap
+                // centered on the cell middle line; endpoints sit under
+                // their card on their own lane.
                 function extendLaserToCards(lp, src) {
                   let arr = [...lp.pts];
+                  const d = { x: { left: 1, right: -1 }[src.side] || 0, y: { top: 1, bottom: -1 }[src.side] || 0 };
+                  const n = { x: -d.y, y: d.x }; // perpendicular to beam
+
+                  const iA = arr.findIndex((p) => p.kind === 'bounce180');
+                  const kinds = arr.map((p) => p.kind);
+                  const iB = kinds.lastIndexOf('uturn');
+                  const straight = iA > 0 && iB > iA &&
+                    !arr.slice(0, iA).some((p) => p.kind === 'bounce90' || p.kind === 'bounce180');
+                  if (!straight) return lp;
+
+                  for (let i = 0; i < iA; i++) {
+                    arr[i] = { ...arr[i], x: arr[i].x - n.x * LANE, y: arr[i].y - n.y * LANE };
+                  }
+                  // NOTE: the return leg (points after the U-turn arc) is
+                  // already on the +LANE lane — the trace resumes from the
+                  // arc exit — so it must NOT be shifted again.
+
                   const sc = laserCardPoint(src.side, src.index);
-                  if (sc) arr.unshift({ x: sc.x, y: sc.y, kind: 'start' });
+                  if (sc) arr.unshift({ x: sc.x - n.x * LANE, y: sc.y - n.y * LANE, kind: 'start' });
                   if (lp.status === 'hit_source' || lp.status === 'hit_friendly') {
                     const t = lp.status === 'hit_source' ? lp.friendly : lp.hitShip;
                     if (t && t.side) {
                       const ec = laserCardPoint(t.side, t.index);
-                      if (ec) arr.push({ x: ec.x, y: ec.y, kind: 'end' });
+                      // end rides the return lane (source perpendicular)
+                      if (ec) arr.push({ x: ec.x + n.x * LANE, y: ec.y + n.y * LANE, kind: 'end' });
                     }
                   }
                   lp.pts = recomputeLaserCums(arr);
@@ -3490,8 +3524,8 @@
                         try {
                             let lp = computeLaserPath(src);
                             if (!lp || !Array.isArray(lp.pts) || lp.pts.length < 2) return;
-                            // Mode 3: run beam ends under the result cards
-                            if (state.mode === 3 && typeof extendLaserToCards === 'function') {
+                            // parallel lanes + card endpoints (all modes)
+                            if (typeof extendLaserToCards === 'function') {
                                 lp = extendLaserToCards(lp, src);
                             }
                             const raw = lp.pts.map((p) => [+p.x, +p.y]);
