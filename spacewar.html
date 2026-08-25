@@ -1303,6 +1303,11 @@
                             <span class="ex-switch"></span>
                         </label>
                         <label class="ex-toggle">
+                            <span class="txt"><b>Explosions 💥</b><small>Explosion emoji where a beam hits a ship</small></span>
+                            <input type="checkbox" id="exOptExplosions" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
                             <span class="txt"><b>Enemy ships</b><small>Off = puzzle-only sheet for book</small></span>
                             <input type="checkbox" id="exOptEnemy" checked>
                             <span class="ex-switch"></span>
@@ -3951,6 +3956,7 @@
 
                 const exOpts = {
                     laserMode: 'all',   // 'off' | 'manual' | 'all'
+                    explosions: true,   // 💥 at beam-hit cells
                     enemy: true,
                     friendly: true,
                     background: true,
@@ -4040,7 +4046,11 @@
                                     endCard = laserCardPoint(t.side, t.index);
                                 }
                             }
-                            geoms.push({ pts: raw, sig, color: src.color || null, startCard, endCard });
+                            geoms.push({
+                                pts: raw, sig, color: src.color || null, startCard, endCard,
+                                hitCell: (lp.status === 'hit_enemy' && lp.hitShip)
+                                    ? { x: lp.hitShip.x, y: lp.hitShip.y } : null
+                            });
                         } catch (e) { /* ignore */ }
                     };
                     if (state.mode === 3) {
@@ -4200,6 +4210,15 @@
                         }
                     }
 
+                    /* explosion emoji where a beam hit an enemy ship
+                       (toggle: explosions) — above beams/ships, below flags */
+                    if (o.explosions) {
+                        for (const g of geoms) {
+                            if (!g.hitCell) continue;
+                            out.push(`<text x="${X(g.hitCell.x + 0.5)}" y="${Y(g.hitCell.y + 0.5) + S * 0.18}" text-anchor="middle" font-size="${S * 0.6}">💥</text>`);
+                        }
+                    }
+
                     /* ring 1 — Mode 3 clue symbols at edge slots:
                        Hit / ↩ reflect / pair number (laser color) / · exit.
                        These are the puzzle clues — exported even when the
@@ -4291,6 +4310,7 @@
                 /* option toggles */
                 [
                     ['exOptMarkers', 'markers'],
+                    ['exOptExplosions', 'explosions'],
                     ['exOptEnemy', 'enemy'],
                     ['exOptFriendly', 'friendly'],
                     ['exOptBackground', 'background'],
