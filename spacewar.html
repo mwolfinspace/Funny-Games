@@ -1,0 +1,3053 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Laser Tactics — Shield Reflection Puzzle</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            :root {
+                --bg: #0d0e1a;
+                --bg-grad-1: #161830;
+                --bg-grad-2: #0a0b15;
+                --surface: #1a1c2e;
+                --surface-2: #23263d;
+                --surface-3: #2d3050;
+                --border: #353952;
+                --border-strong: #4a4f70;
+                --fg: #e8eaf0;
+                --fg-dim: #9aa0b3;
+                --fg-mute: #5d6378;
+                --accent: #ffb454;
+                --accent-2: #ff6b9d;
+                --accent-3: #4dd0e1;
+                --grid-bg: #161829;
+                --grid-cell: #1d2034;
+                --grid-line: #2a2d44;
+                --grid-line-strong: #3d4163;
+                --shield-fill: rgba(77, 208, 225, 0.1);
+                --shield-outline: rgba(77, 208, 225, 0.55);
+                --shield-dash: rgba(77, 208, 225, 0.85);
+                --enemy: #ff5252;
+                --enemy-glow: rgba(255, 82, 82, 0.4);
+                --friendly: #4dd0e1;
+                --flag: #ffb454;
+                --hit: #ff5252;
+                --reflect: #ff9800;
+                --laser-glow: 0 0 8px;
+                --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+                --font: "Space Grotesk", system-ui, sans-serif;
+                --mono: "JetBrains Mono", monospace;
+            }
+            [data-theme="light"] {
+                --bg: #f5f7fc;
+                --bg-grad-1: #ffffff;
+                --bg-grad-2: #e4e8f5;
+                --surface: #ffffff;
+                --surface-2: #f1f4fb;
+                --surface-3: #e4e9f5;
+                --border: #d4d8e5;
+                --border-strong: #a8aebf;
+                --fg: #1a1d2e;
+                --fg-dim: #5d6378;
+                --fg-mute: #9aa0b3;
+                --accent: #ff8a00;
+                --accent-2: #e91e63;
+                --accent-3: #0097a7;
+                --grid-bg: #fafbff;
+                --grid-cell: #ffffff;
+                --grid-line: #d4d8e5;
+                --grid-line-strong: #a8aebf;
+                --shield-fill: rgba(0, 151, 167, 0.1);
+                --shield-outline: rgba(0, 151, 167, 0.55);
+                --shield-dash: rgba(0, 151, 167, 0.85);
+                --enemy: #d32f2f;
+                --enemy-glow: rgba(211, 47, 47, 0.3);
+                --friendly: #0097a7;
+                --flag: #ff8a00;
+                --hit: #d32f2f;
+                --reflect: #f57c00;
+                --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+                --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+            }
+            html,
+            body {
+                height: 100%;
+                overflow: hidden;
+            }
+            body {
+                background: var(--bg);
+                background-image:
+                    radial-gradient(
+                        ellipse at top right,
+                        rgba(255, 180, 84, 0.06),
+                        transparent 50%
+                    ),
+                    radial-gradient(
+                        ellipse at bottom left,
+                        rgba(77, 208, 225, 0.06),
+                        transparent 50%
+                    ),
+                    linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
+                color: var(--fg);
+                font-family: var(--font);
+                font-size: 14px;
+                display: flex;
+                flex-direction: column;
+            }
+
+            /* ============ TOP BAR ============ */
+            .topbar {
+                background: var(--surface);
+                border-bottom: 1px solid var(--border);
+                padding: 8px 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                min-height: 56px;
+                z-index: 10;
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding-right: 14px;
+                border-right: 1px solid var(--border);
+                margin-right: 6px;
+            }
+            .brand-logo {
+                width: 32px;
+                height: 32px;
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent-2)
+                );
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                box-shadow: 0 4px 12px rgba(255, 180, 84, 0.3);
+            }
+            .brand-text {
+                display: flex;
+                flex-direction: column;
+                line-height: 1.1;
+            }
+            .brand-text strong {
+                font-size: 15px;
+                font-weight: 700;
+                letter-spacing: -0.3px;
+            }
+            .brand-text small {
+                font-size: 10px;
+                color: var(--fg-mute);
+                font-family: var(--mono);
+            }
+
+            .mode-tabs {
+                display: flex;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 2px;
+                gap: 2px;
+            }
+            .mode-tab {
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                background: transparent;
+                color: var(--fg-dim);
+                border: none;
+                cursor: pointer;
+                transition: all 0.15s;
+                font-family: var(--font);
+            }
+            .mode-tab:hover {
+                color: var(--fg);
+                background: var(--surface-3);
+            }
+            .mode-tab.active {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent-2)
+                );
+                color: #1a1d2e;
+                box-shadow: 0 2px 8px rgba(255, 180, 84, 0.3);
+            }
+
+            .separator {
+                width: 1px;
+                height: 28px;
+                background: var(--border);
+                margin: 0 4px;
+            }
+
+            .field {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 3px 8px;
+            }
+            .field label {
+                font-size: 10px;
+                color: var(--fg-mute);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 600;
+            }
+            .field input[type="number"] {
+                width: 36px;
+                background: transparent;
+                border: none;
+                color: var(--fg);
+                font-family: var(--mono);
+                font-size: 13px;
+                font-weight: 600;
+                text-align: center;
+                outline: none;
+            }
+            .field input[type="number"]::-webkit-inner-spin-button,
+            .field input[type="number"]::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+
+            .btn {
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                color: var(--fg);
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-family: var(--font);
+            }
+            .btn:hover {
+                background: var(--surface-3);
+                border-color: var(--border-strong);
+            }
+            .btn.primary {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent-2)
+                );
+                border-color: transparent;
+                color: #1a1d2e;
+            }
+            .btn.primary:hover {
+                box-shadow: 0 4px 12px rgba(255, 180, 84, 0.35);
+            }
+            .btn.accent {
+                background: var(--accent-3);
+                border-color: transparent;
+                color: #0d0e1a;
+            }
+            .btn.accent:hover {
+                box-shadow: 0 4px 12px rgba(77, 208, 225, 0.35);
+            }
+            .btn.ghost {
+                background: transparent;
+            }
+            .btn.icon-only {
+                padding: 6px 8px;
+            }
+            .btn:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+
+            .seed-box {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 3px 4px 3px 8px;
+            }
+            .seed-box label {
+                font-size: 10px;
+                color: var(--fg-mute);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 600;
+            }
+            .seed-box input {
+                background: transparent;
+                border: none;
+                color: var(--accent);
+                font-family: var(--mono);
+                font-size: 12px;
+                font-weight: 600;
+                width: 150px;
+                outline: none;
+                letter-spacing: 0.5px;
+            }
+            .spacer {
+                flex: 1;
+            }
+
+            .slider-group {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 4px 10px;
+            }
+            .slider-group label {
+                font-size: 10px;
+                color: var(--fg-mute);
+                text-transform: uppercase;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+            }
+            .slider-group input[type="range"] {
+                -webkit-appearance: none;
+                width: 70px;
+                height: 4px;
+                background: var(--surface-3);
+                border-radius: 2px;
+                outline: none;
+            }
+            .slider-group input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 12px;
+                height: 12px;
+                background: var(--accent);
+                border-radius: 50%;
+                cursor: pointer;
+            }
+            .slider-group .val {
+                font-family: var(--mono);
+                font-size: 11px;
+                color: var(--accent);
+                font-weight: 600;
+                width: 28px;
+                text-align: right;
+            }
+
+            /* ============ STATUS BAR ============ */
+            .statusbar {
+                background: var(--surface);
+                border-bottom: 1px solid var(--border);
+                padding: 6px 16px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                font-size: 12px;
+                min-height: 34px;
+            }
+            .stat {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 3px 10px;
+                background: var(--surface-2);
+                border-radius: 14px;
+                font-weight: 600;
+            }
+            .stat .dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+            }
+            .stat.enemy .dot {
+                background: var(--enemy);
+                box-shadow: 0 0 6px var(--enemy-glow);
+            }
+            .stat.friendly .dot {
+                background: var(--friendly);
+                box-shadow: 0 0 6px rgba(77, 208, 225, 0.4);
+            }
+            .stat.flag .dot {
+                background: var(--flag);
+            }
+            .stat .num {
+                font-family: var(--mono);
+                color: var(--accent);
+                font-size: 13px;
+            }
+            .stat .lbl {
+                color: var(--fg-dim);
+                font-size: 11px;
+            }
+            .msg {
+                flex: 1;
+                text-align: right;
+                color: var(--fg-dim);
+                font-size: 11px;
+                font-style: italic;
+            }
+
+            /* ============ MAIN ZONE ============ */
+            .main-zone {
+                flex: 1;
+                display: flex;
+                overflow: hidden;
+                position: relative;
+            }
+
+            /* ============ TOOLBAR ============ */
+            .toolbar {
+                width: 60px;
+                background: var(--surface);
+                border-right: 1px solid var(--border);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 10px 4px;
+                gap: 4px;
+                z-index: 5;
+            }
+            .tool-btn {
+                width: 48px;
+                height: 48px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                cursor: pointer;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+                color: var(--fg-dim);
+                font-size: 18px;
+                transition: all 0.15s;
+                position: relative;
+                font-family: var(--font);
+            }
+            .tool-btn .lbl {
+                font-size: 8px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                color: var(--fg-mute);
+            }
+            .tool-btn:hover {
+                background: var(--surface-3);
+                border-color: var(--border-strong);
+                color: var(--fg);
+            }
+            .tool-btn.active {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent),
+                    var(--accent-2)
+                );
+                border-color: transparent;
+                color: #1a1d2e;
+                box-shadow: 0 4px 12px rgba(255, 180, 84, 0.3);
+            }
+            .tool-btn.active .lbl {
+                color: #1a1d2e;
+            }
+            .tool-divider {
+                width: 32px;
+                height: 1px;
+                background: var(--border);
+                margin: 4px 0;
+            }
+
+            .tool-play {
+                background: linear-gradient(135deg, #4caf50, #2e7d32);
+                color: white;
+                border: none;
+            }
+            .tool-play.playing {
+                background: linear-gradient(135deg, #ff9800, #e65100);
+            }
+
+            /* ============ GAME AREA ============ */
+            .game-area {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                overflow: hidden;
+                position: relative;
+            }
+            #gameSvg {
+                width: 100%;
+                height: 100%;
+                max-width: 100%;
+                max-height: 100%;
+                display: block;
+            }
+
+            /* SVG styling */
+            .grid-bg-rect {
+                fill: var(--grid-bg);
+            }
+            .grid-line {
+                stroke: var(--grid-line);
+                stroke-width: 0.012;
+            }
+            .grid-line-strong {
+                stroke: var(--grid-line-strong);
+                stroke-width: 0.025;
+            }
+            .grid-cell-hover {
+                fill: rgba(255, 180, 84, 0.12);
+                cursor: pointer;
+            }
+            .grid-cell-clickable {
+                cursor: pointer;
+            }
+            .cell-flag-zone:hover .cell-hover-fill {
+                fill: rgba(255, 180, 84, 0.08);
+            }
+            .edge-slot {
+                cursor: pointer;
+            }
+            .edge-slot:hover .edge-bg {
+                fill: rgba(77, 208, 225, 0.15);
+                stroke: var(--friendly);
+            }
+            .edge-slot-occupied .edge-bg {
+                fill: rgba(77, 208, 225, 0.08);
+                stroke: var(--friendly);
+            }
+
+            .shield-circle {
+                fill: var(--shield-fill);
+                stroke: var(--shield-outline);
+                stroke-width: 0.012;
+                stroke-dasharray: 0.06 0.04;
+                pointer-events: none;
+            }
+            .shield-circle-hidden {
+                display: none;
+            }
+            .enemy-ship {
+                font-size: 0.6px;
+                text-anchor: middle;
+                dominant-baseline: central;
+                user-select: none;
+                pointer-events: none;
+            }
+            .enemy-ship-hidden {
+                opacity: 0;
+            }
+            .friendly-ship {
+                font-size: 0.55px;
+                text-anchor: middle;
+                dominant-baseline: central;
+                user-select: none;
+            }
+            .flag-marker {
+                pointer-events: none;
+            }
+            .flag-marker text {
+                font-size: 0.5px;
+                text-anchor: middle;
+                dominant-baseline: central;
+            }
+
+            .laser-line {
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                fill: none;
+                filter: drop-shadow(0 0 0.04px currentColor);
+                pointer-events: none;
+            }
+            .laser-glow {
+                opacity: 0.3;
+            }
+
+            .result-text {
+                font-family: var(--font);
+                font-size: 0.3px;
+                font-weight: 700;
+                text-anchor: middle;
+                dominant-baseline: central;
+                user-select: none;
+                pointer-events: none;
+            }
+            .result-pair {
+                fill: var(--accent-3);
+            }
+            .result-hit {
+                fill: var(--hit);
+            }
+            .result-reflect {
+                fill: var(--reflect);
+            }
+            .result-exit {
+                fill: var(--fg-dim);
+            }
+            .coord-label {
+                fill: var(--fg-mute);
+                font-family: var(--mono);
+                font-size: 0.26px;
+                font-weight: 600;
+                text-anchor: middle;
+                dominant-baseline: central;
+                pointer-events: none;
+                user-select: none;
+                opacity: 0.85;
+            }
+
+            /* ============ MODAL ============ */
+            .modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+                backdrop-filter: blur(4px);
+            }
+            .modal-overlay.active {
+                display: flex;
+            }
+            .modal {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 22px;
+                max-width: 90vw;
+                max-height: 90vh;
+                overflow: auto;
+                box-shadow: var(--shadow);
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+            }
+            .modal h2 {
+                font-size: 18px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .modal-actions {
+                display: flex;
+                gap: 8px;
+                justify-content: flex-end;
+            }
+            .export-preview {
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 10px;
+                max-height: 60vh;
+                overflow: auto;
+            }
+            .export-preview svg {
+                max-width: 100%;
+                height: auto;
+            }
+            .export-textarea {
+                width: 100%;
+                min-height: 100px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                color: var(--fg);
+                font-family: var(--mono);
+                font-size: 11px;
+                padding: 10px;
+                resize: vertical;
+            }
+
+            /* ============ CONFETTI ============ */
+            .confetti-container {
+                position: fixed;
+                inset: 0;
+                pointer-events: none;
+                z-index: 200;
+                overflow: hidden;
+            }
+            .confetti-piece {
+                position: absolute;
+                width: 10px;
+                height: 14px;
+                top: -20px;
+                border-radius: 2px;
+                animation: confetti-fall linear forwards;
+            }
+            @keyframes confetti-fall {
+                0% {
+                    transform: translateY(0) rotate(0deg);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translateY(105vh) rotate(720deg);
+                    opacity: 0.9;
+                }
+            }
+
+            /* ============ TOAST ============ */
+            .toast {
+                position: fixed;
+                bottom: 24px;
+                left: 50%;
+                transform: translateX(-50%) translateY(20px);
+                background: var(--surface);
+                border: 1px solid var(--border);
+                padding: 10px 18px;
+                border-radius: 30px;
+                font-weight: 600;
+                font-size: 13px;
+                box-shadow: var(--shadow);
+                opacity: 0;
+                transition: all 0.3s;
+                pointer-events: none;
+                z-index: 300;
+            }
+            .toast.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+            .toast.success {
+                border-color: #4caf50;
+                color: #4caf50;
+            }
+            .toast.error {
+                border-color: var(--enemy);
+                color: var(--enemy);
+            }
+            .toast.info {
+                border-color: var(--accent-3);
+                color: var(--accent-3);
+            }
+
+            /* ============ HELP ============ */
+            .help-trigger {
+                position: absolute;
+                bottom: 12px;
+                right: 12px;
+                width: 32px;
+                height: 32px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                font-weight: 700;
+                color: var(--fg-dim);
+                font-size: 14px;
+            }
+            .help-trigger:hover {
+                color: var(--accent);
+                border-color: var(--accent);
+            }
+
+            .help-content {
+                font-size: 13px;
+                line-height: 1.6;
+            }
+            .modal-help {
+                max-width: min(1080px, 94vw);
+            }
+            .help-content h3 {
+                break-after: avoid;
+            }
+            .help-content ul {
+                break-inside: avoid-column;
+                margin-bottom: 8px;
+            }
+            @media (min-width: 900px) {
+                .help-content {
+                    columns: 3;
+                    column-gap: 32px;
+                }
+            }
+            @media (max-width: 899px) and (min-width: 620px) {
+                .help-content {
+                    columns: 2;
+                    column-gap: 28px;
+                }
+            }
+            .help-content h3 {
+                font-size: 14px;
+                margin-top: 10px;
+                color: var(--accent);
+            }
+            .help-content ul {
+                padding-left: 20px;
+            }
+            .help-content code {
+                background: var(--surface-2);
+                padding: 1px 5px;
+                border-radius: 3px;
+                font-family: var(--mono);
+                font-size: 11px;
+            }
+
+            /* Mobile adjustments */
+            @media (max-width: 900px) {
+                .topbar {
+                    padding: 6px 10px;
+                    gap: 5px;
+                }
+                .brand {
+                    padding-right: 8px;
+                    margin-right: 2px;
+                }
+                .brand-text small {
+                    display: none;
+                }
+                .field input {
+                    width: 28px;
+                }
+                .seed-box input {
+                    width: 80px;
+                }
+                .slider-group input[type="range"] {
+                    width: 50px;
+                }
+            }
+            @media (max-width: 700px) {
+                .toolbar {
+                    width: 48px;
+                }
+                .tool-btn {
+                    width: 40px;
+                    height: 40px;
+                    font-size: 14px;
+                }
+                .tool-btn .lbl {
+                    font-size: 7px;
+                }
+            }
+
+            /* SVG cell text */
+            svg text {
+                user-select: none;
+            }
+        </style>
+    </head>
+    <body>
+        <header class="topbar">
+            <a class="btn ghost icon-only" href="index.html" title="Back to games"
+                style="font-size:16px;text-decoration:none;">🏠</a>
+            <div class="brand">
+                <div class="brand-logo">🛸</div>
+                <div class="brand-text">
+                    <strong>Laser Tactics</strong>
+                    <small>shield reflection puzzle</small>
+                </div>
+            </div>
+
+            <div class="mode-tabs" id="modeTabs">
+                <button class="mode-tab active" data-mode="1">
+                    Detect Out
+                </button>
+                <button class="mode-tab" data-mode="2">Find Enemy</button>
+                <button class="mode-tab" data-mode="3">Read Map</button>
+            </div>
+
+            <div class="separator"></div>
+
+            <div class="field">
+                <label>Cols</label>
+                <input
+                    type="number"
+                    id="colsInput"
+                    min="4"
+                    max="10"
+                    value="6"
+                />
+            </div>
+            <div class="field">
+                <label>Rows</label>
+                <input
+                    type="number"
+                    id="rowsInput"
+                    min="4"
+                    max="10"
+                    value="6"
+                />
+            </div>
+            <div class="field">
+                <label>Enemies</label>
+                <input
+                    type="number"
+                    id="enemyCountInput"
+                    min="0"
+                    max="20"
+                    value="3"
+                />
+            </div>
+            <div class="field">
+                <label>Friendly</label>
+                <input
+                    type="number"
+                    id="friendlyCountInput"
+                    min="0"
+                    max="20"
+                    value="2"
+                />
+            </div>
+
+            <button class="btn primary" id="quickPlayBtn">⚡ Quick Play</button>
+
+            <div class="separator"></div>
+
+            <div class="seed-box">
+                <label>Seed</label>
+                <input
+                    type="text"
+                    id="seedInput"
+                    placeholder="enter seed..."
+                    spellcheck="false"
+                />
+                <button
+                    class="btn ghost icon-only"
+                    id="loadSeedBtn"
+                    title="Load seed"
+                >
+                    📂
+                </button>
+                <button
+                    class="btn ghost icon-only"
+                    id="copySeedBtn"
+                    title="Copy seed"
+                >
+                    📋
+                </button>
+            </div>
+
+            <div class="separator"></div>
+
+            <div class="slider-group">
+                <label>Beam</label>
+                <input
+                    type="range"
+                    id="laserLengthSlider"
+                    min="20"
+                    max="100"
+                    value="100"
+                />
+                <span class="val" id="laserLengthVal">100%</span>
+            </div>
+            <div class="slider-group">
+                <label>Speed</label>
+                <input
+                    type="range"
+                    id="laserSpeedSlider"
+                    min="20"
+                    max="300"
+                    value="100"
+                />
+                <span class="val" id="laserSpeedVal">1.0×</span>
+            </div>
+
+            <div class="spacer"></div>
+
+            <button
+                class="btn ghost icon-only"
+                id="revealBtn"
+                title="Toggle reveal enemies"
+            >
+                👁
+            </button>
+            <button
+                class="btn ghost icon-only"
+                id="soundBtn"
+                title="Toggle sound"
+            >
+                🔊
+            </button>
+            <button
+                class="btn ghost icon-only"
+                id="themeBtn"
+                title="Toggle theme"
+            >
+                🌙
+            </button>
+            <button class="btn accent" id="exportBtn">📥 Export SVG</button>
+        </header>
+
+        <div class="statusbar">
+            <div class="stat enemy">
+                <span class="dot"></span><span class="lbl">Enemies</span
+                ><span class="num" id="enemyCount">0</span>
+            </div>
+            <div class="stat friendly">
+                <span class="dot"></span><span class="lbl">Friendly</span
+                ><span class="num" id="friendlyCount">0</span>
+            </div>
+            <div class="stat flag">
+                <span class="dot"></span><span class="lbl">Flags</span
+                ><span class="num" id="flagCount">0</span>
+            </div>
+            <div class="msg" id="statusMsg">
+                Ready. Quick Play to start, or use toolbar to set up.
+            </div>
+        </div>
+
+        <main class="main-zone">
+            <aside class="toolbar" id="toolbar">
+                <button
+                    class="tool-btn active"
+                    data-tool="add_enemy"
+                    title="Add enemy ship"
+                >
+                    <span>👾</span><span class="lbl">Enemy</span>
+                </button>
+                <button
+                    class="tool-btn"
+                    data-tool="add_friendly"
+                    title="Add friendly ship"
+                >
+                    <span>🛰️</span><span class="lbl">Ship</span>
+                </button>
+                <button
+                    class="tool-btn"
+                    data-tool="add_exposed"
+                    title="Add always-exposed enemy (Mode 3)"
+                >
+                    <span>🛸</span><span class="lbl">Shown</span>
+                </button>
+                <button class="tool-btn" data-tool="flag" title="Place flag">
+                    <span>🚩</span><span class="lbl">Flag</span>
+                </button>
+                <button class="tool-btn" data-tool="erase" title="Erase">
+                    <span>🧽</span><span class="lbl">Erase</span>
+                </button>
+                <div class="tool-divider"></div>
+                <button
+                    class="tool-btn tool-play"
+                    id="playBtn"
+                    title="Play / Pause"
+                >
+                    <span id="playIcon">▶</span
+                    ><span class="lbl" id="playLbl">Play</span>
+                </button>
+                <button class="tool-btn" id="resetBtn" title="Reset animation">
+                    <span>⏹</span><span class="lbl">Stop</span>
+                </button>
+                <div class="tool-divider"></div>
+                <button class="tool-btn" id="clearBtn" title="Clear all">
+                    <span>🗑</span><span class="lbl">Clear</span>
+                </button>
+                <button
+                    class="tool-btn"
+                    id="hideBtn"
+                    title="Hide enemies (custom Mode 2/3)"
+                >
+                    <span>🙈</span><span class="lbl">Hide</span>
+                </button>
+            </aside>
+            <div class="game-area">
+                <svg id="gameSvg" preserveAspectRatio="xMidYMid meet"></svg>
+                <button class="help-trigger" id="helpBtn" title="Help">
+                    ?
+                </button>
+            </div>
+        </main>
+
+        <div class="modal-overlay" id="exportModal">
+            <div class="modal" style="min-width: 600px">
+                <h2>📥 Export Game as SVG</h2>
+                <div class="export-preview" id="exportPreview"></div>
+                <textarea
+                    class="export-textarea"
+                    id="exportTextarea"
+                    readonly
+                ></textarea>
+                <div class="modal-actions">
+                    <button class="btn" id="copyExportBtn">📋 Copy SVG</button>
+                    <button class="btn" id="downloadExportBtn">
+                        💾 Download .svg
+                    </button>
+                    <button class="btn primary" id="closeExportBtn">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="helpModal">
+            <div class="modal modal-help">
+                <h2>❓ How to Play</h2>
+                <div class="help-content">
+                    <p>
+                        <strong>Goal:</strong> Use friendly ships (outside grid)
+                        to shoot lasers. Lasers bounce off shields, hit ships,
+                        or exit the grid. Predict behavior to win.
+                    </p>
+
+                    <h3>Laser Rules</h3>
+                    <ul>
+                        <li>
+                            Each enemy ship has a circular shield (radius covers
+                            3×3 area).
+                        </li>
+                        <li>
+                            <strong>Direct hit</strong>: laser enters the cell
+                            directly facing the ship → damages ship, stops.
+                        </li>
+                        <li>
+                            <strong>90° reflect</strong>: laser enters a
+                            diagonal cell of the 3×3 → bounces sideways.
+                        </li>
+                        <li>
+                            <strong>180° back</strong>: laser hits the
+                            intersection of two overlapping shields → returns to
+                            source.
+                        </li>
+                        <li>
+                            <strong>Boundary rule</strong>: shots engaging a
+                            boundary/corner ship's shield from OUTSIDE the grid
+                            (through the bulge beyond the edges) reflect
+                            straight back (180°); beams engaging from inside
+                            the map follow the normal rules above.
+                        </li>
+                    </ul>
+
+                    <h3>Game Modes</h3>
+                    <ul>
+                        <li>
+                            <strong>Detect Out</strong>: place flags where you
+                            think lasers will exit or hit.
+                        </li>
+                        <li>
+                            <strong>Find Enemy</strong>: enemies are hidden. Use
+                            laser behavior to deduce positions, then flag them.
+                        </li>
+                        <li>
+                            <strong>Read Map</strong>: results shown at
+                            edges (Hit / ↩ / numbered pairs sharing a color).
+                            Flag enemy positions.
+                        </li>
+                    </ul>
+
+                    <h3>Tools</h3>
+                    <ul>
+                        <li>
+                            Click cells with the active tool to place/remove
+                            items. <strong>Right-click</strong> quickly erases
+                            any ship or flag.
+                        </li>
+                        <li>
+                            Quick Play generates a random setup based on grid &
+                            ship counts.
+                        </li>
+                        <li>
+                            The <strong>Beam</strong> slider sets the lit
+                            portion of the route (%): beams stream from start
+                            to end in a continuous loop, like trains on a
+                            track. Lasers always reach their exact endpoint.
+                            <strong>Speed</strong> sets velocity.
+                        </li>
+                    </ul>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn primary" id="closeHelpBtn">
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+
+        <script>
+            // =====================================================
+            // CONSTANTS
+            // =====================================================
+            const LASER_COLORS = [
+              '#ff5252', '#ff9800', '#ffd54f', '#cddc39', '#8bc34a',
+              '#4caf50', '#00e676', '#00bcd4', '#18ffff', '#03a9f4',
+              '#3f51b5', '#7c4dff', '#b388ff', '#9c27b0', '#e040fb',
+              '#ff4081', '#ff80ab', '#ff6e40', '#ff5722', '#a1887f'
+            ];
+            // Exactly 81 distinct chars (base81 seed system)
+            const SEED_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@#$^*-+=?_.;:,()|";
+            const SEED_BASE = 81n;
+            const ENEMY_EMOJIS = ['🛸', '👾'];
+            const FRIENDLY_EMOJIS = ['🛰️', '🚀'];
+            const SHIELD_R = 1.5;
+            const BASE_SPEED = 4;
+
+            const SIDES = ['top', 'right', 'bottom', 'left'];
+
+            // =====================================================
+            // STATE
+            // =====================================================
+            const state = {
+              mode: 1,
+              cols: 6,
+              rows: 6,
+              enemies: [],           // {x, y, exposed, emoji}
+              friendly: [],          // {side, index, color, emoji, id}
+              flags: [],             // {x, y} cell flag | {side, index} edge flag
+              tool: 'add_enemy',
+              theme: 'dark',
+              sound: true,
+              reveal: false,         // force reveal (Mode 2/3)
+              laserLength: 100,
+              laserSpeed: 100,
+              playing: false,
+              paused: false,
+              lasers: [],
+              curLaser: 0,
+              mode3Results: null,
+              flashCells: {},        // flagKey -> {color}
+              winShown: false,
+              nextFriendlyId: 1,
+              hitFlashes: []         // {x, y, color, t, emoji} in path-space coords
+            };
+
+            // Audio context for sound effects
+            let audioCtx = null;
+            function ensureAudio() {
+              if (!audioCtx) {
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                catch (e) {}
+              }
+              return audioCtx;
+            }
+
+            // =====================================================
+            // SOUND
+            // =====================================================
+            function playSound(type) {
+              if (!state.sound) return;
+              const ctx = ensureAudio();
+              if (!ctx) return;
+              if (ctx.state === 'suspended') ctx.resume();
+              const now = ctx.currentTime;
+
+              const tone = (freq, dur, type = 'sine', vol = 0.15, slide = 0) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), now + dur);
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + dur);
+              };
+              const noise = (dur, vol = 0.1, filterFreq = 1000) => {
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+                const src = ctx.createBufferSource();
+                src.buffer = buffer;
+                const filt = ctx.createBiquadFilter();
+                filt.type = 'lowpass';
+                filt.frequency.value = filterFreq;
+                const gain = ctx.createGain();
+                gain.gain.value = vol;
+                src.connect(filt).connect(gain).connect(ctx.destination);
+                src.start(now);
+              };
+
+              switch (type) {
+                case 'shoot': tone(880, 0.08, 'square', 0.08, -400); break;
+                case 'bounce': tone(1200, 0.06, 'triangle', 0.12, 200); break;
+                case 'exit': tone(300, 0.2, 'sawtooth', 0.08, -200); break;
+                case 'hit_enemy': noise(0.25, 0.15, 800); tone(120, 0.2, 'square', 0.1, -80); break;
+                case 'hit_source': tone(800, 0.15, 'sawtooth', 0.15, -600); noise(0.1, 0.08, 600); break;
+                case 'flag_correct': tone(660, 0.1, 'triangle', 0.12); setTimeout(() => tone(880, 0.15, 'triangle', 0.12), 80); break;
+                case 'click': tone(520, 0.05, 'triangle', 0.08); break;
+                case 'win': [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.25, 'triangle', 0.12), i * 120)); break;
+              }
+            }
+
+            // =====================================================
+            // LASER PATH COMPUTATION
+            // =====================================================
+            function determineAction(relX, relY, dirX, dirY) {
+              // Determine the cell type for shield entry
+              // relX, relY: cell position relative to ship (-1, 0, +1)
+              // dirX, dirY: laser direction
+
+              if (dirX === 0 && dirY === 1) { // going down (from top)
+                if (relY === -1) {
+                  if (relX === -1) return { type: 'reflect', newDir: {x: -1, y: 0} }; // cell 1 → left
+                  if (relX === 0)  return { type: 'damage' };                          // cell 2 → damage
+                  if (relX === 1)  return { type: 'reflect', newDir: {x: 1, y: 0} };  // cell 3 → right
+                }
+              } else if (dirX === 1 && dirY === 0) { // going right (from left)
+                if (relX === -1) {
+                  if (relY === -1) return { type: 'reflect', newDir: {x: 0, y: -1} }; // cell 1 → up
+                  if (relY === 0)  return { type: 'damage' };                          // cell 4 → damage
+                  if (relY === 1)  return { type: 'reflect', newDir: {x: 0, y: 1} };  // cell 6 → down
+                }
+              } else if (dirX === 0 && dirY === -1) { // going up (from bottom)
+                if (relY === 1) {
+                  if (relX === -1) return { type: 'reflect', newDir: {x: -1, y: 0} }; // cell 6 → left
+                  if (relX === 0)  return { type: 'damage' };                          // cell 7 → damage
+                  if (relX === 1)  return { type: 'reflect', newDir: {x: 1, y: 0} };  // cell 8 → right
+                }
+              } else if (dirX === -1 && dirY === 0) { // going left (from right)
+                if (relX === 1) {
+                  if (relY === -1) return { type: 'reflect', newDir: {x: 0, y: -1} }; // cell 3 → up
+                  if (relY === 0)  return { type: 'damage' };                          // cell 5 → damage
+                  if (relY === 1)  return { type: 'reflect', newDir: {x: 0, y: 1} };  // cell 8 → down
+                }
+              }
+              return { type: 'none' };
+            }
+
+            function rayCircleEntry(px, py, dx, dy, cx, cy, R) {
+              const fx = px - cx, fy = py - cy;
+              const c = fx * fx + fy * fy - R * R;
+              if (c < -1e-9) return null; // starting inside the disk: no entry event
+              const b = fx * dx + fy * dy;
+              const disc = b * b - c;
+              if (disc < 0) return null;
+              const sq = Math.sqrt(disc);
+              let t = -b - sq; // entry crossing
+              let clamped = false;
+              if (t <= 1e-4) {
+                // Starting exactly on the rim heading inward counts as entering now
+                if (t > -1e-4 && b < 0) { t = 1e-4; clamped = true; }
+                else return null;
+              }
+              return { t, x: px + t * dx, y: py + t * dy, clamped };
+            }
+
+            function gridExitTime(px, py, dx, dy, cols, rows) {
+              // Find t at which the ray exits the rectangle (0,0)-(cols,rows)
+              let tExit = Infinity;
+              if (dx > 0) tExit = Math.min(tExit, (cols - px) / dx);
+              else if (dx < 0) tExit = Math.min(tExit, (0 - px) / dx);
+              if (dy > 0) tExit = Math.min(tExit, (rows - py) / dy);
+              else if (dy < 0) tExit = Math.min(tExit, (0 - py) / dy);
+              return tExit;
+            }
+
+            function findNextEvent(px, py, dx, dy) {
+              const events = [];
+
+              // Point lies on/outside the map border?
+              const offMap = (x, y) =>
+                x <= 1e-6 || x >= state.cols - 1e-6 ||
+                y <= 1e-6 || y >= state.rows - 1e-6;
+
+              // Grid exit
+              const tExit = gridExitTime(px, py, dx, dy, state.cols, state.rows);
+              if (tExit > 1e-9 && isFinite(tExit)) {
+                events.push({
+                  type: 'exit',
+                  t: tExit,
+                  x: px + tExit * dx,
+                  y: py + tExit * dy
+                });
+              }
+
+              // Shield entry for each enemy — hidden enemies still interact (Modes 2/3)
+              for (const ship of state.enemies) {
+                const cx = ship.x + 0.5;
+                const cy = ship.y + 0.5;
+                const fx = px - cx, fy = py - cy;
+                const distSq = fx * fx + fy * fy;
+
+                if (distSq < SHIELD_R * SHIELD_R - 1e-9) {
+                  // Ray starts INSIDE this shield (shooter within a boundary
+                  // bulge, or a bounced beam already inside).
+                  const along = fx * dx + fy * dy;
+                  const cross = Math.abs(fx * dy - fy * dx);
+                  if (along < 0 && cross < 1e-6) {
+                    // Aligned with the core and approaching -> direct damage
+                    // (corners included: point-blank shots hit)
+                    events.push({ type: 'damage', t: Math.sqrt(distSq), x: cx, y: cy, ship });
+                  } else {
+                    // Where did this beam engage the shield? Look BACKWARD
+                    // along the ray to the rim crossing.
+                    const nx = -dx, ny = -dy;
+                    const bb = fx * nx + fy * ny;
+                    const s = -bb + Math.sqrt(Math.max(0, bb * bb - (distSq - SHIELD_R * SHIELD_R)));
+                    const bx = px + nx * s, by = py + ny * s;
+                    if (offMap(bx, by)) {
+                      // Engaged from OUTSIDE the map (boundary ship's bulge)
+                      // -> reflect straight back to the source
+                      events.push({
+                        type: 'inside_return',
+                        t: 1e-3,
+                        x: px + 1e-3 * dx,
+                        y: py + 1e-3 * dy,
+                        ship
+                      });
+                    }
+                    // else: engaged from inside the map -> passes through
+                  }
+                  continue;
+                }
+
+                const entry = rayCircleEntry(px, py, dx, dy, cx, cy, SHIELD_R);
+                if (!entry) continue;
+
+                // Boundary rule: an entry point lying outside the map
+                // rectangle (through a boundary ship's bulge) reflects
+                // straight back to the source.
+                if (offMap(entry.x, entry.y)) {
+                  events.push({ type: 'intersection_180', t: entry.t, x: entry.x, y: entry.y, ship, clamped: !!entry.clamped });
+                  continue;
+                }
+
+                // Overlap rule: entry point lies inside/on another shield -> 180° back to source
+                const inOther = state.enemies.some(o =>
+                  o !== ship && Math.hypot(entry.x - (o.x + 0.5), entry.y - (o.y + 0.5)) <= SHIELD_R + 1e-6
+                );
+                if (inOther) {
+                  events.push({ type: 'intersection_180', t: entry.t, x: entry.x, y: entry.y, ship, clamped: !!entry.clamped });
+                  continue;
+                }
+
+                // Standard rule based on which ring cell the shield was entered
+                // through. Nudge the point slightly along the ray so exact rim
+                // extremes (axis-aligned shots) land inside their true cell.
+                const relX = Math.floor(entry.x + dx * 1e-4) - ship.x;
+                const relY = Math.floor(entry.y + dy * 1e-4) - ship.y;
+                const action = determineAction(relX, relY, dx, dy);
+
+                if (action.type === 'reflect') {
+                  events.push({
+                    type: 'reflect_90',
+                    t: entry.t,
+                    x: entry.x,
+                    y: entry.y,
+                    newDirX: action.newDir.x,
+                    newDirY: action.newDir.y,
+                    ship,
+                    clamped: !!entry.clamped
+                  });
+                } else if (action.type === 'damage') {
+                  events.push({ type: 'damage', t: entry.t, x: cx, y: cy, ship });
+                }
+                // 'none' = passes through this shield without interaction
+              }
+
+              events.sort((a, b) => a.t - b.t);
+
+              // A shot already inside a ship's disk and aimed at its core must
+              // not be stolen by another ship's rim-clamped entry at the origin
+              const dmg = events.find(e => e.type === 'damage');
+              if (dmg) {
+                for (let i = events.length - 1; i >= 0; i--) {
+                  const e = events[i];
+                  if (e !== dmg && e.clamped && e.t <= dmg.t && e.ship !== dmg.ship) {
+                    events.splice(i, 1);
+                  }
+                }
+              }
+
+              return events[0] || null;
+            }
+
+            function friendlyPoint(f) {
+              switch (f.side) {
+                case 'top': return { x: f.index + 0.5, y: 0 };
+                case 'bottom': return { x: f.index + 0.5, y: state.rows };
+                case 'left': return { x: 0, y: f.index + 0.5 };
+                case 'right': return { x: state.cols, y: f.index + 0.5 };
+              }
+              return { x: 0, y: 0 };
+            }
+
+            function edgeKeyFromPoint(x, y) {
+              const eps = 1e-6;
+              if (Math.abs(y) < eps) return { side: 'top', index: Math.max(0, Math.min(state.cols - 1, Math.floor(x))) };
+              if (Math.abs(y - state.rows) < eps) return { side: 'bottom', index: Math.max(0, Math.min(state.cols - 1, Math.floor(x))) };
+              if (Math.abs(x) < eps) return { side: 'left', index: Math.max(0, Math.min(state.rows - 1, Math.floor(y))) };
+              if (Math.abs(x - state.cols) < eps) return { side: 'right', index: Math.max(0, Math.min(state.rows - 1, Math.floor(y))) };
+              return null;
+            }
+
+            function computeLaserPath(friendly) {
+              // Determine start position and direction
+              let startX, startY, dirX, dirY;
+              switch (friendly.side) {
+                case 'top':    startX = friendly.index + 0.5; startY = 0; dirX = 0; dirY = 1; break;
+                case 'bottom': startX = friendly.index + 0.5; startY = state.rows; dirX = 0; dirY = -1; break;
+                case 'left':   startX = 0; startY = friendly.index + 0.5; dirX = 1; dirY = 0; break;
+                case 'right':  startX = state.cols; startY = friendly.index + 0.5; dirX = -1; dirY = 0; break;
+              }
+
+              const pts = [];
+              let cum = 0;
+              const push = (x, y, kind, extra = {}) => {
+                const prev = pts[pts.length - 1];
+                if (prev) cum += Math.hypot(x - prev.x, y - prev.y);
+                const p = { x, y, kind, cum, ...extra };
+                pts.push(p);
+                return p;
+              };
+
+              push(startX, startY, 'start');
+              let px = startX, py = startY, dx = dirX, dy = dirY;
+              let status = 'ongoing';
+              let hitShip = null;
+              let bounces = 0;
+
+              while (bounces < 64 && status === 'ongoing') {
+                const ev = findNextEvent(px, py, dx, dy);
+                if (!ev) { status = 'stuck'; break; }
+
+                if (ev.type === 'inside_return') {
+                  // Corner shield with shooter inside: reflect straight back
+                  push(ev.x, ev.y, 'bounce180');
+                  dx = -dx; dy = -dy;
+                  push(px + dx * 0.35, py + dy * 0.35, 'end');
+                  status = 'hit_source';
+                  hitShip = friendly;
+                  break;
+                } else if (ev.type === 'exit') {
+                  push(ev.x, ev.y, 'exitBoundary');
+                  status = 'exit';
+                  break;
+                } else if (ev.type === 'intersection_180') {
+                  push(ev.x, ev.y, 'bounce180');
+                  dx = -dx; dy = -dy;
+                  px = ev.x; py = ev.y;
+                  bounces++;
+                } else if (ev.type === 'reflect_90') {
+                  push(ev.x, ev.y, 'bounce90');
+                  dx = ev.newDirX; dy = ev.newDirY;
+                  px = ev.x; py = ev.y;
+                  bounces++;
+                } else if (ev.type === 'damage') {
+                  push(ev.x, ev.y, 'hit', { ship: ev.ship });
+                  status = 'hit_enemy';
+                  hitShip = ev.ship;
+                  break;
+                }
+              }
+
+              if (status === 'ongoing') status = 'max_bounces';
+
+              let exitPosition = null;
+              if (status === 'exit') {
+                const b = pts[pts.length - 1];
+                exitPosition = edgeKeyFromPoint(b.x, b.y);
+                // Check whether the exit lands on a friendly ship slot (return to source)
+                let landed = null;
+                for (const f of state.friendly) {
+                  const fp = friendlyPoint(f);
+                  if (Math.hypot(b.x - fp.x, b.y - fp.y) < 0.51) { landed = f; break; }
+                }
+                // Returning to the probe's OWN slot counts as a source hit
+                // even with no registered friendly (Mode 3 probes)
+                if (!landed && exitPosition &&
+                    exitPosition.side === friendly.side && exitPosition.index === friendly.index) {
+                  landed = friendly;
+                }
+                const ext = landed ? 0.7 : 0.6;
+                push(b.x + dx * ext, b.y + dy * ext, 'end');
+                if (landed) {
+                  status = landed.id === friendly.id ? 'hit_source' : 'hit_friendly';
+                  hitShip = landed;
+                }
+              } else if (status === 'stuck' || status === 'max_bounces') {
+                // If stopped on the boundary heading out (e.g. corner 180), extend past the edge
+                const last = pts[pts.length - 1];
+                if (last.x <= 0.001 || last.x >= state.cols - 0.001 || last.y <= 0.001 || last.y >= state.rows - 0.001) {
+                  push(last.x + dx * 0.6, last.y + dy * 0.6, 'end');
+                }
+              }
+
+              return { pts, status, hitShip, totalLength: cum, exitPosition, friendly };
+            }
+
+            function cellKey(x, y) { return 'c:' + x + ',' + y; }
+            function edgeKey(side, index) { return 'e:' + side + ',' + index; }
+            function flagKey(flag) {
+              return flag.side !== undefined ? edgeKey(flag.side, flag.index) : cellKey(flag.x, flag.y);
+            }
+
+            function getPositionAlongPath(path, distance) {
+              if (path.length === 0) return null;
+              if (path.length === 1) return path[0];
+              let cumDist = 0;
+              for (let i = 1; i < path.length; i++) {
+                const segLen = Math.hypot(path[i].x - path[i-1].x, path[i].y - path[i-1].y);
+                if (cumDist + segLen >= distance) {
+                  const t = (distance - cumDist) / segLen;
+                  return {
+                    x: path[i-1].x + t * (path[i].x - path[i-1].x),
+                    y: path[i-1].y + t * (path[i].y - path[i-1].y)
+                  };
+                }
+                cumDist += segLen;
+              }
+              return path[path.length - 1];
+            }
+
+            function getPathSegment(path, startDist, endDist) {
+              if (path.length < 2 || endDist <= 0 || startDist >= endDist) return [];
+              const segs = [];
+              let cum = 0;
+              let started = false;
+              for (let i = 1; i < path.length; i++) {
+                const p1 = path[i-1], p2 = path[i];
+                const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                if (len < 1e-9) continue;
+                const segStart = cum;
+                const segEnd = cum + len;
+
+                if (segEnd < startDist) { cum = segEnd; continue; }
+                if (segStart > endDist) break;
+
+                let a, b;
+                if (startDist > segStart) {
+                  const t = (startDist - segStart) / len;
+                  a = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+                } else {
+                  a = p1;
+                }
+                if (endDist < segEnd) {
+                  const t = (endDist - segStart) / len;
+                  b = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+                } else {
+                  b = p2;
+                }
+
+                if (!started) { segs.push(a); started = true; }
+                segs.push(b);
+                cum = segEnd;
+              }
+              return segs;
+            }
+
+            // =====================================================
+            // MODE 3 RESULTS
+            // =====================================================
+            function computeMode3Results() {
+              const positions = [];
+              for (let c = 0; c < state.cols; c++) {
+                positions.push({ side: 'top', index: c });
+                positions.push({ side: 'bottom', index: c });
+              }
+              for (let r = 0; r < state.rows; r++) {
+                positions.push({ side: 'left', index: r });
+                positions.push({ side: 'right', index: r });
+              }
+
+              // Probe every edge slot with a virtual shooter
+              const results = positions.map(p => {
+                const probe = { side: p.side, index: p.index, id: -1, color: '', emoji: '' };
+                const laser = computeLaserPath(probe);
+                const r = { position: p, type: 'none', exitPos: null, pairId: null };
+                if (laser.status === 'hit_enemy') {
+                  r.type = 'hit';
+                } else if (laser.status === 'hit_source' || laser.status === 'hit_friendly') {
+                  r.type = 'reflect';
+                } else if (laser.status === 'exit') {
+                  r.type = 'exit';
+                  r.exitPos = laser.exitPosition;
+                }
+                return r;
+              });
+
+              // Axis guarantee: every enemy's four direction slots (its row and
+              // column at the grid edges) always read Hit — never blank/dot
+              const onAxis = (pos) => state.enemies.some(s =>
+                ((pos.side === 'top' || pos.side === 'bottom') && pos.index === s.x) ||
+                ((pos.side === 'left' || pos.side === 'right') && pos.index === s.y));
+              for (const r of results) {
+                if (r.type === 'none' && onAxis(r.position)) r.type = 'hit';
+              }
+
+              // Pair exits mutually (tube in/out): shot at i exits at j and vice versa
+              let pairId = 1;
+              for (let i = 0; i < results.length; i++) {
+                const ri = results[i];
+                if (ri.type !== 'exit' || ri.pairId || !ri.exitPos) continue;
+                for (let j = i + 1; j < results.length; j++) {
+                  const rj = results[j];
+                  if (rj.type !== 'exit' || rj.pairId || !rj.exitPos) continue;
+                  const iToJ = ri.exitPos.side === rj.position.side && ri.exitPos.index === rj.position.index;
+                  const jToI = rj.exitPos.side === ri.position.side && rj.exitPos.index === ri.position.index;
+                  if (iToJ && jToI) {
+                    ri.pairId = rj.pairId = pairId;
+                    ri.type = rj.type = 'pair';
+                    pairId++;
+                    break;
+                  }
+                }
+              }
+
+              // Stray exits sitting on an enemy axis still read Hit
+              for (const r of results) {
+                if (r.type === 'exit' && onAxis(r.position)) r.type = 'hit';
+              }
+
+              // Each pair shares one laser-beam color; both ends show only
+              // the bare pair number (1, 2, 3, ...)
+              for (const r of results) {
+                if (r.type === 'pair') {
+                  r.color = LASER_COLORS[(r.pairId - 1) % LASER_COLORS.length];
+                }
+              }
+
+              return results;
+            }
+
+                // =====================================================
+                // SEED ENCODE/DECODE (base81)
+                // =====================================================
+                function encodeSeed() {
+                  let num = 0n;
+
+                  // Append order matters: decode pops fields in reverse.
+                  // Fixed bases (100/40/counts) so the decoder needs no lookahead.
+                  const cells = state.cols * state.rows;
+                  const idxOf = (c) => c.y * state.cols + c.x;
+
+                  const hidden = state.enemies.filter(e => !e.exposed)
+                    .sort((a, b) => idxOf(a) - idxOf(b));
+                  const exposed = state.enemies.filter(e => e.exposed)
+                    .sort((a, b) => idxOf(a) - idxOf(b));
+
+                  // 1. hidden positions (base 100)
+                  for (const e of hidden) num = num * 100n + BigInt(idxOf(e));
+                  // 2. exposed positions (base 100)
+                  for (const e of exposed) num = num * 100n + BigInt(idxOf(e));
+                  // 3. friendly positions (base 40: side*10 + index)
+                  if (state.mode !== 3) {
+                    const sortedFriendly = [...state.friendly].sort((a, b) =>
+                      (SIDES.indexOf(a.side) * 10 + a.index) - (SIDES.indexOf(b.side) * 10 + b.index));
+                    for (const f of sortedFriendly) {
+                      num = num * 40n + BigInt(SIDES.indexOf(f.side) * 10 + f.index);
+                    }
+                  }
+                  // 4. counts + header
+                  num = num * 41n + BigInt(Math.min(state.friendly.length, 40));
+                  num = num * 21n + BigInt(Math.min(exposed.length, 20));
+                  num = num * 21n + BigInt(Math.min(hidden.length, 20));
+                  num = num * 7n + BigInt(state.rows - 4);
+                  num = num * 7n + BigInt(state.cols - 4);
+                  num = num * 3n + BigInt(state.mode - 1);
+
+                  if (num === 0n) return "0";
+                  let result = "";
+                  while (num > 0n) {
+                    result = SEED_ALPHABET[Number(num % SEED_BASE)] + result;
+                    num /= SEED_BASE;
+                  }
+                  return result;
+                }
+
+                function decodeSeed(seed) {
+                  let num = 0n;
+                  for (const c of seed) {
+                    const idx = SEED_ALPHABET.indexOf(c);
+                    if (idx < 0) throw new Error("Invalid character: " + c);
+                    num = num * SEED_BASE + BigInt(idx);
+                  }
+
+                  // Pop in reverse append order (see encodeSeed)
+                  const mode = Number(num % 3n) + 1; num /= 3n;
+                  const cols = Number(num % 7n) + 4; num /= 7n;
+                  const rows = Number(num % 7n) + 4; num /= 7n;
+                  const hiddenCount = Math.min(Number(num % 21n), cols * rows); num /= 21n;
+                  const exposedCount = Math.min(Number(num % 21n), cols * rows); num /= 21n;
+                  const fCount = Math.min(Number(num % 41n), 4 * Math.max(cols, rows)); num /= 41n;
+
+                  const newState = { mode, cols, rows, enemies: [], friendly: [] };
+                  const cells = cols * rows;
+                  const seen = new Set();
+                  const addEnemy = (pos, exposed) => {
+                    const x = pos % cols, y = Math.floor(pos / cols);
+                    if (pos < 0 || pos >= cells || x < 0 || y < 0) return;
+                    const k = x + ',' + y;
+                    if (seen.has(k)) return;
+                    seen.add(k);
+                    newState.enemies.push({ x, y, exposed, emoji: pick(ENEMY_EMOJIS) });
+                  };
+
+                  if (mode !== 3) {
+                    const fSeen = new Set();
+                    for (let i = 0; i < fCount; i++) {
+                      const pos = Number(num % 40n); num /= 40n;
+                      const side = SIDES[Math.floor(pos / 10)];
+                      const index = pos % 10;
+                      const limit = (side === 'top' || side === 'bottom') ? cols : rows;
+                      if (!side || index < 0 || index >= limit) continue;
+                      const k = side + ':' + index;
+                      if (fSeen.has(k)) continue;
+                      fSeen.add(k);
+                      newState.friendly.push({ side, index });
+                    }
+                  } else {
+                    num /= pow(40n, BigInt(fCount)); // skip unused friendly block
+                  }
+
+                  for (let i = 0; i < exposedCount; i++) {
+                    addEnemy(Number(num % 100n), true); num /= 100n;
+                  }
+                  for (let i = 0; i < hiddenCount; i++) {
+                    addEnemy(Number(num % 100n), false); num /= 100n;
+                  }
+
+                  return newState;
+                }
+
+                function pow(base, exp) {
+                  let r = 1n;
+                  while (exp-- > 0n) r *= base;
+                  return r;
+                }
+                // =====================================================
+                // RANDOM HELPERS
+                // =====================================================
+                function randInt(max) { return Math.floor(Math.random() * max); }
+                function shuffle(arr) {
+                  for (let i = arr.length - 1; i > 0; i--) {
+                    const j = randInt(i + 1);
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                  }
+                  return arr;
+                }
+                function pick(arr) { return arr[randInt(arr.length)]; }
+
+                // =====================================================
+                // QUICK PLAY / SETUP
+                // =====================================================
+                function quickPlay() {
+                  stopAnimation();
+                  state.enemies = [];
+                  state.friendly = [];
+                  state.flags = [];
+                  state.mode3Results = null;
+                  state.flashCells = {};
+                  state.hitFlashes = [];
+                  state.winShown = false;
+
+                  const enemyCount = Math.min(parseInt(document.getElementById('enemyCountInput').value) || 3, state.cols * state.rows);
+                  const friendlyCount = Math.min(parseInt(document.getElementById('friendlyCountInput').value) || 2, 2 * (state.cols + state.rows));
+
+                  // Place enemies at random distinct positions
+                  const cells = [];
+                  for (let y = 0; y < state.rows; y++)
+                    for (let x = 0; x < state.cols; x++)
+                      cells.push({ x, y });
+                  shuffle(cells);
+
+                  for (let i = 0; i < enemyCount; i++) {
+                    state.enemies.push({ ...cells[i], exposed: false, emoji: pick(ENEMY_EMOJIS) });
+                  }
+
+                  // Place friendly ships at random edge positions
+                  const edgeSlots = [];
+                  for (let c = 0; c < state.cols; c++) {
+                    edgeSlots.push({ side: 'top', index: c });
+                    edgeSlots.push({ side: 'bottom', index: c });
+                  }
+                  for (let r = 0; r < state.rows; r++) {
+                    edgeSlots.push({ side: 'left', index: r });
+                    edgeSlots.push({ side: 'right', index: r });
+                  }
+                  shuffle(edgeSlots);
+
+                  for (let i = 0; i < friendlyCount; i++) {
+                    const slot = edgeSlots[i];
+                    state.friendly.push({
+                      ...slot,
+                      color: LASER_COLORS[i % LASER_COLORS.length],
+                      emoji: pick(FRIENDLY_EMOJIS),
+                      id: state.nextFriendlyId++
+                    });
+                  }
+
+                  // Mode-specific setup
+                  if (state.mode === 2 || state.mode === 3) {
+                    // Enemies are hidden by default
+                    state.reveal = false;
+                  }
+                  if (state.mode === 3) {
+                    // Mode 3 replaces friendly ships with computed result labels
+                    state.friendly = [];
+                    state.mode3Results = computeMode3Results();
+                    // Auto-flag exposed enemies
+                    for (const e of state.enemies) {
+                      if (e.exposed && !state.flags.some(f => f.x === e.x && f.y === e.y)) {
+                        state.flags.push({ x: e.x, y: e.y });
+                      }
+                    }
+                  }
+
+                  updateSeedInput();
+                  setStatus(`Quick play generated: ${enemyCount} enemies, ${friendlyCount} friendly ships.`);
+                  render();
+                }
+
+                function updateSeedInput() {
+                  document.getElementById('seedInput').value = encodeSeed();
+                }
+
+                function loadSeed(seedStr) {
+                  try {
+                    const ns = decodeSeed(seedStr.trim());
+                    stopAnimation();
+                    state.mode = ns.mode;
+                    state.cols = ns.cols;
+                    state.rows = ns.rows;
+                    state.enemies = ns.enemies.map(e => ({ ...e }));
+                    state.friendly = ns.friendly.map((f, i) => ({
+                      ...f,
+                      color: LASER_COLORS[i % LASER_COLORS.length],
+                      emoji: pick(FRIENDLY_EMOJIS),
+                      id: state.nextFriendlyId++
+                    }));
+                    state.flags = [];
+                    state.flashCells = {};
+                    state.hitFlashes = [];
+                    state.winShown = false;
+                    state.reveal = (state.mode === 2 || state.mode === 3);
+
+                    document.getElementById('colsInput').value = state.cols;
+                    document.getElementById('rowsInput').value = state.rows;
+
+                    if (state.mode === 3) {
+                      state.mode3Results = computeMode3Results();
+                      for (const e of state.enemies) {
+                        if (e.exposed) state.flags.push({ x: e.x, y: e.y });
+                      }
+                    } else {
+                      state.mode3Results = null;
+                    }
+
+                    applyModeUI();
+                    setStatus(`Loaded seed: ${seedStr}`);
+                    updateSeedInput();
+                    render();
+                  } catch (e) {
+                    showToast('Invalid seed: ' + e.message, 'error');
+                  }
+                }
+
+                // =====================================================
+                // SVG EXPORT
+                // =====================================================
+                function exportSVG() {
+                  const cellSize = 46;
+                  const padding = 10;                      // tight margin — minimal paper
+                  const shipOff = Math.round(cellSize * 0.55); // friendly box center distance
+                  const band = Math.round(cellSize * 1.45);    // ring around grid: friendly boxes + label gutter
+                  const footerH = 20;
+                  const w = state.cols * cellSize + band * 2 + padding * 2;
+                  const h = state.rows * cellSize + band * 2 + padding * 2 + footerH;
+                  const ox = padding + band;
+                  const oy = padding + band;
+                  const EMOJI_FONT = 'Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji, sans-serif';
+
+                  const themeColors = state.theme === 'dark'
+                    ? { bg: '#0d0e1a', card: '#161830', grid: '#1d2034', line: '#3d4163', text: '#e8eaf0', dim: '#9aa0b3', shield: 'rgba(77,208,225,0.18)', shieldStroke: 'rgba(77,208,225,0.7)', enemy: '#ff5252', friendly: '#4dd0e1', flag: '#ffb454' }
+                    : { bg: '#f5f7fc', card: '#ffffff', grid: '#ffffff', line: '#a8aebf', text: '#1a1d2e', dim: '#5d6378', shield: 'rgba(0,151,167,0.15)', shieldStroke: 'rgba(0,151,167,0.6)', enemy: '#d32f2f', friendly: '#0097a7', flag: '#ff8a00' };
+
+                  // Transparent background, no card border — content only
+                  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" font-family="Segoe UI, Arial, Helvetica, sans-serif">`;
+
+                  // Grid background
+                  svg += `<rect x="${ox}" y="${oy}" width="${state.cols * cellSize}" height="${state.rows * cellSize}" fill="${themeColors.grid}" stroke="${themeColors.line}" stroke-width="2" rx="4"/>`;
+
+                  // Shields (mode 1 / revealed) — clipped hard at the grid,
+                  // drawn BEFORE grid lines, using fill-opacity because
+                  // PowerPoint renders rgba() fills fully opaque
+                  const showShields = state.mode === 1 || state.reveal;
+                  if (showShields) {
+                    const shieldSolid = state.theme === 'dark' ? '#4dd0e1' : '#0097a7';
+                    svg += `<defs><clipPath id="xgridClip"><rect x="${ox}" y="${oy}" width="${state.cols * cellSize}" height="${state.rows * cellSize}"/></clipPath></defs>`;
+                    svg += `<g clip-path="url(#xgridClip)">`;
+                    for (const e of state.enemies) {
+                      const cx = ox + (e.x + 0.5) * cellSize;
+                      const cy = oy + (e.y + 0.5) * cellSize;
+                      svg += `<circle cx="${cx}" cy="${cy}" r="${1.5 * cellSize}" fill="${shieldSolid}" fill-opacity="0.15" stroke="${shieldSolid}" stroke-opacity="0.65" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+                    }
+                    svg += `</g>`;
+                  }
+
+                  // Grid lines
+                  for (let c = 1; c < state.cols; c++) {
+                    svg += `<line x1="${ox + c * cellSize}" y1="${oy}" x2="${ox + c * cellSize}" y2="${oy + state.rows * cellSize}" stroke="${themeColors.line}" stroke-width="1" opacity="0.6"/>`;
+                  }
+                  for (let r = 1; r < state.rows; r++) {
+                    svg += `<line x1="${ox}" y1="${oy + r * cellSize}" x2="${ox + state.cols * cellSize}" y2="${oy + r * cellSize}" stroke="${themeColors.line}" stroke-width="1" opacity="0.6"/>`;
+                  }
+
+                  // Cell coordinates (chess-style, outermost ring like the game)
+                  for (let c = 0; c < state.cols; c++) {
+                    svg += `<text x="${ox + c * cellSize + cellSize/2}" y="${oy - band + 12}" text-anchor="middle" fill="${themeColors.dim}" font-size="10" font-weight="600">${String.fromCharCode(65 + c)}</text>`;
+                    svg += `<text x="${ox + c * cellSize + cellSize/2}" y="${oy + state.rows * cellSize + band - 4}" text-anchor="middle" fill="${themeColors.dim}" font-size="10" font-weight="600">${String.fromCharCode(65 + c)}</text>`;
+                  }
+                  for (let r = 0; r < state.rows; r++) {
+                    svg += `<text x="${ox - band + 10}" y="${oy + r * cellSize + cellSize/2 + 4}" text-anchor="middle" fill="${themeColors.dim}" font-size="10" font-weight="600">${r + 1}</text>`;
+                    svg += `<text x="${ox + state.cols * cellSize + band - 10}" y="${oy + r * cellSize + cellSize/2 + 4}" text-anchor="middle" fill="${themeColors.dim}" font-size="10" font-weight="600">${r + 1}</text>`;
+                  }
+
+                  // Enemy ships
+                  if (showShields) {
+                    for (const e of state.enemies) {
+                      const cx = ox + (e.x + 0.5) * cellSize;
+                      const cy = oy + (e.y + 0.5) * cellSize;
+                      svg += `<text x="${cx}" y="${cy + cellSize * 0.18}" text-anchor="middle" font-size="${cellSize * 0.5}" font-family="${EMOJI_FONT}">${e.emoji || ENEMY_EMOJIS[0]}</text>`;
+                    }
+                  }
+
+                  // Flags
+                  for (const f of state.flags) {
+                    const cx = ox + (f.x + 0.5) * cellSize;
+                    const cy = oy + (f.y + 0.5) * cellSize;
+                    svg += `<rect x="${cx - cellSize/3}" y="${cy - cellSize/3}" width="${cellSize * 2/3}" height="${cellSize * 2/3}" rx="6" fill="${themeColors.flag}" opacity="0.3" stroke="${themeColors.flag}" stroke-width="2"/>`;
+                    svg += `<text x="${cx}" y="${cy + cellSize * 0.14}" text-anchor="middle" font-size="${cellSize * 0.4}" font-family="${EMOJI_FONT}">🚩</text>`;
+                  }
+
+                  // Friendly ships — bordered boxes matching the game view
+                  for (const f of state.friendly) {
+                    let fx, fy;
+                    switch (f.side) {
+                      case 'top': fx = ox + (f.index + 0.5) * cellSize; fy = oy - shipOff; break;
+                      case 'bottom': fx = ox + (f.index + 0.5) * cellSize; fy = oy + state.rows * cellSize + shipOff; break;
+                      case 'left': fx = ox - shipOff; fy = oy + (f.index + 0.5) * cellSize; break;
+                      case 'right': fx = ox + state.cols * cellSize + shipOff; fy = oy + (f.index + 0.5) * cellSize; break;
+                    }
+                    const bw = cellSize * 0.84;
+                    svg += `<rect x="${fx - bw/2}" y="${fy - bw/2}" width="${bw}" height="${bw}" rx="7" fill="${f.color}" opacity="0.12"/>`;
+                    svg += `<rect x="${fx - bw/2}" y="${fy - bw/2}" width="${bw}" height="${bw}" rx="7" fill="none" stroke="${f.color}" stroke-width="2"/>`;
+                    svg += `<text x="${fx}" y="${fy + cellSize * 0.16}" text-anchor="middle" font-size="${cellSize * 0.45}" font-family="${EMOJI_FONT}">${f.emoji}</text>`;
+                  }
+
+                  // Edge flags (player guesses outside the grid)
+                  for (const f of state.flags) {
+                    if (f.side === undefined) continue;
+                    let fx, fy;
+                    switch (f.side) {
+                      case 'top': fx = ox + (f.index + 0.5) * cellSize; fy = oy - shipOff; break;
+                      case 'bottom': fx = ox + (f.index + 0.5) * cellSize; fy = oy + state.rows * cellSize + shipOff; break;
+                      case 'left': fx = ox - shipOff; fy = oy + (f.index + 0.5) * cellSize; break;
+                      case 'right': fx = ox + state.cols * cellSize + shipOff; fy = oy + (f.index + 0.5) * cellSize; break;
+                    }
+                    svg += `<circle cx="${fx}" cy="${fy}" r="${cellSize * 0.3}" fill="${themeColors.flag}" opacity="0.25"/>`;
+                    svg += `<text x="${fx}" y="${fy + cellSize * 0.13}" text-anchor="middle" font-size="${cellSize * 0.36}" font-family="${EMOJI_FONT}">🚩</text>`;
+                  }
+
+                  // Mode 3 results
+                  if (state.mode === 3 && state.mode3Results) {
+                    for (const r of state.mode3Results) {
+                      let fx, fy, rotate = 0;
+                      switch (r.position.side) {
+                        case 'top': fx = ox + (r.position.index + 0.5) * cellSize; fy = oy - shipOff; break;
+                        case 'bottom': fx = ox + (r.position.index + 0.5) * cellSize; fy = oy + state.rows * cellSize + shipOff; break;
+                        case 'left': fx = ox - shipOff; fy = oy + (r.position.index + 0.5) * cellSize; break;
+                        case 'right': fx = ox + state.cols * cellSize + shipOff; fy = oy + (r.position.index + 0.5) * cellSize; break;
+                      }
+                      let label = '';
+                      let color = themeColors.dim;
+                      if (r.type === 'hit') { label = 'Hit'; color = themeColors.enemy; }
+                      else if (r.type === 'reflect') { label = '↩'; color = themeColors.flag; }
+                      else if (r.type === 'pair') { label = String(r.pairId); color = r.color || themeColors.friendly; }
+                      else if (r.type === 'exit') { label = '·'; }
+                      svg += `<text x="${fx}" y="${fy + 4}" text-anchor="middle" fill="${color}" font-size="12" font-weight="700">${label}</text>`;
+                    }
+                  }
+
+                  // Footer — single compact row: counts left, seed right
+                  const footY = h - padding / 2 - 4;
+                  svg += `<text x="${padding}" y="${footY}" fill="${themeColors.text}" font-size="12" font-weight="600">🛸 Enemies: ${state.enemies.length}  |  🛰️ Friendly: ${state.friendly.length}</text>`;
+
+                  const seed = encodeSeed();
+                  svg += `<text x="${w - padding}" y="${footY}" text-anchor="end" fill="${themeColors.dim}" font-size="11" font-family="Consolas, Courier New, monospace">💾: ${seed}</text>`;
+
+                  svg += `</svg>`;
+                  return svg;
+                }
+
+                // =====================================================
+                // RENDER
+                // =====================================================
+                const svg = document.getElementById('gameSvg');
+                let svgW = 0, svgH = 0;
+
+                function resizeSvg() {
+                  const rect = svg.getBoundingClientRect();
+                  svgW = rect.width;
+                  svgH = rect.height;
+                }
+
+                function render() {
+                  resizeSvg();
+                  const cols = state.cols, rows = state.rows;
+                  // Layout bands outside the grid (cell units):
+                  const shipOff = 0.55;   // friendly ship box center distance
+                  const labelOff = 1.25;  // coordinate labels hug the ship border
+                  const padding = 1.4;    // viewBox margin
+                  const fnum = (n) => Math.round(n * 100) / 100;
+                  const vbW = cols + 2 * padding;
+                  const vbH = rows + 2 * padding;
+                  const ox = padding, oy = padding;
+
+                  svg.setAttribute('viewBox', `0 0 ${vbW} ${vbH}`);
+
+                  let html = '';
+
+                  // Shield circles clip hard at the grid boundary
+                  html += `<defs><clipPath id="gridClip"><rect x="${ox}" y="${oy}" width="${cols}" height="${rows}"/></clipPath></defs>`;
+
+                  // Grid background
+                  html += `<rect class="grid-bg-rect" x="${ox}" y="${oy}" width="${cols}" height="${rows}" rx="0.06"/>`;
+
+                  // Cell backgrounds (clickable)
+                  for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                      const cx = ox + c, cy = oy + r;
+                      html += `<g class="grid-cell-clickable cell-flag-zone" data-cell="${c},${r}">`;
+                      html += `<rect class="cell-hover-fill" x="${cx}" y="${cy}" width="1" height="1" fill="transparent"/>`;
+                      html += `</g>`;
+                    }
+                  }
+
+                  // Grid lines
+                  for (let c = 0; c <= cols; c++) {
+                    const x = ox + c;
+                    html += `<line class="grid-line${c === 0 || c === cols ? ' grid-line-strong' : ''}" x1="${x}" y1="${oy}" x2="${x}" y2="${oy + rows}"/>`;
+                  }
+                  for (let r = 0; r <= rows; r++) {
+                    const y = oy + r;
+                    html += `<line class="grid-line${r === 0 || r === rows ? ' grid-line-strong' : ''}" x1="${ox}" y1="${y}" x2="${ox + cols}" y2="${y}"/>`;
+                  }
+
+                  // Chess-style coordinate labels — OUTERMOST ring, beyond ships
+                  for (let c = 0; c < cols; c++) {
+                    const letter = String.fromCharCode(65 + c);
+                    const lx = fnum(ox + c + 0.5);
+                    html += `<text class="coord-label" x="${lx}" y="${fnum(oy - labelOff)}">${letter}</text>`;
+                    html += `<text class="coord-label" x="${lx}" y="${fnum(oy + rows + labelOff)}">${letter}</text>`;
+                  }
+                  for (let r = 0; r < rows; r++) {
+                    const ly = fnum(oy + r + 0.5);
+                    html += `<text class="coord-label" x="${fnum(ox - labelOff)}" y="${ly}">${r + 1}</text>`;
+                    html += `<text class="coord-label" x="${fnum(ox + cols + labelOff)}" y="${ly}">${r + 1}</text>`;
+                  }
+
+                  // Edge slots (for placing friendly ships) — boxes aligned
+                  // EXACTLY with the friendly-ship boxes drawn later
+                  const slotBox = (x, y, occ) =>
+                    `<rect class="edge-bg" x="${x}" y="${y}" width="0.9" height="0.9" rx="0.1" fill="${occ ? 'rgba(77,208,225,0.1)' : 'transparent'}" stroke="${occ ? 'var(--friendly)' : 'transparent'}" stroke-width="0.02"/>`;
+                  for (let c = 0; c < cols; c++) {
+                    const occT = state.friendly.some(f => f.side === 'top' && f.index === c);
+                    html += `<g class="edge-slot ${occT ? 'edge-slot-occupied' : ''}" data-edge="top,${c}">${slotBox(fnum(ox + c + 0.05), fnum(oy - shipOff - 0.45), occT)}</g>`;
+                    const occB = state.friendly.some(f => f.side === 'bottom' && f.index === c);
+                    html += `<g class="edge-slot ${occB ? 'edge-slot-occupied' : ''}" data-edge="bottom,${c}">${slotBox(fnum(ox + c + 0.05), fnum(oy + rows + shipOff - 0.45), occB)}</g>`;
+                  }
+                  for (let r = 0; r < rows; r++) {
+                    const occL = state.friendly.some(f => f.side === 'left' && f.index === r);
+                    html += `<g class="edge-slot ${occL ? 'edge-slot-occupied' : ''}" data-edge="left,${r}">${slotBox(fnum(ox - shipOff - 0.45), fnum(oy + r + 0.05), occL)}</g>`;
+                    const occR = state.friendly.some(f => f.side === 'right' && f.index === r);
+                    html += `<g class="edge-slot ${occR ? 'edge-slot-occupied' : ''}" data-edge="right,${r}">${slotBox(fnum(ox + cols + shipOff - 0.45), fnum(oy + r + 0.05), occR)}</g>`;
+                  }
+
+                  // Mode 3 results (drawn at edge slots before friendly ships)
+                  if (state.mode === 3 && state.mode3Results) {
+                    for (const r of state.mode3Results) {
+                      let fx, fy, label = '';
+                      switch (r.position.side) {
+                        case 'top': fx = ox + r.position.index + 0.5; fy = oy - shipOff; break;
+                        case 'bottom': fx = ox + r.position.index + 0.5; fy = oy + rows + shipOff; break;
+                        case 'left': fx = ox - shipOff; fy = oy + r.position.index + 0.5; break;
+                        case 'right': fx = ox + cols + shipOff; fy = oy + r.position.index + 0.5; break;
+                      }
+                      fx = fnum(fx); fy = fnum(fy);
+                      let cls = 'result-exit';
+                      if (r.type === 'hit') { label = 'Hit'; cls = 'result-hit'; }
+                      else if (r.type === 'reflect') { label = '↩'; cls = 'result-reflect'; }
+                      else if (r.type === 'pair') { label = `${r.pairId}`; cls = 'result-pair'; }
+                      else if (r.type === 'exit') { label = '·'; }
+                      html += `<text class="result-text ${cls}" x="${fx}" y="${fy}"${r.color ? ` style="fill:${r.color}"` : ''}>${label}</text>`;
+                    }
+                  }
+
+                  // Shields — clipped to the grid so they never bleed onto
+                  // the friendly band or labels
+                  const showShields = state.mode === 1 || state.reveal;
+                  if (showShields) {
+                    html += `<g clip-path="url(#gridClip)">`;
+                    for (const e of state.enemies) {
+                      const cx = ox + e.x + 0.5;
+                      const cy = oy + e.y + 0.5;
+                      const r = 1.5;
+                      html += `<circle class="shield-circle" cx="${cx}" cy="${cy}" r="${r}"/>`;
+                    }
+                    html += `</g>`;
+                  }
+
+                  // Enemy ships
+                  const showEnemies = state.mode === 1 || state.reveal;
+                  for (const e of state.enemies) {
+                    if (e.exposed || showEnemies) {
+                      const cx = ox + e.x + 0.5;
+                      const cy = oy + e.y + 0.5;
+                      html += `<text class="enemy-ship" x="${cx}" y="${cy}">${e.emoji || ENEMY_EMOJIS[0]}</text>`;
+                    }
+                  }
+
+                  // Friendly ships — same 0.9 box geometry as the edge slots
+                  for (const f of state.friendly) {
+                    let fx, fy;
+                    switch (f.side) {
+                      case 'top': fx = ox + f.index + 0.5; fy = oy - shipOff; break;
+                      case 'bottom': fx = ox + f.index + 0.5; fy = oy + rows + shipOff; break;
+                      case 'left': fx = ox - shipOff; fy = oy + f.index + 0.5; break;
+                      case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
+                    }
+                    fx = fnum(fx); fy = fnum(fy);
+                    html += `<g class="friendly-ship-group" data-friendly-id="${f.id}">
+                      <rect x="${fx - 0.45}" y="${fy - 0.45}" width="0.9" height="0.9" rx="0.1" fill="${f.color}" opacity="0.12" stroke="${f.color}" stroke-width="0.025"/>
+                      <text class="friendly-ship" x="${fx}" y="${fy}" dy="0.05" fill="${f.color}">${f.emoji}</text>
+                    </g>`;
+                  }
+
+                  // Flags (cells + edge slots), drawn last so they sit on top
+                  // of friendly ships at the same slot
+                  for (const f of state.flags) {
+                    const key = flagKey(f);
+                    const flashColor = state.flashCells[key] ? state.flashCells[key].color : 'var(--flag)';
+                    let fx, fy;
+                    if (f.side !== undefined) {
+                      switch (f.side) {
+                        case 'top': fx = ox + f.index + 0.5; fy = oy - shipOff; break;
+                        case 'bottom': fx = ox + f.index + 0.5; fy = oy + rows + shipOff; break;
+                        case 'left': fx = ox - shipOff; fy = oy + f.index + 0.5; break;
+                        case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
+                      }
+                      fx = fnum(fx); fy = fnum(fy);
+                      html += `<g class="flag-marker">
+                        <circle cx="${fx}" cy="${fy}" r="0.3" fill="${flashColor}" opacity="0.3"/>
+                        <text x="${fx}" y="${fy}" dy="0.05" font-size="0.42" text-anchor="middle" dominant-baseline="central">🚩</text>
+                      </g>`;
+                      continue;
+                    }
+                    const cx = ox + f.x + 0.5;
+                    const cy = oy + f.y + 0.5;
+                    html += `<g class="flag-marker">
+                      <rect x="${cx - 0.4}" y="${cy - 0.4}" width="0.8" height="0.8" rx="0.08" fill="${flashColor}" opacity="0.25" stroke="${flashColor}" stroke-width="0.03"/>
+                      <text x="${cx}" y="${cy}">🚩</text>
+                    </g>`;
+                  }
+
+                  // Lasers: streaming train pattern along each route
+                  if (state.playing || state.lasers.length > 0) {
+                    for (const laser of state.lasers) {
+                      for (const chunk of (laser.visibleChunks || [])) {
+                        if (chunk.length < 2) continue;
+                        const pts = chunk.map(p => `${ox + p.x},${oy + p.y}`).join(' ');
+                        // Glow
+                        html += `<polyline class="laser-line laser-glow" points="${pts}" stroke="${laser.color}" stroke-width="0.08"/>`;
+                        // Core
+                        html += `<polyline class="laser-line" points="${pts}" stroke="${laser.color}" stroke-width="0.04" opacity="0.95"/>`;
+                      }
+                      if (state.playing && laser.headPos) {
+                        html += `<circle cx="${ox + laser.headPos.x}" cy="${oy + laser.headPos.y}" r="0.07" fill="${laser.color}" stroke="#ffffff" stroke-width="0.02"/>`;
+                      }
+                    }
+                  }
+
+                  // Hit flashes (path-space coords)
+                  for (const flash of state.hitFlashes) {
+                    const cx = ox + flash.x;
+                    const cy = oy + flash.y;
+                    const opacity = Math.max(0, 1 - flash.t);
+                    html += `<circle pointer-events="none" cx="${cx}" cy="${cy}" r="${0.3 + flash.t * 0.4}" fill="${flash.color}" opacity="${opacity * 0.4}"/>`;
+                    html += `<text class="enemy-ship" x="${cx}" y="${cy}" opacity="${opacity}">${flash.emoji || '💥'}</text>`;
+                  }
+
+                  svg.innerHTML = html;
+
+                  // Update status counts
+                  document.getElementById('enemyCount').textContent = state.enemies.length;
+                  document.getElementById('friendlyCount').textContent = state.friendly.length;
+                  document.getElementById('flagCount').textContent = state.flags.length;
+
+                  // Attach click handlers
+                  attachClickHandlers();
+                }
+
+                function attachClickHandlers() {
+                  // Grid cells
+                  svg.querySelectorAll('[data-cell]').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                      const [c, r] = el.dataset.cell.split(',').map(Number);
+                      handleCellClick(c, r);
+                    });
+                  });
+                  // Edge slots
+                  svg.querySelectorAll('[data-edge]').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      const [side, idx] = el.dataset.edge.split(',');
+                      handleEdgeClick(side, parseInt(idx));
+                    });
+                  });
+                  // Friendly ship click: erase removes it, any other tool acts
+                  // on the edge slot beneath (place flag, toggle ship, ...)
+                  svg.querySelectorAll('[data-friendly-id]').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      const id = parseInt(el.dataset.friendlyId);
+                      const f = state.friendly.find(x => x.id === id);
+                      if (!f) return;
+                      if (state.tool === 'erase') {
+                        state.friendly = state.friendly.filter(x => x.id !== id);
+                        if (state.mode === 3) state.mode3Results = computeMode3Results();
+                        updateSeedInput();
+                        render();
+                      } else {
+                        handleEdgeClick(f.side, f.index);
+                      }
+                    });
+                  });
+                }
+
+                function eraseCellAt(c, r) {
+                  let removed = false;
+                  const existing = state.enemies.find(e => e.x === c && e.y === r);
+                  const existingFlag = state.flags.find(f => f.x === c && f.y === r);
+                  if (existing) {
+                    removed = true;
+                    state.enemies = state.enemies.filter(e => e !== existing);
+                    if (existing.exposed) {
+                      state.flags = state.flags.filter(f => !(f.x === c && f.y === r));
+                    }
+                  }
+                  if (existingFlag) {
+                    removed = true;
+                    state.flags = state.flags.filter(f => f !== existingFlag);
+                  }
+                  if (removed && state.mode === 3) state.mode3Results = computeMode3Results();
+                  return removed;
+                }
+
+                function eraseEdgeAt(side, idx) {
+                  let removed = false;
+                  if (state.friendly.some(f => f.side === side && f.index === idx)) {
+                    removed = true;
+                    state.friendly = state.friendly.filter(f => !(f.side === side && f.index === idx));
+                  }
+                  if (state.flags.some(f => f.side === side && f.index === idx)) {
+                    removed = true;
+                    state.flags = state.flags.filter(f => !(f.side === side && f.index === idx));
+                  }
+                  return removed;
+                }
+
+                function handleCellClick(c, r) {
+                  const existing = state.enemies.find(e => e.x === c && e.y === r);
+                  const existingFlag = state.flags.find(f => f.x === c && f.y === r);
+                  let changed = false;
+
+                  switch (state.tool) {
+                    case 'add_enemy':
+                      if (existing) {
+                        if (existing.exposed) {
+                          existing.exposed = false;
+                        } else {
+                          state.enemies = state.enemies.filter(e => e !== existing);
+                        }
+                      } else {
+                        state.enemies.push({ x: c, y: r, exposed: false, emoji: pick(ENEMY_EMOJIS) });
+                        playSound('click');
+                      }
+                      changed = true;
+                      if (state.mode === 3) state.mode3Results = computeMode3Results();
+                      break;
+                    case 'add_exposed':
+                      if (existing) {
+                        if (existing.exposed) {
+                          existing.exposed = false;
+                          state.flags = state.flags.filter(f => !(f.x === c && f.y === r));
+                        } else {
+                          existing.exposed = true;
+                          if (!state.flags.some(f => f.x === c && f.y === r)) {
+                            state.flags.push({ x: c, y: r });
+                          }
+                        }
+                      } else {
+                        state.enemies.push({ x: c, y: r, exposed: true, emoji: pick(ENEMY_EMOJIS) });
+                        state.flags.push({ x: c, y: r });
+                        playSound('click');
+                      }
+                      changed = true;
+                      if (state.mode === 3) state.mode3Results = computeMode3Results();
+                      break;
+                    case 'flag':
+                      if (existingFlag) {
+                        state.flags = state.flags.filter(f => f !== existingFlag);
+                      } else {
+                        state.flags.push({ x: c, y: r });
+                        playSound('click');
+                      }
+                      break;
+                    case 'erase':
+                      if (eraseCellAt(c, r)) changed = true;
+                      break;
+                  }
+
+                  if (changed && state.playing) stopAnimation();
+                  if (changed) state.winShown = false;
+                  updateSeedInput();
+                  render();
+                  checkWinCondition();
+                }
+
+                function handleEdgeClick(side, idx) {
+                  const existing = state.friendly.find(f => f.side === side && f.index === idx);
+                  const existingFlag = state.flags.find(f => f.side === side && f.index === idx);
+
+                  switch (state.tool) {
+                    case 'add_friendly':
+                      if (existing) {
+                        state.friendly = state.friendly.filter(f => f !== existing);
+                        playSound('click');
+                      } else {
+                        const colorIdx = state.friendly.length % LASER_COLORS.length;
+                        state.friendly.push({
+                          side, index: idx,
+                          color: LASER_COLORS[colorIdx],
+                          emoji: pick(FRIENDLY_EMOJIS),
+                          id: state.nextFriendlyId++
+                        });
+                        playSound('shoot');
+                      }
+                      break;
+                    case 'flag':
+                      if (existingFlag) {
+                        state.flags = state.flags.filter(f => f !== existingFlag);
+                      } else {
+                        state.flags.push({ side, index: idx });
+                        playSound('click');
+                      }
+                      break;
+                    case 'erase':
+                      eraseEdgeAt(side, idx);
+                      break;
+                  }
+
+                  if (state.playing) stopAnimation();
+                  state.winShown = false;
+                  updateSeedInput();
+                  render();
+                  checkWinCondition();
+                }
+
+                // =====================================================
+                // ANIMATION
+                // =====================================================
+                let lastFrameTime = 0;
+                let rafId = null;
+
+                function resetPlayBtn() {
+                  document.getElementById('playIcon').textContent = '▶';
+                  document.getElementById('playLbl').textContent = 'Play';
+                  document.querySelector('.tool-play').classList.remove('playing');
+                }
+
+                function startAnimation() {
+                  cancelAnimationFrame(rafId);
+                  let sources;
+                  if (state.mode === 3) {
+                    // Auto beams: every Read Map label fires its route.
+                    // Paired slots stream toward each other (ping-pong N<->N),
+                    // reflect slots bounce back, hits fly into the core.
+                    const valid = (state.mode3Results || [])
+                      .filter(r => ['pair', 'hit', 'reflect', 'exit'].includes(r.type));
+                    if (valid.length === 0) {
+                      showToast('Set up enemy ships first!', 'error');
+                      return;
+                    }
+                    sources = valid.map(r => ({
+                      side: r.position.side,
+                      index: r.position.index,
+                      id: 'm3-' + r.position.side + '-' + r.position.index,
+                      color: r.type === 'pair' ? r.color
+                           : r.type === 'hit' ? '#ff5252'
+                           : r.type === 'reflect' ? '#ff9800'
+                           : '#9aa0b3'
+                    }));
+                  } else {
+                    sources = state.friendly;
+                    if (sources.length === 0) {
+                      showToast('Add friendly ships first!', 'error');
+                      return;
+                    }
+                  }
+                  state.playing = true;
+                  state.paused = false;
+                  state.winShown = false;
+                  state.flashCells = {};
+                  state.hitFlashes = [];
+                  state.lasers = sources.map((f, i) => {
+                    const lp = computeLaserPath(f);
+                    return {
+                      ...lp,
+                      color: f.color || LASER_COLORS[i % LASER_COLORS.length],
+                      dist: 0,
+                      arrived: false,
+                      sndIdx: 1,
+                      visibleChunks: [],
+                      headPos: null
+                    };
+                  });
+                  state.lasers.forEach((L, i) =>
+                    setTimeout(() => playSound('shoot'), i * 120));
+
+                  document.getElementById('playIcon').textContent = '⏸';
+                  document.getElementById('playLbl').textContent = 'Pause';
+                  document.querySelector('.tool-play').classList.add('playing');
+                  setStatus('Simulation running...');
+                  lastFrameTime = performance.now();
+                  rafId = requestAnimationFrame(animateFrame);
+                }
+
+                function pauseAnimation() {
+                  state.paused = true;
+                  document.getElementById('playIcon').textContent = '▶';
+                  document.getElementById('playLbl').textContent = 'Resume';
+                  setStatus('Paused.');
+                }
+
+                function resumeAnimation() {
+                  state.paused = false;
+                  document.getElementById('playIcon').textContent = '⏸';
+                  document.getElementById('playLbl').textContent = 'Pause';
+                  setStatus('Simulation running...');
+                  lastFrameTime = performance.now();
+                  rafId = requestAnimationFrame(animateFrame);
+                }
+
+                function stopAnimation() {
+                  state.playing = false;
+                  state.paused = false;
+                  state.lasers = [];
+                  state.curLaser = 0;
+                  state.hitFlashes = [];
+                  state.flashCells = {};
+                  if (rafId) cancelAnimationFrame(rafId);
+                  resetPlayBtn();
+                  render();
+                }
+
+                // Compute the visible lit segments ("trains") on a route:
+                // lit portion = beam% of the route, streaming start->end and
+                // wrapping around continuously (multiple trains follow).
+                function computeBeamChunks(L, frac) {
+                  const totalLen = Math.max(1e-6, L.totalLength);
+                  const beamLen = Math.max(totalLen * 0.02, frac * totalLen);
+                  const P = totalLen;
+                  const chunks = [];
+                  // Only trains whose lit span intersects [0, totalLen]:
+                  // head = dist - k*P must satisfy head > 0 and head-B < totalLen
+                  const kMax = Math.floor(L.dist / P);
+                  let k = Math.max(0, Math.ceil((L.dist - totalLen - beamLen) / P));
+                  for (; k <= kMax; k++) {
+                    const head = L.dist - k * P;
+                    const lo = Math.max(0, head - beamLen);
+                    const hi = Math.min(totalLen, head);
+                    if (hi - lo > 1e-6) {
+                      const seg = getPathSegment(L.pts, lo, hi);
+                      if (seg.length >= 2) chunks.push(seg);
+                    }
+                  }
+                  return chunks;
+                }
+
+                function animateFrame(now) {
+                  if (!state.playing || state.paused) return;
+                  let dt = (now - lastFrameTime) / 1000;
+                  lastFrameTime = now;
+                  dt = Math.min(dt, 0.05);
+
+                  const v = BASE_SPEED * (state.laserSpeed / 100);
+                  const frac = state.laserLength / 100;
+
+                  for (const L of state.lasers) {
+                    L.dist += dt * v;
+
+                    // Bounce sounds as the first train passes each bounce point
+                    while (L.sndIdx < L.pts.length && L.pts[L.sndIdx].cum <= L.dist) {
+                      const k = L.pts[L.sndIdx].kind;
+                      if (k === 'bounce90' || k === 'bounce180') playSound('bounce');
+                      L.sndIdx++;
+                    }
+
+                    // First arrival at the exact terminus fires the outcome once
+                    if (!L.arrived && L.dist >= L.totalLength - 1e-6) {
+                      L.arrived = true;
+                      handleLaserArrival(L);
+                    }
+
+                    L.visibleChunks = computeBeamChunks(L, frac);
+                    L.headPos = L.dist <= L.totalLength
+                      ? getPositionAlongPath(L.pts, L.dist)
+                      : null;
+                  }
+
+                  // Age hit flashes
+                  for (const flash of state.hitFlashes) {
+                    flash.t += dt * 1.5;
+                  }
+                  state.hitFlashes = state.hitFlashes.filter(f => f.t < 1);
+
+                  render();
+
+                  // Win check must NOT stop the streaming animation
+                  if (state.lasers.length > 0 && state.lasers.every(L => L.arrived)) {
+                    checkWinCondition();
+                  }
+
+                  rafId = requestAnimationFrame(animateFrame);
+                }
+
+                function outcomeKeyOf(L) {
+                  if (L.status === 'exit' && L.exitPosition) return edgeKey(L.exitPosition.side, L.exitPosition.index);
+                  if (L.status === 'hit_enemy' && L.hitShip) return cellKey(L.hitShip.x, L.hitShip.y);
+                  if (L.status === 'hit_source' && L.friendly) return edgeKey(L.friendly.side, L.friendly.index);
+                  if (L.status === 'hit_friendly' && L.hitShip) return edgeKey(L.hitShip.side, L.hitShip.index);
+                  return null;
+                }
+
+                function handleLaserArrival(L) {
+                  switch (L.status) {
+                    case 'hit_enemy':
+                      playSound('hit_enemy');
+                      state.hitFlashes.push({
+                        x: L.hitShip.x + 0.5,
+                        y: L.hitShip.y + 0.5,
+                        color: L.color,
+                        t: 0,
+                        emoji: '💥'
+                      });
+                      break;
+                    case 'hit_source':
+                    case 'hit_friendly': {
+                      playSound('hit_source');
+                      const fship = L.status === 'hit_source' ? L.friendly : L.hitShip;
+                      const fp = friendlyPoint(fship);
+                      // Offset the flash outward to the ship's displayed slot
+                      const nrm = {
+                        top: [0, -0.55], bottom: [0, 0.55],
+                        left: [-0.55, 0], right: [0.55, 0]
+                      }[fship.side] || [0, 0];
+                      state.hitFlashes.push({
+                        x: fp.x + nrm[0], y: fp.y + nrm[1],
+                        color: L.color, t: 0, emoji: '💢'
+                      });
+                      break;
+                    }
+                    case 'exit':
+                      playSound('exit');
+                      break;
+                  }
+
+                  // Green flash when a flag matches this laser's outcome
+                  const key = outcomeKeyOf(L);
+                  if (key && state.flags.some(fl => flagKey(fl) === key)) {
+                    state.flashCells[key] = { color: '#4caf50' };
+                    playSound('flag_correct');
+                  }
+                }
+
+                function triggerWin(msg) {
+                  state.winShown = true;
+                  showConfetti();
+                  playSound('win');
+                  showToast('🎉 ' + msg, 'success');
+                  setStatus('WIN! ' + msg);
+                  render();
+                }
+
+                function checkWinCondition() {
+                  if (state.winShown) return;
+
+                  if (state.mode === 1) {
+                    // Win when every laser outcome is matched by a flag
+                    // (exit -> edge flag, hit -> cell flag on the ship, return -> source slot)
+                    if (state.lasers.length === 0 || !state.lasers.every(L => L.arrived)) return;
+                    const flagKeys = new Set(state.flags.map(flagKey));
+                    const allCorrect = state.lasers.every(L => {
+                      const k = outcomeKeyOf(L);
+                      return k !== null && flagKeys.has(k);
+                    });
+                    if (!allCorrect) return;
+                    for (const L of state.lasers) {
+                      const k = outcomeKeyOf(L);
+                      if (k) state.flashCells[k] = { color: '#4caf50' };
+                    }
+                    triggerWin('All flags correct! You win!');
+                  } else if (state.mode === 2 || state.mode === 3) {
+                    // Win when all enemies flagged and no wrong cell flags
+                    if (state.enemies.length === 0) return;
+                    const allFlagged = state.enemies.every(e =>
+                      state.flags.some(f => f.x === e.x && f.y === e.y)
+                    );
+                    const noWrongFlags = state.flags.every(f =>
+                      f.side === undefined && state.enemies.some(e => e.x === f.x && f.y === f.y)
+                    );
+                    if (allFlagged && noWrongFlags) {
+                      state.reveal = true;
+                      triggerWin('All enemies found! You win!');
+                    }
+                  }
+                }
+
+                // =====================================================
+                // CONFETTI
+                // =====================================================
+                function showConfetti() {
+                  const container = document.createElement('div');
+                  container.className = 'confetti-container';
+                  for (let i = 0; i < 80; i++) {
+                    const piece = document.createElement('div');
+                    piece.className = 'confetti-piece';
+                    piece.style.left = Math.random() * 100 + '%';
+                    piece.style.animationDelay = Math.random() * 1.5 + 's';
+                    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+                    piece.style.background = `hsl(${Math.random() * 360}, 80%, 60%)`;
+                    piece.style.width = (5 + Math.random() * 8) + 'px';
+                    piece.style.height = (8 + Math.random() * 10) + 'px';
+                    container.appendChild(piece);
+                  }
+                  document.body.appendChild(container);
+                  setTimeout(() => container.remove(), 5000);
+                }
+
+                // =====================================================
+                // UI HELPERS
+                // =====================================================
+                function setStatus(msg) {
+                  document.getElementById('statusMsg').textContent = msg;
+                }
+
+                function showToast(msg, type = 'info') {
+                  const toast = document.getElementById('toast');
+                  toast.textContent = msg;
+                  toast.className = `toast ${type} show`;
+                  setTimeout(() => toast.classList.remove('show'), 2500);
+                }
+
+                function applyModeUI() {
+                  document.querySelectorAll('.mode-tab').forEach(t => {
+                    t.classList.toggle('active', parseInt(t.dataset.mode) === state.mode);
+                  });
+                  // add_exposed is a Mode 3 tool; add_friendly is pointless in Mode 3
+                  document.querySelector('[data-tool="add_exposed"]').style.display =
+                    state.mode === 3 ? 'flex' : 'none';
+                  document.querySelector('[data-tool="add_friendly"]').style.display =
+                    state.mode === 3 ? 'none' : 'flex';
+                  document.getElementById('hideBtn').style.display =
+                    (state.mode === 2 || state.mode === 3) ? 'flex' : 'none';
+                }
+
+                function setMode(mode) {
+                  stopAnimation();
+                  state.mode = mode;
+                  state.winShown = false;
+                  state.flags = [];
+                  state.flashCells = {};
+                  state.hitFlashes = [];
+                  state.reveal = (mode === 2 || mode === 3); // setup view until Hide pressed
+
+                  if (mode === 3) {
+                    // Mode 3 replaces friendly ships with computed result labels
+                    state.friendly = [];
+                    state.mode3Results = computeMode3Results();
+                    for (const e of state.enemies) {
+                      if (e.exposed) state.flags.push({ x: e.x, y: e.y });
+                    }
+                  } else {
+                    state.mode3Results = null;
+                  }
+
+                  applyModeUI();
+
+                  const names = { 1: 'Detect Out — place flags where lasers will exit or hit',
+                                  2: 'Find Enemy — deduce hidden ships, flag them',
+                                  3: 'Read Map — results shown at edges, flag the enemies' };
+                  setStatus(`Mode ${mode}: ${names[mode]}`);
+                  updateSeedInput();
+                  render();
+                }
+
+                function setTheme(theme) {
+                  state.theme = theme;
+                  document.documentElement.setAttribute('data-theme', theme);
+                  document.getElementById('themeBtn').textContent = theme === 'dark' ? '🌙' : '☀️';
+                }
+
+                // =====================================================
+                // EVENT HANDLERS
+                // =====================================================
+                function setupEvents() {
+                  // Right-click quick erase (friendly ships, flags, enemies)
+                  svg.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (typeof e.target.closest !== 'function') return;
+                    let removed = false;
+                    const friendlyEl = e.target.closest('[data-friendly-id]');
+                    const edgeEl = e.target.closest('[data-edge]');
+                    const cellEl = e.target.closest('[data-cell]');
+                    if (friendlyEl) {
+                      const id = parseInt(friendlyEl.dataset.friendlyId);
+                      if (state.friendly.some(f => f.id === id)) {
+                        state.friendly = state.friendly.filter(f => f.id !== id);
+                        if (state.mode === 3) state.mode3Results = computeMode3Results();
+                        removed = true;
+                      }
+                    } else if (edgeEl) {
+                      const [side, idxStr] = edgeEl.dataset.edge.split(',');
+                      removed = eraseEdgeAt(side, parseInt(idxStr));
+                    } else if (cellEl) {
+                      const [c, r] = cellEl.dataset.cell.split(',').map(Number);
+                      removed = eraseCellAt(c, r);
+                    }
+                    if (removed) {
+                      if (state.playing) stopAnimation();
+                      state.winShown = false;
+                      updateSeedInput();
+                      render();
+                      playSound('click');
+                    }
+                  });
+
+                  // Mode tabs
+                  document.querySelectorAll('.mode-tab').forEach(tab => {
+                    tab.addEventListener('click', () => setMode(parseInt(tab.dataset.mode)));
+                  });
+
+                  // Tool buttons
+                  document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                      state.tool = btn.dataset.tool;
+                      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                      btn.classList.add('active');
+                    });
+                  });
+
+                  // Play/pause
+                  document.getElementById('playBtn').addEventListener('click', () => {
+                    if (state.playing && !state.paused) {
+                      pauseAnimation();
+                    } else if (state.playing && state.paused) {
+                      resumeAnimation();
+                    } else {
+                      startAnimation();
+                    }
+                  });
+
+                  // Reset
+                  document.getElementById('resetBtn').addEventListener('click', stopAnimation);
+
+                  // Clear all
+                  document.getElementById('clearBtn').addEventListener('click', () => {
+                    state.enemies = [];
+                    state.friendly = [];
+                    state.flags = [];
+                    state.mode3Results = null;
+                    state.flashCells = {};
+                    state.hitFlashes = [];
+                    state.winShown = false;
+                    stopAnimation();
+                    setStatus('Board cleared.');
+                    updateSeedInput();
+                    render();
+                  });
+
+                  // Hide enemies (mode 2/3 custom)
+                  document.getElementById('hideBtn').addEventListener('click', () => {
+                    stopAnimation();
+                    state.reveal = false;
+                    state.winShown = false;
+                    if (state.mode === 3) state.mode3Results = computeMode3Results();
+                    showToast('Enemies hidden. Use laser behavior to deduce positions.', 'info');
+                    setStatus('Enemies hidden. Use laser behavior to deduce positions.');
+                    render();
+                  });
+
+                  // Quick play
+                  document.getElementById('quickPlayBtn').addEventListener('click', () => {
+                    const newCols = parseInt(document.getElementById('colsInput').value);
+                    const newRows = parseInt(document.getElementById('rowsInput').value);
+                    if (newCols >= 4 && newCols <= 10 && newRows >= 4 && newRows <= 10) {
+                      state.cols = newCols;
+                      state.rows = newRows;
+                      quickPlay();
+                    } else {
+                      showToast('Grid size must be 4-10', 'error');
+                    }
+                  });
+
+                  // Grid size inputs
+                  document.getElementById('colsInput').addEventListener('change', (e) => {
+                    const v = Math.max(4, Math.min(10, parseInt(e.target.value) || 6));
+                    e.target.value = v;
+                    stopAnimation();
+                    state.cols = v;
+                    state.winShown = false;
+                    // Remove items outside new bounds
+                    state.enemies = state.enemies.filter(en => en.x < v);
+                    state.flags = state.flags.filter(f => f.side !== undefined || f.x < v);
+                    state.friendly = state.friendly.filter(f => {
+                      const limit = (f.side === 'top' || f.side === 'bottom') ? v : state.rows;
+                      return f.index < limit;
+                    });
+                    if (state.mode === 3) state.mode3Results = computeMode3Results();
+                    updateSeedInput();
+                    render();
+                  });
+                  document.getElementById('rowsInput').addEventListener('change', (e) => {
+                    const v = Math.max(4, Math.min(10, parseInt(e.target.value) || 6));
+                    e.target.value = v;
+                    stopAnimation();
+                    state.rows = v;
+                    state.winShown = false;
+                    state.enemies = state.enemies.filter(en => en.y < v);
+                    state.flags = state.flags.filter(f => f.side !== undefined || f.y < v);
+                    state.friendly = state.friendly.filter(f => {
+                      const limit = (f.side === 'left' || f.side === 'right') ? v : state.cols;
+                      return f.index < limit;
+                    });
+                    if (state.mode === 3) state.mode3Results = computeMode3Results();
+                    updateSeedInput();
+                    render();
+                  });
+
+                  // Seed load
+                  document.getElementById('loadSeedBtn').addEventListener('click', () => {
+                    const seed = document.getElementById('seedInput').value.trim();
+                    if (seed) loadSeed(seed);
+                  });
+                  document.getElementById('seedInput').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                      const seed = e.target.value.trim();
+                      if (seed) loadSeed(seed);
+                    }
+                  });
+                  document.getElementById('copySeedBtn').addEventListener('click', () => {
+                    const seed = document.getElementById('seedInput').value;
+                    navigator.clipboard.writeText(seed).then(() => showToast('Seed copied!', 'success'));
+                  });
+
+                  // Reveal toggle
+                  document.getElementById('revealBtn').addEventListener('click', () => {
+                    state.reveal = !state.reveal;
+                    setStatus(state.reveal ? 'Enemies revealed.' : 'Enemies hidden.');
+                    if (state.mode === 3) state.mode3Results = computeMode3Results();
+                    render();
+                  });
+
+                  // Sound toggle
+                  document.getElementById('soundBtn').addEventListener('click', () => {
+                    state.sound = !state.sound;
+                    document.getElementById('soundBtn').textContent = state.sound ? '🔊' : '🔇';
+                  });
+
+                  // Theme toggle
+                  document.getElementById('themeBtn').addEventListener('click', () => {
+                    setTheme(state.theme === 'dark' ? 'light' : 'dark');
+                  });
+
+                  // Laser length slider
+                  const lenSlider = document.getElementById('laserLengthSlider');
+                  lenSlider.addEventListener('input', (e) => {
+                    state.laserLength = parseInt(e.target.value);
+                    document.getElementById('laserLengthVal').textContent = state.laserLength + '%';
+                  });
+
+                  // Laser speed slider
+                  const spdSlider = document.getElementById('laserSpeedSlider');
+                  spdSlider.addEventListener('input', (e) => {
+                    state.laserSpeed = parseInt(e.target.value);
+                    document.getElementById('laserSpeedVal').textContent = (state.laserSpeed / 100).toFixed(1) + '×';
+                  });
+
+                  // Export
+                  document.getElementById('exportBtn').addEventListener('click', () => {
+                    const svgStr = exportSVG();
+                    document.getElementById('exportPreview').innerHTML = svgStr;
+                    document.getElementById('exportTextarea').value = svgStr;
+                    document.getElementById('exportModal').classList.add('active');
+                  });
+                  document.getElementById('closeExportBtn').addEventListener('click', () => {
+                    document.getElementById('exportModal').classList.remove('active');
+                  });
+                  document.getElementById('copyExportBtn').addEventListener('click', () => {
+                    const ta = document.getElementById('exportTextarea');
+                    ta.select();
+                    navigator.clipboard.writeText(ta.value).then(() => showToast('SVG copied!', 'success'));
+                  });
+                  document.getElementById('downloadExportBtn').addEventListener('click', () => {
+                    const svgStr = document.getElementById('exportTextarea').value;
+                    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `laser-tactics-${encodeSeed()}.svg`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast('SVG downloaded!', 'success');
+                  });
+
+                  // Help
+                  document.getElementById('helpBtn').addEventListener('click', () => {
+                    document.getElementById('helpModal').classList.add('active');
+                  });
+                  document.getElementById('closeHelpBtn').addEventListener('click', () => {
+                    document.getElementById('helpModal').classList.remove('active');
+                  });
+
+                  // Click outside modal to close
+                  document.querySelectorAll('.modal-overlay').forEach(o => {
+                    o.addEventListener('click', (e) => {
+                      if (e.target === o) o.classList.remove('active');
+                    });
+                  });
+
+                  // Resize
+                  window.addEventListener('resize', () => render());
+                }
+
+                // =====================================================
+                // INIT
+                // =====================================================
+                function init() {
+                  setTheme('light');
+                  setupEvents();
+                  setMode(1);
+                  requestAnimationFrame(() => quickPlay());
+                }
+
+                init();
+        </script>
+    </body>
+</html>
