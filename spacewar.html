@@ -577,11 +577,12 @@
                 stroke-linecap: round;
                 stroke-linejoin: round;
                 fill: none;
-                filter: drop-shadow(0 0 0.04px currentColor);
                 pointer-events: none;
             }
             .laser-glow {
-                opacity: 0.3;
+                opacity: 0.35;
+                /* glow tinted with the beam's own color (via inline color:) */
+                filter: drop-shadow(0 0 0.06px currentColor);
             }
 
             .result-text {
@@ -679,6 +680,148 @@
                 font-size: 11px;
                 padding: 10px;
                 resize: vertical;
+            }
+
+            /* ============ EXPORT MODAL (wide + options sidebar) ============ */
+            .modal.export-modal {
+                width: min(960px, 94vw);
+                height: min(700px, 90vh);
+                overflow: hidden;
+                padding: 18px;
+            }
+            .export-layout {
+                display: flex;
+                gap: 14px;
+                flex: 1;
+                min-height: 0;
+            }
+            .export-left {
+                flex: 1;
+                min-width: 0;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .export-modal .export-preview {
+                flex: 1 1 auto;
+                min-height: 160px;
+                max-height: none;
+            }
+            .export-modal .export-textarea {
+                flex: none;
+                min-height: 64px;
+                max-height: 110px;
+            }
+            .export-side {
+                width: 248px;
+                flex: none;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 12px 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                overflow-y: auto;
+            }
+            .export-side-title {
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                color: var(--fg-mute);
+                margin: 2px 6px 8px;
+            }
+            .ex-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                padding: 7px 8px;
+                border-radius: 8px;
+                cursor: pointer;
+                user-select: none;
+            }
+            .ex-toggle:hover {
+                background: var(--surface-3);
+            }
+            .ex-toggle .txt {
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+            }
+            .ex-toggle .txt b {
+                font-size: 12.5px;
+                font-weight: 600;
+            }
+            .ex-toggle .txt small {
+                font-size: 10.5px;
+                color: var(--fg-mute);
+                line-height: 1.3;
+                margin-top: 1px;
+            }
+            .ex-toggle input[type="checkbox"] {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+            .ex-switch {
+                flex: none;
+                width: 36px;
+                height: 20px;
+                border-radius: 999px;
+                background: var(--surface-3);
+                position: relative;
+                transition: background 0.15s;
+            }
+            .ex-switch::after {
+                content: "";
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: var(--fg-dim);
+                transition:
+                    transform 0.15s,
+                    background 0.15s;
+            }
+            .ex-toggle input:checked ~ .ex-switch {
+                background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            }
+            .ex-toggle input:checked ~ .ex-switch::after {
+                transform: translateX(16px);
+                background: #1a1d2e;
+            }
+            .ex-toggle input:focus-visible ~ .ex-switch {
+                outline: 2px solid var(--accent);
+                outline-offset: 2px;
+            }
+            .export-side .export-actions {
+                margin-top: auto;
+                padding-top: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .export-side .export-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            @media (max-width: 760px) {
+                .modal.export-modal {
+                    height: auto;
+                    max-height: 90vh;
+                    overflow: auto;
+                }
+                .export-layout {
+                    flex-direction: column;
+                }
+                .export-side {
+                    width: auto;
+                }
             }
 
             /* ============ CONFETTI ============ */
@@ -951,9 +1094,9 @@
                     id="laserLengthSlider"
                     min="20"
                     max="100"
-                    value="100"
+                    value="60"
                 />
-                <span class="val" id="laserLengthVal">100%</span>
+                <span class="val" id="laserLengthVal">60%</span>
             </div>
             <div class="slider-group">
                 <label>Speed</label>
@@ -1073,22 +1216,62 @@
         </main>
 
         <div class="modal-overlay" id="exportModal">
-            <div class="modal" style="min-width: 600px">
+            <div class="modal export-modal">
                 <h2>📥 Export Game as SVG</h2>
-                <div class="export-preview" id="exportPreview"></div>
-                <textarea
-                    class="export-textarea"
-                    id="exportTextarea"
-                    readonly
-                ></textarea>
-                <div class="modal-actions">
-                    <button class="btn" id="copyExportBtn">📋 Copy SVG</button>
-                    <button class="btn" id="downloadExportBtn">
-                        💾 Download .svg
-                    </button>
-                    <button class="btn primary" id="closeExportBtn">
-                        Close
-                    </button>
+                <div class="export-layout">
+                    <div class="export-left">
+                        <div class="export-preview" id="exportPreview"></div>
+                        <textarea
+                            class="export-textarea"
+                            id="exportTextarea"
+                            readonly
+                        ></textarea>
+                    </div>
+                    <aside class="export-side">
+                        <div class="export-side-title">Export options</div>
+
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Lasers</b><small>Full-length beams</small></span>
+                            <input type="checkbox" id="exOptLaser" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Laser start / end markers</b><small>Dots at beam entry & exit points</small></span>
+                            <input type="checkbox" id="exOptMarkers" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Enemy ships</b><small>Off = puzzle-only sheet for book</small></span>
+                            <input type="checkbox" id="exOptEnemy" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Friendly ships</b><small>Edge ships that fire the lasers</small></span>
+                            <input type="checkbox" id="exOptFriendly" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Background</b><small>White / black card + rounded border</small></span>
+                            <input type="checkbox" id="exOptBackground" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Hint code</b><small>Ship counts + seed id footer</small></span>
+                            <input type="checkbox" id="exOptHint" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+                        <label class="ex-toggle">
+                            <span class="txt"><b>Coordinate labels</b><small>A–Z / 123 ring around the grid</small></span>
+                            <input type="checkbox" id="exOptLabels" checked>
+                            <span class="ex-switch"></span>
+                        </label>
+
+                        <div class="export-actions">
+                            <button class="btn" id="copyExportBtn">📋 Copy SVG</button>
+                            <button class="btn" id="downloadExportBtn">💾 Download .svg</button>
+                            <button class="btn primary" id="closeExportBtn">Close</button>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </div>
@@ -1183,17 +1366,44 @@
             // CONSTANTS
             // =====================================================
             const LASER_COLORS = [
-              '#ff5252', '#ff9800', '#ffd54f', '#cddc39', '#8bc34a',
-              '#4caf50', '#00e676', '#00bcd4', '#18ffff', '#03a9f4',
-              '#3f51b5', '#7c4dff', '#b388ff', '#9c27b0', '#e040fb',
-              '#ff4081', '#ff80ab', '#ff6e40', '#ff5722', '#a1887f'
+              // Print/book priority: strong CMYK-friendly hues first so
+              // printed game cards read clearly (red, blue, green, purple,
+              // orange lead; near-duplicates and pastels go last)
+              '#e53935', // red
+              '#1e88e5', // blue
+              '#43a047', // green
+              '#8e24aa', // purple
+              '#f4511e', // orange
+              '#fdd835', // yellow
+              '#00acc1', // cyan
+              '#d81b60', // pink / magenta
+              '#5e35b1', // deep purple
+              '#00897b', // teal
+              '#6d4c41', // brown
+              '#3949ab', // indigo
+              '#7cb342', // light green
+              '#fb8c00', // amber orange
+              '#039be5', // light blue
+              '#c0ca33', // olive
+              '#ec407a', // rose
+              '#26a69a', // muted teal
+              '#8d6e63', // tan
+              '#b0bec5'  // grey-blue filler
             ];
             // Exactly 81 distinct chars (base81 seed system)
             const SEED_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@#$^*-+=?_.;:,()|";
             const SEED_BASE = 81n;
             const ENEMY_EMOJIS = ['🛸', '👾'];
             const FRIENDLY_EMOJIS = ['🛰️', '🚀'];
-            const SHIELD_R = 1.5;
+            const SHIELD_R = Math.SQRT2; // circle passes through the 8 neighbor cell centers
+            // Light tint of a beam color for opaque hint-card backgrounds
+            function lightenHex(hex, amt = 0.82) {
+              const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+              if (!m) return null;
+              const n = parseInt(m[1], 16);
+              const mix = (c) => Math.round(c + (255 - c) * amt);
+              return `rgb(${mix((n >> 16) & 255)},${mix((n >> 8) & 255)},${mix(n & 255)})`;
+            }
             const BASE_SPEED = 4;
 
             const SIDES = ['top', 'right', 'bottom', 'left'];
@@ -1212,7 +1422,7 @@
               theme: 'dark',
               sound: true,
               reveal: false,         // force reveal (Mode 2/3)
-              laserLength: 100,
+              laserLength: 60,
               laserSpeed: 100,
               playing: false,
               paused: false,
@@ -1904,8 +2114,18 @@
                   render();
                 }
 
+                function saveSession() {
+                  try {
+                    localStorage.setItem('laserTactics.session', JSON.stringify({
+                      mode: state.mode,
+                      seed: document.getElementById('seedInput').value
+                    }));
+                  } catch (e) { /* storage unavailable */ }
+                }
+
                 function updateSeedInput() {
                   document.getElementById('seedInput').value = encodeSeed();
+                  saveSession();
                 }
 
                 function loadSeed(seedStr) {
@@ -2169,26 +2389,6 @@
                     html += `<g class="edge-slot ${occR ? 'edge-slot-occupied' : ''}" data-edge="right,${r}">${slotBox(fnum(ox + cols + shipOff - 0.45), fnum(oy + r + 0.05), occR)}</g>`;
                   }
 
-                  // Mode 3 results (drawn at edge slots before friendly ships)
-                  if (state.mode === 3 && state.mode3Results) {
-                    for (const r of state.mode3Results) {
-                      let fx, fy, label = '';
-                      switch (r.position.side) {
-                        case 'top': fx = ox + r.position.index + 0.5; fy = oy - shipOff; break;
-                        case 'bottom': fx = ox + r.position.index + 0.5; fy = oy + rows + shipOff; break;
-                        case 'left': fx = ox - shipOff; fy = oy + r.position.index + 0.5; break;
-                        case 'right': fx = ox + cols + shipOff; fy = oy + r.position.index + 0.5; break;
-                      }
-                      fx = fnum(fx); fy = fnum(fy);
-                      let cls = 'result-exit';
-                      if (r.type === 'hit') { label = 'Hit'; cls = 'result-hit'; }
-                      else if (r.type === 'reflect') { label = '↩'; cls = 'result-reflect'; }
-                      else if (r.type === 'pair') { label = `${r.pairId}`; cls = 'result-pair'; }
-                      else if (r.type === 'exit') { label = '·'; }
-                      html += `<text class="result-text ${cls}" x="${fx}" y="${fy}"${r.color ? ` style="fill:${r.color}"` : ''}>${label}</text>`;
-                    }
-                  }
-
                   // Shields — clipped to the grid so they never bleed onto
                   // the friendly band or labels
                   const showShields = state.mode === 1 || state.reveal;
@@ -2197,7 +2397,7 @@
                     for (const e of state.enemies) {
                       const cx = ox + e.x + 0.5;
                       const cy = oy + e.y + 0.5;
-                      const r = 1.5;
+                      const r = SHIELD_R;
                       html += `<circle class="shield-circle" cx="${cx}" cy="${cy}" r="${r}"/>`;
                     }
                     html += `</g>`;
@@ -2263,14 +2463,43 @@
                       for (const chunk of (laser.visibleChunks || [])) {
                         if (chunk.length < 2) continue;
                         const pts = chunk.map(p => `${ox + p.x},${oy + p.y}`).join(' ');
-                        // Glow
-                        html += `<polyline class="laser-line laser-glow" points="${pts}" stroke="${laser.color}" stroke-width="0.08"/>`;
+                        // Glow — color: feeds currentColor so the glow
+                        // matches the beam's own color instead of a shadow
+                        html += `<polyline class="laser-line laser-glow" points="${pts}" stroke="${laser.color}" stroke-width="0.08" style="color:${laser.color}"/>`;
                         // Core
                         html += `<polyline class="laser-line" points="${pts}" stroke="${laser.color}" stroke-width="0.04" opacity="0.95"/>`;
                       }
                       if (state.playing && laser.headPos) {
                         html += `<circle cx="${ox + laser.headPos.x}" cy="${oy + laser.headPos.y}" r="0.07" fill="${laser.color}" stroke="#ffffff" stroke-width="0.02"/>`;
                       }
+                    }
+                  }
+
+                  // Mode 3 result cards — drawn AFTER lasers so the beams
+                  // run beneath the cards and the labels stay readable
+                  if (state.mode === 3 && state.mode3Results) {
+                    for (const r of state.mode3Results) {
+                      let fx, fy, label = '';
+                      switch (r.position.side) {
+                        case 'top': fx = ox + r.position.index + 0.5; fy = oy - shipOff; break;
+                        case 'bottom': fx = ox + r.position.index + 0.5; fy = oy + rows + shipOff; break;
+                        case 'left': fx = ox - shipOff; fy = oy + r.position.index + 0.5; break;
+                        case 'right': fx = ox + cols + shipOff; fy = oy + r.position.index + 0.5; break;
+                      }
+                      fx = fnum(fx); fy = fnum(fy);
+                      let cls = 'result-exit';
+                      if (r.type === 'hit') { label = 'Hit'; cls = 'result-hit'; }
+                      else if (r.type === 'reflect') { label = '↩'; cls = 'result-reflect'; }
+                      else if (r.type === 'pair') { label = `${r.pairId}`; cls = 'result-pair'; }
+                      else if (r.type === 'exit') { label = '·'; }
+                      const cardColor = r.color
+                        || (r.type === 'hit' ? '#ff5252'
+                          : r.type === 'reflect' ? '#ff9800'
+                          : '#9aa0b3');
+                      // Opaque light tint of the beam color — beams stay hidden
+                      const cardFill = lightenHex(cardColor) || 'var(--surface-2)';
+                      html += `<rect x="${fnum(fx - 0.45)}" y="${fnum(fy - 0.45)}" width="0.9" height="0.9" rx="0.1" fill="${cardFill}" stroke="${cardColor}" stroke-width="0.025"/>`;
+                      html += `<text class="result-text ${cls}" x="${fx}" y="${fy}"${r.color ? ` style="fill:${r.color}"` : ''}>${label}</text>`;
                     }
                   }
 
@@ -2486,15 +2715,32 @@
                       showToast('Set up enemy ships first!', 'error');
                       return;
                     }
-                    sources = valid.map(r => ({
-                      side: r.position.side,
-                      index: r.position.index,
-                      id: 'm3-' + r.position.side + '-' + r.position.index,
-                      color: r.type === 'pair' ? r.color
-                           : r.type === 'hit' ? '#ff5252'
-                           : r.type === 'reflect' ? '#ff9800'
-                           : '#9aa0b3'
-                    }));
+                    // One beam per pair number: a single laser ping-pongs
+                    // between the two slots instead of two duplicate paths
+                    const seenPairs = new Set();
+                    sources = [];
+                    for (const r of valid) {
+                      if (r.type === 'pair') {
+                        if (seenPairs.has(r.pairId)) continue;
+                        seenPairs.add(r.pairId);
+                        sources.push({
+                          side: r.position.side,
+                          index: r.position.index,
+                          id: 'm3-' + r.position.side + '-' + r.position.index,
+                          color: r.color,
+                          ping: true
+                        });
+                      } else {
+                        sources.push({
+                          side: r.position.side,
+                          index: r.position.index,
+                          id: 'm3-' + r.position.side + '-' + r.position.index,
+                          color: r.type === 'hit' ? '#ff5252'
+                               : r.type === 'reflect' ? '#ff9800'
+                               : '#9aa0b3'
+                        });
+                      }
+                    }
                   } else {
                     sources = state.friendly;
                     if (sources.length === 0) {
@@ -2508,10 +2754,12 @@
                   state.flashCells = {};
                   state.hitFlashes = [];
                   state.lasers = sources.map((f, i) => {
-                    const lp = computeLaserPath(f);
+                    let lp = computeLaserPath(f);
+                    if (state.mode === 3) lp = extendLaserToCards(lp, f);
                     return {
                       ...lp,
                       color: f.color || LASER_COLORS[i % LASER_COLORS.length],
+                      ping: !!f.ping,
                       dist: 0,
                       arrived: false,
                       sndIdx: 1,
@@ -2561,17 +2809,20 @@
                 // Compute the visible lit segments ("trains") on a route:
                 // lit portion = beam% of the route, streaming start->end and
                 // wrapping around continuously (multiple trains follow).
-                function computeBeamChunks(L, frac) {
+                function computeBeamChunks(L, frac, distOverride, noWrap) {
                   const totalLen = Math.max(1e-6, L.totalLength);
                   const beamLen = Math.max(totalLen * 0.02, frac * totalLen);
                   const P = totalLen;
+                  const dist = distOverride !== undefined ? distOverride : L.dist;
                   const chunks = [];
                   // Only trains whose lit span intersects [0, totalLen]:
                   // head = dist - k*P must satisfy head > 0 and head-B < totalLen
-                  const kMax = Math.floor(L.dist / P);
-                  let k = Math.max(0, Math.ceil((L.dist - totalLen - beamLen) / P));
+                  // noWrap: single train only (ping-pong exit phase) so the
+                  // tail keeps sliding to the end with nothing respawning
+                  let k = Math.max(0, Math.ceil((dist - totalLen - beamLen) / P));
+                  const kMax = noWrap ? 0 : Math.floor(dist / P);
                   for (; k <= kMax; k++) {
-                    const head = L.dist - k * P;
+                    const head = dist - k * P;
                     const lo = Math.max(0, head - beamLen);
                     const hi = Math.min(totalLen, head);
                     if (hi - lo > 1e-6) {
@@ -2580,6 +2831,60 @@
                     }
                   }
                   return chunks;
+                }
+
+                // Center of a mode-3 result card for an edge slot
+                function laserCardPoint(side, index) {
+                  const o = 0.55;
+                  switch (side) {
+                    case 'top': return { x: index + 0.5, y: -o };
+                    case 'bottom': return { x: index + 0.5, y: state.rows + o };
+                    case 'left': return { x: -o, y: index + 0.5 };
+                    case 'right': return { x: state.cols + o, y: index + 0.5 };
+                  }
+                  return null;
+                }
+
+                function recomputeLaserCums(pts) {
+                  let c = 0;
+                  return pts.map((p, i) => {
+                    const q = { ...p };
+                    if (i > 0) c += Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y);
+                    q.cum = c;
+                    return q;
+                  });
+                }
+
+                // Mode 3: extend the traced route so each end sits under the
+                // center of its result card (start slot, and target slot when
+                // the beam lands on another slot)
+                function extendLaserToCards(lp, src) {
+                  let arr = [...lp.pts];
+                  const sc = laserCardPoint(src.side, src.index);
+                  if (sc) arr.unshift({ x: sc.x, y: sc.y, kind: 'start' });
+                  if (lp.status === 'hit_source' || lp.status === 'hit_friendly') {
+                    const t = lp.status === 'hit_source' ? lp.friendly : lp.hitShip;
+                    if (t && t.side) {
+                      const ec = laserCardPoint(t.side, t.index);
+                      if (ec) arr.push({ x: ec.x, y: ec.y, kind: 'end' });
+                    }
+                  }
+                  lp.pts = recomputeLaserCums(arr);
+                  lp.totalLength = lp.pts[lp.pts.length - 1].cum;
+                  return lp;
+                }
+
+                // Reverse a laser route for ping-pong beams: flip the point
+                // order and recompute cumulative distances from the new start
+                function reverseLaserPts(pts) {
+                  const rp = [...pts].reverse();
+                  let cum = 0;
+                  return rp.map((p, i) => {
+                    const q = { ...p };
+                    if (i > 0) cum += Math.hypot(p.x - rp[i - 1].x, p.y - rp[i - 1].y);
+                    q.cum = cum;
+                    return q;
+                  });
                 }
 
                 function animateFrame(now) {
@@ -2607,9 +2912,28 @@
                       handleLaserArrival(L);
                     }
 
-                    L.visibleChunks = computeBeamChunks(L, frac);
+                    // Ping-pong beams (mode 3 pairs): only reverse after the
+                    // TAIL of the beam has fully reached the end point, not
+                    // as soon as the head touches it
+                    if (L.ping && L.arrived) {
+                      const beamLen = Math.max(L.totalLength * 0.02, frac * L.totalLength);
+                      if (L.dist >= L.totalLength + beamLen - 1e-6) {
+                        L.pts = reverseLaserPts(L.pts);
+                        L.dist = 0;
+                        L.arrived = false;
+                        L.sndIdx = 1;
+                      }
+                    }
+
+                    // Ping-pong beams: while the tail slides to the end, use
+                    // the real distance but suppress wrapped trains so no new
+                    // beam spawns at the start before reversal
+                    L.visibleChunks = L.ping
+                      ? computeBeamChunks(L, frac, L.dist, true)
+                      : computeBeamChunks(L, frac);
+                    const renderDist = Math.min(L.dist, L.totalLength);
                     L.headPos = L.dist <= L.totalLength
-                      ? getPositionAlongPath(L.pts, L.dist)
+                      ? getPositionAlongPath(L.pts, renderDist)
                       : null;
                   }
 
@@ -2796,6 +3120,7 @@
                                   3: 'Read Map — results shown at edges, flag the enemies' };
                   setStatus(`Mode ${mode}: ${names[mode]}`);
                   updateSeedInput();
+                  saveSession();
                   render();
                 }
 
@@ -2840,9 +3165,14 @@
                     }
                   });
 
-                  // Mode tabs
+                  // Mode tabs — switching mode auto-generates a quick play map
                   document.querySelectorAll('.mode-tab').forEach(tab => {
-                    tab.addEventListener('click', () => setMode(parseInt(tab.dataset.mode)));
+                    tab.addEventListener('click', () => {
+                      const m = parseInt(tab.dataset.mode);
+                      if (m === state.mode) return;
+                      setMode(m);
+                      requestAnimationFrame(() => quickPlay());
+                    });
                   });
 
                   // Tool buttons
@@ -2977,11 +3307,12 @@
                     setTheme(state.theme === 'dark' ? 'light' : 'dark');
                   });
 
-                  // Laser length slider
+                  // Laser length slider — restart beams mid-play for sync
                   const lenSlider = document.getElementById('laserLengthSlider');
                   lenSlider.addEventListener('input', (e) => {
                     state.laserLength = parseInt(e.target.value);
                     document.getElementById('laserLengthVal').textContent = state.laserLength + '%';
+                    if (state.playing) startAnimation();
                   });
 
                   // Laser speed slider
@@ -3043,11 +3374,393 @@
                 function init() {
                   setTheme('light');
                   setupEvents();
-                  setMode(1);
-                  requestAnimationFrame(() => quickPlay());
+                  // Resume last session (mode + seed id) if available
+                  let restored = false;
+                  try {
+                    const s = JSON.parse(localStorage.getItem('laserTactics.session') || 'null');
+                    if (s && s.seed) {
+                      loadSeed(s.seed);
+                      restored = true;
+                    }
+                  } catch (e) { /* fall through to fresh start */ }
+                  if (!restored) {
+                    setMode(1);
+                    requestAnimationFrame(() => quickPlay());
+                  }
                 }
 
                 init();
+        </script>
+
+        <script>
+            /* ============================================================
+               EXPORT POPUP: wide layout + options sidebar
+               - Renders its own SVG straight from `state`
+               - Lasers are re-traced fresh via computeLaserPath() so the
+                 exported beam is ALWAYS full length (100%), independent
+                 of the in-game laser length / speed sliders
+               - Lasers are drawn on the BOTTOM layer, under shields,
+                 enemy ships and friendly ship cards
+               - Re-binds export buttons (old flat-export handlers dropped)
+               ============================================================ */
+            (function () {
+                const $ = (id) => document.getElementById(id);
+
+                const exOpts = {
+                    laser: true,
+                    enemy: true,
+                    friendly: true,
+                    background: true,
+                    hint: true,
+                    labels: true,
+                    markers: true
+                };
+
+                function exIsDark() {
+                    const t = document.documentElement.getAttribute('data-theme');
+                    if (t) return t !== 'light';
+                    return state.theme ? state.theme === 'dark' : true;
+                }
+
+                /* Trace every beam FRESH at full length.
+                   Mode 1/2: one beam per friendly ship.
+                   Mode 3: every result label fires its route (same colors as
+                   the in-game animation); duplicate paths (pair N<->N
+                   ping-pong) are drawn once. */
+                function exCollectLasers() {
+                    const geoms = [];
+                    const SAMPLES = 32;
+                    /* resample any polyline to N equidistant points so paths
+                       traced from opposite ends (different vertex counts)
+                       still compare equal */
+                    const resample = (pts) => {
+                        let total = 0;
+                        for (let i = 1; i < pts.length; i++)
+                            total += Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]);
+                        if (total === 0) return null;
+                        const outp = [];
+                        let seg = 1;
+                        let acc = 0;
+                        for (let k = 0; k < SAMPLES; k++) {
+                            const d = (k / (SAMPLES - 1)) * total;
+                            while (seg < pts.length) {
+                                const len = Math.hypot(pts[seg][0] - pts[seg-1][0], pts[seg][1] - pts[seg-1][1]);
+                                if (acc + len >= d - 1e-9 || seg === pts.length - 1) {
+                                    const t = len ? Math.min(1, Math.max(0, (d - acc) / len)) : 0;
+                                    outp.push([
+                                        pts[seg-1][0] + (pts[seg][0] - pts[seg-1][0]) * t,
+                                        pts[seg-1][1] + (pts[seg][1] - pts[seg-1][1]) * t
+                                    ]);
+                                    break;
+                                }
+                                acc += len;
+                                seg++;
+                            }
+                        }
+                        return outp.length === SAMPLES ? outp : null;
+                    };
+                    const EPS = 0.06;
+                    const samePath = (a, b) => {
+                        const close = (p, q) => Math.abs(p[0] - q[0]) < EPS && Math.abs(p[1] - q[1]) < EPS;
+                        let fwd = true, rev = true;
+                        for (let i = 0; i < a.length; i++) {
+                            if (!close(a[i], b[i])) fwd = false;
+                            if (!close(a[i], b[b.length - 1 - i])) rev = false;
+                            if (!fwd && !rev) return false;
+                        }
+                        return fwd || rev;
+                    };
+                    const add = (src) => {
+                        try {
+                            let lp = computeLaserPath(src);
+                            if (!lp || !Array.isArray(lp.pts) || lp.pts.length < 2) return;
+                            // Mode 3: run beam ends under the result cards
+                            if (state.mode === 3 && typeof extendLaserToCards === 'function') {
+                                lp = extendLaserToCards(lp, src);
+                            }
+                            const raw = lp.pts.map((p) => [+p.x, +p.y]);
+                            const sig = resample(raw);
+                            if (!sig) return;
+                            if (geoms.some((g) => samePath(sig, g.sig))) return;
+                            geoms.push({ pts: raw, sig, color: src.color || null });
+                        } catch (e) { /* ignore */ }
+                    };
+                    if (state.mode === 3) {
+                        const seenPairs = new Set();
+                        for (const r of state.mode3Results || []) {
+                            if (!r.position) continue;
+                            if (!['pair', 'hit', 'reflect', 'exit'].includes(r.type)) continue;
+                            // One line per pair number: skip the duplicate
+                            // return path (1 back to 1) entirely
+                            if (r.type === 'pair') {
+                                if (seenPairs.has(r.pairId)) continue;
+                                seenPairs.add(r.pairId);
+                            }
+                            add({
+                                side: r.position.side,
+                                index: r.position.index,
+                                color: r.type === 'pair' ? r.color
+                                     : r.type === 'hit' ? '#ff5252'
+                                     : r.type === 'reflect' ? '#ff9800'
+                                     : '#9aa0b3'
+                            });
+                        }
+                    } else {
+                        for (const f of state.friendly) add(f);
+                    }
+                    return geoms;
+                }
+
+                function exBuildSVG() {
+                    const o = exOpts;
+                    const cols = state.cols, rows = state.rows;
+                    const S = 40;
+                    const dark = exIsDark();
+
+                    const SHIELD_R_E = SHIELD_R;      // enemy shield radius (grid units)
+                    const SHIP_OFF = 0.55;            // friendly ship center distance
+                    const LABEL_OFF = 0.95;           // coordinate labels ring
+
+                    const showEnemy = o.enemy;
+                    const showFriendly = o.friendly || o.laser;
+                    const showLaser = o.laser;
+                    const seedVal = ($('seedInput') ? $('seedInput').value : '').trim();
+
+                    /* FIXED card layout (grid core → ring 1 ships → ring 2 labels
+                       → ring 3 footer). Toggles only hide content, never resize. */
+                    let bL = 0, bT = 0, bR = cols, bB = rows;
+                    const grow = (b) => { bL -= b; bT -= b; bR += b; bB += b; };
+                    grow(Math.max(SHIP_OFF + 0.55, LABEL_OFF + 0.35));
+
+                    const geoms = showLaser ? exCollectLasers() : [];
+                    for (const g of geoms) {
+                        for (const p of g.pts) {
+                            bL = Math.min(bL, p[0] - 0.25); bR = Math.max(bR, p[0] + 0.25);
+                            bT = Math.min(bT, p[1] - 0.25); bB = Math.max(bB, p[1] + 0.25);
+                        }
+                    }
+
+                    const pad = o.background ? 0.3 : 0.1;
+                    const hintH = o.hint ? 0.7 : 0;
+
+                    const x0 = bL - pad, y0 = bT - pad;
+                    const W = Math.round((bR - bL + pad * 2) * S);
+                    const H = Math.round((bB - bT + pad * 2 + hintH) * S);
+                    const X = (v) => +((v - x0) * S).toFixed(2);
+                    const Y = (v) => +((v - y0) * S).toFixed(2);
+
+                    const C = dark ? {
+                        card: '#0d0e1a', border: '#4a4f70', gridArea: '#161829',
+                        line: '#2a2d44', lineStrong: '#3d4163',
+                        label: '#9aa0b3',
+                        shieldFill: 'rgba(77,208,225,0.12)', shieldStroke: 'rgba(77,208,225,0.6)',
+                        hint: '#9aa0b3'
+                    } : {
+                        card: '#ffffff', border: '#a8aebf', gridArea: '#fafbff',
+                        line: '#d4d8e5', lineStrong: '#a8aebf',
+                        label: '#5d6378',
+                        shieldFill: 'rgba(0,151,167,0.1)', shieldStroke: 'rgba(0,151,167,0.6)',
+                        hint: '#5d6378'
+                    };
+                    const EMOJI_FONT = 'Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji, sans-serif';
+                    const esc = (t) => String(t).replace(/[&<>"]/g,
+                        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+                    const out = [];
+                    out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${EMOJI_FONT}">`);
+
+                    /* card background (toggle: background) — off = transparent */
+                    if (o.background) {
+                        out.push(`<rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="${Math.round(S * 0.5)}" fill="${C.card}" stroke="${C.border}" stroke-width="2"/>`);
+                        out.push(`<rect x="${X(0)}" y="${Y(0)}" width="${cols * S}" height="${rows * S}" rx="5" fill="${C.gridArea}"/>`);
+                    }
+
+                    /* grid lines */
+                    for (let c = 0; c <= cols; c++) {
+                        const x = X(c), strong = c === 0 || c === cols;
+                        out.push(`<line x1="${x}" y1="${Y(0)}" x2="${x}" y2="${Y(rows)}" stroke="${strong ? C.lineStrong : C.line}" stroke-width="${strong ? 1.5 : 1}"/>`);
+                    }
+                    for (let r = 0; r <= rows; r++) {
+                        const y = Y(r), strong = r === 0 || r === rows;
+                        out.push(`<line x1="${X(0)}" y1="${y}" x2="${X(cols)}" y2="${y}" stroke="${strong ? C.lineStrong : C.line}" stroke-width="${strong ? 1.5 : 1}"/>`);
+                    }
+
+                    /* ring 2 — chess-style coordinate labels (toggle: labels) */
+                    if (o.labels) {
+                        for (let c = 0; c < cols; c++) {
+                            const letter = String.fromCharCode(65 + c);
+                            const lx = X(c + 0.5);
+                            out.push(`<text x="${lx}" y="${Y(-LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${letter}</text>`);
+                            out.push(`<text x="${lx}" y="${Y(rows + LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${letter}</text>`);
+                        }
+                        for (let r = 0; r < rows; r++) {
+                            const ly = Y(r + 0.5);
+                            out.push(`<text x="${X(-LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${r + 1}</text>`);
+                            out.push(`<text x="${X(cols + LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${r + 1}</text>`);
+                        }
+                    }
+
+                    /* ===== LASERS: BOTTOM LAYER (under all ships/shields) =====
+                       Full-length beams traced fresh — slider settings ignored */
+                    if (showLaser) {
+                        for (let i = 0; i < geoms.length; i++) {
+                            const g = geoms[i];
+                            const col = g.color || LASER_COLORS[i % LASER_COLORS.length];
+                            const ptsStr = g.pts.map((p) => `${X(p[0])},${Y(p[1])}`).join(' ');
+                            out.push(`<polyline points="${ptsStr}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.25"/>`);
+                            out.push(`<polyline points="${ptsStr}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`);
+                            if (o.markers) {
+                                const s = g.pts[0], e = g.pts[g.pts.length - 1];
+                                out.push(`<circle cx="${X(s[0])}" cy="${Y(s[1])}" r="5" fill="${col}"/>`);
+                                out.push(`<circle cx="${X(e[0])}" cy="${Y(e[1])}" r="4.5" fill="${dark ? '#0d0e1a' : '#ffffff'}" stroke="${col}" stroke-width="2.5"/>`);
+                            }
+                        }
+                    }
+
+                    /* shields clipped to grid (toggle: enemy) */
+                    if (showEnemy) {
+                        out.push(`<defs><clipPath id="exGridClip"><rect x="${X(0)}" y="${Y(0)}" width="${cols * S}" height="${rows * S}"/></clipPath></defs>`);
+                        out.push(`<g clip-path="url(#exGridClip)">`);
+                        for (const e of state.enemies) {
+                            out.push(`<circle cx="${X(e.x + 0.5)}" cy="${Y(e.y + 0.5)}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" stroke="${C.shieldStroke}" stroke-width="1.5" stroke-dasharray="4 3"/>`);
+                        }
+                        out.push(`</g>`);
+                        for (const e of state.enemies) {
+                            const cx = X(e.x + 0.5), cy = Y(e.y + 0.5);
+                            out.push(`<text x="${cx}" y="${cy + S * 0.18}" text-anchor="middle" font-size="${S * 0.55}">${e.emoji || ENEMY_EMOJIS[0]}</text>`);
+                        }
+                    }
+
+                    /* ring 1 — Mode 3 clue symbols at edge slots:
+                       Hit / ↩ reflect / pair number (laser color) / · exit.
+                       These are the puzzle clues — exported even when the
+                       enemy answer is hidden. */
+                    if (state.mode === 3 && state.mode3Results) {
+                        for (const res of state.mode3Results) {
+                            if (!res.position) continue;
+                            let gx, gy;
+                            switch (res.position.side) {
+                                case 'top': gx = res.position.index + 0.5; gy = -SHIP_OFF; break;
+                                case 'bottom': gx = res.position.index + 0.5; gy = rows + SHIP_OFF; break;
+                                case 'left': gx = -SHIP_OFF; gy = res.position.index + 0.5; break;
+                                case 'right': gx = cols + SHIP_OFF; gy = res.position.index + 0.5; break;
+                                default: continue;
+                            }
+                            let lbl = '·', fill = C.label, bold = '';
+                            if (res.type === 'hit') { lbl = 'Hit'; fill = dark ? '#ff5252' : '#d32f2f'; bold = ' font-weight="700"'; }
+                            else if (res.type === 'reflect') { lbl = '↩'; fill = dark ? '#ff9800' : '#f57c00'; bold = ' font-weight="700"'; }
+                            else if (res.type === 'pair') { lbl = String(res.pairId); fill = res.color || C.label; bold = ' font-weight="700"'; }
+                            // Opaque light tint of the beam color — beams stay hidden
+                            const cardFill = (typeof lightenHex === 'function' && lightenHex(fill)) || C.card;
+                            out.push(`<rect x="${X(gx) - 0.45 * S}" y="${Y(gy) - 0.45 * S}" width="${0.9 * S}" height="${0.9 * S}" rx="${0.1 * S}" fill="${cardFill}" stroke="${fill}" stroke-width="2"/>`);
+                            const fs = res.type === 'hit' ? S * 0.26 : S * 0.4;
+                            out.push(`<text x="${X(gx)}" y="${Y(gy) + S * 0.14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${fs}"${bold} fill="${fill}">${esc(lbl)}</text>`);
+                        }
+                    }
+
+                    /* ring 1 — friendly edge ships (forced on while lasers shown) */
+                    if (showFriendly) {
+                        for (const f of state.friendly) {
+                            let gx, gy;
+                            switch (f.side) {
+                                case 'top': gx = f.index + 0.5; gy = -SHIP_OFF; break;
+                                case 'bottom': gx = f.index + 0.5; gy = rows + SHIP_OFF; break;
+                                case 'left': gx = -SHIP_OFF; gy = f.index + 0.5; break;
+                                case 'right': gx = cols + SHIP_OFF; gy = f.index + 0.5; break;
+                                default: continue;
+                            }
+                            const cx = X(gx), cy = Y(gy), bw = 0.9 * S;
+                            const col = f.color || LASER_COLORS[0];
+                            out.push(`<rect x="${cx - bw / 2}" y="${cy - bw / 2}" width="${bw}" height="${bw}" rx="${0.1 * S}" fill="${col}" opacity="0.14" stroke="${col}" stroke-width="2"/>`);
+                            out.push(`<text x="${cx}" y="${cy + S * 0.16}" text-anchor="middle" font-size="${S * 0.46}">${f.emoji}</text>`);
+                        }
+                    }
+
+                    /* footer strip (toggle: hint):
+                       bottom-left = ship counts, bottom-right = seed id with 💾 */
+                    if (o.hint) {
+                        const fy = Y(bB + pad) + (hintH * S) / 2;
+                        out.push(`<text x="18" y="${fy}" text-anchor="start" font-family="'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" font-size="14" fill="${C.label}">👾 × ${state.enemies.length}&#160;&#160;|&#160;&#160;🚀 × ${state.friendly.length}</text>`);
+                        if (seedVal) {
+                            out.push(`<text x="${W - 16}" y="${fy}" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="600" fill="${C.hint}">💾 ${esc(seedVal)}</text>`);
+                        }
+                    }
+
+                    out.push('</svg>');
+                    return out.join('\n');
+                }
+
+                function exRefresh() {
+                    const modal = $('exportModal');
+                    if (!modal || !modal.classList.contains('active')) return;
+                    const svgStr = exBuildSVG();
+                    $('exportPreview').innerHTML = svgStr;
+                    $('exportTextarea').value = svgStr;
+                }
+                function exOpen() { $('exportModal').classList.add('active'); exRefresh(); }
+                function exClose() { $('exportModal').classList.remove('active'); }
+
+                /* drop old export handlers by clone-and-replace, then bind fresh */
+                ['exportBtn', 'copyExportBtn', 'downloadExportBtn', 'closeExportBtn'].forEach((id) => {
+                    const old = $(id);
+                    if (old && old.parentNode) old.parentNode.replaceChild(old.cloneNode(true), old);
+                });
+
+                $('exportBtn').addEventListener('click', exOpen);
+                $('closeExportBtn').addEventListener('click', exClose);
+                $('exportModal').addEventListener('click', (e) => {
+                    if (e.target === $('exportModal')) exClose();
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && $('exportModal').classList.contains('active')) exClose();
+                });
+
+                /* option toggles */
+                [
+                    ['exOptLaser', 'laser'],
+                    ['exOptMarkers', 'markers'],
+                    ['exOptEnemy', 'enemy'],
+                    ['exOptFriendly', 'friendly'],
+                    ['exOptBackground', 'background'],
+                    ['exOptHint', 'hint'],
+                    ['exOptLabels', 'labels']
+                ].forEach(([id, key]) => {
+                    const el = $(id);
+                    if (!el) return;
+                    el.checked = exOpts[key];
+                    el.addEventListener('change', () => { exOpts[key] = el.checked; exRefresh(); });
+                });
+
+                $('copyExportBtn').addEventListener('click', async () => {
+                    const svgStr = exBuildSVG();
+                    let ok = false;
+                    try { await navigator.clipboard.writeText(svgStr); ok = true; } catch (e) {}
+                    if (!ok) {
+                        const ta = $('exportTextarea');
+                        ta.focus(); ta.select();
+                        try { ok = document.execCommand('copy'); } catch (e) {}
+                    }
+                    showToast(ok ? 'SVG copied to clipboard' : 'Copy failed — copy from the textarea', ok ? 'success' : 'error');
+                });
+
+                $('downloadExportBtn').addEventListener('click', () => {
+                    let name = 'laser-tactics';
+                    try { name += '-' + encodeSeed(); } catch (e) {}
+                    name += '.svg';
+                    const blob = new Blob([exBuildSVG()], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = name;
+                    document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    showToast('Downloaded ' + name, 'success');
+                });
+
+                /* live re-render when theme flips while popup is open */
+                new MutationObserver(exRefresh).observe(document.documentElement, {
+                    attributes: true, attributeFilter: ['data-theme']
+                });
+            })();
         </script>
     </body>
 </html>
