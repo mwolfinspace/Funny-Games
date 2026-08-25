@@ -3537,7 +3537,18 @@
                             const sig = resample(raw);
                             if (!sig) return;
                             if (geoms.some((g) => samePath(sig, g.sig))) return;
-                            geoms.push({ pts: raw, sig, color: src.color || null });
+                            // markers anchor at the CARD CENTERS, not the
+                            // lane-offset route endpoints
+                            const startCard = (typeof laserCardPoint === 'function')
+                                ? laserCardPoint(src.side, src.index) : null;
+                            let endCard = null;
+                            if (lp.status === 'hit_source' || lp.status === 'hit_friendly') {
+                                const t = lp.status === 'hit_source' ? lp.friendly : lp.hitShip;
+                                if (t && t.side && typeof laserCardPoint === 'function') {
+                                    endCard = laserCardPoint(t.side, t.index);
+                                }
+                            }
+                            geoms.push({ pts: raw, sig, color: src.color || null, startCard, endCard });
                         } catch (e) { /* ignore */ }
                     };
                     if (state.mode === 3) {
@@ -3676,9 +3687,9 @@
                             out.push(`<polyline points="${ptsStr}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.25"/>`);
                             out.push(`<polyline points="${ptsStr}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`);
                             if (o.markers) {
-                                const s = g.pts[0], e = g.pts[g.pts.length - 1];
-                                out.push(`<circle cx="${X(s[0])}" cy="${Y(s[1])}" r="5" fill="${col}"/>`);
-                                out.push(`<circle cx="${X(e[0])}" cy="${Y(e[1])}" r="4.5" fill="${dark ? '#0d0e1a' : '#ffffff'}" stroke="${col}" stroke-width="2.5"/>`);
+                                // only the END marker, at its card center
+                                const e = g.endCard || g.pts[g.pts.length - 1];
+                                out.push(`<circle cx="${X(e.x !== undefined ? e.x : e[0])}" cy="${Y(e.y !== undefined ? e.y : e[1])}" r="4.5" fill="${dark ? '#0d0e1a' : '#ffffff'}" stroke="${col}" stroke-width="2.5"/>`);
                             }
                         }
                     }
