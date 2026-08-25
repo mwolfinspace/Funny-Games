@@ -2168,18 +2168,12 @@
                 // =====================================================
                 // QUICK PLAY / SETUP
                 // =====================================================
-                // Rank ring slots for friendly-ship placement.
-                // Priority tiers:
-                //   1. routes that HIT an enemy (bounced-then-hit or direct)
-                //   2. direct hits with zero reflections
-                //   3. routes that bounce off / hit an enemy NO earlier ship
-                //      has interacted with yet - guarantees a NEW hint
-                //   4. single-reflect routes on already-touched shields
-                //   5. clean pass-through exits (no interaction)
-                //   6. self ping-pong / leftover pair partners
-                // Within a tier, higher score wins; each ROUTE is claimed
-                // once — the opposite end of an entry/exit pair is skipped.
-                function rankFriendlySlots(slots) {
+                // Build scored candidates for every ring slot using the real
+                // tracer. Tiers:
+                //   1. multi-bounce kill   2. multi-bounce exit
+                //   3. one bounce          4. pure direct hit
+                //   5. clean pass-through  6. self ping-pong
+                function buildFriendlyCands(slots) {
                   const cands = [];
                   for (const slot of slots) {
                     try {
@@ -2193,11 +2187,11 @@
                       ).length;
                       let tier;
                       if (lp.status === 'hit_source') tier = 6;
-                      else if (lp.status === 'hit_enemy' && bounces >= 2) tier = 1; // multi-bounce into a kill
-                      else if (bounces >= 2) tier = 2;                              // bounces many shields
-                      else if (bounces === 1) tier = 3;                             // one bounce (fresh vs touched decided greedily)
-                      else if (lp.status === 'hit_enemy') tier = 4;                 // pure direct hit
-                      else tier = 5;                                                // clean pass-through
+                      else if (lp.status === 'hit_enemy' && bounces >= 2) tier = 1;
+                      else if (bounces >= 2) tier = 2;
+                      else if (bounces === 1) tier = 3;
+                      else if (lp.status === 'hit_enemy') tier = 4;
+                      else tier = 5;
                       const enemies = new Set(
                         lp.pts.filter((p) => p.ship)
                               .map((p) => p.ship.x + ',' + p.ship.y)
@@ -2217,45 +2211,68 @@
                     }
                   }
                   cands.sort((a, b) => (a.tier - b.tier) || (b.score - a.score));
+                  return cands;
+                }
 
-                  // Fresh-enemy coverage matters at EVERY tier: within each
-                  // tier, routes touching an un-interacted enemy outrank
-                  // higher-scored routes that only re-cover known shields.
-                  // Order: t1 multi-bounce kills, t2 multi-bounce exits,
-                  // t3 fresh-shield bounces, t4 direct hits, then touched
-                  // single-bounces + pass-throughs, self ping-pong last.
+                // Order slots so the FIRST `coverCount` entries alone interact
+                // with EVERY enemy on the board (greedy set cover: each pick
+                // maximizes newly-covered enemies). Remaining slots follow in
+                // tier/freshness order for extra ships. Pair routes are still
+                // claimed once — ping-pong partners never duplicate a path.
+                function planFriendlySlots(slots) {
+                  const cands = buildFriendlyCands(slots);
+                  const allEnemies = new Set();
+                  for (const e of state.enemies) allEnemies.add(e.x + ',' + e.y);
+
                   const usedRoutes = new Set();
-                  const usedEnemies = new Set();
-                  const picked = [];
-                  const leftovers = [];
-                  const take = (c) => {
-                    if (c.key !== null && usedRoutes.has(c.key)) {
-                      leftovers.push(c);
-                      return false;
+                  const covered = new Set();
+                  const ordered = [];
+
+                  // Phase A — greedy set cover until every enemy is touched
+                  let progress = true;
+                  while (covered.size < allEnemies.size && progress) {
+                    progress = false;
+                    let bestC = null, bestGain = 0;
+                    for (const c of cands) {
+                      if (usedRoutes.has(c.key)) continue;
+                      if (c.tier >= 6 && c.enemies.size === 0) continue;
+                      let gain = 0;
+                      for (const en of c.enemies) if (!covered.has(en)) gain++;
+                      if (gain > bestGain || (gain === bestGain && gain > 0 && bestC && c.score > bestC.score)) {
+                        bestGain = gain; bestC = c;
+                      }
                     }
-                    if (c.key !== null) usedRoutes.add(c.key);
-                    for (const en of c.enemies) usedEnemies.add(en);
-                    picked.push(c);
-                    return true;
-                  };
+                    if (bestC && bestGain > 0) {
+                      usedRoutes.add(bestC.key);
+                      for (const en of bestC.enemies) covered.add(en);
+                      ordered.push(bestC);
+                      progress = true;
+                    }
+                  }
+                  const coverCount = ordered.length;
+
+                  // Phase B — remaining slots in tier order, freshness first
                   const freshFirst = (a, b) => {
-                    const fa = [...a.enemies].some((en) => !usedEnemies.has(en)) ? 0 : 1;
-                    const fb = [...b.enemies].some((en) => !usedEnemies.has(en)) ? 0 : 1;
+                    const fa = [...a.enemies].some((en) => !covered.has(en)) ? 0 : 1;
+                    const fb = [...b.enemies].some((en) => !covered.has(en)) ? 0 : 1;
                     return (fa - fb) || (b.score - a.score);
                   };
-                  const byGroup = (t) => cands.filter((c) => c.tier === t);
-                  for (const c of byGroup(1).sort(freshFirst)) take(c);
-                  for (const c of byGroup(2).sort(freshFirst)) take(c);
-                  // tier 3: fresh-shield bounces first...
-                  const t3 = byGroup(3);
-                  for (const c of t3.filter((c) => [...c.enemies].some((en) => !usedEnemies.has(en))).sort(freshFirst)) take(c);
-                  // ...then direct hits...
-                  for (const c of byGroup(4).sort(freshFirst)) take(c);
-                  // ...then touched single-bounces + pass-throughs
-                  for (const c of t3.filter((c) => ![...c.enemies].some((en) => !usedEnemies.has(en))).sort(freshFirst)) take(c);
-                  for (const c of byGroup(5).sort(freshFirst)) take(c);
-                  for (const c of byGroup(6).sort(freshFirst)) take(c);
-                  return [...picked, ...leftovers].map((c) => c.slot);
+                  const rest = cands.filter((c) => !usedRoutes.has(c.key) || !ordered.includes(c))
+                                    .filter((c) => !ordered.includes(c))
+                                    .sort((a, b) => (a.tier - b.tier) || freshFirst(a, b));
+                  for (const c of rest) {
+                    if (c.key !== null && usedRoutes.has(c.key)) continue; // pair partner
+                    if (c.key !== null) usedRoutes.add(c.key);
+                    ordered.push(c);
+                  }
+                  // callers expect plain {side, index} slots
+                  return { ordered: ordered.map((c) => c.slot), coverCount };
+                }
+
+                // Convenience wrapper: plain ranking (used when coverage is
+                // handled separately or not needed)
+                function rankFriendlySlots(slots) {
+                  return planFriendlySlots(slots).ordered;
                 }
 
                 function quickPlay() {
@@ -2297,9 +2314,17 @@
                     edgeSlots.push({ side: 'right', index: r });
                   }
 
-                  const ranked = rankFriendlySlots(edgeSlots);
-                  for (let i = 0; i < friendlyCount && i < ranked.length; i++) {
-                    const slot = ranked[i];
+                  // Plan placement with guaranteed enemy coverage; if the
+                  // user's custom count is too small to reach every enemy,
+                  // auto-raise it to the solvable minimum
+                  const plan = planFriendlySlots(edgeSlots);
+                  if (state.mode !== 3 && friendlyCount < plan.coverCount) {
+                    friendlyCount = plan.coverCount;
+                    document.getElementById('friendlyCountInput').value = friendlyCount;
+                    showToast(`Friendly ships raised to ${friendlyCount} so every enemy is reachable.`, 'info');
+                  }
+                  for (let i = 0; i < friendlyCount && i < plan.ordered.length; i++) {
+                    const slot = plan.ordered[i];
                     state.friendly.push({
                       ...slot,
                       color: LASER_COLORS[i % LASER_COLORS.length],
@@ -3651,40 +3676,33 @@
                       }
                     }
 
-                    // --- friendly ships: re-score and place best spots ---
+                    // --- friendly ships: fully adaptive re-placement ---
+                    // Enemies and ships adapt to each other: after the new
+                    // enemy layout is set, ALL friendly ships are re-planned
+                    // onto the best spots for that layout (coverage first).
                     if (state.mode !== 3) {
-                      // drop ships whose slot no longer exists
-                      state.friendly = state.friendly.filter((f) => {
-                        const limit = (f.side === 'top' || f.side === 'bottom') ? state.cols : state.rows;
-                        return f.index < limit;
-                      });
-                      if (state.friendly.length > friendlyTarget) {
-                        state.friendly.length = friendlyTarget;
+                      const all = [];
+                      for (let c = 0; c < state.cols; c++) {
+                        all.push({ side: 'top', index: c });
+                        all.push({ side: 'bottom', index: c });
                       }
-                      if (state.friendly.length < friendlyTarget) {
-                        const occupied = new Set(state.friendly.map((f) => f.side + ':' + f.index));
-                        const all = [];
-                        for (let c = 0; c < state.cols; c++) {
-                          all.push({ side: 'top', index: c });
-                          all.push({ side: 'bottom', index: c });
-                        }
-                        for (let r = 0; r < state.rows; r++) {
-                          all.push({ side: 'left', index: r });
-                          all.push({ side: 'right', index: r });
-                        }
-                        // rank open slots (unique routes first, pairs deduped)
-                        const open = all.filter((s) => !occupied.has(s.side + ':' + s.index));
-                        const rankedOpen = rankFriendlySlots(open);
-                        for (const slot of rankedOpen) {
-                          if (state.friendly.length >= friendlyTarget) break;
-                          state.friendly.push({
-                            ...slot,
-                            color: LASER_COLORS[state.friendly.length % LASER_COLORS.length],
-                            emoji: pick(FRIENDLY_EMOJIS),
-                            id: state.nextFriendlyId++
-                          });
-                        }
+                      for (let r = 0; r < state.rows; r++) {
+                        all.push({ side: 'left', index: r });
+                        all.push({ side: 'right', index: r });
                       }
+                      // coverage plan; raise target if it can't reach every enemy
+                      const plan = planFriendlySlots(all);
+                      if (friendlyTarget < plan.coverCount) {
+                        friendlyTarget = plan.coverCount;
+                        document.getElementById('friendlyCountInput').value = friendlyTarget;
+                        showToast(`Friendly ships raised to ${friendlyTarget} so every enemy is reachable.`, 'info');
+                      }
+                      state.friendly = plan.ordered.slice(0, friendlyTarget).map((slot, i) => ({
+                        ...slot,
+                        color: LASER_COLORS[i % LASER_COLORS.length],
+                        emoji: pick(FRIENDLY_EMOJIS),
+                        id: state.nextFriendlyId++
+                      }));
                     }
 
                     if (state.mode === 3) state.mode3Results = computeMode3Results();
