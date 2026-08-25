@@ -1965,37 +1965,83 @@
             }
 
                 // =====================================================
-                // SEED ENCODE/DECODE (base81)
+                // SEED ENCODE/DECODE (base81 - Inversion Optimized)
                 // =====================================================
                 function encodeSeed() {
                   let num = 0n;
 
-                  // Append order matters: decode pops fields in reverse.
-                  // Fixed bases (100/40/counts) so the decoder needs no lookahead.
                   const cells = state.cols * state.rows;
                   const idxOf = (c) => c.y * state.cols + c.x;
 
-                  const hidden = state.enemies.filter(e => !e.exposed)
-                    .sort((a, b) => idxOf(a) - idxOf(b));
-                  const exposed = state.enemies.filter(e => e.exposed)
-                    .sort((a, b) => idxOf(a) - idxOf(b));
+                  // Total available slots on the outer ring: 2 * (cols + rows)
+                  const totalFSlots = 2 * (state.cols + state.rows);
 
-                  // 1. hidden positions (base 100)
-                  for (const e of hidden) num = num * 100n + BigInt(idxOf(e));
-                  // 2. exposed positions (base 100)
-                  for (const e of exposed) num = num * 100n + BigInt(idxOf(e));
-                  // 3. friendly positions (base 40: side*10 + index)
+                  const hidden = state.enemies.filter(e => !e.exposed).sort((a, b) => idxOf(a) - idxOf(b));
+                  const exposed = state.enemies.filter(e => e.exposed).sort((a, b) => idxOf(a) - idxOf(b));
+
+                  // Enable inversion when over 50% capacity to encode empty spots instead
+                  const hiddenInverted = hidden.length > Math.floor(cells / 2);
+                  const exposedInverted = exposed.length > Math.floor(cells / 2);
+                  const fInverted = state.mode !== 3 && state.friendly.length > Math.floor(totalFSlots / 2);
+
+                  // 1. Prepare Hidden items
+                  let hiddenToEncode = [];
+                  if (hiddenInverted) {
+                    const hSet = new Set(hidden.map(idxOf));
+                    for (let i = 0; i < cells; i++) if (!hSet.has(i)) hiddenToEncode.push(i);
+                  } else {
+                    hiddenToEncode = hidden.map(idxOf);
+                  }
+
+                  // 2. Prepare Exposed items
+                  let exposedToEncode = [];
+                  if (exposedInverted) {
+                    const eSet = new Set(exposed.map(idxOf));
+                    for (let i = 0; i < cells; i++) if (!eSet.has(i)) exposedToEncode.push(i);
+                  } else {
+                    exposedToEncode = exposed.map(idxOf);
+                  }
+
+                  // 3. Prepare Friendly items (Mode 1 & Mode 2)
+                  let fToEncode = [];
                   if (state.mode !== 3) {
-                    const sortedFriendly = [...state.friendly].sort((a, b) =>
+                    if (fInverted) {
+                      const activeF = new Set(state.friendly.map(f => f.side + ':' + f.index));
+                      const allSlots = [];
+                      for (let c = 0; c < state.cols; c++) {
+                        allSlots.push({ side: 'top', index: c });
+                        allSlots.push({ side: 'bottom', index: c });
+                      }
+                      for (let r = 0; r < state.rows; r++) {
+                        allSlots.push({ side: 'left', index: r });
+                        allSlots.push({ side: 'right', index: r });
+                      }
+                      fToEncode = allSlots.filter(s => !activeF.has(s.side + ':' + s.index));
+                    } else {
+                      fToEncode = [...state.friendly];
+                    }
+                    fToEncode.sort((a, b) =>
                       (SIDES.indexOf(a.side) * 10 + a.index) - (SIDES.indexOf(b.side) * 10 + b.index));
-                    for (const f of sortedFriendly) {
+                  }
+
+                  // Push items onto the BigInt stack
+                  for (const pos of hiddenToEncode) num = num * 100n + BigInt(pos);
+                  for (const pos of exposedToEncode) num = num * 100n + BigInt(pos);
+
+                  if (state.mode !== 3) {
+                    for (const f of fToEncode) {
                       num = num * 40n + BigInt(SIDES.indexOf(f.side) * 10 + f.index);
                     }
                   }
-                  // 4. counts + header
-                  num = num * 41n + BigInt(Math.min(state.friendly.length, 40));
-                  num = num * 21n + BigInt(Math.min(exposed.length, 20));
-                  num = num * 21n + BigInt(Math.min(hidden.length, 20));
+
+                  // Flags bitmask: bit 0 = friendly inverted, bit 1 = exposed inverted, bit 2 = hidden inverted
+                  const flags = (fInverted ? 1 : 0) | ((exposedInverted ? 1 : 0) << 1) | ((hiddenInverted ? 1 : 0) << 2);
+
+                  // Pack header fields
+                  num = num * 41n + BigInt(fToEncode.length);
+                  num = num * 101n + BigInt(exposedToEncode.length);
+                  num = num * 101n + BigInt(hiddenToEncode.length);
+                  num = num * 8n + BigInt(flags);
                   num = num * 7n + BigInt(state.rows - 4);
                   num = num * 7n + BigInt(state.cols - 4);
                   num = num * 3n + BigInt(state.mode - 1);
@@ -2017,16 +2063,22 @@
                     num = num * SEED_BASE + BigInt(idx);
                   }
 
-                  // Pop in reverse append order (see encodeSeed)
+                  // Unpack header fields in reverse order
                   const mode = Number(num % 3n) + 1; num /= 3n;
                   const cols = Number(num % 7n) + 4; num /= 7n;
                   const rows = Number(num % 7n) + 4; num /= 7n;
-                  const hiddenCount = Math.min(Number(num % 21n), cols * rows); num /= 21n;
-                  const exposedCount = Math.min(Number(num % 21n), cols * rows); num /= 21n;
-                  const fCount = Math.min(Number(num % 41n), 4 * Math.max(cols, rows)); num /= 41n;
+                  const flags = Number(num % 8n); num /= 8n;
+
+                  const fInverted = (flags & 1) !== 0;
+                  const exposedInverted = (flags & 2) !== 0;
+                  const hiddenInverted = (flags & 4) !== 0;
+
+                  const cells = cols * rows;
+                  const hiddenCount = Math.min(Number(num % 101n), cells); num /= 101n;
+                  const exposedCount = Math.min(Number(num % 101n), cells); num /= 101n;
+                  const fCount = Math.min(Number(num % 41n), 2 * (cols + rows)); num /= 41n;
 
                   const newState = { mode, cols, rows, enemies: [], friendly: [] };
-                  const cells = cols * rows;
                   const seen = new Set();
                   const addEnemy = (pos, exposed) => {
                     const x = pos % cols, y = Math.floor(pos / cols);
@@ -2037,28 +2089,59 @@
                     newState.enemies.push({ x, y, exposed, emoji: pick(ENEMY_EMOJIS) });
                   };
 
+                  // Decode friendly positions
                   if (mode !== 3) {
-                    const fSeen = new Set();
+                    const poppedF = new Set();
                     for (let i = 0; i < fCount; i++) {
                       const pos = Number(num % 40n); num /= 40n;
                       const side = SIDES[Math.floor(pos / 10)];
                       const index = pos % 10;
-                      const limit = (side === 'top' || side === 'bottom') ? cols : rows;
-                      if (!side || index < 0 || index >= limit) continue;
-                      const k = side + ':' + index;
-                      if (fSeen.has(k)) continue;
-                      fSeen.add(k);
-                      newState.friendly.push({ side, index });
+                      if (side && index >= 0) poppedF.add(side + ':' + index);
+                    }
+
+                    const allSlots = [];
+                    for (let c = 0; c < cols; c++) {
+                      allSlots.push({ side: 'top', index: c });
+                      allSlots.push({ side: 'bottom', index: c });
+                    }
+                    for (let r = 0; r < rows; r++) {
+                      allSlots.push({ side: 'left', index: r });
+                      allSlots.push({ side: 'right', index: r });
+                    }
+
+                    for (const slot of allSlots) {
+                      const k = slot.side + ':' + slot.index;
+                      const isPopped = poppedF.has(k);
+                      if (fInverted ? !isPopped : isPopped) {
+                        newState.friendly.push(slot);
+                      }
                     }
                   } else {
                     num /= pow(40n, BigInt(fCount)); // skip unused friendly block
                   }
 
+                  // Decode exposed enemy positions
+                  const poppedExposed = new Set();
                   for (let i = 0; i < exposedCount; i++) {
-                    addEnemy(Number(num % 100n), true); num /= 100n;
+                    poppedExposed.add(Number(num % 100n)); num /= 100n;
                   }
+                  for (let i = 0; i < cells; i++) {
+                    const isPopped = poppedExposed.has(i);
+                    if (exposedInverted ? !isPopped : isPopped) {
+                      addEnemy(i, true);
+                    }
+                  }
+
+                  // Decode hidden enemy positions
+                  const poppedHidden = new Set();
                   for (let i = 0; i < hiddenCount; i++) {
-                    addEnemy(Number(num % 100n), false); num /= 100n;
+                    poppedHidden.add(Number(num % 100n)); num /= 100n;
+                  }
+                  for (let i = 0; i < cells; i++) {
+                    const isPopped = poppedHidden.has(i);
+                    if (hiddenInverted ? !isPopped : isPopped) {
+                      addEnemy(i, false);
+                    }
                   }
 
                   return newState;
@@ -2890,6 +2973,19 @@
                   return had;
                 }
 
+                // Leave Manual fire mode: clear flag, beams and button state
+                function exitManualFire() {
+                  if (!state.manual) return;
+                  state.manual = false;
+                  const had = stopAllManualFire();
+                  document.getElementById('manualBtn').classList.remove('active');
+                  if (had && !state.playing) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                  }
+                  render();
+                }
+
                 function pauseAnimation() {
                   state.paused = true;
                   document.getElementById('playIcon').textContent = '▶';
@@ -3231,6 +3327,7 @@
                 }
 
                 function setMode(mode) {
+                  exitManualFire();
                   stopAnimation();
                   state.mode = mode;
                   state.winShown = false;
@@ -3346,14 +3443,7 @@
                   // Tool buttons — picking a tool exits Manual fire mode
                   document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
                     btn.addEventListener('click', () => {
-                      if (state.manual) {
-                        state.manual = false;
-                        stopAllManualFire();
-                        if (!state.playing) {
-                          cancelAnimationFrame(rafId);
-                          rafId = null;
-                        }
-                      }
+                      exitManualFire();
                       state.tool = btn.dataset.tool;
                       document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
                       btn.classList.add('active');
@@ -3362,6 +3452,7 @@
 
                   // Play/pause
                   document.getElementById('playBtn').addEventListener('click', () => {
+                    exitManualFire();
                     if (state.playing && !state.paused) {
                       pauseAnimation();
                     } else if (state.playing && state.paused) {
@@ -3371,24 +3462,20 @@
                     }
                   });
 
-                  // Manual fire mode toggle
+                  // Manual fire mode — activate-only. Pick any other tool
+                  // or mode to leave Manual mode.
                   document.getElementById('manualBtn').addEventListener('click', () => {
-                    state.manual = !state.manual;
                     if (state.manual) {
-                      // Manual becomes the exclusive active tool
-                      state.tool = 'manual';
-                      document.querySelectorAll('.tool-btn').forEach((b) => b.classList.remove('active'));
-                      document.getElementById('manualBtn').classList.add('active');
-                      setStatus('Manual fire ON — click a friendly ship / hint card to toggle its beam.');
-                    } else {
-                      const had = stopAllManualFire();
-                      if (had && !state.playing) {
-                        cancelAnimationFrame(rafId);
-                        rafId = null;
-                      }
-                      render();
-                      setStatus('Manual fire off.');
+                      setStatus('Manual fire is already active — pick another tool to exit.');
+                      return;
                     }
+                    state.manual = true;
+                    // Manual becomes the exclusive active tool
+                    state.tool = 'manual';
+                    document.querySelectorAll('.tool-btn').forEach((b) => b.classList.remove('active'));
+                    document.getElementById('manualBtn').classList.add('active');
+                    render();
+                    setStatus('Manual fire ON — click a friendly ship / hint card to toggle its beam.');
                   });
 
                   // Reset
