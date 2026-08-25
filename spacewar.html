@@ -1760,7 +1760,7 @@
                   }
                   const nx = -dy * LANE, ny = dx * LANE;
                   // jog onto the inbound lane, then sweep the semicircle
-                  push(ux - nx, uy - ny, 'bounce180');
+                  push(ux - nx, uy - ny, 'bounce180', { ship: ev.ship });
                   const aStart = Math.atan2((uy - ny) - uy, (ux - nx) - ux);
                   for (let i = 1; i <= 8; i++) {
                     push(
@@ -1783,7 +1783,7 @@
                   status = 'exit';
                   break;
                 } else if (ev.type === 'reflect_90') {
-                  push(ev.x, ev.y, 'bounce90');
+                  push(ev.x, ev.y, 'bounce90', { ship: ev.ship });
                   dx = ev.newDirX; dy = ev.newDirY;
                   px = ev.x; py = ev.y;
                   bounces++;
@@ -2168,6 +2168,96 @@
                 // =====================================================
                 // QUICK PLAY / SETUP
                 // =====================================================
+                // Rank ring slots for friendly-ship placement.
+                // Priority tiers:
+                //   1. routes that HIT an enemy (bounced-then-hit or direct)
+                //   2. direct hits with zero reflections
+                //   3. routes that bounce off / hit an enemy NO earlier ship
+                //      has interacted with yet - guarantees a NEW hint
+                //   4. single-reflect routes on already-touched shields
+                //   5. clean pass-through exits (no interaction)
+                //   6. self ping-pong / leftover pair partners
+                // Within a tier, higher score wins; each ROUTE is claimed
+                // once — the opposite end of an entry/exit pair is skipped.
+                function rankFriendlySlots(slots) {
+                  const cands = [];
+                  for (const slot of slots) {
+                    try {
+                      const lp = computeLaserPath({ ...slot, id: -1 });
+                      if (!lp || !Array.isArray(lp.pts)) {
+                        cands.push({ slot, tier: 6, score: -1, key: null, enemies: new Set() });
+                        continue;
+                      }
+                      const bounces = lp.pts.filter(
+                        (p) => p.kind === 'bounce90' || p.kind === 'bounce180'
+                      ).length;
+                      let tier;
+                      if (lp.status === 'hit_source') tier = 6;
+                      else if (lp.status === 'hit_enemy' && bounces >= 2) tier = 1; // multi-bounce into a kill
+                      else if (bounces >= 2) tier = 2;                              // bounces many shields
+                      else if (bounces === 1) tier = 3;                             // one bounce (fresh vs touched decided greedily)
+                      else if (lp.status === 'hit_enemy') tier = 4;                 // pure direct hit
+                      else tier = 5;                                                // clean pass-through
+                      const enemies = new Set(
+                        lp.pts.filter((p) => p.ship)
+                              .map((p) => p.ship.x + ',' + p.ship.y)
+                      );
+                      const score = bounces * 100 + lp.totalLength + Math.random() * 10;
+                      let key = null;
+                      if (lp.status === 'exit' && lp.exitPosition) {
+                        const a = slot.side + ':' + slot.index;
+                        const b = lp.exitPosition.side + ':' + lp.exitPosition.index;
+                        key = [a, b].sort().join('|');
+                      } else if (lp.status === 'hit_enemy' && lp.hitShip) {
+                        key = 'hit:' + lp.hitShip.x + ',' + lp.hitShip.y;
+                      }
+                      cands.push({ slot, tier, score, key, enemies });
+                    } catch (e) {
+                      cands.push({ slot, tier: 6, score: -1, key: null, enemies: new Set() });
+                    }
+                  }
+                  cands.sort((a, b) => (a.tier - b.tier) || (b.score - a.score));
+
+                  // Fresh-enemy coverage matters at EVERY tier: within each
+                  // tier, routes touching an un-interacted enemy outrank
+                  // higher-scored routes that only re-cover known shields.
+                  // Order: t1 multi-bounce kills, t2 multi-bounce exits,
+                  // t3 fresh-shield bounces, t4 direct hits, then touched
+                  // single-bounces + pass-throughs, self ping-pong last.
+                  const usedRoutes = new Set();
+                  const usedEnemies = new Set();
+                  const picked = [];
+                  const leftovers = [];
+                  const take = (c) => {
+                    if (c.key !== null && usedRoutes.has(c.key)) {
+                      leftovers.push(c);
+                      return false;
+                    }
+                    if (c.key !== null) usedRoutes.add(c.key);
+                    for (const en of c.enemies) usedEnemies.add(en);
+                    picked.push(c);
+                    return true;
+                  };
+                  const freshFirst = (a, b) => {
+                    const fa = [...a.enemies].some((en) => !usedEnemies.has(en)) ? 0 : 1;
+                    const fb = [...b.enemies].some((en) => !usedEnemies.has(en)) ? 0 : 1;
+                    return (fa - fb) || (b.score - a.score);
+                  };
+                  const byGroup = (t) => cands.filter((c) => c.tier === t);
+                  for (const c of byGroup(1).sort(freshFirst)) take(c);
+                  for (const c of byGroup(2).sort(freshFirst)) take(c);
+                  // tier 3: fresh-shield bounces first...
+                  const t3 = byGroup(3);
+                  for (const c of t3.filter((c) => [...c.enemies].some((en) => !usedEnemies.has(en))).sort(freshFirst)) take(c);
+                  // ...then direct hits...
+                  for (const c of byGroup(4).sort(freshFirst)) take(c);
+                  // ...then touched single-bounces + pass-throughs
+                  for (const c of t3.filter((c) => ![...c.enemies].some((en) => !usedEnemies.has(en))).sort(freshFirst)) take(c);
+                  for (const c of byGroup(5).sort(freshFirst)) take(c);
+                  for (const c of byGroup(6).sort(freshFirst)) take(c);
+                  return [...picked, ...leftovers].map((c) => c.slot);
+                }
+
                 function quickPlay() {
                   stopAnimation();
                   state.enemies = [];
@@ -2192,7 +2282,11 @@
                     state.enemies.push({ ...cells[i], exposed: false, emoji: pick(ENEMY_EMOJIS) });
                   }
 
-                  // Place friendly ships at random edge positions
+                  // Place friendly ships at the most interesting edge slots:
+                  // score every ring slot by shooting a virtual laser with
+                  // the game's real tracer. Routes are deduped — a pair of
+                  // slots sharing one path (A<->B) gets only ONE ship; when
+                  // unique routes run out, leftover spots fill in.
                   const edgeSlots = [];
                   for (let c = 0; c < state.cols; c++) {
                     edgeSlots.push({ side: 'top', index: c });
@@ -2202,10 +2296,10 @@
                     edgeSlots.push({ side: 'left', index: r });
                     edgeSlots.push({ side: 'right', index: r });
                   }
-                  shuffle(edgeSlots);
 
-                  for (let i = 0; i < friendlyCount; i++) {
-                    const slot = edgeSlots[i];
+                  const ranked = rankFriendlySlots(edgeSlots);
+                  for (let i = 0; i < friendlyCount && i < ranked.length; i++) {
+                    const slot = ranked[i];
                     state.friendly.push({
                       ...slot,
                       color: LASER_COLORS[i % LASER_COLORS.length],
@@ -2240,7 +2334,9 @@
                   try {
                     localStorage.setItem('laserTactics.session', JSON.stringify({
                       mode: state.mode,
-                      seed: document.getElementById('seedInput').value
+                      seed: document.getElementById('seedInput').value,
+                      enemyCount: document.getElementById('enemyCountInput').value,
+                      friendlyCount: document.getElementById('friendlyCountInput').value
                     }));
                   } catch (e) { /* storage unavailable */ }
                 }
@@ -3011,6 +3107,7 @@
                   state.hitFlashes = [];
                   state.flashCells = {};
                   if (rafId) cancelAnimationFrame(rafId);
+                  rafId = null; // stale id prevented Manual loop restart
                   resetPlayBtn();
                   render();
                 }
@@ -3524,10 +3621,87 @@
                   });
 
                   // Grid size inputs
+                  // Enemy / Friendly count changes — live board update:
+                  // enemies spawn/remove to match, then friendly ships
+                  // recalculate the best remaining ring spots
+                  function syncCounts() {
+                    const cells = state.cols * state.rows;
+                    const totalSlots = 2 * (state.cols + state.rows);
+                    const enemyTarget = Math.min(
+                      parseInt(document.getElementById('enemyCountInput').value) || 0, cells);
+                    const friendlyTarget = Math.min(
+                      parseInt(document.getElementById('friendlyCountInput').value) || 0, totalSlots);
+
+                    stopAnimation();
+                    state.winShown = false;
+
+                    // --- enemies: priority spawn/remove ---
+                    if (state.enemies.length > enemyTarget) {
+                      state.enemies.length = enemyTarget;
+                    }
+                    if (state.enemies.length < enemyTarget) {
+                      const taken = new Set(state.enemies.map((e) => e.x + ',' + e.y));
+                      const free = [];
+                      for (let y = 0; y < state.rows; y++)
+                        for (let x = 0; x < state.cols; x++)
+                          if (!taken.has(x + ',' + y)) free.push({ x, y });
+                      shuffle(free);
+                      while (state.enemies.length < enemyTarget && free.length) {
+                        state.enemies.push({ ...free.pop(), exposed: false, emoji: pick(ENEMY_EMOJIS) });
+                      }
+                    }
+
+                    // --- friendly ships: re-score and place best spots ---
+                    if (state.mode !== 3) {
+                      // drop ships whose slot no longer exists
+                      state.friendly = state.friendly.filter((f) => {
+                        const limit = (f.side === 'top' || f.side === 'bottom') ? state.cols : state.rows;
+                        return f.index < limit;
+                      });
+                      if (state.friendly.length > friendlyTarget) {
+                        state.friendly.length = friendlyTarget;
+                      }
+                      if (state.friendly.length < friendlyTarget) {
+                        const occupied = new Set(state.friendly.map((f) => f.side + ':' + f.index));
+                        const all = [];
+                        for (let c = 0; c < state.cols; c++) {
+                          all.push({ side: 'top', index: c });
+                          all.push({ side: 'bottom', index: c });
+                        }
+                        for (let r = 0; r < state.rows; r++) {
+                          all.push({ side: 'left', index: r });
+                          all.push({ side: 'right', index: r });
+                        }
+                        // rank open slots (unique routes first, pairs deduped)
+                        const open = all.filter((s) => !occupied.has(s.side + ':' + s.index));
+                        const rankedOpen = rankFriendlySlots(open);
+                        for (const slot of rankedOpen) {
+                          if (state.friendly.length >= friendlyTarget) break;
+                          state.friendly.push({
+                            ...slot,
+                            color: LASER_COLORS[state.friendly.length % LASER_COLORS.length],
+                            emoji: pick(FRIENDLY_EMOJIS),
+                            id: state.nextFriendlyId++
+                          });
+                        }
+                      }
+                    }
+
+                    if (state.mode === 3) state.mode3Results = computeMode3Results();
+                    updateSeedInput();
+                    render();
+                    setStatus(`Board updated: ${state.enemies.length} enemies, ${state.friendly.length} friendly ships.`);
+                  }
+                  document.getElementById('enemyCountInput').addEventListener('change', syncCounts);
+                  document.getElementById('friendlyCountInput').addEventListener('change', syncCounts);
+
                   document.getElementById('colsInput').addEventListener('change', (e) => {
                     const v = Math.max(4, Math.min(10, parseInt(e.target.value) || 6));
                     e.target.value = v;
                     stopAnimation();
+                    // grid changed — ship counts reset to defaults
+                    document.getElementById('enemyCountInput').value = 3;
+                    document.getElementById('friendlyCountInput').value = 2;
                     state.cols = v;
                     state.winShown = false;
                     // Remove items outside new bounds
@@ -3545,6 +3719,9 @@
                     const v = Math.max(4, Math.min(10, parseInt(e.target.value) || 6));
                     e.target.value = v;
                     stopAnimation();
+                    // grid changed — ship counts reset to defaults
+                    document.getElementById('enemyCountInput').value = 3;
+                    document.getElementById('friendlyCountInput').value = 2;
                     state.rows = v;
                     state.winShown = false;
                     state.enemies = state.enemies.filter(en => en.y < v);
@@ -3664,6 +3841,13 @@
                   let restored = false;
                   try {
                     const s = JSON.parse(localStorage.getItem('laserTactics.session') || 'null');
+                    // restore custom ship counts so Quick Play keeps them
+                    if (s && s.enemyCount) {
+                      document.getElementById('enemyCountInput').value = s.enemyCount;
+                    }
+                    if (s && s.friendlyCount) {
+                      document.getElementById('friendlyCountInput').value = s.friendlyCount;
+                    }
                     if (s && s.seed) {
                       loadSeed(s.seed);
                       restored = true;
