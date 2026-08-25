@@ -2375,13 +2375,13 @@
                   for (let c = 0; c < cols; c++) {
                     const letter = String.fromCharCode(65 + c);
                     const lx = fnum(ox + c + 0.5);
-                    html += `<text class="coord-label" x="${lx}" y="${fnum(oy - labelOff)}">${letter}</text>`;
-                    html += `<text class="coord-label" x="${lx}" y="${fnum(oy + rows + labelOff)}">${letter}</text>`;
+                  html += `<text class="coord-label" x="${lx}" y="${fnum(oy - labelOff)}" style="fill:#e53935">${letter}</text>`;
+                  html += `<text class="coord-label" x="${lx}" y="${fnum(oy + rows + labelOff)}" style="fill:#1e88e5">${letter}</text>`;
                   }
                   for (let r = 0; r < rows; r++) {
                     const ly = fnum(oy + r + 0.5);
-                    html += `<text class="coord-label" x="${fnum(ox - labelOff)}" y="${ly}">${r + 1}</text>`;
-                    html += `<text class="coord-label" x="${fnum(ox + cols + labelOff)}" y="${ly}">${r + 1}</text>`;
+                  html += `<text class="coord-label" x="${fnum(ox - labelOff)}" y="${ly}" style="fill:#e53935">${r + 1}</text>`;
+                  html += `<text class="coord-label" x="${fnum(ox + cols + labelOff)}" y="${ly}" style="fill:#1e88e5">${r + 1}</text>`;
                   }
 
                   // Edge slots (for placing friendly ships) — boxes aligned
@@ -2425,49 +2425,8 @@
                     }
                   }
 
-                  // Friendly ships — same 0.9 box geometry as the edge slots
-                  for (const f of state.friendly) {
-                    let fx, fy;
-                    switch (f.side) {
-                      case 'top': fx = ox + f.index + 0.5; fy = oy - shipOff; break;
-                      case 'bottom': fx = ox + f.index + 0.5; fy = oy + rows + shipOff; break;
-                      case 'left': fx = ox - shipOff; fy = oy + f.index + 0.5; break;
-                      case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
-                    }
-                    fx = fnum(fx); fy = fnum(fy);
-                    html += `<g class="friendly-ship-group" data-friendly-id="${f.id}">
-                      <rect x="${fx - 0.45}" y="${fy - 0.45}" width="0.9" height="0.9" rx="0.1" fill="${lightenHex(f.color) || f.color}" stroke="${f.color}" stroke-width="0.025"/>
-                      <text class="friendly-ship" x="${fx}" y="${fy}" dy="0.05" fill="${f.color}">${f.emoji}</text>
-                    </g>`;
-                  }
-
-                  // Flags (cells + edge slots), drawn last so they sit on top
-                  // of friendly ships at the same slot
-                  for (const f of state.flags) {
-                    const key = flagKey(f);
-                    const flashColor = state.flashCells[key] ? state.flashCells[key].color : 'var(--flag)';
-                    let fx, fy;
-                    if (f.side !== undefined) {
-                      switch (f.side) {
-                        case 'top': fx = ox + f.index + 0.5; fy = oy - shipOff; break;
-                        case 'bottom': fx = ox + f.index + 0.5; fy = oy + rows + shipOff; break;
-                        case 'left': fx = ox - shipOff; fy = oy + f.index + 0.5; break;
-                        case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
-                      }
-                      fx = fnum(fx); fy = fnum(fy);
-                      html += `<g class="flag-marker">
-                        <circle cx="${fx}" cy="${fy}" r="0.3" fill="${flashColor}" opacity="0.3"/>
-                        <text x="${fx}" y="${fy}" dy="0.05" font-size="0.42" text-anchor="middle" dominant-baseline="central">🚩</text>
-                      </g>`;
-                      continue;
-                    }
-                    const cx = ox + f.x + 0.5;
-                    const cy = oy + f.y + 0.5;
-                    html += `<g class="flag-marker">
-                      <rect x="${cx - 0.4}" y="${cy - 0.4}" width="0.8" height="0.8" rx="0.08" fill="${flashColor}" opacity="0.25" stroke="${flashColor}" stroke-width="0.03"/>
-                      <text x="${cx}" y="${cy}">🚩</text>
-                    </g>`;
-                  }
+                  // Friendly ships are drawn AFTER the laser beams (see below)
+                  // so returning reflect beams never cover the ship cards
 
                   // Lasers: streaming train pattern along each route
                   if (state.playing || state.lasers.length > 0) {
@@ -2485,6 +2444,23 @@
                         html += `<circle cx="${ox + laser.headPos.x}" cy="${oy + laser.headPos.y}" r="0.07" fill="${laser.color}" stroke="#ffffff" stroke-width="0.02"/>`;
                       }
                     }
+                  }
+
+                  // Friendly ships — drawn AFTER the laser beams so returning
+                  // reflect beams slide beneath their opaque cards
+                  for (const f of state.friendly) {
+                    let fx, fy;
+                    switch (f.side) {
+                      case 'top': fx = ox + f.index + 0.5; fy = oy - shipOff; break;
+                      case 'bottom': fx = ox + f.index + 0.5; fy = oy + rows + shipOff; break;
+                      case 'left': fx = ox - shipOff; fy = oy + f.index + 0.5; break;
+                      case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
+                    }
+                    fx = fnum(fx); fy = fnum(fy);
+                    html += `<g class="friendly-ship-group" data-friendly-id="${f.id}">
+                      <rect x="${fx - 0.45}" y="${fy - 0.45}" width="0.9" height="0.9" rx="0.1" fill="${lightenHex(f.color) || f.color}" stroke="${f.color}" stroke-width="0.025"/>
+                      <text class="friendly-ship" x="${fx}" y="${fy}" dy="0.05" fill="${f.color}">${f.emoji}</text>
+                    </g>`;
                   }
 
                   // Mode 3 result cards — drawn AFTER lasers so the beams
@@ -2513,6 +2489,34 @@
                       html += `<rect x="${fnum(fx - 0.45)}" y="${fnum(fy - 0.45)}" width="0.9" height="0.9" rx="0.1" fill="${cardFill}" stroke="${cardColor}" stroke-width="0.025"/>`;
                       html += `<text class="result-text ${cls}" x="${fx}" y="${fy}"${r.color ? ` style="fill:${r.color}"` : ''}>${label}</text>`;
                     }
+                  }
+
+                  // Flags (cells + edge slots) — TOPMOST layer in every mode,
+                  // above lasers, friendly ships and hint cards
+                  for (const f of state.flags) {
+                    const key = flagKey(f);
+                    const flashColor = state.flashCells[key] ? state.flashCells[key].color : 'var(--flag)';
+                    let fx, fy;
+                    if (f.side !== undefined) {
+                      switch (f.side) {
+                        case 'top': fx = ox + f.index + 0.5; fy = oy - shipOff; break;
+                        case 'bottom': fx = ox + f.index + 0.5; fy = oy + rows + shipOff; break;
+                        case 'left': fx = ox - shipOff; fy = oy + f.index + 0.5; break;
+                        case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
+                      }
+                      fx = fnum(fx); fy = fnum(fy);
+                      html += `<g class="flag-marker">
+                        <circle cx="${fx}" cy="${fy}" r="0.3" fill="${flashColor}" opacity="0.3"/>
+                        <text x="${fx}" y="${fy}" dy="0.05" font-size="0.42" text-anchor="middle" dominant-baseline="central">🚩</text>
+                      </g>`;
+                      continue;
+                    }
+                    const cx = ox + f.x + 0.5;
+                    const cy = oy + f.y + 0.5;
+                    html += `<g class="flag-marker">
+                      <rect x="${cx - 0.4}" y="${cy - 0.4}" width="0.8" height="0.8" rx="0.08" fill="${flashColor}" opacity="0.25" stroke="${flashColor}" stroke-width="0.03"/>
+                      <text x="${cx}" y="${cy}">🚩</text>
+                    </g>`;
                   }
 
                   // Hit flashes (path-space coords)
@@ -3566,14 +3570,14 @@
                     const C = dark ? {
                         card: '#0d0e1a', border: '#4a4f70', gridArea: '#161829',
                         line: '#2a2d44', lineStrong: '#3d4163',
-                        label: '#9aa0b3',
+                        label: '#9aa0b3', labelTop: '#e53935', labelBottom: '#1e88e5',
                         shieldFill: '#4dd0e1', shieldFillO: 0.12,
                         shieldStroke: '#4dd0e1', shieldStrokeO: 0.6,
                         hint: '#9aa0b3'
                     } : {
                         card: '#ffffff', border: '#a8aebf', gridArea: '#fafbff',
                         line: '#d4d8e5', lineStrong: '#a8aebf',
-                        label: '#5d6378',
+                        label: '#5d6378', labelTop: '#e53935', labelBottom: '#1e88e5',
                         shieldFill: '#0097a7', shieldFillO: 0.1,
                         shieldStroke: '#0097a7', shieldStrokeO: 0.6,
                         hint: '#5d6378'
@@ -3613,13 +3617,13 @@
                         for (let c = 0; c < cols; c++) {
                             const letter = String.fromCharCode(65 + c);
                             const lx = X(c + 0.5);
-                            out.push(`<text x="${lx}" y="${Y(-LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${letter}</text>`);
-                            out.push(`<text x="${lx}" y="${Y(rows + LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${letter}</text>`);
+                            out.push(`<text x="${lx}" y="${Y(-LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.labelTop}">${letter}</text>`);
+                            out.push(`<text x="${lx}" y="${Y(rows + LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.labelBottom}">${letter}</text>`);
                         }
                         for (let r = 0; r < rows; r++) {
                             const ly = Y(r + 0.5);
-                            out.push(`<text x="${X(-LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${r + 1}</text>`);
-                            out.push(`<text x="${X(cols + LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${r + 1}</text>`);
+                            out.push(`<text x="${X(-LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.labelTop}">${r + 1}</text>`);
+                            out.push(`<text x="${X(cols + LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.labelBottom}">${r + 1}</text>`);
                         }
                     }
 
