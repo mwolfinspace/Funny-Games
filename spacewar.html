@@ -1404,7 +1404,8 @@
               if (!m) return null;
               const n = parseInt(m[1], 16);
               const mix = (c) => Math.round(c + (255 - c) * amt);
-              return `rgb(${mix((n >> 16) & 255)},${mix((n >> 8) & 255)},${mix(n & 255)})`;
+              const h = (v) => v.toString(16).padStart(2, '0');
+              return `#${h(mix((n >> 16) & 255))}${h(mix((n >> 8) & 255))}${h(mix(n & 255))}`;
             }
             const BASE_SPEED = 4;
 
@@ -3560,25 +3561,31 @@
                     const X = (v) => +((v - x0) * S).toFixed(2);
                     const Y = (v) => +((v - y0) * S).toFixed(2);
 
+                    /* Office-safe palette: hex colors only (rgba() renders
+                       fully opaque in Word/PowerPoint), opacity as attributes */
                     const C = dark ? {
                         card: '#0d0e1a', border: '#4a4f70', gridArea: '#161829',
                         line: '#2a2d44', lineStrong: '#3d4163',
                         label: '#9aa0b3',
-                        shieldFill: 'rgba(77,208,225,0.12)', shieldStroke: 'rgba(77,208,225,0.6)',
+                        shieldFill: '#4dd0e1', shieldFillO: 0.12,
+                        shieldStroke: '#4dd0e1', shieldStrokeO: 0.6,
                         hint: '#9aa0b3'
                     } : {
                         card: '#ffffff', border: '#a8aebf', gridArea: '#fafbff',
                         line: '#d4d8e5', lineStrong: '#a8aebf',
                         label: '#5d6378',
-                        shieldFill: 'rgba(0,151,167,0.1)', shieldStroke: 'rgba(0,151,167,0.6)',
+                        shieldFill: '#0097a7', shieldFillO: 0.1,
+                        shieldStroke: '#0097a7', shieldStrokeO: 0.6,
                         hint: '#5d6378'
                     };
-                    const EMOJI_FONT = 'Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji, sans-serif';
+                    /* Static, universally installed fonts for Office */
+                    const FONT_EMOJI = "'Segoe UI Emoji', sans-serif";
+                    const FONT_MONO = "Consolas, 'Courier New', monospace";
                     const esc = (t) => String(t).replace(/[&<>"]/g,
                         (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
                     const out = [];
-                    out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${EMOJI_FONT}">`);
+                    out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT_EMOJI}">`);
 
                     /* card background (toggle: background) — off = transparent */
                     if (o.background) {
@@ -3597,17 +3604,22 @@
                     }
 
                     /* ring 2 — chess-style coordinate labels (toggle: labels) */
+                    const FS_LABEL = 11;   // A-1 coordinate ring
+                    const FS_PAIR = 16;    // pair numbers / reflect symbol
+                    const FS_HIT = 10;     // 'Hit' text
+                    const FS_ENEMY = 22;   // enemy emoji
+                    const FS_FRIENDLY = 18; // friendly emoji
                     if (o.labels) {
                         for (let c = 0; c < cols; c++) {
                             const letter = String.fromCharCode(65 + c);
                             const lx = X(c + 0.5);
-                            out.push(`<text x="${lx}" y="${Y(-LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${letter}</text>`);
-                            out.push(`<text x="${lx}" y="${Y(rows + LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${letter}</text>`);
+                            out.push(`<text x="${lx}" y="${Y(-LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${letter}</text>`);
+                            out.push(`<text x="${lx}" y="${Y(rows + LABEL_OFF) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${letter}</text>`);
                         }
                         for (let r = 0; r < rows; r++) {
                             const ly = Y(r + 0.5);
-                            out.push(`<text x="${X(-LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${r + 1}</text>`);
-                            out.push(`<text x="${X(cols + LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${S * 0.28}" fill="${C.label}">${r + 1}</text>`);
+                            out.push(`<text x="${X(-LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${r + 1}</text>`);
+                            out.push(`<text x="${X(cols + LABEL_OFF)}" y="${ly + S * 0.1}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${FS_LABEL}" fill="${C.label}">${r + 1}</text>`);
                         }
                     }
 
@@ -3633,12 +3645,12 @@
                         out.push(`<defs><clipPath id="exGridClip"><rect x="${X(0)}" y="${Y(0)}" width="${cols * S}" height="${rows * S}"/></clipPath></defs>`);
                         out.push(`<g clip-path="url(#exGridClip)">`);
                         for (const e of state.enemies) {
-                            out.push(`<circle cx="${X(e.x + 0.5)}" cy="${Y(e.y + 0.5)}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" stroke="${C.shieldStroke}" stroke-width="1.5" stroke-dasharray="4 3"/>`);
+                            out.push(`<circle cx="${X(e.x + 0.5)}" cy="${Y(e.y + 0.5)}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" fill-opacity="${C.shieldFillO}" stroke="${C.shieldStroke}" stroke-opacity="${C.shieldStrokeO}" stroke-width="1.5" stroke-dasharray="4 3"/>`);
                         }
                         out.push(`</g>`);
                         for (const e of state.enemies) {
                             const cx = X(e.x + 0.5), cy = Y(e.y + 0.5);
-                            out.push(`<text x="${cx}" y="${cy + S * 0.18}" text-anchor="middle" font-size="${S * 0.55}">${e.emoji || ENEMY_EMOJIS[0]}</text>`);
+                            out.push(`<text x="${cx}" y="${cy + S * 0.18}" text-anchor="middle" font-size="${FS_ENEMY}">${e.emoji || ENEMY_EMOJIS[0]}</text>`);
                         }
                     }
 
@@ -3664,8 +3676,8 @@
                             // Opaque light tint of the beam color — beams stay hidden
                             const cardFill = (typeof lightenHex === 'function' && lightenHex(fill)) || C.card;
                             out.push(`<rect x="${X(gx) - 0.45 * S}" y="${Y(gy) - 0.45 * S}" width="${0.9 * S}" height="${0.9 * S}" rx="${0.1 * S}" fill="${cardFill}" stroke="${fill}" stroke-width="2"/>`);
-                            const fs = res.type === 'hit' ? S * 0.26 : S * 0.4;
-                            out.push(`<text x="${X(gx)}" y="${Y(gy) + S * 0.14}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="${fs}"${bold} fill="${fill}">${esc(lbl)}</text>`);
+                            const fs = res.type === 'hit' ? FS_HIT : FS_PAIR;
+                            out.push(`<text x="${X(gx)}" y="${Y(gy) + S * 0.14}" text-anchor="middle" font-family="${FONT_MONO}" font-size="${fs}"${bold} fill="${fill}">${esc(lbl)}</text>`);
                         }
                     }
 
@@ -3685,7 +3697,7 @@
                             // Opaque light tint of the beam color — beams stay hidden
                             const cardFill = (typeof lightenHex === 'function' && lightenHex(col)) || col;
                             out.push(`<rect x="${cx - bw / 2}" y="${cy - bw / 2}" width="${bw}" height="${bw}" rx="${0.1 * S}" fill="${cardFill}" stroke="${col}" stroke-width="2"/>`);
-                            out.push(`<text x="${cx}" y="${cy + S * 0.16}" text-anchor="middle" font-size="${S * 0.46}">${f.emoji}</text>`);
+                            out.push(`<text x="${cx}" y="${cy + S * 0.16}" text-anchor="middle" font-size="${FS_FRIENDLY}">${f.emoji}</text>`);
                         }
                     }
 
@@ -3695,7 +3707,7 @@
                         const fy = Y(bB + pad) + (hintH * S) / 2;
                         out.push(`<text x="18" y="${fy}" text-anchor="start" font-family="'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" font-size="14" fill="${C.label}">👾 × ${state.enemies.length}&#160;&#160;|&#160;&#160;🚀 × ${state.friendly.length}</text>`);
                         if (seedVal) {
-                            out.push(`<text x="${W - 16}" y="${fy}" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="600" fill="${C.hint}">💾 ${esc(seedVal)}</text>`);
+                            out.push(`<text x="${W - 16}" y="${fy}" text-anchor="end" font-family="Consolas, 'Courier New', monospace" font-size="13" font-weight="600" fill="${C.hint}">💾 ${esc(seedVal)}</text>`);
                         }
                     }
 
