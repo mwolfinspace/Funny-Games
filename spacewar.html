@@ -1192,6 +1192,13 @@
                     <span id="playIcon">▶</span
                     ><span class="lbl" id="playLbl">Play</span>
                 </button>
+                <button
+                    class="tool-btn"
+                    id="manualBtn"
+                    title="Manual fire: click friendly ships / hint cards to toggle their beams"
+                >
+                    <span>🎯</span><span class="lbl">Manual</span>
+                </button>
                 <button class="tool-btn" id="resetBtn" title="Reset animation">
                     <span>⏹</span><span class="lbl">Stop</span>
                 </button>
@@ -1433,6 +1440,8 @@
               playing: false,
               paused: false,
               lasers: [],
+              manual: false,       // Manual fire mode
+              manualSrcs: {},      // key -> {side,index,color} firing sources
               curLaser: 0,
               mode3Results: null,
               flashCells: {},        // flagKey -> {color}
@@ -2504,8 +2513,13 @@
                           : '#9aa0b3');
                       // Opaque light tint of the beam color — beams stay hidden
                       const cardFill = lightenHex(cardColor) || 'var(--surface-2)';
-                      html += `<rect x="${fnum(fx - 0.45)}" y="${fnum(fy - 0.45)}" width="0.9" height="0.9" rx="0.1" fill="${cardFill}" stroke="${cardColor}" stroke-width="0.025"/>`;
+                      const m3key = r.type === 'pair' ? 'pair:' + r.pairId
+                        : r.position.side + ':' + r.position.index;
+                      const firing = state.manual && state.manualSrcs[m3key] ? 'm3-firing' : '';
+                      html += `<g class="m3-card ${firing}" data-m3-key="${m3key}" data-side="${r.position.side}" data-index="${r.position.index}" data-type="${r.type}" data-pair="${r.pairId ?? ''}" data-color="${cardColor}">`;
+                      html += `<rect x="${fnum(fx - 0.45)}" y="${fnum(fy - 0.45)}" width="0.9" height="0.9" rx="0.1" fill="${cardFill}" stroke="${firing ? cardColor : cardColor}" stroke-width="${firing ? 0.05 : 0.025}"/>`;
                       html += `<text class="result-text ${cls}" x="${fx}" y="${fy}"${r.color ? ` style="fill:${r.color}"` : ''}>${label}</text>`;
+                      html += `</g>`;
                     }
                   }
 
@@ -2523,7 +2537,9 @@
                         case 'right': fx = ox + cols + shipOff; fy = oy + f.index + 0.5; break;
                       }
                       fx = fnum(fx); fy = fnum(fy);
-                      html += `<g class="flag-marker">
+                      // In Manual mode flags are read-only overlays: let
+                      // clicks pass through to the ship/hint card beneath
+                      html += `<g class="flag-marker"${state.manual ? ' pointer-events="none"' : ''}>
                         <circle cx="${fx}" cy="${fy}" r="0.3" fill="${flashColor}" opacity="0.3"/>
                         <text x="${fx}" y="${fy}" dy="0.05" font-size="0.42" text-anchor="middle" dominant-baseline="central">🚩</text>
                       </g>`;
@@ -2531,7 +2547,7 @@
                     }
                     const cx = ox + f.x + 0.5;
                     const cy = oy + f.y + 0.5;
-                    html += `<g class="flag-marker">
+                    html += `<g class="flag-marker"${state.manual ? ' pointer-events="none"' : ''}>
                       <rect x="${cx - 0.4}" y="${cy - 0.4}" width="0.8" height="0.8" rx="0.08" fill="${flashColor}" opacity="0.25" stroke="${flashColor}" stroke-width="0.03"/>
                       <text x="${cx}" y="${cy}">🚩</text>
                     </g>`;
@@ -2573,10 +2589,11 @@
                       handleEdgeClick(side, parseInt(idx));
                     });
                   });
-                  // Friendly ship click: erase removes it, any other tool acts
-                  // on the edge slot beneath (place flag, toggle ship, ...)
+                  // Friendly ship click: Manual mode is handled by the
+                  // delegated svg listener (survives per-frame re-renders)
                   svg.querySelectorAll('[data-friendly-id]').forEach(el => {
                     el.addEventListener('click', (e) => {
+                      if (state.manual) return; // let it bubble to svg listener
                       e.stopPropagation();
                       const id = parseInt(el.dataset.friendlyId);
                       const f = state.friendly.find(x => x.id === id);
@@ -2589,6 +2606,13 @@
                       } else {
                         handleEdgeClick(f.side, f.index);
                       }
+                    });
+                  });
+                  // Mode 3 hint cards handled by delegation in Manual mode
+                  svg.querySelectorAll('[data-m3-key]').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                      if (state.manual) return; // let it bubble to svg listener
+                      e.stopPropagation();
                     });
                   });
                 }
@@ -2626,6 +2650,8 @@
                 }
 
                 function handleCellClick(c, r) {
+                  if (state.manual) return; // Manual mode: board is read-only
+
                   const existing = state.enemies.find(e => e.x === c && e.y === r);
                   const existingFlag = state.flags.find(f => f.x === c && f.y === r);
                   let changed = false;
@@ -2685,6 +2711,8 @@
                 }
 
                 function handleEdgeClick(side, idx) {
+                  if (state.manual) return; // Manual mode: board is read-only
+
                   const existing = state.friendly.find(f => f.side === side && f.index === idx);
                   const existingFlag = state.flags.find(f => f.side === side && f.index === idx);
 
@@ -2812,6 +2840,56 @@
                   rafId = requestAnimationFrame(animateFrame);
                 }
 
+                // =====================================================
+                // MANUAL FIRE — click a friendly ship (or Mode 3 hint card)
+                // to toggle its beam on/off individually
+                // =====================================================
+                function manualKeyOf(side, index, pairId) {
+                  return pairId != null ? 'pair:' + pairId : side + ':' + index;
+                }
+
+                function toggleManualFire(key, src) {
+                  if (state.manualSrcs[key]) {
+                    delete state.manualSrcs[key];
+                    state.lasers = state.lasers.filter(
+                      (L) => !(L.manual && L.manualKey === key)
+                    );
+                    playSound('click');
+                  } else {
+                    state.manualSrcs[key] = src;
+                    let lp = computeLaserPath(src);
+                    lp = extendLaserToCards(lp, src);
+                    state.lasers.push({
+                      ...lp,
+                      color: src.color || LASER_COLORS[0],
+                      manual: true,
+                      manualKey: key,
+                      dist: 0,
+                      arrived: false,
+                      sndIdx: 1,
+                      visibleChunks: [],
+                      headPos: null
+                    });
+                    playSound('shoot');
+                  }
+                  ensureManualLoop();
+                  render();
+                }
+
+                function ensureManualLoop() {
+                  if (!state.playing && rafId === null) {
+                    lastFrameTime = performance.now();
+                    rafId = requestAnimationFrame(animateFrame);
+                  }
+                }
+
+                function stopAllManualFire() {
+                  state.manualSrcs = {};
+                  const had = state.lasers.some((L) => L.manual);
+                  state.lasers = state.lasers.filter((L) => !L.manual);
+                  return had;
+                }
+
                 function pauseAnimation() {
                   state.paused = true;
                   document.getElementById('playIcon').textContent = '▶';
@@ -2832,6 +2910,7 @@
                   state.playing = false;
                   state.paused = false;
                   state.lasers = [];
+                  state.manualSrcs = {};
                   state.curLaser = 0;
                   state.hitFlashes = [];
                   state.flashCells = {};
@@ -2943,7 +3022,9 @@
                 }
 
                 function animateFrame(now) {
-                  if (!state.playing || state.paused) return;
+                  // keep running while Manual fire mode has beams going
+                  if (!state.playing && !state.manual) { rafId = null; return; }
+                  if (state.paused && !state.manual) return;
                   let dt = (now - lastFrameTime) / 1000;
                   lastFrameTime = now;
                   dt = Math.min(dt, 0.05);
@@ -3000,8 +3081,9 @@
 
                   render();
 
-                  // Win check must NOT stop the streaming animation
-                  if (state.lasers.length > 0 && state.lasers.every(L => L.arrived)) {
+                  // Win check must NOT stop the streaming animation, and is
+                  // skipped in Manual fire mode
+                  if (state.playing && state.lasers.length > 0 && state.lasers.every(L => L.arrived)) {
                     checkWinCondition();
                   }
 
@@ -3220,6 +3302,37 @@
                     }
                   });
 
+                  // Manual fire clicks — delegated on <svg> using pointerdown
+                  // so it fires BEFORE the per-frame re-render can replace
+                  // the clicked element (a 'click' event would land on <svg>
+                  // itself when the DOM is rebuilt between press & release)
+                  svg.addEventListener('pointerdown', (e) => {
+                    if (!state.manual || e.button !== 0) return;
+                    const t = typeof e.target.closest === 'function'
+                      ? e.target.closest('[data-friendly-id],[data-m3-key]')
+                      : null;
+                    if (!t) return;
+                    e.stopPropagation();
+                    if (t.dataset.friendlyId) {
+                      const f = state.friendly.find(
+                        (x) => x.id === parseInt(t.dataset.friendlyId)
+                      );
+                      if (!f) return;
+                      toggleManualFire(
+                        manualKeyOf(f.side, f.index),
+                        { side: f.side, index: f.index, color: f.color }
+                      );
+                    } else {
+                      const side = t.dataset.side;
+                      const index = parseInt(t.dataset.index);
+                      const pairId = t.dataset.pair ? parseInt(t.dataset.pair) : null;
+                      toggleManualFire(
+                        manualKeyOf(side, index, pairId),
+                        { side, index, color: t.dataset.color }
+                      );
+                    }
+                  });
+
                   // Mode tabs — switching mode auto-generates a quick play map
                   document.querySelectorAll('.mode-tab').forEach(tab => {
                     tab.addEventListener('click', () => {
@@ -3230,9 +3343,17 @@
                     });
                   });
 
-                  // Tool buttons
+                  // Tool buttons — picking a tool exits Manual fire mode
                   document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
                     btn.addEventListener('click', () => {
+                      if (state.manual) {
+                        state.manual = false;
+                        stopAllManualFire();
+                        if (!state.playing) {
+                          cancelAnimationFrame(rafId);
+                          rafId = null;
+                        }
+                      }
                       state.tool = btn.dataset.tool;
                       document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
                       btn.classList.add('active');
@@ -3250,8 +3371,31 @@
                     }
                   });
 
+                  // Manual fire mode toggle
+                  document.getElementById('manualBtn').addEventListener('click', () => {
+                    state.manual = !state.manual;
+                    if (state.manual) {
+                      // Manual becomes the exclusive active tool
+                      state.tool = 'manual';
+                      document.querySelectorAll('.tool-btn').forEach((b) => b.classList.remove('active'));
+                      document.getElementById('manualBtn').classList.add('active');
+                      setStatus('Manual fire ON — click a friendly ship / hint card to toggle its beam.');
+                    } else {
+                      const had = stopAllManualFire();
+                      if (had && !state.playing) {
+                        cancelAnimationFrame(rafId);
+                        rafId = null;
+                      }
+                      render();
+                      setStatus('Manual fire off.');
+                    }
+                  });
+
                   // Reset
-                  document.getElementById('resetBtn').addEventListener('click', stopAnimation);
+                  document.getElementById('resetBtn').addEventListener('click', () => {
+                    stopAllManualFire();
+                    stopAnimation();
+                  });
 
                   // Clear all
                   document.getElementById('clearBtn').addEventListener('click', () => {
