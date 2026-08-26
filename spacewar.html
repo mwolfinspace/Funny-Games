@@ -1860,7 +1860,7 @@
                 case 'right':  startX = state.cols; startY = friendly.index + 0.5; dirX = -1; dirY = 0; break;
               }
 
-              const pts = [];
+              let pts = [];
               let cum = 0;
               const push = (x, y, kind, extra = {}) => {
                 const prev = pts[pts.length - 1];
@@ -1914,8 +1914,7 @@
                   // Square U-turn: run to the turnaround on one lane, sharp
                   // 90 degree corner, cross, sharp 90 degree, back on the
                   // other lane. Tight two-corner turn (ext = 0).
-                  // 90 degree corner, cross, sharp 90 degree, back on the
-                  // other lane. Cross side matches the lane rule:
+                  // Cross side matches the lane rule:
                   //   vertical travel -> cross on right-of-travel side
                   //   horizontal travel -> cross on left-of-travel side
                   const uox = (dx !== 0) ? 0 : -dy * LANE;
@@ -3350,11 +3349,6 @@
                 // direction, so out/back legs always straddle the true beam
                 // line, through 90-degree bounces and the U-cap alike.
                 // Corners join via exact lane-line intersections.
-                // Mode 3: extend the traced route so each end sits under its
-                // result card. Lane rule: every leg shifts laterally AWAY
-                // FROM the U-turn base point B (verified against the
-                // GeoGebra reference). Retraced segments land on opposite
-                // lanes; corners join via exact lane-line intersections.
                 function extendLaserToCards(lp, src) {
                   let arr = [...lp.pts];
                   if (window.__laserDebug) {
@@ -3367,35 +3361,13 @@
                   const iB = kinds.lastIndexOf('uturn');
                   if (!(iA > 0 && iB > iA)) return lp;
 
-                  // U-turn axis = midpoint of bounce180 and uturn
-                  // (they sit on opposite lanes, so the midpoint is the axis)
-                  const turnStart = arr[iA];
-                  const turnEnd   = arr[iB];
-                  const turnX = (turnStart.x + turnEnd.x) / 2;
-                  const turnY = (turnStart.y + turnEnd.y) / 2;
-
-                  const startPt = arr[0];
-                  const endPt   = arr[arr.length - 1];
-
-                  // Detect LONG REFLECT: a 90° bounce both before
-                  // bounce180 and after uturn. The U-turn happens at a
-                  // DIFFERENT grid cell from the entry/exit bounces, so
-                  // the path must travel horizontally/vertically between
-                  // the bounce90 cell and the U-turn cell.
-                  // SHORT REFLECT (tight U-turn): no surrounding
-                  // bounce90 — the beam enters the grid, U-turns at
-                  // the boundary shield bulge, and exits back to source.
-                  const hasEntryBounce90 = arr[iA - 1].kind === 'bounce90';
-                  const hasExitBounce90  = iB + 1 < arr.length && arr[iB + 1].kind === 'bounce90';
-                  const isLongReflect = hasEntryBounce90 && hasExitBounce90;
-
-                  // Pure horizontal/vertical axis direction from a delta
+                  // Axis-aligned direction from a delta
                   const signVec = (x, y) => {
                     if (Math.abs(x) >= Math.abs(y)) return { x: Math.sign(x) || 1, y: 0 };
                     return { x: 0, y: Math.sign(y) || 1 };
                   };
 
-                  // Lane offset rule (matches the in-game render):
+                  // Perpendicular lane offset:
                   //   vertical legs   -> RIGHT of travel
                   //   horizontal legs -> LEFT of travel
                   const laneOff = (dir) => {
@@ -3403,68 +3375,116 @@
                     return { x: -dir.y * LANE, y: 0 };
                   };
 
-                  // ---- determine travel directions ----
-                  let inDir, outDir, toTurnDir = null, fromTurnDir = null;
-                  let bounceX = null, bounceY = null;
-                  if (isLongReflect) {
-                    // LONG REFLECT: start -> bounce90(entry) -> U-turn -> bounce90(exit) -> end
-                    const entryBounce = arr[iA - 1];
-                    bounceX = entryBounce.x;
-                    bounceY = entryBounce.y;
-                    inDir       = signVec(bounceX - startPt.x, bounceY - startPt.y);
-                    toTurnDir   = signVec(turnX - bounceX,     turnY - bounceY);
-                    fromTurnDir = { x: -toTurnDir.x, y: -toTurnDir.y };
-                    outDir      = { x: -inDir.x,      y: -inDir.y };
-                  } else {
-                    // SHORT REFLECT: start -> U-turn -> end (no bounce90)
-                    inDir  = signVec(turnX - startPt.x, turnY - startPt.y);
-                    outDir = { x: -inDir.x, y: -inDir.y };
-                  }
+                  // U-turn axis = midpoint of bounce180 and uturn, snapped to
+                  // the nearest cell-centre axis so the U-cap sits on the
+                  // same gridline family as every leg.
+                  const snapAxis = (v) => Math.round(v - 0.5) + 0.5;
+                  const turnX = snapAxis((arr[iA].x + arr[iB].x) / 2);
+                  const turnY = snapAxis((arr[iA].y + arr[iB].y) / 2);
 
-                  const inOff       = laneOff(inDir);
-                  const outOff      = laneOff(outDir);
-                  const toTurnOff   = toTurnDir   ? laneOff(toTurnDir)   : null;
-                  const fromTurnOff = fromTurnDir ? laneOff(fromTurnDir) : null;
+                  // Split into pre-arc (start..bounce180) and post-arc (uturn..end)
+                  const preArc = arr.slice(0, iA);
+                  const postArc = arr.slice(iB + 1);
 
-                  // ---- build the path ----
-                  const out = [];
+                  // TO_TURN direction: from last pre-arc point to U-turn
+                  const lastPre = preArc[preArc.length - 1];
+                  const toTurnDir = signVec(turnX - lastPre.x, turnY - lastPre.y);
+                  const fromTurnDir = { x: -toTurnDir.x, y: -toTurnDir.y };
+                  const toTurnOff = laneOff(toTurnDir);
+                  const fromTurnOff = laneOff(fromTurnDir);
+
+                  // Pre-arc leg directions: leg[i] goes from preArc[i] to preArc[i+1]
+                  // The last leg goes from preArc[last] to the U-turn.
+                  const preDirs = [];
+                  for (let i = 0; i < preArc.length - 1; i++)
+                    preDirs.push(signVec(preArc[i+1].x - preArc[i].x, preArc[i+1].y - preArc[i].y));
+                  preDirs.push(toTurnDir);
+
+                  // Post-arc leg directions: leg[0] goes from U-turn to postArc[0]
+                  const postDirs = [fromTurnDir];
+                  for (let i = 0; i < postArc.length - 1; i++)
+                    postDirs.push(signVec(postArc[i+1].x - postArc[i].x, postArc[i+1].y - postArc[i].y));
+
+                  // Lane coordinate for a leg:
+                  //   vertical leg   -> laneX = axisX + off.x (fixed X)
+                  //   horizontal leg -> laneY = axisY + off.y (fixed Y)
+                  // The base point is snapped to the nearest cell-centre
+                  // axis first: raw traced points can carry ±LANE residue
+                  // from earlier U-turns, which would otherwise accumulate
+                  // and make the parallel-lane gap widen leg after leg.
+                  const laneCoord = (dir, off, bx, by) =>
+                    dir.x === 0 ? { lx: snapAxis(bx) + off.x, ly: null } : { lx: null, ly: snapAxis(by) + off.y };
+
+                  // Start / end card centers
                   const sc = laserCardPoint(src.side, src.index);
-                  if (sc) {
-                    out.push({ x: sc.x + inOff.x, y: sc.y + inOff.y, kind: 'start' });
-                  }
-
-                  if (isLongReflect) {
-                    // 6-point path (no separate corners — bounce90 IS the corner):
-                    //   start_card -> bounce90(entry) -> bounce180 -> uturn -> bounce90(exit) -> end_card
-                    // bounce90 entry = intersection of IN lane (vertical) and TO_TURN lane (horizontal)
-                    out.push({ x: bounceX + inOff.x,        y: bounceY + toTurnOff.y,  kind: 'bounce90' });
-                    // bounce180 = U-turn axis, on TO_TURN lane
-                    out.push({ x: turnX + toTurnOff.x,      y: turnY + toTurnOff.y,    kind: 'bounce180' });
-                    // uturn = U-turn axis, on FROM_TURN lane
-                    out.push({ x: turnX + fromTurnOff.x,    y: turnY + fromTurnOff.y,  kind: 'uturn' });
-                    // bounce90 exit = intersection of FROM_TURN lane (horizontal) and OUT lane (vertical)
-                    out.push({ x: bounceX + outOff.x,       y: bounceY + fromTurnOff.y, kind: 'bounce90' });
-                  } else {
-                    // 4-point path (tight U-turn at the grid boundary):
-                    //   start_card -> bounce180 -> uturn -> end_card
-                    // bounce180 = U-turn axis, on IN lane
-                    out.push({ x: turnX + inOff.x,  y: turnY + inOff.y,  kind: 'bounce180' });
-                    // uturn = U-turn axis, on OUT lane
-                    out.push({ x: turnX + outOff.x, y: turnY + outOff.y, kind: 'uturn' });
-                  }
-
-                  // ---- end card anchor ----
+                  let ec = null;
                   if (lp.status === 'hit_source' || lp.status === 'hit_friendly') {
                     const t = lp.status === 'hit_source' ? lp.friendly : lp.hitShip;
-                    if (t && t.side) {
-                      const ec = laserCardPoint(t.side, t.index);
-                      if (ec) {
-                        out.push({ x: ec.x + outOff.x, y: ec.y + outOff.y, kind: 'end' });
-                      }
-                    }
+                    if (t && t.side) ec = laserCardPoint(t.side, t.index);
+                  }
+
+                  const out = [];
+
+                  // ---- start card (on the IN lane) ----
+                  const inDir = preDirs[0];
+                  const inOff = laneOff(inDir);
+                  if (sc) out.push({ x: sc.x + inOff.x, y: sc.y + inOff.y, kind: 'start' });
+
+                  // ---- pre-arc bounce90s ----
+                  // Each sits at the intersection of its arriving lane and leaving lane.
+                  // Arriving lane base: card center for the first, raw point otherwise.
+                  // Leaving lane base: U-turn axis for the last, raw point otherwise.
+                  for (let i = 1; i < preArc.length; i++) {
+                    const aDir = preDirs[i - 1], lDir = preDirs[i];
+                    const aOff = laneOff(aDir), lOff = laneOff(lDir);
+                    const raw = preArc[i];
+                    const aBase = (i === 1 && sc) ? sc : raw;
+                    const lBase = (i === preArc.length - 1) ? { x: turnX, y: turnY } : raw;
+                    const aLane = laneCoord(aDir, aOff, aBase.x, aBase.y);
+                    const lLane = laneCoord(lDir, lOff, lBase.x, lBase.y);
+                    out.push({
+                      x: aLane.lx !== null ? aLane.lx : lLane.lx,
+                      y: aLane.ly !== null ? aLane.ly : lLane.ly,
+                      kind: raw.kind
+                    });
+                  }
+
+                  // ---- U-turn ----
+                  out.push({ x: turnX + toTurnOff.x, y: turnY + toTurnOff.y, kind: 'bounce180' });
+                  out.push({ x: turnX + fromTurnOff.x, y: turnY + fromTurnOff.y, kind: 'uturn' });
+
+                  // ---- post-arc bounce90s ----
+                  // Arriving lane base: U-turn axis for the first, raw point otherwise.
+                  // Leaving lane base: card center for the last, raw point otherwise.
+                  for (let i = 0; i < postArc.length - 1; i++) {
+                    const aDir = postDirs[i], lDir = postDirs[i + 1];
+                    const aOff = laneOff(aDir), lOff = laneOff(lDir);
+                    const raw = postArc[i];
+                    const aBase = (i === 0) ? { x: turnX, y: turnY } : raw;
+                    const lBase = (i === postArc.length - 2 && ec) ? ec : raw;
+                    const aLane = laneCoord(aDir, aOff, aBase.x, aBase.y);
+                    const lLane = laneCoord(lDir, lOff, lBase.x, lBase.y);
+                    out.push({
+                      x: aLane.lx !== null ? aLane.lx : lLane.lx,
+                      y: aLane.ly !== null ? aLane.ly : lLane.ly,
+                      kind: raw.kind
+                    });
+                  }
+
+                  // ---- end card (on the OUT lane) ----
+                  const outDir = postDirs[postDirs.length - 1];
+                  const outOff = laneOff(outDir);
+                  if (ec) {
+                    out.push({ x: ec.x + outOff.x, y: ec.y + outOff.y, kind: 'end' });
                   } else {
-                    // exit / max_bounces — extend past the grid edge on the OUT lane
-                    out.push({ x: endPt.x + outOff.x, y: endPt.y + outOff.y, kind: 'end' });
+                    // exit / max_bounces - extend past the grid edge on the
+                    // OUT lane (fixed coordinate snapped to its axis)
+                    const endPt = arr[arr.length - 1];
+                    out.push({
+                      x: outDir.x !== 0 ? endPt.x + outOff.x : snapAxis(endPt.x) + outOff.x,
+                      y: outDir.x !== 0 ? snapAxis(endPt.y) + outOff.y : endPt.y + outOff.y,
+                      kind: 'end'
+                    });
                   }
 
                   lp.pts = recomputeLaserCums(out);
