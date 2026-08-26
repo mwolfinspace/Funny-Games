@@ -581,7 +581,7 @@
 
             .laser-line {
                 stroke-linecap: round;
-                stroke-linejoin: round;
+                stroke-linejoin: miter;
                 fill: none;
                 pointer-events: none;
             }
@@ -1481,6 +1481,73 @@
 
             const SIDES = ['top', 'right', 'bottom', 'left'];
 
+            /* ================================================================
+               SQUARE U-TURN - 180 degree return beams turn with sharp 90
+               degree corners and purely horizontal / vertical segments.
+               ================================================================ */
+            const SquareUTurn = (() => {
+                const LANE_ = (typeof LANE === 'number') ? LANE : 0.08;
+
+                function hairpin(tx, ty, dx, dy, lane, ext) {
+                    ext = ext || 0;
+                    const px = -dy, py = dx;
+                    const A = { x: tx + px * lane, y: ty + py * lane };
+                    const B = { x: tx - px * lane, y: ty - py * lane };
+                    const pts = [A];
+                    if (ext > 0) {
+                        pts.push({ x: A.x + dx * ext, y: A.y + dy * ext });
+                        pts.push({ x: B.x + dx * ext, y: B.y + dy * ext });
+                    }
+                    pts.push(B);
+                    return pts;
+                }
+
+                function fixPoints(pts, opts) {
+                    if (!Array.isArray(pts) || pts.length < 4) return pts;
+                    opts = opts || {};
+                    const maxStep = (opts.maxStepDeg == null) ? 50 : opts.maxStepDeg;
+                    const minTotal = (opts.minTotalDeg == null) ? 60 : opts.minTotalDeg;
+                    const tol = (opts.tol == null) ? 1e-3 : opts.tol;
+                    const NOISE = 0.5;
+                    const n = pts.length;
+                    const X = (p) => (Array.isArray(p) ? +p[0] : +p.x);
+                    const Y = (p) => (Array.isArray(p) ? +p[1] : +p.y);
+                    const turn = new Array(n).fill(0);
+                    for (let i = 1; i < n - 1; i++) {
+                        const a1 = Math.atan2(Y(pts[i]) - Y(pts[i - 1]), X(pts[i]) - X(pts[i - 1]));
+                        const a2 = Math.atan2(Y(pts[i + 1]) - Y(pts[i]), X(pts[i + 1]) - X(pts[i]));
+                        let dd = a2 - a1;
+                        while (dd > Math.PI) dd -= 2 * Math.PI;
+                        while (dd < -Math.PI) dd += 2 * Math.PI;
+                        turn[i] = (dd * 180) / Math.PI;
+                    }
+                    const drop = new Array(n).fill(false);
+                    let i = 1;
+                    while (i < n - 1) {
+                        if (Math.abs(turn[i]) <= NOISE || Math.abs(turn[i]) >= maxStep) { i++; continue; }
+                        const sign = Math.sign(turn[i]);
+                        let j = i, total = 0;
+                        while (j < n - 1 && Math.abs(turn[j]) > NOISE &&
+                               Math.abs(turn[j]) < maxStep && Math.sign(turn[j]) === sign) {
+                            total += Math.abs(turn[j]);
+                            j++;
+                        }
+                        if (total >= minTotal && j - 1 > i + 1) {
+                            const ax = X(pts[i]), ay = Y(pts[i]);
+                            const bx = X(pts[j - 1]), by = Y(pts[j - 1]);
+                            if (Math.abs(ax - bx) <= tol || Math.abs(ay - by) <= tol) {
+                                for (let k = i + 1; k <= j - 2; k++) drop[k] = true;
+                            }
+                        }
+                        i = j;
+                    }
+                    if (!drop.some(Boolean)) return pts;
+                    return pts.filter((_, k) => !drop[k]);
+                }
+
+                return { hairpin, fixPoints };
+            })();
+
             // =====================================================
             // STATE
             // =====================================================
@@ -1675,7 +1742,11 @@
                     const bb = fx * nx + fy * ny;
                     const s = -bb + Math.sqrt(Math.max(0, bb * bb - (distSq - SHIELD_R * SHIELD_R)));
                     const bx = px + nx * s, by = py + ny * s;
-                    if (offMap(bx, by)) {
+                    if (offMap(bx, by) &&
+                        // only when hugging the boundary — mid-grid grazes
+                        // along a disk must pass through, not reflect back
+                        (px <= 0.75 || px >= state.cols - 0.75 ||
+                         py <= 0.75 || py >= state.rows - 0.75)) {
                       // Engaged from OUTSIDE the map (boundary ship's bulge)
                       // -> reflect straight back to the source
                       events.push({
@@ -1796,10 +1867,23 @@
               let status = 'ongoing';
               let hitShip = null;
               let bounces = 0;
+              // Cooldown after a 180 U-turn: overlapping shields can fire
+              // intersection events back-to-back; passing through the second
+              // one lets the beam travel home instead of ping-ponging in place
+              let lastFlipCum = -1e9;
 
               while (bounces < 64 && status === 'ongoing') {
                 const ev = findNextEvent(px, py, dx, dy);
                 if (!ev) { status = 'stuck'; break; }
+
+                if ((ev.type === 'inside_return' || ev.type === 'intersection_180') &&
+                    (cum - lastFlipCum) < 0.5) {
+                  // too soon after the previous U-turn - pass straight through
+                  px = ev.x + dx * 0.02;
+                  py = ev.y + dy * 0.02;
+                  bounces++;
+                  continue;
+                }
 
                 if (ev.type === 'inside_return' || ev.type === 'intersection_180') {
                   // 180° reflect drawn as a tight U-turn with lanes at
@@ -1819,16 +1903,18 @@
                     uy = Math.min(Math.max(rawY, 1 / 4), state.rows - 1 / 4);
                   }
                   const nx = -dy * LANE, ny = dx * LANE;
-                  // jog onto the inbound lane, then sweep the semicircle
-                  push(ux - nx, uy - ny, 'bounce180', { ship: ev.ship });
-                  const aStart = Math.atan2((uy - ny) - uy, (ux - nx) - ux);
-                  for (let i = 1; i <= 8; i++) {
-                    push(
-                      ux + LANE * Math.cos(aStart + Math.PI * i / 8),
-                      uy + LANE * Math.sin(aStart + Math.PI * i / 8),
-                      'uturn'
-                    );
-                  }
+                  // Square U-turn: run to the turnaround on one lane, sharp
+                  // 90 degree corner, cross, sharp 90 degree, back on the
+                  // other lane. Tight two-corner turn (ext = 0).
+                  // 90 degree corner, cross, sharp 90 degree, back on the
+                  // other lane. Cross side matches the lane rule:
+                  //   vertical travel -> cross on right-of-travel side
+                  //   horizontal travel -> cross on left-of-travel side
+                  const uox = (dx !== 0) ? 0 : -dy * LANE;
+                  const uoy = (dx !== 0) ? -dx * LANE : 0;
+                  push(ux + uox, uy + uoy, 'bounce180', { ship: ev.ship });
+                  push(ux - uox, uy - uoy, 'uturn');
+                  lastFlipCum = cum;
                   dx = -dx; dy = -dy;
                   px = ux + nx; py = uy + ny;
                   if (ev.type === 'inside_return') {
@@ -3082,6 +3168,7 @@
                   state.lasers = sources.map((f, i) => {
                     let lp = computeLaserPath(f);
                     lp = extendLaserToCards(lp, f);
+                    lp.pts = SquareUTurn.fixPoints(lp.pts);
                     return {
                       ...lp,
                       color: f.color || LASER_COLORS[i % LASER_COLORS.length],
@@ -3247,42 +3334,135 @@
                 }
 
                 // Mode 3: extend the traced route so each end sits under its
-                // result card. For straight reflect-back beams, shift the
-                // outbound leg to one side of the axis and the return leg to
-                // the other (±LANE) so both lines are parallel with the gap
-                // centered on the cell middle line; endpoints sit under
-                // their card on their own lane.
+                // result card. UNIVERSAL RULE (matches the GeoGebra
+                // reference): EVERY vertex shifts RIGHT of its own travel
+                // direction, so out/back legs always straddle the true beam
+                // line, through 90-degree bounces and the U-cap alike.
+                // Corners join via exact lane-line intersections.
+                // Mode 3: extend the traced route so each end sits under its
+                // result card. Lane rule: every leg shifts laterally AWAY
+                // FROM the U-turn base point B (verified against the
+                // GeoGebra reference). Retraced segments land on opposite
+                // lanes; corners join via exact lane-line intersections.
                 function extendLaserToCards(lp, src) {
                   let arr = [...lp.pts];
-                  const d = { x: { left: 1, right: -1 }[src.side] || 0, y: { top: 1, bottom: -1 }[src.side] || 0 };
-                  const n = { x: -d.y, y: d.x }; // perpendicular to beam
+                  if (window.__laserDebug) {
+                    console.log('[extend] src=', src.side, src.index,
+                      'arr=', arr.map((p) => ({ k: p.kind, x: +p.x.toFixed(3), y: +p.y.toFixed(3) })));
+                  }
 
                   const iA = arr.findIndex((p) => p.kind === 'bounce180');
                   const kinds = arr.map((p) => p.kind);
                   const iB = kinds.lastIndexOf('uturn');
-                  const straight = iA > 0 && iB > iA &&
-                    !arr.slice(0, iA).some((p) => p.kind === 'bounce90' || p.kind === 'bounce180');
-                  if (!straight) return lp;
+                  if (!(iA > 0 && iB > iA)) return lp;
 
-                  for (let i = 0; i < iA; i++) {
-                    arr[i] = { ...arr[i], x: arr[i].x - n.x * LANE, y: arr[i].y - n.y * LANE };
+                  // U-turn axis = midpoint of bounce180 and uturn
+                  // (they sit on opposite lanes, so the midpoint is the axis)
+                  const turnStart = arr[iA];
+                  const turnEnd   = arr[iB];
+                  const turnX = (turnStart.x + turnEnd.x) / 2;
+                  const turnY = (turnStart.y + turnEnd.y) / 2;
+
+                  const startPt = arr[0];
+                  const endPt   = arr[arr.length - 1];
+
+                  // Detect LONG REFLECT: a 90° bounce both before
+                  // bounce180 and after uturn. The U-turn happens at a
+                  // DIFFERENT grid cell from the entry/exit bounces, so
+                  // the path must travel horizontally/vertically between
+                  // the bounce90 cell and the U-turn cell.
+                  // SHORT REFLECT (tight U-turn): no surrounding
+                  // bounce90 — the beam enters the grid, U-turns at
+                  // the boundary shield bulge, and exits back to source.
+                  const hasEntryBounce90 = arr[iA - 1].kind === 'bounce90';
+                  const hasExitBounce90  = iB + 1 < arr.length && arr[iB + 1].kind === 'bounce90';
+                  const isLongReflect = hasEntryBounce90 && hasExitBounce90;
+
+                  // Pure horizontal/vertical axis direction from a delta
+                  const signVec = (x, y) => {
+                    if (Math.abs(x) >= Math.abs(y)) return { x: Math.sign(x) || 1, y: 0 };
+                    return { x: 0, y: Math.sign(y) || 1 };
+                  };
+
+                  // Lane offset rule (matches the in-game render):
+                  //   vertical legs   -> RIGHT of travel
+                  //   horizontal legs -> LEFT of travel
+                  const laneOff = (dir) => {
+                    if (dir.x !== 0) return { x: 0, y: -dir.x * LANE };
+                    return { x: -dir.y * LANE, y: 0 };
+                  };
+
+                  // ---- determine travel directions ----
+                  let inDir, outDir, toTurnDir = null, fromTurnDir = null;
+                  let bounceX = null, bounceY = null;
+                  if (isLongReflect) {
+                    // LONG REFLECT: start -> bounce90(entry) -> U-turn -> bounce90(exit) -> end
+                    const entryBounce = arr[iA - 1];
+                    bounceX = entryBounce.x;
+                    bounceY = entryBounce.y;
+                    inDir       = signVec(bounceX - startPt.x, bounceY - startPt.y);
+                    toTurnDir   = signVec(turnX - bounceX,     turnY - bounceY);
+                    fromTurnDir = { x: -toTurnDir.x, y: -toTurnDir.y };
+                    outDir      = { x: -inDir.x,      y: -inDir.y };
+                  } else {
+                    // SHORT REFLECT: start -> U-turn -> end (no bounce90)
+                    inDir  = signVec(turnX - startPt.x, turnY - startPt.y);
+                    outDir = { x: -inDir.x, y: -inDir.y };
                   }
-                  // NOTE: the return leg (points after the U-turn arc) is
-                  // already on the +LANE lane — the trace resumes from the
-                  // arc exit — so it must NOT be shifted again.
 
+                  const inOff       = laneOff(inDir);
+                  const outOff      = laneOff(outDir);
+                  const toTurnOff   = toTurnDir   ? laneOff(toTurnDir)   : null;
+                  const fromTurnOff = fromTurnDir ? laneOff(fromTurnDir) : null;
+
+                  // ---- build the path ----
+                  const out = [];
                   const sc = laserCardPoint(src.side, src.index);
-                  if (sc) arr.unshift({ x: sc.x - n.x * LANE, y: sc.y - n.y * LANE, kind: 'start' });
+                  if (sc) {
+                    out.push({ x: sc.x + inOff.x, y: sc.y + inOff.y, kind: 'start' });
+                  }
+
+                  if (isLongReflect) {
+                    // 6-point path (no separate corners — bounce90 IS the corner):
+                    //   start_card -> bounce90(entry) -> bounce180 -> uturn -> bounce90(exit) -> end_card
+                    // bounce90 entry = intersection of IN lane (vertical) and TO_TURN lane (horizontal)
+                    out.push({ x: bounceX + inOff.x,        y: bounceY + toTurnOff.y,  kind: 'bounce90' });
+                    // bounce180 = U-turn axis, on TO_TURN lane
+                    out.push({ x: turnX + toTurnOff.x,      y: turnY + toTurnOff.y,    kind: 'bounce180' });
+                    // uturn = U-turn axis, on FROM_TURN lane
+                    out.push({ x: turnX + fromTurnOff.x,    y: turnY + fromTurnOff.y,  kind: 'uturn' });
+                    // bounce90 exit = intersection of FROM_TURN lane (horizontal) and OUT lane (vertical)
+                    out.push({ x: bounceX + outOff.x,       y: bounceY + fromTurnOff.y, kind: 'bounce90' });
+                  } else {
+                    // 4-point path (tight U-turn at the grid boundary):
+                    //   start_card -> bounce180 -> uturn -> end_card
+                    // bounce180 = U-turn axis, on IN lane
+                    out.push({ x: turnX + inOff.x,  y: turnY + inOff.y,  kind: 'bounce180' });
+                    // uturn = U-turn axis, on OUT lane
+                    out.push({ x: turnX + outOff.x, y: turnY + outOff.y, kind: 'uturn' });
+                  }
+
+                  // ---- end card anchor ----
                   if (lp.status === 'hit_source' || lp.status === 'hit_friendly') {
                     const t = lp.status === 'hit_source' ? lp.friendly : lp.hitShip;
                     if (t && t.side) {
                       const ec = laserCardPoint(t.side, t.index);
-                      // end rides the return lane (source perpendicular)
-                      if (ec) arr.push({ x: ec.x + n.x * LANE, y: ec.y + n.y * LANE, kind: 'end' });
+                      if (ec) {
+                        out.push({ x: ec.x + outOff.x, y: ec.y + outOff.y, kind: 'end' });
+                      }
                     }
+                  } else {
+                    // exit / max_bounces — extend past the grid edge on the OUT lane
+                    out.push({ x: endPt.x + outOff.x, y: endPt.y + outOff.y, kind: 'end' });
                   }
-                  lp.pts = recomputeLaserCums(arr);
+
+                  lp.pts = recomputeLaserCums(out);
                   lp.totalLength = lp.pts[lp.pts.length - 1].cum;
+                  if (window.__laserDebug) {
+                    console.log('[extend] out=', out.map((p) => ({
+                      k: p.kind, x: +p.x.toFixed(3), y: +p.y.toFixed(3)
+                    })));
+                  }
                   return lp;
                 }
 
@@ -3913,6 +4093,7 @@
                 // INIT
                 // =====================================================
                 function init() {
+                  window.__laserDebug = /[?&]debug/.test(location.search);
                   setTheme('light');
                   setupEvents();
                   // Resume last session (mode + seed id) if available
@@ -4029,9 +4210,10 @@
                             if (!lp || !Array.isArray(lp.pts) || lp.pts.length < 2) return;
                             // parallel lanes + card endpoints (all modes)
                             if (typeof extendLaserToCards === 'function') {
-                                lp = extendLaserToCards(lp, src);
-                            }
-                            const raw = lp.pts.map((p) => [+p.x, +p.y]);
+                    lp = extendLaserToCards(lp, src);
+                    lp.pts = SquareUTurn.fixPoints(lp.pts);
+                    }
+                    const raw = lp.pts.map((p) => [+p.x, +p.y]);
                             const sig = resample(raw);
                             if (!sig) return;
                             if (geoms.some((g) => samePath(sig, g.sig))) return;
