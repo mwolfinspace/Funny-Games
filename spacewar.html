@@ -1737,8 +1737,11 @@
                   const cross = Math.abs(fx * dy - fy * dx);
                   if (along < 0 && cross < 1e-6) {
                     // Aligned with the core and approaching -> direct damage
-                    // (corners included: point-blank shots hit)
-                    events.push({ type: 'damage', t: Math.sqrt(distSq), x: cx, y: cy, ship });
+                    // (corners included: point-blank shots hit).
+                    // Immediate (t~0): already inside this disk, so a
+                    // neighbor's rim entry further out must never steal
+                    // this hit via the overlap rule.
+                    events.push({ type: 'damage', t: 1e-3, x: cx, y: cy, ship });
                   } else {
                     // Where did this beam engage the shield? Look BACKWARD
                     // along the ray to the rim crossing.
@@ -4387,16 +4390,20 @@
                     }
 
                     /* shields + enemy emoji (mode: off | manual | all).
-                       Manual: hidden ships stay as faint ghosts so they can
-                       be clicked back on. */
+                       Manual: hidden ships are fully removed from the
+                       output — only an invisible hitbox remains so the
+                       empty spot stays clickable in the preview. */
                     if (showEnemy) {
                         out.push(`<defs><clipPath id="exGridClip"><rect x="${X(0)}" y="${Y(0)}" width="${cols * S}" height="${rows * S}"/></clipPath></defs>`);
                         state.enemies.forEach((e, ei) => {
                             const ekey = 'enemy:' + ei;
-                            const ghost = o.enemyMode === 'manual' && exEnemyOff.has(ekey);
-                            out.push(`<g data-ex-key="${ekey}"${ghost ? ' opacity="0.15"' : ''}>`);
-                            out.push(`<g clip-path="url(#exGridClip)"><circle cx="${X(e.x + 0.5)}" cy="${Y(e.y + 0.5)}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" fill-opacity="${C.shieldFillO}" stroke="${C.shieldStroke}" stroke-opacity="${C.shieldStrokeO}" stroke-width="1.5" stroke-dasharray="4 3"/></g>`);
                             const cx = X(e.x + 0.5), cy = Y(e.y + 0.5);
+                            if (o.enemyMode === 'manual' && exEnemyOff.has(ekey)) {
+                                out.push(`<g data-ex-key="${ekey}"><rect x="${cx - 0.45 * S}" y="${cy - 0.45 * S}" width="${0.9 * S}" height="${0.9 * S}" fill="#000" fill-opacity="0" pointer-events="all"/></g>`);
+                                return;
+                            }
+                            out.push(`<g data-ex-key="${ekey}">`);
+                            out.push(`<g clip-path="url(#exGridClip)"><circle cx="${cx}" cy="${cy}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" fill-opacity="${C.shieldFillO}" stroke="${C.shieldStroke}" stroke-opacity="${C.shieldStrokeO}" stroke-width="1.5" stroke-dasharray="4 3"/></g>`);
                             out.push(`<text x="${cx}" y="${cy + S * 0.18}" text-anchor="middle" font-size="${FS_ENEMY}">${e.emoji || ENEMY_EMOJIS[0]}</text>`);
                             out.push(`</g>`);
                         });
