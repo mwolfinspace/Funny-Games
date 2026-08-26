@@ -1738,10 +1738,11 @@
                   if (along < 0 && cross < 1e-6) {
                     // Aligned with the core and approaching -> direct damage
                     // (corners included: point-blank shots hit).
-                    // Immediate (t~0): already inside this disk, so a
-                    // neighbor's rim entry further out must never steal
-                    // this hit via the overlap rule.
-                    events.push({ type: 'damage', t: 1e-3, x: cx, y: cy, ship });
+                    // t=0: already inside this disk — the hit is immediate
+                    // and must outrank every other event, including a
+                    // neighbor bulge's inside_return at the same origin
+                    // (event order then depends on decode order).
+                    events.push({ type: 'damage', t: 0, x: cx, y: cy, ship });
                   } else {
                     // Where did this beam engage the shield? Look BACKWARD
                     // along the ray to the rim crossing.
@@ -1821,7 +1822,7 @@
               if (dmg) {
                 for (let i = events.length - 1; i >= 0; i--) {
                   const e = events[i];
-                  if (e !== dmg && e.clamped && e.t <= dmg.t && e.ship !== dmg.ship) {
+                  if (e !== dmg && e.clamped && e.t <= 1e-3 && e.ship !== dmg.ship) {
                     events.splice(i, 1);
                   }
                 }
