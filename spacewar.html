@@ -1291,7 +1291,7 @@
                         <div class="export-side-title">Export options</div>
 
                         <div class="ex-mode">
-                            <div class="txt"><b>Lasers</b><small>Off · pick ships · All</small></div>
+                            <div class="txt"><b>Lasers</b></div>
                             <div class="ex-seg" id="exLaserSeg">
                                 <button type="button" data-mode="off">Off</button>
                                 <button type="button" data-mode="manual">Manual</button>
@@ -1308,11 +1308,14 @@
                             <input type="checkbox" id="exOptExplosions" checked>
                             <span class="ex-switch"></span>
                         </label>
-                        <label class="ex-toggle">
-                            <span class="txt"><b>Enemy ships</b><small>Off = puzzle-only sheet for book</small></span>
-                            <input type="checkbox" id="exOptEnemy" checked>
-                            <span class="ex-switch"></span>
-                        </label>
+                        <div class="ex-mode">
+                            <div class="txt"><b>Enemy ships</b></div>
+                            <div class="ex-seg" id="exEnemySeg">
+                                <button type="button" data-mode="off">Off</button>
+                                <button type="button" data-mode="manual">Manual</button>
+                                <button type="button" data-mode="all" class="on">All</button>
+                            </div>
+                        </div>
                         <label class="ex-toggle">
                             <span class="txt"><b>Friendly ships</b><small>Edge ships that fire the lasers</small></span>
                             <input type="checkbox" id="exOptFriendly" checked>
@@ -4141,15 +4144,16 @@
 
                 const exOpts = {
                     laserMode: 'all',   // 'off' | 'manual' | 'all'
+                    enemyMode: 'all',   // 'off' | 'manual' | 'all'
                     explosions: true,   // 💥 at beam-hit cells
-                    enemy: true,
                     friendly: true,
                     background: true,
                     hint: true,
                     labels: true,
                     markers: true
                 };
-                const exShipOff = new Set(); // slot keys with beam disabled (manual mode)
+                const exShipOff = new Set(); // slot keys with beam disabled (laser manual mode)
+                const exEnemyOff = new Set(); // enemy keys hidden (enemy manual mode)
 
                 function exIsDark() {
                     const t = document.documentElement.getAttribute('data-theme');
@@ -4275,7 +4279,7 @@
                     const SHIP_OFF = 0.55;            // friendly ship center distance
                     const LABEL_OFF = 1.25;           // labels ring — outside the hint-card ring (0.55+0.45)
 
-                    const showEnemy = o.enemy;
+                    const showEnemy = o.enemyMode !== 'off';
                     const showFriendly = o.friendly || o.laser;
                     const showLaser = o.laserMode !== 'off';
                     const seedVal = ($('seedInput') ? $('seedInput').value : '').trim();
@@ -4382,18 +4386,20 @@
                         }
                     }
 
-                    /* shields clipped to grid (toggle: enemy) */
+                    /* shields + enemy emoji (mode: off | manual | all).
+                       Manual: hidden ships stay as faint ghosts so they can
+                       be clicked back on. */
                     if (showEnemy) {
                         out.push(`<defs><clipPath id="exGridClip"><rect x="${X(0)}" y="${Y(0)}" width="${cols * S}" height="${rows * S}"/></clipPath></defs>`);
-                        out.push(`<g clip-path="url(#exGridClip)">`);
-                        for (const e of state.enemies) {
-                            out.push(`<circle cx="${X(e.x + 0.5)}" cy="${Y(e.y + 0.5)}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" fill-opacity="${C.shieldFillO}" stroke="${C.shieldStroke}" stroke-opacity="${C.shieldStrokeO}" stroke-width="1.5" stroke-dasharray="4 3"/>`);
-                        }
-                        out.push(`</g>`);
-                        for (const e of state.enemies) {
+                        state.enemies.forEach((e, ei) => {
+                            const ekey = 'enemy:' + ei;
+                            const ghost = o.enemyMode === 'manual' && exEnemyOff.has(ekey);
+                            out.push(`<g data-ex-key="${ekey}"${ghost ? ' opacity="0.15"' : ''}>`);
+                            out.push(`<g clip-path="url(#exGridClip)"><circle cx="${X(e.x + 0.5)}" cy="${Y(e.y + 0.5)}" r="${SHIELD_R_E * S}" fill="${C.shieldFill}" fill-opacity="${C.shieldFillO}" stroke="${C.shieldStroke}" stroke-opacity="${C.shieldStrokeO}" stroke-width="1.5" stroke-dasharray="4 3"/></g>`);
                             const cx = X(e.x + 0.5), cy = Y(e.y + 0.5);
                             out.push(`<text x="${cx}" y="${cy + S * 0.18}" text-anchor="middle" font-size="${FS_ENEMY}">${e.emoji || ENEMY_EMOJIS[0]}</text>`);
-                        }
+                            out.push(`</g>`);
+                        });
                     }
 
                     /* explosion emoji where a beam hit an enemy ship
@@ -4497,7 +4503,6 @@
                 [
                     ['exOptMarkers', 'markers'],
                     ['exOptExplosions', 'explosions'],
-                    ['exOptEnemy', 'enemy'],
                     ['exOptFriendly', 'friendly'],
                     ['exOptBackground', 'background'],
                     ['exOptHint', 'hint'],
@@ -4509,29 +4514,39 @@
                     el.addEventListener('change', () => { exOpts[key] = el.checked; exRefresh(); });
                 });
 
-                /* laser mode: Off | Manual | All */
-                const seg = $('exLaserSeg');
-                if (seg) {
-                    seg.querySelectorAll('button').forEach((b) => {
+                /* segmented mode: Off | Manual | All (lasers + enemy ships) */
+                const bindSeg = (id, key, onNonManual) => {
+                    const segEl = $(id);
+                    if (!segEl) return;
+                    segEl.querySelectorAll('button').forEach((b) => {
                         b.addEventListener('click', () => {
-                            exOpts.laserMode = b.dataset.mode;
-                            if (exOpts.laserMode !== 'manual') exShipOff.clear();
-                            seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+                            exOpts[key] = b.dataset.mode;
+                            if (onNonManual) onNonManual();
+                            segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
                             exRefresh();
                         });
                     });
-                }
+                };
+                bindSeg('exLaserSeg', 'laserMode', () => exShipOff.clear());
+                bindSeg('exEnemySeg', 'enemyMode', () => exEnemyOff.clear());
 
-                /* Manual mode: click a ship/hint card in the preview to
-                   toggle its beam on/off */
+                /* Manual modes: click a ship in the preview to toggle its
+                    beam (laser manual) or hide/unhide it (enemy manual) */
                 const previewEl = $('exportPreview');
                 if (previewEl) {
                     previewEl.addEventListener('click', (e) => {
-                        if (exOpts.laserMode !== 'manual') return;
                         const t = typeof e.target.closest === 'function'
                             ? e.target.closest('[data-ex-key]') : null;
                         if (!t) return;
                         const k = t.dataset.exKey;
+                        if (k.startsWith('enemy:')) {
+                            if (exOpts.enemyMode !== 'manual') return;
+                            if (exEnemyOff.has(k)) exEnemyOff.delete(k);
+                            else exEnemyOff.add(k);
+                            exRefresh();
+                            return;
+                        }
+                        if (exOpts.laserMode !== 'manual') return;
                         if (exShipOff.has(k)) exShipOff.delete(k);
                         else exShipOff.add(k);
                         exRefresh();
