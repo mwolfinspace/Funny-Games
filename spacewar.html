@@ -691,8 +691,10 @@
 
             /* ============ EXPORT MODAL (wide + options sidebar) ============ */
             .modal.export-modal {
-                width: min(960px, 94vw);
-                height: min(700px, 90vh);
+                width: min(1280px, 98vw);
+                height: min(940px, 97vh);
+                max-width: none;
+                max-height: none;
                 overflow: hidden;
                 padding: 18px;
             }
@@ -721,7 +723,7 @@
                 max-height: 110px;
             }
             .export-side {
-                width: 248px;
+                width: 288px;
                 flex: none;
                 background: var(--surface-2);
                 border: 1px solid var(--border);
@@ -1326,11 +1328,15 @@
                             <input type="checkbox" id="exOptBackground" checked>
                             <span class="ex-switch"></span>
                         </label>
-                        <label class="ex-toggle">
-                            <span class="txt"><b>Hint code</b><small>Ship counts + seed id footer</small></span>
-                            <input type="checkbox" id="exOptHint" checked>
-                            <span class="ex-switch"></span>
-                        </label>
+                        <div class="ex-mode">
+                            <div class="txt"><b>Hint code</b><small>Ship counts / seed id footer</small></div>
+                            <div class="ex-seg" id="exHintSeg">
+                                <button type="button" data-mode="off">Off</button>
+                                <button type="button" data-mode="ship">Ship</button>
+                                <button type="button" data-mode="seed">Seed ID</button>
+                                <button type="button" data-mode="all" class="on">All</button>
+                            </div>
+                        </div>
                         <label class="ex-toggle">
                             <span class="txt"><b>Coordinate labels</b><small>A–Z / 123 ring around the grid</small></span>
                             <input type="checkbox" id="exOptLabels" checked>
@@ -4185,7 +4191,7 @@
                     explosions: true,   // 💥 at beam-hit cells
                     friendly: true,
                     background: true,
-                    hint: true,
+                    hint: 'all',     // 'off' | 'ship' | 'seed' | 'all'
                     labels: true,
                     markers: true
                 };
@@ -4336,7 +4342,7 @@
                     }
 
                     const pad = o.background ? 0.3 : 0.1;
-                    const hintH = o.hint ? 0.7 : 0;
+                    const hintH = o.hint !== 'off' ? 0.7 : 0;
 
                     const x0 = bL - pad, y0 = bT - pad;
                     const W = Math.round((bR - bL + pad * 2) * S);
@@ -4501,14 +4507,15 @@
                         }
                     }
 
-                    /* footer strip (toggle: hint):
+                    /* footer strip (mode: off | ship | seed | all):
                        bottom-left = ship counts, bottom-right = seed id with 💾 */
-                    if (o.hint) {
+                    if (o.hint === 'ship' || o.hint === 'all') {
                         const fy = Y(bB + pad) + (hintH * S) / 2;
                         out.push(`<text x="18" y="${fy}" text-anchor="start" font-family="'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" font-size="14" fill="${C.label}">👾 × ${state.enemies.length}&#160;&#160;|&#160;&#160;🚀 × ${state.friendly.length}</text>`);
-                        if (seedVal) {
-                            out.push(`<text x="${W - 16}" y="${fy}" text-anchor="end" font-family="Consolas, 'Courier New', monospace" font-size="13" font-weight="600" fill="${C.hint}">💾 ${esc(seedVal)}</text>`);
-                        }
+                    }
+                    if (seedVal && (o.hint === 'seed' || o.hint === 'all')) {
+                        const fy = Y(bB + pad) + (hintH * S) / 2;
+                        out.push(`<text x="${W - 16}" y="${fy}" text-anchor="end" font-family="Consolas, 'Courier New', monospace" font-size="13" font-weight="600" fill="${C.hint}">💾 ${esc(seedVal)}</text>`);
                     }
 
                     out.push('</svg>');
@@ -4546,7 +4553,6 @@
                     ['exOptExplosions', 'explosions'],
                     ['exOptFriendly', 'friendly'],
                     ['exOptBackground', 'background'],
-                    ['exOptHint', 'hint'],
                     ['exOptLabels', 'labels']
                 ].forEach(([id, key]) => {
                     const el = $(id);
@@ -4570,6 +4576,7 @@
                 };
                 bindSeg('exLaserSeg', 'laserMode', () => exShipOff.clear());
                 bindSeg('exEnemySeg', 'enemyMode', () => exEnemyOff.clear());
+                bindSeg('exHintSeg', 'hint');
 
                 /* Manual modes: click a ship in the preview to toggle its
                     beam (laser manual) or hide/unhide it (enemy manual) */
