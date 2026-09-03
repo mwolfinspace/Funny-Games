@@ -284,16 +284,12 @@
         const ALL_CATEGORIES = [EMOJI_FRUIT, EMOJI_ANIMAL, EMOJI_VEHICLE, EMOJI_PLACE, EMOJI_TOY, EMOJI_COLOR, EMOJI_FOOD];
         const ALL_EMOJI = [...new Set(ALL_CATEGORIES.flat())];
 
-        // ===== Level definitions (bigger loop = harder) =====
-        // Each level defines: how many distinct symbols in the loop,
-        // and the looping shapes used.
-        const LEVELS = {
-            1: { label: "Two-Step", loopLength: 2, shapes: ['AB'] },
-            2: { label: "Fancy Pair", loopLength: 2, shapes: ['ABB', 'AAB'] },
-            3: { label: "Three-Step", loopLength: 3, shapes: ['ABC', 'ABB', 'AAB'] },
-            4: { label: "Four-Step", loopLength: 4, shapes: ['ABCD', 'AABB', 'ABAB'] },
-            5: { label: "Five-Step", loopLength: 5, shapes: ['ABCDE', 'AABBC'] }
-        };
+        // ===== Level definitions =====
+        // A level only sets HOW MANY UNIQUE symbols the loop uses.
+        // The loop itself can be any primitive pattern over those symbols
+        // (e.g. aabcc, abcd, aabbccd) shown EXACTLY twice in the question,
+        // so two loops always fit within 12 cells (max loop length = 6).
+        const LEVEL_UNIQUE = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
 
         let level = 1;
         let holeCount = 1;
@@ -329,21 +325,51 @@
             return s.slice(0, n);
         }
 
+        // A loop pattern is "primitive" when it is NOT a repetition of a
+        // shorter unit (e.g. 'ABAB' would just really be 'AB' twice).
+        function isPrimitive(s) {
+            const n = s.length;
+            for (let p = 1; p <= n / 2; p++) {
+                if (n % p !== 0) continue;
+                if (s.slice(0, p).repeat(n / p) === s) return false;
+            }
+            return true;
+        }
+
+        // Build a primitive loop pattern using exactly `u` distinct symbols.
+        // Loop length L is in [max(2, u), 6] so two loops always fit in 12
+        // cells. Supports patterns like 'aabcc', 'abcd', 'aabbcc', etc.
+        function genLoopPattern(u) {
+            const letters = 'ABCDEFGH';
+            const minL = Math.max(2, u);
+            const maxL = 6;
+            for (let attempt = 0; attempt < 300; attempt++) {
+                const L = minL + Math.floor(Math.random() * (maxL - minL + 1));
+                let seq = '';
+                for (let i = 0; i < L; i++) seq += letters[Math.floor(Math.random() * u)];
+                if (new Set(seq).size !== u) continue;
+                if (isPrimitive(seq)) return seq;
+            }
+            // Fallback: a clean full cycle of all u symbols.
+            let s = '';
+            for (let i = 0; i < Math.min(6, u + 1); i++) s += letters[i % u];
+            return isPrimitive(s) ? s : s.slice(0, u);
+        }
+
         // ===== Pattern generation =====
         function generateRound() {
-            const def = LEVELS[level];
-            const shape = pick(def.shapes);          // e.g. 'ABCD'
-            const n = shape.length;                  // distinct symbols
+            const u = LEVEL_UNIQUE[level];               // how many unique symbols
+            const pattern = genLoopPattern(u);           // e.g. 'aabcc'
+            const loopLen = pattern.length;
+
             // Choose a themed category so the pattern looks cohesive
             const category = pick(ALL_CATEGORIES);
-            const symbols = pickDistinct(category, n);
-            const loop = shape.split('').map((_, i) => symbols[i]);
+            const symbols = pickDistinct(category, u);
+            const loop = pattern.split('').map(ch => symbols[ch.charCodeAt(0) - 65]);
 
-            // Base sequence = exactly 2 full loops (so it always loops at
-            // least twice). Level 5 -> 10 cells wide, matching the layout.
-            const baseLen = n * 2;
-            const baseSeq = [];
-            for (let i = 0; i < baseLen; i++) baseSeq.push(loop[i % n]);
+            // Base sequence = the loop repeated EXACTLY twice.
+            const baseSeq = [...loop, ...loop];
+            const baseLen = baseSeq.length;
 
             // Choose holes.
             //   count 0 -> default: hide only the LAST cell
@@ -361,16 +387,16 @@
             }
             const holes = positions.map(pos => ({ pos, answer: baseSeq[pos], filled: false, value: null }));
 
-            // Option count grows with the question length (loop size).
-            const optionCount = Math.min(8, n + 3);
+            // Option count grows with the question (loop) length.
+            const optionCount = Math.max(4, Math.min(8, 2 + loopLen));
             // Priority: all the loop emojis first, then extra emojis from the
             // SAME category (never mixed with another subject, so a cheater
             // can't guess by category alone).
             const extras = shuffle(category.filter(e => !loop.includes(e)));
-            const extraCount = Math.max(0, optionCount - loop.length);
-            const pool = shuffle([...loop, ...extras.slice(0, extraCount)]);
+            const extraCount = Math.max(0, optionCount - new Set(loop).size);
+            const pool = shuffle([...new Set(loop), ...extras.slice(0, extraCount)]);
 
-            return { loop, category, baseSeq, holes, pool };
+            return { loop, category, baseSeq, holes, pool, loopLen };
         }
 
         // Simple WebAudio success sound
