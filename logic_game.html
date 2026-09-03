@@ -111,12 +111,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: clamp(10px, 2vh, 18px);
-            padding: clamp(10px, 2vh, 16px);
+            gap: 14px;
+            padding: 12px 16px;
             overflow: hidden;
+            box-sizing: border-box;
         }
 
-        .title-wrap { text-align: center; }
+        .title-wrap { text-align: center; flex-shrink: 0; }
         .title-wrap h1 {
             color: #0288d1;
             margin: 0;
@@ -124,19 +125,20 @@
         }
         .title-wrap p { margin: 4px 0 0; font-size: clamp(13px, 2.4vw, 18px); color: #555; }
 
-        /* The Pattern Display Box — spans full width, fills remaining height */
+        /* The Pattern Display Box — spans full width, cells fill edge to edge.
+           Cell width and emoji font are set in JS (layoutCells) so it works
+           identically on every browser (no container-query units). */
         .pattern-box {
             display: flex;
             justify-content: center;
-            align-items: stretch;
-            gap: clamp(4px, 0.6vw, 10px);
+            align-items: center;
+            flex-wrap: nowrap;
             background-color: #f1f8e9;
-            padding: clamp(10px, 1.5vw, 20px);
+            padding: 10px;
             border-radius: 18px;
             border: 3px dashed #8bc34a;
             width: 100%;
-            max-width: none;
-            flex-wrap: nowrap;
+            gap: 6px;
             flex: 1 1 0;
             min-height: 0;
             overflow: hidden;
@@ -144,9 +146,7 @@
         }
 
         .item {
-            container-type: size;
-            font-size: 56cqh;
-            flex: 1 1 0;
+            flex: 0 0 auto;
             min-width: 0;
             display: flex;
             align-items: center;
@@ -154,6 +154,7 @@
             background-color: #fff;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-sizing: border-box;
         }
 
         .missing {
@@ -182,22 +183,21 @@
             100% { transform: scale(1); }
         }
 
-        /* Choice Buttons Box — fills width edge-to-edge too */
+        /* Choice Buttons Box — fills width edge to edge.
+           Size set in JS too. */
         .choices-box {
             display: flex;
             justify-content: center;
-            align-items: stretch;
-            gap: clamp(8px, 1.6vw, 16px);
+            align-items: center;
             flex-wrap: nowrap;
             width: 100%;
-            height: clamp(70px, 18vh, 18vh);
+            gap: 10px;
             flex-shrink: 0;
+            box-sizing: border-box;
         }
 
         .choice-btn {
-            container-type: size;
-            font-size: 64cqh;
-            flex: 1 1 0;
+            flex: 0 0 auto;
             min-width: 0;
             border: none;
             background-color: #fff;
@@ -206,6 +206,7 @@
             box-shadow: 0 6px 10px rgba(0,0,0,0.15);
             transition: transform 0.1s, background-color 0.2s;
             border: 3px solid #ffb74d;
+            box-sizing: border-box;
         }
         .choice-btn:hover { transform: scale(1.06); background-color: #fff3e0; }
         .choice-btn:active { transform: scale(0.95); }
@@ -523,6 +524,56 @@
             });
 
             highlightActiveHole();
+            layoutCells();
+        }
+
+        // ===== Universal layout sizing =====
+        // Computes explicit pixel sizes for the pattern cells and the choice
+        // buttons based on measured container widths/heights. Works the same on
+        // every browser (no container-query units), adapting to any screen.
+        function layoutCells() {
+            const gap = 6;
+            const cells = patternDisplay.children;
+            if (!patternDisplay || cells.length === 0) return;
+
+            // Pattern box content width = own width minus padding (10px each side).
+            let boxW = patternDisplay.clientWidth - 20;
+            let boxH = Math.max(40, patternDisplay.clientHeight - 20);
+            let n = cells.length;
+            let cellW = Math.floor((boxW - gap * (n - 1)) / n);
+            let cellH = Math.min(boxH, cellW);          // keep cells square-ish
+            cellW = Math.max(20, cellW);
+            cellH = Math.max(20, cellH);
+
+            // Pattern cells must all fit their total width (and stay inside box)
+            const totalW = cellW * n + gap * (n - 1);
+            if (totalW > boxW) cellW = Math.max(20, Math.floor((boxW - gap * (n - 1)) / n));
+
+            const cellFont = Math.max(14, Math.floor(cellH * 0.7));
+            for (let i = 0; i < n; i++) {
+                const c = cells[i];
+                c.style.width = cellW + 'px';
+                c.style.height = cellH + 'px';
+                c.style.flex = '0 0 auto';
+                c.style.fontSize = cellFont + 'px';
+            }
+            patternDisplay.__cellFont = cellFont;
+
+            // Choice buttons: fill remaining width, cap height so they fit.
+            const btns = choicesDisplay.children;
+            if (btns.length === 0) return;
+            const btnGap = 10;
+            const boxW2 = choicesDisplay.clientWidth;
+            // Available height: whatever main can spare, cap ~14vh
+            const btnH = Math.max(44, Math.floor(window.innerHeight * 0.13));
+            let perBtn = Math.floor((boxW2 - btnGap * (btns.length - 1)) / btns.length);
+            perBtn = Math.max(40, perBtn);
+            const btnFont = Math.max(16, Math.floor(btnH * 0.6));
+            for (let i = 0; i < btns.length; i++) {
+                btns[i].style.width = perBtn + 'px';
+                btns[i].style.height = btnH + 'px';
+                btns[i].style.fontSize = btnFont + 'px';
+            }
         }
 
         function highlightActiveHole() {
@@ -575,6 +626,14 @@
                 }, 400);
             }
         }
+
+        // Re-layout on window resize / orientation change (universal support)
+        let __resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(__resizeTimer);
+            __resizeTimer = setTimeout(layoutCells, 120);
+        });
+        window.addEventListener('orientationchange', () => setTimeout(layoutCells, 200));
 
         // Initialize the first level of the game
         loadRound();
