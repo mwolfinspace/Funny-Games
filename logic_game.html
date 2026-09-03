@@ -63,6 +63,36 @@
         .hud-btn.new { background-color: #43a047; box-shadow: 0 3px 0 #2e7d32; }
         .hud-btn.mute { background-color: #757575; box-shadow: 0 3px 0 #424242; }
 
+        .level-cluster {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: rgba(127, 140, 141, 0.15);
+            padding: 3px;
+            border-radius: 10px;
+            height: 42px;
+        }
+        .level-cluster .hud-btn.level {
+            background-color: #8e24aa;
+            box-shadow: 0 3px 0 #4a148c;
+            width: 36px;
+            padding: 0;
+            font-size: 1.2rem;
+        }
+        .level-num {
+            min-width: 30px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.15rem;
+            color: #4a148c;
+        }
+        .level-label-tag {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #4a148c;
+            margin-left: 6px;
+        }
+
         /* ===== MAIN LAYOUT: board + choices use full space ===== */
         main {
             flex: 1;
@@ -89,13 +119,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: clamp(8px, 1.6vw, 16px);
+            gap: clamp(6px, 1.2vw, 14px);
             background-color: #f1f8e9;
             padding: clamp(12px, 2.4vw, 24px);
             border-radius: 18px;
             border: 3px dashed #8bc34a;
-            width: min(92%, 640px);
-            flex-wrap: nowrap;
+            width: min(94%, 720px);
+            flex-wrap: wrap;
+            max-height: 80%;
         }
 
         .item {
@@ -185,6 +216,11 @@
             <span class="hud-btn mute" id="mute-btn" onclick="toggleMute()">🔊</span>
         </div>
         <div class="hud-controls">
+            <div class="level-cluster" aria-label="Level">
+                <button class="hud-btn level" onclick="changeLevel(-1)">−</button>
+                <span class="level-num" id="levelNum">1</span>
+                <button class="hud-btn level" onclick="changeLevel(1)">+</button>
+            </div>
             <button class="hud-btn new" onclick="newGame()">↻ <span>New</span></button>
         </div>
     </div>
@@ -210,28 +246,83 @@
     </main>
 
     <script>
-        // Child-friendly logic pattern datasets (AB, ABB, ABC patterns)
-        const patternsPool = [
-            { sequence: ['🍎', '🍌', '🍎', '🍌', '🍎'], answer: '🍌', pool: ['🍌', '🍇', '🍊'] },
-            { sequence: ['🚗', '✈️', '🚗', '✈️', '🚗'], answer: '✈️', pool: ['✈️', '🚢', '🚂'] },
-            { sequence: ['🐶', '🐱', '🐱', '🐶', '🐱'], answer: '🐱', pool: ['🐱', '🐹', '🐶'] },
-            { sequence: ['🔴', '🔵', '🟢', '🔴', '🔵'], answer: '🟢', pool: ['🟢', '🟡', '⚫'] },
-            { sequence: ['🦁', '🐯', '🦁', '🐯', '🦁'], answer: '🐯', pool: ['🐯', '🐻', '🐵'] },
-            { sequence: ['☀️', '🌙', '☀️', '🌙', '☀️'], answer: '🌙', pool: ['🌙', '☁️', '⭐'] },
-            { sequence: ['🍦', '🍩', '🍦', '🍩', '🍦'], answer: '🍩', pool: ['🍩', '🍪', '🍰'] }
-        ];
+        // ===== Common emojis kids can easily name =====
+        const EMOJI_FRUIT = ['🍎', '🍌', '🍇', '🍊', '🍓', '🍉', '🍒', '🍍', '🍑', '🍋', '🥝', '🍈'];
+        const EMOJI_ANIMAL = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵'];
+        const EMOJI_VEHICLE = ['🚗', '🚌', '🚒', '🚑', '🚓', '🚕', '🚙', '🚜', '✈️', '🚀', '🚢', '🚂', '🚲'];
+        const EMOJI_PLACE = ['☀️', '🌙', '⭐', '☁️', '🌈', '❄️', '🌧️', '🌵', '🌼', '🌳', '🍄', '🏠', '⛵'];
+        const EMOJI_TOY = ['⚽', '🏀', '🎈', '🎁', '🧸', '🎠', '🎲', '🎪', '⛸️', '🏓'];
+        const EMOJI_COLOR = ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🔺', '🔷', '🟥', '🟩'];
+        const EMOJI_FOOD = ['🍦', '🍩', '🍪', '🍰', '🍕', '🍔', '🍟', '🍿', '🧁', '🍬', '🍭', '🥕'];
 
-        let currentPatternIndex = 0;
+        const ALL_CATEGORIES = [EMOJI_FRUIT, EMOJI_ANIMAL, EMOJI_VEHICLE, EMOJI_PLACE, EMOJI_TOY, EMOJI_COLOR, EMOJI_FOOD];
+        const ALL_EMOJI = [...new Set(ALL_CATEGORIES.flat())];
+
+        // ===== Level definitions (bigger loop = harder) =====
+        // Each level defines: how many distinct symbols in the loop,
+        // and the looping shapes used.
+        const LEVELS = {
+            1: { label: "Two-Step", loopLength: 2, shapes: ['AB'] },
+            2: { label: "Fancy Pair", loopLength: 2, shapes: ['ABB', 'AAB'] },
+            3: { label: "Three-Step", loopLength: 3, shapes: ['ABC', 'ABB', 'AAB'] },
+            4: { label: "Four-Step", loopLength: 4, shapes: ['ABCD', 'AABB', 'ABAB'] },
+            5: { label: "Five-Step", loopLength: 5, shapes: ['ABCDE', 'AABBC'] }
+        };
+
+        let level = 1;
         let score = 0;
         let locked = false;
+        let roundPattern = null;
 
         const patternDisplay = document.getElementById('patternDisplay');
         const choicesDisplay = document.getElementById('choicesDisplay');
         const messageText = document.getElementById('messageText');
         const scoreCount = document.getElementById('scoreCount');
         const muteBtn = document.getElementById('mute-btn');
+        const levelNum = document.getElementById('levelNum');
 
         let muted = false;
+
+        // ==== Random helpers ====
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        // Generate a random unique set of length n from a category pool
+        function pickDistinct(pool, n) {
+            const s = shuffle(pool);
+            return s.slice(0, n);
+        }
+
+        // ===== Pattern generation =====
+        function generateRound() {
+            const def = LEVELS[level];
+            const shape = pick(def.shapes);          // e.g. 'ABCD'
+            const n = shape.length;                  // distinct symbols
+            // Choose a themed category so the pattern looks cohesive
+            const category = pick(ALL_CATEGORIES);
+            const symbols = pickDistinct(category, n);
+            const loop = shape.split('').map((_, i) => symbols[i]);
+
+            // Build the visible sequence: 2 full loops + first of 3rd loop, then ?
+            const visible = [];
+            for (let r = 0; r < 2; r++) visible.push(...loop);
+            visible.push(loop[0]);  // start of the 3rd loop
+
+            const answer = loop[1]; // the item after the shown "loop[0]"
+
+            // Distractor pool: answer + 3 random fillers (not equal to answer)
+            const others = shuffle(ALL_EMOJI.filter(e => e !== answer));
+            const pool = shuffle([answer, ...others.slice(0, 3)]);
+
+            return { visible, answer, pool };
+        }
 
         // Simple WebAudio success sound
         function playSuccess() {
@@ -282,8 +373,17 @@
             muteBtn.innerText = muted ? '🔇' : '🔊';
         }
 
+        function setLevel(newLevel) {
+            level = Math.max(1, Math.min(5, newLevel));
+            levelNum.innerText = level;
+            loadRound();
+        }
+
+        function changeLevel(delta) {
+            setLevel(level + delta);
+        }
+
         function newGame() {
-            currentPatternIndex = Math.floor(Math.random() * patternsPool.length);
             score = 0;
             scoreCount.innerText = '0';
             loadRound();
@@ -296,10 +396,10 @@
             choicesDisplay.innerHTML = "";
             locked = false;
 
-            let currentPattern = patternsPool[currentPatternIndex];
+            roundPattern = generateRound();
 
             // 1. Build and show the pattern sequence
-            currentPattern.sequence.forEach(emoji => {
+            roundPattern.visible.forEach(emoji => {
                 let div = document.createElement('div');
                 div.className = 'item';
                 div.innerText = emoji;
@@ -312,15 +412,12 @@
             missingDiv.innerText = '?';
             patternDisplay.appendChild(missingDiv);
 
-            // 3. Shuffle choice options slightly so answer isn't always first
-            let choices = [...currentPattern.pool].sort(() => Math.random() - 0.5);
-
-            // 4. Render choice buttons
-            choices.forEach(emoji => {
+            // 3. Render choice buttons
+            roundPattern.pool.forEach(emoji => {
                 let btn = document.createElement('button');
                 btn.className = 'choice-btn';
                 btn.innerText = emoji;
-                btn.onclick = () => checkAnswer(emoji, currentPattern.answer, missingDiv, btn);
+                btn.onclick = () => checkAnswer(emoji, roundPattern.answer, missingDiv, btn);
                 choicesDisplay.appendChild(btn);
             });
         }
@@ -345,7 +442,6 @@
 
                 // Advance to next pattern after a brief delay
                 setTimeout(() => {
-                    currentPatternIndex = (currentPatternIndex + 1) % patternsPool.length;
                     loadRound();
                 }, 1600);
             } else {
