@@ -79,6 +79,13 @@
             padding: 0;
             font-size: 1.2rem;
         }
+        .level-cluster .hud-btn.hole {
+            background-color: #ef6c00;
+            box-shadow: 0 3px 0 #e65100;
+            width: 36px;
+            padding: 0;
+            font-size: 1.2rem;
+        }
         .level-num {
             min-width: 30px;
             text-align: center;
@@ -86,12 +93,14 @@
             font-size: 1.15rem;
             color: #4a148c;
         }
+        .level-cluster[aria-label="Holes"] .level-num { color: #e65100; }
         .level-label-tag {
             font-size: 0.9rem;
             font-weight: bold;
             color: #4a148c;
             margin-left: 6px;
         }
+        .hole-tag { color: #e65100; margin-left: 8px; }
 
         /* ===== MAIN LAYOUT: board + choices use full space ===== */
         main {
@@ -119,20 +128,24 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: clamp(6px, 1.2vw, 14px);
+            gap: clamp(4px, 0.8vw, 8px);
             background-color: #f1f8e9;
-            padding: clamp(12px, 2.4vw, 24px);
+            padding: clamp(10px, 1.8vw, 16px);
             border-radius: 18px;
             border: 3px dashed #8bc34a;
-            width: min(94%, 720px);
-            flex-wrap: wrap;
-            max-height: 80%;
+            width: min(100%, 900px);
+            flex-wrap: nowrap;
+            max-height: 50%;
+            min-height: 0;
+            flex-shrink: 1;
+            overflow: hidden;
         }
 
         .item {
-            font-size: clamp(32px, 7vw, 56px);
-            width: clamp(54px, 9vw, 76px);
-            height: clamp(54px, 9vw, 76px);
+            font-size: clamp(26px, 5vw, 44px);
+            width: clamp(40px, 6.5vw, 58px);
+            height: clamp(40px, 6.5vw, 58px);
+            min-width: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -156,6 +169,11 @@
             border: 3px solid #4caf50;
             color: #2e7d32;
         }
+        .missing.active {
+            background-color: #fff3e0;
+            border: 4px solid #ff9800;
+            animation: pulse 0.8s infinite;
+        }
 
         @keyframes pulse {
             0% { transform: scale(1); }
@@ -168,15 +186,16 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: clamp(10px, 3vw, 24px);
+            gap: clamp(8px, 1.6vw, 14px);
             flex-wrap: wrap;
-            max-width: 92%;
+            max-width: 100%;
+            flex-shrink: 0;
         }
 
         .choice-btn {
-            font-size: clamp(36px, 7vw, 56px);
-            width: clamp(64px, 10vw, 88px);
-            height: clamp(64px, 10vw, 88px);
+            font-size: clamp(30px, 6vw, 48px);
+            width: clamp(52px, 8.5vw, 76px);
+            height: clamp(52px, 8.5vw, 76px);
             border: none;
             background-color: #fff;
             border-radius: 18px;
@@ -220,6 +239,13 @@
                 <button class="hud-btn level" onclick="changeLevel(-1)">−</button>
                 <span class="level-num" id="levelNum">1</span>
                 <button class="hud-btn level" onclick="changeLevel(1)">+</button>
+                <span class="level-label-tag">Lv</span>
+            </div>
+            <div class="level-cluster" aria-label="Holes">
+                <button class="hud-btn hole" onclick="changeHole(-1)">−</button>
+                <span class="level-num" id="holeNum">1</span>
+                <button class="hud-btn hole" onclick="changeHole(1)">+</button>
+                <span class="level-label-tag hole-tag">#</span>
             </div>
             <button class="hud-btn new" onclick="newGame()">↻ <span>New</span></button>
         </div>
@@ -270,9 +296,11 @@
         };
 
         let level = 1;
+        let holeCount = 1;
         let score = 0;
         let locked = false;
         let roundPattern = null;
+        let activeHole = 0;
 
         const patternDisplay = document.getElementById('patternDisplay');
         const choicesDisplay = document.getElementById('choicesDisplay');
@@ -280,6 +308,7 @@
         const scoreCount = document.getElementById('scoreCount');
         const muteBtn = document.getElementById('mute-btn');
         const levelNum = document.getElementById('levelNum');
+        const holeNum = document.getElementById('holeNum');
 
         let muted = false;
 
@@ -310,18 +339,38 @@
             const symbols = pickDistinct(category, n);
             const loop = shape.split('').map((_, i) => symbols[i]);
 
-            // Build the visible sequence: 2 full loops + first of 3rd loop, then ?
-            const visible = [];
-            for (let r = 0; r < 2; r++) visible.push(...loop);
-            visible.push(loop[0]);  // start of the 3rd loop
+            // Base sequence = exactly 2 full loops (so it always loops at
+            // least twice). Level 5 -> 10 cells wide, matching the layout.
+            const baseLen = n * 2;
+            const baseSeq = [];
+            for (let i = 0; i < baseLen; i++) baseSeq.push(loop[i % n]);
 
-            const answer = loop[1]; // the item after the shown "loop[0]"
+            // Choose holes.
+            //   count 0 -> default: hide only the LAST cell
+            //   count 1 -> one hole at any position
+            //   count 2-4 -> that many holes anywhere (unique positions)
+            let positions;
+            if (holeCount === 0) {
+                positions = [baseLen - 1];
+            } else {
+                const howMany = Math.min(holeCount, baseLen);
+                positions = pickDistinct(
+                    Array.from({ length: baseLen }, (_, i) => i),
+                    howMany
+                ).sort((a, b) => a - b);
+            }
+            const holes = positions.map(pos => ({ pos, answer: baseSeq[pos], filled: false, value: null }));
 
-            // Distractor pool: answer + 3 random fillers (not equal to answer)
-            const others = shuffle(ALL_EMOJI.filter(e => e !== answer));
-            const pool = shuffle([answer, ...others.slice(0, 3)]);
+            // Option count grows with the question length (loop size).
+            const optionCount = Math.min(8, n + 3);
+            // Priority: all the loop emojis first, then extra emojis from the
+            // SAME category (never mixed with another subject, so a cheater
+            // can't guess by category alone).
+            const extras = shuffle(category.filter(e => !loop.includes(e)));
+            const extraCount = Math.max(0, optionCount - loop.length);
+            const pool = shuffle([...loop, ...extras.slice(0, extraCount)]);
 
-            return { visible, answer, pool };
+            return { loop, category, baseSeq, holes, pool };
         }
 
         // Simple WebAudio success sound
@@ -383,6 +432,16 @@
             setLevel(level + delta);
         }
 
+        function setHole(newCount) {
+            holeCount = Math.max(0, Math.min(4, newCount));
+            holeNum.innerText = holeCount;
+            loadRound();
+        }
+
+        function changeHole(delta) {
+            setHole(holeCount + delta);
+        }
+
         function newGame() {
             score = 0;
             scoreCount.innerText = '0';
@@ -397,67 +456,89 @@
             locked = false;
 
             roundPattern = generateRound();
+            activeHole = 0;
 
-            // 1. Build and show the pattern sequence
-            roundPattern.visible.forEach(emoji => {
+            // Render the full base sequence; holes render as "?" cells.
+            const holeMap = {};
+            roundPattern.holes.forEach(h => { holeMap[h.pos] = h; });
+
+            const itemNodes = [];
+            for (let i = 0; i < roundPattern.baseSeq.length; i++) {
                 let div = document.createElement('div');
-                div.className = 'item';
-                div.innerText = emoji;
+                if (holeMap[i]) {
+                    div.className = 'item missing';
+                    div.innerText = '?';
+                    holeMap[i].node = div;
+                } else {
+                    div.className = 'item';
+                    div.innerText = roundPattern.baseSeq[i];
+                }
                 patternDisplay.appendChild(div);
-            });
+                itemNodes.push(div);
+            }
 
-            // 2. Add the question-mark block at the end of the sequence
-            let missingDiv = document.createElement('div');
-            missingDiv.className = 'item missing';
-            missingDiv.innerText = '?';
-            patternDisplay.appendChild(missingDiv);
+            roundPattern.itemNodes = itemNodes;
 
-            // 3. Render choice buttons
+            // Render choice buttons (all loop emojis + same-category extras)
             roundPattern.pool.forEach(emoji => {
                 let btn = document.createElement('button');
                 btn.className = 'choice-btn';
                 btn.innerText = emoji;
-                btn.onclick = () => checkAnswer(emoji, roundPattern.answer, missingDiv, btn);
+                btn.onclick = () => chooseOption(emoji, btn);
                 choicesDisplay.appendChild(btn);
             });
+
+            highlightActiveHole();
         }
 
-        function checkAnswer(chosen, correct, missingDiv, chosenBtn) {
+        function highlightActiveHole() {
+            roundPattern.holes.forEach((h, idx) => {
+                if (h.node) h.node.classList.remove('active');
+            });
+            if (activeHole < roundPattern.holes.length) {
+                const cur = roundPattern.holes[activeHole];
+                if (cur.node) cur.node.classList.add('active');
+            }
+        }
+
+        function chooseOption(emoji, chosenBtn) {
             if (locked) return;
-            locked = true;
+            if (activeHole >= roundPattern.holes.length) return;
+            const cur = roundPattern.holes[activeHole];
 
-            // disable all choice buttons
-            [...choicesDisplay.children].forEach(b => b.disabled = true);
-
-            if (chosen === correct) {
-                score++;
-                scoreCount.innerText = score;
-                messageText.className = "message success";
-                messageText.innerText = "Great Job! 🎉";
+            if (emoji === cur.answer) {
+                // fill this hole correctly
+                cur.filled = true;
+                cur.value = emoji;
+                cur.node.innerText = emoji;
+                cur.node.classList.remove('active', 'missing');
+                cur.node.classList.add('item', 'filled');
                 playSuccess();
+                activeHole++;
 
-                // Fill the ? cell with the answer
-                missingDiv.innerText = correct;
-                missingDiv.classList.add('filled');
-
-                // Advance to next pattern after a brief delay
-                setTimeout(() => {
-                    loadRound();
-                }, 1600);
+                if (activeHole >= roundPattern.holes.length) {
+                    // all holes done -> round complete
+                    locked = true;
+                    score++;
+                    scoreCount.innerText = score;
+                    [...choicesDisplay.children].forEach(b => b.disabled = true);
+                    messageText.className = "message success";
+                    messageText.innerText = "Great Job! 🎉";
+                    setTimeout(() => loadRound(), 1600);
+                } else {
+                    highlightActiveHole();
+                }
             } else {
+                // wrong: red flash, allow retry on same hole
+                playWrong();
                 messageText.className = "message wrong";
                 messageText.innerText = "Try again! You can do it! 💪";
-                playWrong();
-                // highlight the wrong choice briefly, allow retry
                 chosenBtn.style.backgroundColor = '#ffcdd2';
                 chosenBtn.style.borderColor = '#f44336';
                 setTimeout(() => {
                     chosenBtn.style.backgroundColor = '#fff';
                     chosenBtn.style.borderColor = '#ffb74d';
-                    chosenBtn.disabled = false;
-                    [...choicesDisplay.children].forEach(b => { if (b !== chosenBtn) b.disabled = false; });
-                    locked = false;
-                }, 600);
+                }, 400);
             }
         }
 
