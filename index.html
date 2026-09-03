@@ -175,6 +175,66 @@
                 margin: 0;
             }
 
+            /* ===== Sort toolbar ===== */
+            .sort-bar {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 34px;
+            }
+            .sort-label {
+                font-size: 1.2rem;
+                color: var(--text-color);
+                opacity: 0.85;
+            }
+            .sort-btn {
+                font-family: inherit;
+                background: #fff;
+                color: var(--text-color);
+                border: 3px solid transparent;
+                border-radius: 16px;
+                padding: clamp(12px, 2vw, 18px) clamp(20px, 3vw, 30px);
+                font-size: clamp(1.1rem, 2vw, 1.5rem);
+                cursor: pointer;
+                box-shadow: 0 5px 10px var(--card-shadow);
+                transition:
+                    transform 0.15s ease,
+                    box-shadow 0.15s ease,
+                    background 0.2s ease,
+                    color 0.2s ease;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                line-height: 1;
+            }
+            .sort-btn:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 8px 16px var(--card-shadow);
+            }
+            .sort-btn:active {
+                transform: scale(0.95);
+                box-shadow: 0 3px 6px var(--card-shadow);
+            }
+            .sort-btn.active {
+                background: var(--button-color);
+                color: #fff;
+                border-color: var(--button-shadow);
+                box-shadow: 0 5px 12px var(--card-shadow);
+            }
+            .sort-btn .dir {
+                font-size: 0.8em;
+                opacity: 0.9;
+            }
+            .sort-count {
+                font-size: 0.95rem;
+                color: #666;
+                margin-left: 4px;
+            }
+
             .footer {
                 margin-top: 40px;
                 font-size: 0.9rem;
@@ -185,6 +245,23 @@
     <body>
         <div class="container">
             <h1 class="header-title">Fun Games!</h1>
+
+            <div class="sort-bar" role="group" aria-label="Sort games">
+                <span class="sort-label">Sort by:</span>
+                <button class="sort-btn active" data-sort="date" aria-pressed="true">
+                    <span class="lbl">🗓️ Date</span> <span class="dir">↕</span>
+                </button>
+                <button class="sort-btn" data-sort="alpha" aria-pressed="false">
+                    <span class="lbl">🔤 A–Z</span> <span class="dir">↕</span>
+                </button>
+                <button class="sort-btn" data-sort="level" aria-pressed="false">
+                    <span class="lbl">🎯 Level</span> <span class="dir">↕</span>
+                </button>
+                <button class="sort-btn" data-sort="category" aria-pressed="false">
+                    <span class="lbl">🗂️ Category</span> <span class="dir">↕</span>
+                </button>
+                <span class="sort-count" id="gameCount"></span>
+            </div>
 
             <div class="games-grid">
                 <!-- === GAME EMOJI (🎮) — Level 3 === -->
@@ -772,6 +849,149 @@
                 metaViewport.content =
                     "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover";
             }
+
+            // ===== Game card sorting =====
+            // Date each game was first added (git-added date). Games sharing the
+            // same date fall back to alphabetical order.
+            const ADD_DATES = {
+                "cube_projection_matching_game.html": "2026-07-27",
+                "lion_memory_match.html": "2026-07-27",
+                "lion_three_card_monte.html": "2026-07-27",
+                "hide_and_seek_chicks.html": "2026-07-27",
+                "find_the_thing.html": "2026-07-27",
+                "ice_skating.html": "2026-07-27",
+                "traffic_deduce.html": "2026-08-14",
+                "Pour_Water_Game.html": "2026-07-27",
+                "Nonogram.html": "2026-07-27",
+                "balance_scale_game.html": "2026-07-27",
+                "lion_cards_game_difference.html": "2026-07-27",
+                "lion_set_card_game.html": "2026-07-27",
+                "retro_color_math.html": "2026-07-27",
+                "gomoku.html": "2026-07-27",
+                "leaders_gambit.html": "2026-07-27",
+                "arkanoid.html": "2026-07-27",
+                "robot_cleaner.html": "2026-07-27",
+                "sudoku_ultimate.html": "2026-07-27",
+                "kakuro_ultimate.html": "2026-07-27",
+                "kenken.html": "2026-07-27",
+                "chess_ultimate.html": "2026-07-27",
+                "shikaku.html": "2026-07-27",
+                "laser_slitherlink.html": "2026-07-27",
+                "Honey_and_Flowers.html": "2026-07-27",
+                "spacewar.html": "2026-08-25",
+                "number_and_equation.html": "2026-08-01",
+                "Random_Cubes_Puzzle.html": "2026-07-27",
+                "Cuisenaire.html": "2026-07-27",
+                "angles.html": "2026-07-27",
+                "paper_folding_hole_punch_game.html": "2026-07-27",
+                "pattern_ultimate.html": "2026-07-27",
+                "pattern_game.html": "2026-07-27",
+                "logic_game.html": "2026-09-03",
+                "image_equation_game.html": "2026-07-27",
+                "Battleship_Coordinate_Game.html": "2026-07-27",
+                "color_math_game.html": "2026-07-27",
+                "dog_tracking_game.html": "2026-07-27",
+                "balance_scale_shapes.html": "2026-07-27",
+                "tetris_pattern_game.html": "2026-07-27",
+                "switch_position_game.html": "2026-07-27",
+                "set_game_trainer.html": "2026-07-27",
+                "set_which_path.html": "2026-07-27",
+                "set_verification_game.html": "2026-07-27",
+                "set_complete_the_set.html": "2026-07-27",
+                "set_the_original.html": "2026-07-27",
+                "shapes_stacking.html": "2026-07-27",
+            };
+
+            // Category order + labels (Game > Tool > Book)
+            const CAT_ORDER = { "🎮": 0, "🛠️": 1, "📚": 2 };
+            const CAT_LABEL = { "🎮": "Game", "🛠️": "Tool", "📚": "Book" };
+
+            const grid = document.querySelector(".games-grid");
+            const countEl = document.getElementById("gameCount");
+            const sortButtons = Array.from(
+                document.querySelectorAll(".sort-btn"),
+            );
+            let activeSort = "date";
+            let descending = true; // date -> newest first (default)
+
+            function getCardData(card) {
+                const href = card.getAttribute("href").replace(/^\.\//, "");
+                const title = (card.querySelector("h2") || {}).textContent
+                    ? card.querySelector("h2").textContent.trim()
+                    : href;
+                const levelEl = card.querySelector(".level-label");
+                const levelText = levelEl
+                    ? levelEl.textContent.replace(/\D/g, "")
+                    : "";
+                const level = parseInt(levelText, 10) || 0;
+                const badge = card.querySelector(".badge-label");
+                const catEmoji = badge ? badge.textContent.trim() : "";
+                const date = ADD_DATES[href] || "2099-12-31";
+                return { card, href, title, level, catEmoji, catKey: CAT_ORDER[catEmoji] !== undefined ? CAT_ORDER[catEmoji] : 99, date };
+            }
+
+            function compare(a, b) {
+                const dir = descending ? -1 : 1;
+                switch (activeSort) {
+                    case "alpha": {
+                        const t = a.title.localeCompare(b.title);
+                        return t * dir;
+                    }
+                    case "level": {
+                        const l = a.level - b.level;
+                        if (l !== 0) return l * dir;
+                        return a.title.localeCompare(b.title) * dir;
+                    }
+                    case "category": {
+                        const c = a.catKey - b.catKey;
+                        if (c !== 0) return c * dir;
+                        const l = a.level - b.level;
+                        if (l !== 0) return l * dir;
+                        return a.title.localeCompare(b.title) * dir;
+                    }
+                    case "date":
+                    default: {
+                        const d = a.date.localeCompare(b.date);
+                        if (d !== 0) return d * dir;
+                        return a.title.localeCompare(b.title);
+                    }
+                }
+            }
+
+            function renderSort() {
+                const data = Array.from(grid.children).map(getCardData);
+                data.sort(compare);
+                // Re-append in the new order (fast reparenting)
+                data.forEach((d) => grid.appendChild(d.card));
+                // Update active button UI
+                sortButtons.forEach((btn) => {
+                    const isActive = btn.dataset.sort === activeSort;
+                    btn.classList.toggle("active", isActive);
+                    btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+                    const dd = btn.querySelector(".dir");
+                    if (dd) dd.textContent = isActive ? (descending ? "▼" : "▲") : "↕";
+                });
+                countEl.textContent = `${data.length} games`;
+            }
+
+            sortButtons.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const key = btn.dataset.sort;
+                    if (key === activeSort) {
+                        descending = !descending; // toggle direction
+                    } else {
+                        activeSort = key;
+                        // sensible default directions:
+                        descending =
+                            key === "date" ||
+                            key === "level" ||
+                            key === "category";
+                    }
+                    renderSort();
+                });
+            });
+
+            renderSort();
         </script>
     </body>
 </html>
