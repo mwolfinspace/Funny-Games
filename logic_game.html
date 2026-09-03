@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kids Logic Pattern Game</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+            background-color: #e0f7fa;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ===== TOP BAR (matches other games) ===== */
+        #hud {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            background: #b3e5fc;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .hud-left, .hud-controls { display: flex; align-items: center; gap: 10px; }
+
+        a.return-to-menu {
+            text-decoration: none;
+            font-size: 1.6rem;
+            filter: grayscale(1);
+            transition: filter 0.2s, transform 0.2s;
+        }
+        a.return-to-menu:hover { filter: grayscale(0); transform: scale(1.1); }
+
+        .hud-btn {
+            border: none;
+            background-color: #0288d1;
+            color: white;
+            padding: 0 14px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            box-shadow: 0 3px 0 #01579b;
+            transition: transform 0.1s;
+        }
+        .hud-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #01579b; }
+        .hud-btn.new { background-color: #43a047; box-shadow: 0 3px 0 #2e7d32; }
+        .hud-btn.mute { background-color: #757575; box-shadow: 0 3px 0 #424242; }
+
+        /* ===== MAIN LAYOUT: board + choices use full space ===== */
+        main {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .title-wrap { text-align: center; }
+        .title-wrap h1 {
+            color: #0288d1;
+            margin: 0;
+            font-size: clamp(20px, 4vw, 30px);
+        }
+        .title-wrap p { margin: 4px 0 0; font-size: clamp(13px, 2.4vw, 18px); color: #555; }
+
+        /* The Pattern Display Box */
+        .pattern-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: clamp(8px, 1.6vw, 16px);
+            background-color: #f1f8e9;
+            padding: clamp(12px, 2.4vw, 24px);
+            border-radius: 18px;
+            border: 3px dashed #8bc34a;
+            width: min(92%, 640px);
+            flex-wrap: nowrap;
+        }
+
+        .item {
+            font-size: clamp(32px, 7vw, 56px);
+            width: clamp(54px, 9vw, 76px);
+            height: clamp(54px, 9vw, 76px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex-shrink: 1;
+        }
+
+        .missing {
+            background-color: #fffde7;
+            border: 3px dashed #fbc02d;
+            font-weight: bold;
+            color: #fbc02d;
+            animation: pulse 1.5s infinite;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+        .missing.filled {
+            animation: none;
+            background-color: #e8f5e9;
+            border: 3px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Choice Buttons Box */
+        .choices-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: clamp(10px, 3vw, 24px);
+            flex-wrap: wrap;
+            max-width: 92%;
+        }
+
+        .choice-btn {
+            font-size: clamp(36px, 7vw, 56px);
+            width: clamp(64px, 10vw, 88px);
+            height: clamp(64px, 10vw, 88px);
+            border: none;
+            background-color: #fff;
+            border-radius: 18px;
+            cursor: pointer;
+            box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+            transition: transform 0.1s, background-color 0.2s;
+            border: 3px solid #ffb74d;
+        }
+        .choice-btn:hover { transform: scale(1.08); background-color: #fff3e0; }
+        .choice-btn:active { transform: scale(0.95); }
+        .choice-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+        /* Score & Celebration */
+        .score-panel {
+            font-size: clamp(18px, 3vw, 24px);
+            font-weight: bold;
+            color: #e91e63;
+            text-align: center;
+        }
+
+        .message {
+            height: 30px;
+            font-size: clamp(18px, 3vw, 24px);
+            font-weight: bold;
+            text-align: center;
+        }
+        .success { color: #4caf50; }
+        .wrong { color: #f44336; }
+    </style>
+</head>
+<body>
+
+    <!-- Top bar: home + controls -->
+    <div id="hud">
+        <div class="hud-left">
+            <a class="return-to-menu" href="index.html">🏠</a>
+            <span class="hud-btn mute" id="mute-btn" onclick="toggleMute()">🔊</span>
+        </div>
+        <div class="hud-controls">
+            <button class="hud-btn new" onclick="newGame()">↻ <span>New</span></button>
+        </div>
+    </div>
+
+    <main>
+        <div class="title-wrap">
+            <h1>What Comes Next? 🤔</h1>
+            <p>Look at the pattern and find the missing item!</p>
+        </div>
+
+        <!-- The Pattern Layout -->
+        <div class="pattern-box" id="patternDisplay">
+            <!-- Dynamically generated by JS -->
+        </div>
+
+        <!-- The User Choices -->
+        <div class="choices-box" id="choicesDisplay">
+            <!-- Dynamically generated by JS -->
+        </div>
+
+        <div class="message" id="messageText"></div>
+        <div class="score-panel">Stars: <span id="scoreCount">0</span> ⭐</div>
+    </main>
+
+    <script>
+        // Child-friendly logic pattern datasets (AB, ABB, ABC patterns)
+        const patternsPool = [
+            { sequence: ['🍎', '🍌', '🍎', '🍌', '🍎'], answer: '🍌', pool: ['🍌', '🍇', '🍊'] },
+            { sequence: ['🚗', '✈️', '🚗', '✈️', '🚗'], answer: '✈️', pool: ['✈️', '🚢', '🚂'] },
+            { sequence: ['🐶', '🐱', '🐱', '🐶', '🐱'], answer: '🐱', pool: ['🐱', '🐹', '🐶'] },
+            { sequence: ['🔴', '🔵', '🟢', '🔴', '🔵'], answer: '🟢', pool: ['🟢', '🟡', '⚫'] },
+            { sequence: ['🦁', '🐯', '🦁', '🐯', '🦁'], answer: '🐯', pool: ['🐯', '🐻', '🐵'] },
+            { sequence: ['☀️', '🌙', '☀️', '🌙', '☀️'], answer: '🌙', pool: ['🌙', '☁️', '⭐'] },
+            { sequence: ['🍦', '🍩', '🍦', '🍩', '🍦'], answer: '🍩', pool: ['🍩', '🍪', '🍰'] }
+        ];
+
+        let currentPatternIndex = 0;
+        let score = 0;
+        let locked = false;
+
+        const patternDisplay = document.getElementById('patternDisplay');
+        const choicesDisplay = document.getElementById('choicesDisplay');
+        const messageText = document.getElementById('messageText');
+        const scoreCount = document.getElementById('scoreCount');
+        const muteBtn = document.getElementById('mute-btn');
+
+        let muted = false;
+
+        // Simple WebAudio success sound
+        function playSuccess() {
+            if (muted) return;
+            try {
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                let ctx = window.__soundCtx;
+                if (!ctx) ctx = window.__soundCtx = new AudioContext();
+                if (ctx.state === 'suspended') ctx.resume();
+                const n = ctx.currentTime;
+                [523, 659, 784, 1046].forEach((f, i) => {
+                    const o = ctx.createOscillator(), g = ctx.createGain();
+                    o.type = 'square';
+                    o.frequency.value = f;
+                    g.connect(ctx.destination);
+                    g.gain.setValueAtTime(0.05, n + i * 0.08);
+                    g.gain.linearRampToValueAtTime(0, n + i * 0.08 + 0.35);
+                    o.connect(g);
+                    o.start(n + i * 0.08);
+                    o.stop(n + i * 0.08 + 0.35);
+                });
+            } catch (e) {}
+        }
+
+        function playWrong() {
+            if (muted) return;
+            try {
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                let ctx = window.__soundCtx;
+                if (!ctx) ctx = window.__soundCtx = new AudioContext();
+                if (ctx.state === 'suspended') ctx.resume();
+                const n = ctx.currentTime;
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(220, n);
+                o.frequency.exponentialRampToValueAtTime(140, n + 0.25);
+                g.gain.setValueAtTime(0.1, n);
+                g.gain.exponentialRampToValueAtTime(0.01, n + 0.25);
+                g.connect(ctx.destination);
+                o.connect(g);
+                o.start(n);
+                o.stop(n + 0.25);
+            } catch (e) {}
+        }
+
+        function toggleMute() {
+            muted = !muted;
+            muteBtn.innerText = muted ? '🔇' : '🔊';
+        }
+
+        function newGame() {
+            currentPatternIndex = Math.floor(Math.random() * patternsPool.length);
+            score = 0;
+            scoreCount.innerText = '0';
+            loadRound();
+        }
+
+        function loadRound() {
+            messageText.innerText = "";
+            messageText.className = "message";
+            patternDisplay.innerHTML = "";
+            choicesDisplay.innerHTML = "";
+            locked = false;
+
+            let currentPattern = patternsPool[currentPatternIndex];
+
+            // 1. Build and show the pattern sequence
+            currentPattern.sequence.forEach(emoji => {
+                let div = document.createElement('div');
+                div.className = 'item';
+                div.innerText = emoji;
+                patternDisplay.appendChild(div);
+            });
+
+            // 2. Add the question-mark block at the end of the sequence
+            let missingDiv = document.createElement('div');
+            missingDiv.className = 'item missing';
+            missingDiv.innerText = '?';
+            patternDisplay.appendChild(missingDiv);
+
+            // 3. Shuffle choice options slightly so answer isn't always first
+            let choices = [...currentPattern.pool].sort(() => Math.random() - 0.5);
+
+            // 4. Render choice buttons
+            choices.forEach(emoji => {
+                let btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.innerText = emoji;
+                btn.onclick = () => checkAnswer(emoji, currentPattern.answer, missingDiv, btn);
+                choicesDisplay.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(chosen, correct, missingDiv, chosenBtn) {
+            if (locked) return;
+            locked = true;
+
+            // disable all choice buttons
+            [...choicesDisplay.children].forEach(b => b.disabled = true);
+
+            if (chosen === correct) {
+                score++;
+                scoreCount.innerText = score;
+                messageText.className = "message success";
+                messageText.innerText = "Great Job! 🎉";
+                playSuccess();
+
+                // Fill the ? cell with the answer
+                missingDiv.innerText = correct;
+                missingDiv.classList.add('filled');
+
+                // Advance to next pattern after a brief delay
+                setTimeout(() => {
+                    currentPatternIndex = (currentPatternIndex + 1) % patternsPool.length;
+                    loadRound();
+                }, 1600);
+            } else {
+                messageText.className = "message wrong";
+                messageText.innerText = "Try again! You can do it! 💪";
+                playWrong();
+                // highlight the wrong choice briefly, allow retry
+                chosenBtn.style.backgroundColor = '#ffcdd2';
+                chosenBtn.style.borderColor = '#f44336';
+                setTimeout(() => {
+                    chosenBtn.style.backgroundColor = '#fff';
+                    chosenBtn.style.borderColor = '#ffb74d';
+                    chosenBtn.disabled = false;
+                    [...choicesDisplay.children].forEach(b => { if (b !== chosenBtn) b.disabled = false; });
+                    locked = false;
+                }, 600);
+            }
+        }
+
+        // Initialize the first level of the game
+        loadRound();
+    </script>
+</body>
+</html>
