@@ -1123,10 +1123,10 @@ button, input, select { font-family: var(--ui-font); }
       <button data-mode="mercy" class="active">🛡️ Mercy</button>
       <button data-mode="combo">🔥 Combo</button>
     </div>
-    <div class="spacer"></div>
     <button class="btn btn-soft" id="bt-view-toggle" disabled>🎥 Focus View</button>
-    <button class="btn btn-primary" id="bt-start" disabled>▶️ Start Game</button>
     <button class="btn btn-soft hidden" id="bt-finish">🏁 Finish Game</button>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="bt-start" disabled>▶️ Start Game</button>
     <button class="btn btn-soft hidden" id="bt-scoreboard">🏆 Scoreboard</button>
   </div>
   <div class="game-zone" id="bt-zone">
@@ -1362,6 +1362,8 @@ const App = {
     renderRAF: 0,
     transientTimers: new Set(),
     boomRaf: 0,
+    projectileNode: null,
+    boomToken: 0,
     feedbackNode: null,
   },
 };
@@ -1475,6 +1477,11 @@ function playSound(type, params = {}) {
     case 'win':         tone(660, 0.10, 'triangle', 0.06, 90); tone(880, 0.12, 'triangle', 0.055, 100); tone(1320, 0.16, 'triangle', 0.05, 120); break;
     case 'cannon':      noise(0.06, 0.08, 650, 'brown'); tone(180, 0.12, 'square', 0.07, -110); break;
     case 'boom':        noise(0.25, 0.18, 750, 'brown'); tone(70, 0.32, 'sawtooth', 0.13, -25); break;
+    // Combo uses intentionally tiny oscillator-only cues. No noise buffers,
+    // no multi-voice explosion stack on every successful hit.
+    case 'combo-launch': tone(205, 0.045, 'square', 0.022, -45); break;
+    case 'combo-impact': tone(115, 0.065, 'triangle', 0.032, -35); break;
+    case 'combo-hit': tone(480, 0.055, 'triangle', 0.028, 70); break;
   }
 }
 
@@ -1497,6 +1504,12 @@ function clearTransientTimers() {
 function clearActiveRafs() {
   if (App.bt.boomRaf) cancelAnimationFrame(App.bt.boomRaf);
   App.bt.boomRaf = 0;
+  App.bt.boomToken = (App.bt.boomToken + 1) >>> 0;
+  if (App.bt.projectileNode) {
+    App.bt.projectileNode.classList.remove('impact');
+    App.bt.projectileNode.style.display = 'none';
+  }
+  App.bt.shotInFlight = false;
 }
 
 function $(id) { return document.getElementById(id); }
@@ -2821,9 +2834,9 @@ const BT = (() => {
         const { cx, cy } = getIntersection(x, y, m);
         ctx.save();
         ctx.globalAlpha = 0.6;
-        ctx.font = `${Math.max(16, m.cellS * 0.8)}px 'Segoe UI Emoji', sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(BOOM_HOVER, cx, cy);
+        ctx.strokeStyle = team.color;
+        ctx.lineWidth = Math.max(2, m.cellS * 0.08);
+        ctx.beginPath(); ctx.arc(cx, cy, Math.max(5, m.cellS * 0.28), 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }
     }
@@ -2845,6 +2858,7 @@ const BT = (() => {
         if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
       }
       if (App.bt.state !== 'playing') return;
+      if (App.bt.shotInFlight) return;
       // hover target indicator only when this team is the target
       if (App.bt.targetTeamId !== team.id) return;
       const cell = teamCanvasToCell(canvas, team, e.clientX, e.clientY);
@@ -2875,6 +2889,7 @@ const BT = (() => {
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => {
         if (!document.body.contains(canvas)) return;
+        if (App.bt.shotInFlight) return;
         drawTeam(team, canvas);
       });
       ro.observe(canvas);
@@ -2940,9 +2955,9 @@ const BT = (() => {
         const star = chip.querySelector('.star');
         const sunk = chip.querySelector('.sunk');
         const alive = chip.querySelector('.alive');
-        if (star) star.textContent = `⭐${team.battleStars}`;
-        if (sunk) sunk.textContent = `💥${st.sunk}`;
-        if (alive) alive.textContent = `🚢${st.alive}`;
+        if (star) { const n = star.querySelector('.count'); if (n) n.textContent = team.battleStars; }
+        if (sunk) sunk.textContent = st.sunk;
+        if (alive) alive.textContent = st.alive;
       }
     }
 
@@ -2971,7 +2986,9 @@ const BT = (() => {
       if (!team) continue;
       const score = li.querySelector('.score');
       if (score) {
-        score.textContent = `⭐${team.battleStars}`;
+        const starCount = score.querySelector('.count');
+        if (starCount) starCount.textContent = team.battleStars;
+        else score.textContent = String(team.battleStars);
         score.style.background = team.color;
         score.style.color = contrastColor(team.color);
       }
@@ -3050,9 +3067,9 @@ const BT = (() => {
         <div class="chip-top">
           <span class="dot" style="background:${team.color}"></span>
           <span class="name" title="${escapeHtml(team.name)}">${escapeHtml(team.name)}</span>
-          <span class="star">⭐${team.battleStars}</span>
+          <span class="star" title="Battle stars">⭐<span class="count">${team.battleStars}</span></span>
           <span class="ships">
-            <span class="sunk" title="Ships destroyed">💥${st.sunk}</span><span class="sep">/</span><span class="alive" title="Ships remaining">🚢${st.alive}</span>
+            <span class="sunk" title="Ships destroyed">${st.sunk}</span><span class="sep">/</span><span class="alive" title="Ships remaining">${st.alive}</span>
           </span>
         </div>
         <div class="chip-meta">
@@ -3148,9 +3165,14 @@ const BT = (() => {
       // Combo hits stay on the same turn. Avoid the global feedback animation here: repeated
       // forced reflow + animation restart creates unnecessary compositor/DOM churn.
       if (App.bt.mode !== 'combo') showFeedbackEmoji(HIT_EMOJI);
-      playSound('hit');
-      msg($('bt-msg'), `💥 ${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ship ⭐' : 'ship'}! +${points}⭐`, 3500);
-      notify(cell.ship.commander ? 'star' : 'hit', `${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ⭐' : 'ship'} (+${points}⭐)`, 3000);
+      if (App.bt.mode === 'combo') playSound('combo-hit');
+      else playSound('hit');
+      msg($('bt-msg'), `${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ship' : 'ship'}! +${points} stars`, 3500);
+      // Combo hits stay out of the emoji toast path. Only meaningful milestones
+      // (first hit, every 5th hit, commander) create a notification.
+      if (App.bt.mode !== 'combo') {
+        notify(cell.ship.commander ? 'star' : 'hit', `${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ⭐' : 'ship'} (+${points}⭐)`, 3000);
+      }
       drawTeam(targetTeam, App.bt.canvasById.get(targetTeam.id));
       // check if target team is sunk
       if (teamAllSunk(targetTeam)) {
@@ -3177,8 +3199,7 @@ const BT = (() => {
           openAttackPopup();
         } else {
           // continue same target — prompt to keep shooting
-          msg($('bt-msg'), `🔥 Combo x${App.bt.comboShots + 1} — keep firing at ${targetTeam.name}.`, 2200);
-          if (App.bt.comboShots <= 2 || App.bt.comboShots % 5 === 0) notify('combo', `Combo x${App.bt.comboShots + 1} — ${attacker.name} keeps the turn.`, 2200);
+          msg($('bt-msg'), `COMBO x${App.bt.comboShots + 1} — keep firing at ${targetTeam.name}.`, 2200);
         }
       } else {
         // Mercy mode: 1 shot per turn — turn is now over
@@ -3236,6 +3257,7 @@ const BT = (() => {
   // Point the cannon head at the cursor (rad 0 = straight up).
   function updateCannon(e) {
     if (App.bt.state !== 'playing') return;
+    if (App.bt.shotInFlight) return;
     if (!App.bt.targetTeamId) return;   // only aim while picking a coordinate to shoot
     if (App.bt.shotOpen !== true) return; // no aim once this turn's shots are spent
     const wrap = $('cannon-wrap');
@@ -3253,42 +3275,69 @@ const BT = (() => {
 
   // Fire a lightweight projectile from the cannon muzzle to the click point, arc trajectory.
   function fireBoom(fromX, fromY, toX, toY, onLand) {
-    playSound('cannon');
-    const proj = document.createElement('div');
+    const combo = App.bt.mode === 'combo';
+    if (combo) playSound('combo-launch'); else playSound('cannon');
+
+    // Reuse one projectile node for the entire battle. Creating/removing a DOM
+    // node on every combo shot was unnecessary churn and made the flight path
+    // compete with rendering and GC under long hit streaks.
+    let proj = App.bt.projectileNode;
+    if (!proj) {
+      proj = document.createElement('div');
+      proj.className = 'boom-proj';
+      proj.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(proj);
+      App.bt.projectileNode = proj;
+    }
     proj.className = 'boom-proj';
-    document.body.appendChild(proj);
-    // small recoil on the cannon (kickback along the barrel axis)
+    proj.style.display = 'block';
+    proj.style.left = '0px';
+    proj.style.top = '0px';
+
     const arm = $('cannon-arm');
     if (arm) {
       const aim = App.bt._cannonAngle || 0;
       arm.style.transform = `rotate(${aim}rad) translateY(18px)`;
       defer(() => { if (arm) arm.style.transform = `rotate(${aim}rad)`; }, 130);
     }
-    const size = proj.offsetWidth || 46;
-    proj.style.left = fromX + 'px';
-    proj.style.top = fromY + 'px';
+
     const dist = Math.hypot(toX - fromX, toY - fromY);
-    const dur = Math.min(1150, Math.max(620, 400 + dist * 0.38));  // slow enough to see the fly
+    const dur = Math.min(1150, Math.max(620, 400 + dist * 0.38));
     const arcH = Math.min(130, Math.max(70, dist * 0.22));
     const t0 = performance.now();
+    const token = (App.bt.boomToken + 1) >>> 0;
+    App.bt.boomToken = token;
+
     const step = (t) => {
+      if (token !== App.bt.boomToken || !App.bt.shotInFlight) return;
       const p = Math.min(1, (t - t0) / dur);
-      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-      const x = fromX + (toX - fromX) * e;
-      const y = fromY + (toY - fromY) * e - Math.sin(p * Math.PI) * arcH;
-      proj.style.left = x + 'px';
-      proj.style.top = y + 'px';
+      const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const x = fromX + (toX - fromX) * ease;
+      const y = fromY + (toY - fromY) * ease - Math.sin(p * Math.PI) * arcH;
+      proj.style.transform = `translate3d(${x}px,${y}px,0) translate(-50%,-50%)`;
+
       if (p < 1) {
         App.bt.boomRaf = requestAnimationFrame(step);
-      } else {
-        App.bt.boomRaf = 0;
-        // lightweight impact pulse; no emoji/raster glyph allocation
-        proj.classList.add('impact');
-        playSound('boom');
-        if (onLand) onLand();
-        defer(() => { if (proj.parentNode) proj.remove(); }, 120);
+        return;
       }
+
+      App.bt.boomRaf = 0;
+      if (token !== App.bt.boomToken) return;
+      proj.classList.add('impact');
+      if (combo) playSound('combo-impact'); else playSound('boom');
+
+      // Resolve the shot immediately at the end of the flight. No DOM callback
+      // chain or nested animation is needed here.
+      if (onLand) onLand();
+
+      // Keep the single projectile as a reusable shell instead of destroying it.
+      defer(() => {
+        if (token !== App.bt.boomToken || !proj) return;
+        proj.classList.remove('impact');
+        proj.style.display = 'none';
+      }, 100);
     };
+
     App.bt.boomRaf = requestAnimationFrame(step);
   }
 
@@ -4082,7 +4131,7 @@ const BT = (() => {
           <span class="rank">#${i+1}</span>
           <span>${escapeHtml(team.name)}</span>
         </div>
-        <span class="score" style="background:${team.color};color:${contrastColor(team.color)}">⭐${team.battleStars}</span>
+        <span class="score" style="background:${team.color};color:${contrastColor(team.color)}">⭐<span class="count">${team.battleStars}</span></span>
       `;
       if (!team.alive) li.classList.add('dead');
       list.appendChild(li);
@@ -4240,6 +4289,10 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+window.addEventListener('pagehide', () => {
+  try { clearActiveRafs(); clearTransientTimers(); stopAllAudioVoices(); } catch (_) {}
+}, { passive: true });
 </script>
 </body>
 </html>
