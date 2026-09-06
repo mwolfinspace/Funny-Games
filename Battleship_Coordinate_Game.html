@@ -497,6 +497,30 @@ body {
 .statusbar #bt-chips {
   display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
 }
+/* Sits right next to the Turn chip — greyed out until the turn may end */
+.statusbar .turn-slot {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.statusbar .sb-next-turn {
+  position: relative; z-index: 1;
+  padding: 7px 14px;
+  font-size: 12px; font-weight: 800;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);   /* light touch, not a heavy beam */
+  flex-shrink: 0;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+.statusbar .sb-next-turn:hover:not(:disabled) { box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+.statusbar .sb-next-turn:disabled {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-color: var(--line);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: grayscale(0.8);
+}
 /* Per-team pill: top row = [◉] Name ⭐ 💥/🚢, bottom = [rank] full seed */
 .team-chip {
   display: inline-flex; flex-direction: column; align-items: stretch;
@@ -735,22 +759,15 @@ body {
 /* ===== Cannon shooter (egg-shooter style, above the status bar) ===== */
 #cannon-wrap {
   position: fixed;
-  left: 50%; bottom: 58px;
+  right: 22px; bottom: 52px;
   width: 140px; height: 150px;
-  margin-left: -70px;
+  margin-left: 0;
   z-index: 45;
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.25s;
 }
 #cannon-wrap.cannon-off { opacity: 0; }
-/* In Focus View the cannon docks to the right corner (main map sits left,
-   gallery on the right) — head still follows the cursor via the same pivot. */
-#cannon-wrap.focus {
-  left: auto; right: 22px;
-  margin-left: 0;
-  bottom: 52px;
-}
 /* Rotating arm (barrel + head); pivot is the wrapping point at (70,112) */
 #cannon-arm {
   position: absolute; left: 70px; top: 112px;
@@ -777,21 +794,6 @@ body {
   font-size: 20px;                      /* loaded boom at the cannon head */
   box-shadow: 0 3px 5px rgba(0,0,0,0.22);
 }
-#cannon-cart {
-  position: absolute; left: 24px; top: 100px;
-  width: 92px; height: 44px;
-  background: linear-gradient(180deg, #c98a4a, #8a5a2b);
-  border: 3px solid #52300f;
-  border-radius: 10px 10px 9px 9px;
-  box-shadow: 0 5px 9px rgba(0,0,0,0.3);
-}
-#cannon-cart::before, #cannon-cart::after {
-  content: ''; position: absolute; bottom: -7px;
-  width: 17px; height: 17px; border-radius: 50%;
-  background: #4a321c; border: 2px solid #2c2014;
-}
-#cannon-cart::before { left: 8px; }
-#cannon-cart::after { right: 8px; }
 
 /* Flying boom projectile (💣 → 💥 on impact) */
 .boom-proj {
@@ -804,31 +806,6 @@ body {
   filter: drop-shadow(0 5px 12px rgba(0,0,0,0.4));
   transition: transform 0.16s;
 }
-
-/* Floating "Next Turn" button — hugs the status bar, stays put (no jump) */
-.next-turn-floater {
-  position: fixed; left: 50%;
-  transform: translateX(-50%);
-  bottom: 60px;
-  z-index: 80;
-  padding: 12px 26px;
-  font-size: 16px; font-weight: 900;
-  border: 3px solid var(--accent);
-  color: var(--accent);
-  background: #fff3e2;
-  border-radius: 10px;          /* square-curve button, not a pill */
-  box-shadow: 0 8px 22px rgba(0,0,0,0.3), 0 0 0 4px rgba(255,255,255,0.55);
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none; -webkit-user-select: none;
-  animation: floaterIn 0.18s ease-out;
-}
-@keyframes floaterIn { from { opacity: 0; } to { opacity: 1; } }
-.next-turn-floater:hover { transform: translateX(-50%); box-shadow: 0 10px 26px rgba(0,0,0,0.36), 0 0 0 4px rgba(255,255,255,0.62); }
-.next-turn-floater:active { transform: translateX(-50%); }
-/* Focus View: the floater rests in the padding right below the maps
-   (hugging the status bar), so it never covers a board. */
-.next-turn-floater.focus { bottom: 70px; }
 
 /* ===== Mobile ===== */
 @media (max-width: 760px) {
@@ -865,11 +842,8 @@ body {
   .team-chip .name { max-width: 64px; }
   .team-chip .seed { max-width: none; font-size: 9px; }
   .turn-chip { height: 30px; padding: 4px 9px; font-size: 11px; }
-  /* compact cannon + floater on phones */
-  #cannon-wrap { bottom: 46px; transform: scale(0.82); transform-origin: 50% 100%; }
-  #cannon-wrap.focus { right: 6px; bottom: 42px; transform: scale(0.7); transform-origin: 100% 100%; }
-  .next-turn-floater { bottom: 54px; padding: 10px 22px; font-size: 15px; }
-  .next-turn-floater.focus { bottom: 62px; }
+  /* compact cannon on phones (docked right corner) */
+  #cannon-wrap { right: 6px; bottom: 42px; transform: scale(0.72); transform-origin: 100% 100%; }
   .boom-proj { width: 40px; height: 40px; font-size: 40px; line-height: 40px; }
 }
 </style>
@@ -947,24 +921,25 @@ body {
     <div class="spacer"></div>
     <button class="btn btn-soft" id="bt-view-toggle" disabled>🎥 Focus View</button>
     <button class="btn btn-primary" id="bt-start" disabled>▶️ Start Game</button>
-    <button class="btn btn-soft hidden" id="bt-next-turn">➡️ Next Turn</button>
     <button class="btn btn-soft hidden" id="bt-finish">🏁 Finish Game</button>
     <button class="btn btn-soft hidden" id="bt-scoreboard">🏆 Scoreboard</button>
   </div>
   <div class="game-zone" id="bt-zone">
     <div class="game-grid" id="bt-grid"></div>
   </div>
-  <!-- Cannon shooter (bottom, above status bar) + floating Next Turn button -->
+  <!-- Cannon shooter (docked to the right corner, above the status bar) -->
   <div id="cannon-wrap" class="cannon-off">
     <div id="cannon-arm">
       <div id="cannon-barrel"></div>
       <div id="cannon-muzzle">💣</div>
     </div>
-    <div id="cannon-cart"></div>
   </div>
-  <button class="btn btn-soft next-turn-floater hidden" id="bt-next-turn-floater">➡️ Next Turn</button>
   <div class="statusbar" id="bt-statusbar">
     <div id="bt-chips"></div>
+    <div class="turn-slot">
+      <div class="turn-chip hidden" id="bt-turn-chip"></div>
+      <button class="btn btn-soft sb-next-turn" id="bt-next-turn" disabled>➡️ Next Turn</button>
+    </div>
     <div class="msg" id="bt-msg">Add teams to start. Each team needs a seed from Map Maker.</div>
   </div>
 </div>
@@ -1041,7 +1016,6 @@ body {
     <div id="attack-sub" style="font-size:13px;color:var(--ink-soft);font-weight:700;min-height:18px;margin-top:2px"></div>
     <div class="attack-list" id="attack-list"></div>
     <div class="actions">
-      <button class="btn btn-ghost" id="attack-cancel">Cancel</button>
       <button class="btn btn-soft hidden" id="attack-pick-random">🎲 Pick Random</button>
     </div>
   </div>
@@ -2502,14 +2476,16 @@ const BT = (() => {
         return sa.sunk - sb.sunk;
       })
       : [];
-    // Turn indicator (only during play)
+    // Turn indicator (only during play) — sits beside the Next Turn button
+    const turnChipEl = $('bt-turn-chip');
     if (App.bt.state === 'playing' && App.bt.turnList.length > 0) {
-      const tc = document.createElement('div');
-      tc.className = 'turn-chip';
-      const turnNum = App.bt.turnCounter;
-      const attacker = currentAttacker();
-      tc.innerHTML = `<span class="label">Turn</span><span class="num">${turnNum}</span>${attacker ? '·' + escapeHtml(attacker.name) : ''}`;
-      chips.appendChild(tc);
+      if (turnChipEl) {
+        const attacker = currentAttacker();
+        turnChipEl.classList.remove('hidden');
+        turnChipEl.innerHTML = `<span class="label">Turn</span><span class="num">${App.bt.turnCounter}</span>${attacker ? '·' + escapeHtml(attacker.name) : ''}`;
+      }
+    } else if (turnChipEl) {
+      turnChipEl.classList.add('hidden');
     }
     for (const team of App.bt.teams) {
       const chip = document.createElement('div');
@@ -2680,15 +2656,11 @@ const BT = (() => {
     }
   }
 
-  // Show/hide BOTH the top-bar Next Turn and the center floater at once.
+  // Grey out / enable the status-bar Next Turn button when the turn may end.
+  // The cannon stays visible the whole time — it never vanishes.
   function setNextTurnVisible(v) {
-    $('bt-next-turn').classList.toggle('hidden', !v);
-    const fl = $('bt-next-turn-floater');
-    if (fl) fl.classList.toggle('hidden', !v);
-    // while the floater is up the cannon is done aiming — fade it so the
-    // barrel never hides behind the button.
-    const cannon = $('cannon-wrap');
-    if (cannon) cannon.classList.toggle('cannon-off', v);
+    const btn = $('bt-next-turn');
+    if (btn) btn.disabled = !v;
   }
 
   // Screen point where the cannon barrel throws the boom (armored fallback when off-screen).
@@ -2944,10 +2916,6 @@ const BT = (() => {
     // Always start battles in the clean main view (focus is opt-in per watch).
     App.bt.viewMode = 'main';
     $('bt-view-toggle').textContent = '🎥 Focus View';
-    const cn0 = $('cannon-wrap');
-    if (cn0) cn0.classList.remove('focus');
-    const fl0 = $('bt-next-turn-floater');
-    if (fl0) fl0.classList.remove('focus');
     // Hide ships: re-render teams (they hide automatically based on state)
     renderTeams();
     updateStatus();
@@ -3281,10 +3249,6 @@ const BT = (() => {
     App.bt.comboShots = 0;
     App.bt.viewMode = 'main';
     $('bt-view-toggle').textContent = '🎥 Focus View';
-    const cn = $('cannon-wrap');
-    if (cn) cn.classList.remove('focus');
-    const fl = $('bt-next-turn-floater');
-    if (fl) fl.classList.remove('focus');
     $('bt-start').classList.remove('hidden');
     $('bt-start').disabled = false;
     $('bt-add-team').disabled = false;
@@ -3418,11 +3382,6 @@ const BT = (() => {
       }
       gridEl.appendChild(sideBox);
     }
-    // cannon + floater dock into the right corner / bottom strip in Focus View
-    const cannon = $('cannon-wrap');
-    if (cannon) cannon.classList.add('focus');
-    const flr = $('bt-next-turn-floater');
-    if (flr) flr.classList.add('focus');
     requestAnimationFrame(drawAllTeams);
   }
   function registerFocusCanvas(fc, team) {
@@ -3487,10 +3446,6 @@ const BT = (() => {
   }
   function applyMainView() {
     // Re-render with the normal adaptive layout (rebuilds cards properly)
-    const fl = $('bt-next-turn-floater');
-    if (fl) fl.classList.remove('focus');
-    const cannon = $('cannon-wrap');
-    if (cannon) cannon.classList.remove('focus');
     gridEl_resetCSS();
     renderTeams();
   }
@@ -3617,7 +3572,6 @@ function init() {
   $('bt-start').addEventListener('click', BT.startGame);
   // Battle: next turn
   $('bt-next-turn').addEventListener('click', BT.nextTurn);
-  $('bt-next-turn-floater').addEventListener('click', BT.nextTurn);
   // Cannon aiming — follow the cursor (pointer covers mouse + touch)
   window.addEventListener('pointermove', e => { BT.aimCannon(e); }, { passive: true });
   // Battle: finish game early
@@ -3640,8 +3594,6 @@ function init() {
 
   // Wheel spin button
   $('wheel-spin').addEventListener('click', () => { BT.spinWheel(); });
-  // Attack cancel
-  $('attack-cancel').addEventListener('click', BT.closeAttackPopup);
 
   // Share popup
   $('share-close').addEventListener('click', () => $('share-popup').classList.add('hidden'));
