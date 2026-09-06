@@ -296,6 +296,22 @@ body {
   text-align: center;
   width: 100%;
 }
+/* Setup: click the team title to rename (locked once the game starts) */
+.team-map .map-header .name.renameable { cursor: pointer; }
+.team-map .map-header .name.renameable:hover .label {
+  text-decoration: underline dotted;
+  color: var(--accent);
+}
+.team-map .map-header .rename-input {
+  flex: 1; min-width: 0; width: 100%;
+  font: inherit; font-weight: 800;
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  padding: 1px 6px;
+  outline: none;
+}
 .team-map .canvas-wrap {
   /* holds the canvas; flexes to fill remaining card height after the header */
   flex: 1; min-height: 0; min-width: 0;
@@ -2246,6 +2262,8 @@ const BT = (() => {
         </div>
       `;
       card.appendChild(header);
+      // Setup only: click the team title to rename. Locked once the game starts.
+      if (App.bt.state === 'setup') enableTeamRename(header.querySelector('.name'), team);
       // canvas wrapper (flexes to fill remaining card height)
       const wrap = document.createElement('div');
       wrap.className = 'canvas-wrap';
@@ -2259,6 +2277,57 @@ const BT = (() => {
       attachTeamCanvas(cv, team);
     }
     requestAnimationFrame(drawAllTeams);
+  }
+
+  // ---------- Setup: click team title to rename (locked during play) ----------
+  function enableTeamRename(nameEl, team) {
+    nameEl.classList.add('renameable');
+    nameEl.title = 'Click to rename team — locked once the game starts';
+    nameEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (App.bt.state !== 'setup') return;
+      const label = nameEl.querySelector('.label');
+      if (!label) return;
+      const input = document.createElement('input');
+      input.className = 'rename-input';
+      input.type = 'text';
+      input.maxLength = 24;
+      input.value = team.name;
+      label.replaceWith(input);
+      input.focus();
+      input.select();
+      let done = false;
+      const restore = () => {
+        const lb = document.createElement('span');
+        lb.className = 'label';
+        lb.textContent = team.name;
+        input.replaceWith(lb);
+        enableTeamRename(nameEl, team);
+      };
+      const commit = () => {
+        if (done) return;
+        done = true;
+        const v = input.value.replace(/\s+/g, ' ').trim();
+        if (v && v !== team.name) {
+          team.name = v;
+          renderTeams();
+          updateStatus();
+          renderTurnList();
+        } else {
+          restore();
+        }
+      };
+      const cancel = () => {
+        if (done) return;
+        done = true;
+        restore();
+      };
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+      });
+      input.addEventListener('blur', commit);
+    });
   }
 
   function escapeHtml(s) {
