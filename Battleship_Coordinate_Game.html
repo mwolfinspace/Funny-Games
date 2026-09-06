@@ -1350,7 +1350,7 @@ const BOOM_HOVER = '💣';
 const SUNK_EMOJI = '💀';
 
 // Exactly 91 distinct chars (base-91 seed system)
-const SEED_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@#$^*-+=?_.;:,()|[]{}<>/\'&";
+const SEED_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@#$%^&*()-_=+[]{}|;:,.<>/?`";
 const SEED_BASE = 91n;
 
 // App state
@@ -1645,16 +1645,28 @@ function notify(kind, text, duration=3200) {
 }
 
 // ============================================================
-// SEED ENCODE/DECODE
-// One canonical compact seed format. No version tags or legacy fallbacks.
-//
-// Header = 3 base-91 characters containing:
-//   mode (0 sparse / 1 bitmask), ship count (0..400), width (4..20), height (4..20)
-// Sparse payload stores sorted cell positions as gap values. Small gaps cost 1 char;
-// large gaps use an escape + base-91 value. Dense maps use the exact occupancy bitmask.
-// The shorter representation is selected automatically.
 // ============================================================
+// SEED ENCODE/DECODE
+// One canonical format. Commander state is NEVER stored.
+// The seed stores only:
+//   1) width + height
+//   2) exact occupied ship cells
+//
+// Payload uses enumerative subset coding: all maps with k occupied cells are
+// packed into one continuous integer range. This is much shorter than storing
+// each coordinate/gap separately, while remaining exact and deterministic.
+//
+// Header: 2 base-91 chars
+//   dimension index (0..288)
+//   3-bit integrity check
+//
+// Payload: variable-length base-91 integer.
+//
+// There is intentionally NO backward compatibility layer and NO v2 marker.
+// ============================================================
+
 function encodeBase91(num) {
+  if (num < 0n) throw new Error('Negative seed number');
   if (num === 0n) return SEED_ALPHABET[0];
   let out = '';
   while (num > 0n) {
@@ -1675,146 +1687,143 @@ function decodeBase91(seed) {
   return num;
 }
 
-// We reserve the last valid alphabet character as the sparse escape marker.
-// The seed alphabet has exactly 91 characters; this fixes the old 94-character
-// alphabet bug where decoder-only characters could never be encoded correctly.
-const SEED_ESC = SEED_ALPHABET[90];
-const SEED_DATA = SEED_ALPHABET.slice(0, 90);
-
-function encodeHeader(mode, count, width, height) {
-  let n = BigInt(mode);
-  n = n * 401n + BigInt(count);
-  n = n * 17n + BigInt(width - 4);
-  n = n * 17n + BigInt(height - 4);
-  let out = encodeBase91(n);
-  while (out.length < 3) out = SEED_ALPHABET[0] + out;
-  if (out.length !== 3) throw new Error('Seed header overflow');
-  return out;
+function combinationRow(n) {
+  const row = new Array(n + 1);
+  row[0] = 1n;
+  for (let k = 1; k <= n; k++) {
+    row[k] = row[k - 1] * BigInt(n - k + 1) / BigInt(k);
+  }
+  return row;
 }
 
-function decodeHeader(s) {
-  if (s.length !== 3) throw new Error('Bad seed header');
-  let n = decodeBase91(s);
-  const height = Number(n % 17n) + 4; n /= 17n;
-  const width  = Number(n % 17n) + 4; n /= 17n;
-  const count  = Number(n % 401n); n /= 401n;
-  const mode   = Number(n);
-  if ((mode !== 0 && mode !== 1) || width < 4 || width > 20 || height < 4 || height > 20) {
-    throw new Error('Invalid seed header');
+const BINOM_MEMO = new Map();
+function binomial(n, k) {
+  if (k < 0 || k > n) return 0n;
+  if (k === 0 || k === n) return 1n;
+  if (k > n - k) k = n - k;
+  const memoKey = n + ',' + k;
+  const cached = BINOM_MEMO.get(memoKey);
+  if (cached !== undefined) return cached;
+  let r = 1n;
+  for (let i = 1; i <= k; i++) {
+    r = r * BigInt(n - k + i) / BigInt(i);
   }
-  return { mode, count, width, height };
+  BINOM_MEMO.set(memoKey, r);
+  return r;
+}
+
+function encodeSeedHeader(width, height, check) {
+  const dim = (width - 4) * 17 + (height - 4); // 0..288
+  // 289 * 8 = 2312 < 91^2 = 8281, so integrity bits cost no extra char.
+  return encodeBase91(BigInt(dim * 8 + (check & 7))).padStart(2, SEED_ALPHABET[0]);
+}
+
+function decodeSeedHeader(seed) {
+  if (seed.length !== 2) throw new Error('Bad seed header');
+  const v = Number(decodeBase91(seed));
+  if (!Number.isSafeInteger(v) || v < 0 || v >= 2312) throw new Error('Invalid seed header');
+  const check = v & 7;
+  const dim = Math.floor(v / 8);
+  const width = Math.floor(dim / 17) + 4;
+  const height = (dim % 17) + 4;
+  if (width < 4 || width > 20 || height < 4 || height > 20) {
+    throw new Error('Invalid map size');
+  }
+  return { width, height, check };
 }
 
 function collectShipPositions(width, height, ships) {
   const cells = width * height;
+  const positions = [];
   const seen = new Set();
   for (const s of ships.values()) {
     if (!s || !Number.isInteger(s.x) || !Number.isInteger(s.y)) continue;
     if (s.x < 0 || s.x >= width || s.y < 0 || s.y >= height) continue;
-    seen.add(s.y * width + s.x);
-  }
-  return [...seen].sort((a, b) => a - b).filter(p => p >= 0 && p < cells);
-}
-
-function encodeSparsePayload(positions, cells) {
-  let prev = -1;
-  let out = '';
-  for (const pos of positions) {
-    const gap = pos - prev - 1;
-    if (gap < 0 || gap >= cells) throw new Error('Bad ship position');
-    if (gap < 90) {
-      out += SEED_DATA[gap];
-    } else {
-      // Fixed two-character tail: unambiguous and exact for all 4..20 maps.
-      const value = gap - 90;
-      if (value < 0 || value >= 310) throw new Error('Bad seed gap');
-      let tail = encodeBase91(BigInt(value));
-      while (tail.length < 2) tail = SEED_ALPHABET[0] + tail;
-      if (tail.length !== 2) throw new Error('Bad seed gap');
-      out += SEED_ESC + tail;
+    const p = s.y * width + s.x;
+    if (!seen.has(p)) {
+      seen.add(p);
+      positions.push(p);
     }
-    prev = pos;
   }
-  return out;
-}
-
-function decodeSparsePayload(payload, count, width, height) {
-  const cells = width * height;
-  const positions = [];
-  let prev = -1;
-  let i = 0;
-  while (positions.length < count) {
-    if (i >= payload.length) throw new Error('Truncated seed');
-    const c = payload[i++];
-    let gap;
-    const idx = SEED_DATA.indexOf(c);
-    if (idx >= 0) {
-      gap = idx;
-    } else if (c === SEED_ESC) {
-      if (i + 1 >= payload.length) throw new Error('Truncated seed escape');
-      const a = SEED_ALPHABET.indexOf(payload[i++]);
-      const b = SEED_ALPHABET.indexOf(payload[i++]);
-      if (a < 0 || b < 0) throw new Error('Invalid seed escape');
-      const value = a * 91 + b;
-      gap = 90 + value;
-      if (gap >= cells) throw new Error('Bad seed gap');
-    } else {
-      throw new Error('Invalid seed character');
-    }
-    const pos = prev + gap + 1;
-    if (pos < 0 || pos >= cells || (positions.length && pos <= prev)) {
-      throw new Error('Corrupted seed');
-    }
-    positions.push(pos);
-    prev = pos;
-  }
-  if (i !== payload.length) throw new Error('Trailing seed data');
+  positions.sort((a, b) => a - b);
+  if (positions.length > cells) throw new Error('Too many ship cells');
   return positions;
 }
 
-function encodeDensePayload(positions) {
-  let mask = 0n;
-  for (const pos of positions) mask |= 1n << BigInt(pos);
-  return encodeBase91(mask);
+// Convert a subset to one integer while implicitly carrying its cell count.
+// offset(k) = C(n,0) + ... + C(n,k-1)
+function subsetToOrdinal(positions, n) {
+  const k = positions.length;
+  const comb = new Array(n + 1);
+  comb[0] = 1n;
+  for (let i = 1; i <= n; i++) {
+    comb[i] = comb[i - 1] * BigInt(n - i + 1) / BigInt(i);
+  }
+
+  let offset = 0n;
+  for (let i = 0; i < k; i++) offset += comb[i];
+
+  // Lexicographic rank, without constructing any large intermediate arrays.
+  let rank = 0n;
+  let prev = -1;
+  for (let i = 0; i < k; i++) {
+    const chosen = positions[i];
+    const remaining = k - i - 1;
+    for (let p = prev + 1; p < chosen; p++) {
+      rank += comb[n - 1 - p - 0] ? binomial(n - 1 - p, remaining) : 0n;
+    }
+    prev = chosen;
+  }
+  return offset + rank;
 }
 
-function decodeDensePayload(payload, count, cells) {
-  const mask = decodeBase91(payload);
-  if ((mask >> BigInt(cells)) !== 0n) throw new Error('Corrupted seed');
-  let actual = 0;
-  const positions = [];
-  for (let i = 0; i < cells; i++) {
-    if ((mask & (1n << BigInt(i))) !== 0n) {
-      actual++;
-      positions.push(i);
-    }
+function ordinalToSubset(ordinal, n) {
+  const comb = combinationRow(n);
+  let k = 0;
+  let rank = ordinal;
+
+  // Locate the occupied-cell count bucket.
+  while (k <= n && rank >= comb[k]) {
+    rank -= comb[k];
+    k++;
   }
-  if (actual !== count) throw new Error('Corrupted seed');
+  if (k > n) throw new Error('Seed payload out of range');
+
+  if (k === 0) return [];
+
+  const positions = [];
+  let prev = -1;
+  for (let i = 0; i < k; i++) {
+    const remaining = k - i - 1;
+    let chosen = -1;
+    for (let p = prev + 1; p <= n - remaining - 1; p++) {
+      const block = binomial(n - 1 - p, remaining);
+      if (rank < block) {
+        chosen = p;
+        break;
+      }
+      rank -= block;
+    }
+    if (chosen < 0) throw new Error('Corrupted seed payload');
+    positions.push(chosen);
+    prev = chosen;
+  }
+  if (rank !== 0n) throw new Error('Corrupted seed payload');
   return positions;
 }
 
-function seedChecksum(width, height, positions) {
-  // 13-bit checksum: small overhead, strong protection against accidental
-  // copy/paste edits while keeping normal sparse seeds very short.
-  let h = 2166136261 >>> 0;
-  const mix = v => { h ^= (v & 255); h = Math.imul(h, 16777619) >>> 0; };
-  mix(width); mix(height); mix(positions.length);
-  for (const p of positions) { mix(p & 255); mix((p >>> 8) & 255); }
-  return h % 8281;
-}
-
-function encodeChecksum(v) {
-  let a = v % 91;
-  let b = Math.floor(v / 91) % 91;
-  return SEED_ALPHABET[a] + SEED_ALPHABET[b];
-}
-
-function decodeChecksum(s) {
-  if (s.length !== 2) throw new Error('Bad seed checksum');
-  const a = SEED_ALPHABET.indexOf(s[0]);
-  const b = SEED_ALPHABET.indexOf(s[1]);
-  if (a < 0 || b < 0) throw new Error('Bad seed checksum');
-  return a + b * 91;
+function seedIntegrity(width, height, positions) {
+  // Deliberately compact 3-bit integrity value. Header space has enough
+  // unused states to carry these bits without adding another character.
+  let h = 0x9e3779b9 >>> 0;
+  h ^= Math.imul(width, 0x45d9f3b) >>> 0;
+  h ^= Math.imul(height, 0x27d4eb2d) >>> 0;
+  h ^= Math.imul(positions.length + 1, 0x165667b1) >>> 0;
+  for (const p of positions) {
+    h ^= Math.imul((p + 1) >>> 0, 0x9e3779b1) >>> 0;
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  }
+  return h & 7;
 }
 
 function encodeSeed(width, height, ships) {
@@ -1822,31 +1831,23 @@ function encodeSeed(width, height, ships) {
       width < 4 || width > 20 || height < 4 || height > 20) {
     throw new Error('Bad map size');
   }
-  const cells = width * height;
+
   const positions = collectShipPositions(width, height, ships);
-  const sparsePayload = encodeSparsePayload(positions, cells);
-  const sparse = encodeHeader(0, positions.length, width, height) + sparsePayload;
-  const dense = encodeHeader(1, positions.length, width, height) + encodeDensePayload(positions);
-  const body = sparse.length <= dense.length ? sparse : dense;
-  return body + encodeChecksum(seedChecksum(width, height, positions));
+  const ordinal = subsetToOrdinal(positions, width * height);
+  const check = seedIntegrity(width, height, positions);
+
+  return encodeSeedHeader(width, height, check) + encodeBase91(ordinal);
 }
 
 function decodeSeed(seed) {
   const s = String(seed || '').trim();
-  if (!s) throw new Error('Empty seed');
   if (s.length < 3) throw new Error('Seed too short');
 
-  if (s.length < 5) throw new Error('Seed too short');
-  const { mode, count, width, height } = decodeHeader(s.slice(0, 3));
-  const cells = width * height;
-  if (count > cells) throw new Error('Bad ship count');
+  const { width, height, check } = decodeSeedHeader(s.slice(0, 2));
+  const ordinal = decodeBase91(s.slice(2));
+  const positions = ordinalToSubset(ordinal, width * height);
 
-  const expectedChecksum = decodeChecksum(s.slice(-2));
-  const payload = s.slice(3, -2);
-  const positions = mode === 0
-    ? decodeSparsePayload(payload, count, width, height)
-    : decodeDensePayload(payload, count, cells);
-  if (seedChecksum(width, height, positions) !== expectedChecksum) {
+  if (seedIntegrity(width, height, positions) !== check) {
     throw new Error('Corrupted seed');
   }
 
@@ -1856,6 +1857,7 @@ function decodeSeed(seed) {
     const y = Math.floor(i / width);
     ships.set(key(x, y), { x, y, commander: false });
   }
+
   return { width, height, ships, shipCount: ships.size };
 }
 
