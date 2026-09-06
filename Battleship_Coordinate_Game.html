@@ -160,6 +160,20 @@ body {
   height: 100%;
 }
 .size-group select { width: 64px; cursor: pointer; }
+.size-group .stepper {
+  display: flex; align-items: center; gap: 2px;
+}
+.stepper .stepper-btn {
+  width: var(--ctrl-h); min-width: var(--ctrl-h);
+  padding: 0;
+  font-size: 16px; font-weight: 900; line-height: 1;
+  color: var(--ocean-deep);
+  background: var(--paper);
+  border-color: var(--line);
+}
+.stepper .stepper-btn:hover { background: #fff3e2; color: var(--accent); }
+.stepper .stepper-btn:active { color: var(--accent); }
+.size-group input[type=number] { width: 38px; }
 
 /* ===== Welcome screen ===== */
 #welcome-screen {
@@ -231,9 +245,7 @@ body {
 .game-zone {
   flex: 1; position: relative;
   overflow: hidden;
-  /* 208px bottom reserve keeps the board clear of the cannon shooter
-     (fixed, below center) and the floating Next Turn button. */
-  padding: 12px 12px 208px 12px;
+  padding: 12px;
   display: flex; align-items: center; justify-content: center;
   min-height: 0;
 }
@@ -460,9 +472,10 @@ body {
 .statusbar .msg {
   color: var(--ink-soft); font-weight: 700;
   flex-shrink: 0;
-  max-width: 320px;
+  width: 320px; max-width: 34vw;
+  margin-left: auto;            /* pin hint text to the right side */
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding-right: 12px; border-right: 1px solid var(--line);
+  padding-left: 14px; border-left: 1px solid var(--line);
   letter-spacing: 0.2px;
 }
 .statusbar #bt-chips {
@@ -770,12 +783,23 @@ body {
 /* ===== Mobile ===== */
 @media (max-width: 760px) {
   :root { --ctrl-h: 32px; --ctrl-font: 12px; }
-  .topbar { padding: 6px 8px; gap: 6px; min-height: calc(var(--ctrl-h) + 12px); }
+  .topbar {
+    padding: 6px 8px;
+    gap: 6px;
+    min-height: calc(var(--ctrl-h) + 12px);
+    flex-wrap: nowrap;
+    overflow-x: auto; overflow-y: hidden;
+    justify-content: flex-start;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
   .topbar .brand { font-size: 13px; }
   .topbar .brand .emoji { font-size: 18px; }
   .btn { padding: 0 10px; font-size: 12px; }
   .seed-box input { min-width: 70px; max-width: 160px; font-size: 11px; }
-  .seed-box label, .size-group label { display: none; }
+  .seed-box label { display: none; }
+  .stepper .stepper-btn { width: 28px; min-width: 28px; }
   .game-grid { gap: 8px; padding: 0; }
   .team-map { padding: 6px; }
   .team-map .map-header { font-size: 11px; padding: 2px 4px; min-height: 22px; }
@@ -795,7 +819,6 @@ body {
   #cannon-wrap { bottom: 46px; transform: scale(0.82); transform-origin: 50% 100%; }
   .next-turn-floater { bottom: 122px; padding: 12px 24px; font-size: 15px; }
   .boom-proj { width: 40px; height: 40px; font-size: 40px; line-height: 40px; }
-  .game-zone { padding: 8px 8px 174px 8px; }
 }
 </style>
 </head>
@@ -820,10 +843,20 @@ body {
     <button class="btn btn-soft" id="mm-back">◀ Menu</button>
     <div class="brand"><span class="emoji">🗺️</span> Map Maker</div>
     <div class="size-group">
-      <label>Size</label>
-      <input type="number" id="mm-width" min="4" max="20" value="10">
-      <span>×</span>
-      <input type="number" id="mm-height" min="4" max="20" value="10">
+      <label>Rows</label>
+      <div class="stepper">
+        <button type="button" class="btn btn-soft stepper-btn" id="mm-hminus" title="Fewer rows" aria-label="Fewer rows" tabindex="-1">−</button>
+        <input type="number" id="mm-height" min="4" max="20" value="10">
+        <button type="button" class="btn btn-soft stepper-btn" id="mm-hplus" title="More rows" aria-label="More rows" tabindex="-1">+</button>
+      </div>
+    </div>
+    <div class="size-group">
+      <label>Columns</label>
+      <div class="stepper">
+        <button type="button" class="btn btn-soft stepper-btn" id="mm-wminus" title="Fewer columns" aria-label="Fewer columns" tabindex="-1">−</button>
+        <input type="number" id="mm-width" min="4" max="20" value="10">
+        <button type="button" class="btn btn-soft stepper-btn" id="mm-wplus" title="More columns" aria-label="More columns" tabindex="-1">+</button>
+      </div>
     </div>
     <div class="seed-box">
       <label>Seed</label>
@@ -879,8 +912,8 @@ body {
   </div>
   <button class="btn btn-soft next-turn-floater hidden" id="bt-next-turn-floater">➡️ Next Turn</button>
   <div class="statusbar" id="bt-statusbar">
-    <div class="msg" id="bt-msg">Add teams to start. Each team needs a seed from Map Maker.</div>
     <div id="bt-chips"></div>
+    <div class="msg" id="bt-msg">Add teams to start. Each team needs a seed from Map Maker.</div>
   </div>
 </div>
 
@@ -1387,23 +1420,31 @@ function drawAxes(ctx, m, opts) {
     const ly = originY - (y + 0.5) * cellS;
     ctx.beginPath(); ctx.moveTo(originX, ly); ctx.lineTo(originX + gridWidth, ly); ctx.stroke();
   }
-  // Numbers
-  const fs = Math.max(11, cellS * 0.55);
+  // Numbers — strong dark ink with a white halo so they stay readable from
+  // far away (classroom/TV) on any light team-tinted background.
+  const fs = Math.max(13, cellS * 0.6);
+  const numCol = '#14323d';
   ctx.font = `bold ${fs}px 'Segoe UI', sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const haloW = Math.max(2.5, cellS * 0.07);
+  const label = (text, tx, ty) => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.lineWidth = haloW;
+    ctx.lineJoin = 'round';
+    ctx.strokeText(text, tx, ty);
+    ctx.fillStyle = numCol;
+    ctx.fillText(text, tx, ty);
+  };
   // X numbers (below x-axis)
-  ctx.fillStyle = xColor;
-  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   for (let x = 0; x < gridW; x++) {
     const cx = originX + (x + 0.5) * cellS;
-    ctx.fillText(x, cx, originY + 8);
+    label(x, cx, originY + 8);
   }
   // Y numbers (left of y-axis)
-  ctx.fillStyle = yColor;
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let y = 0; y < gridH; y++) {
     const cy = originY - (y + 0.5) * cellS;
-    ctx.fillText(y, originX - 8, cy);
+    label(y, originX - 8, cy);
   }
   // Axes lines with arrows
   ctx.strokeStyle = axisColor;
@@ -1429,10 +1470,8 @@ function drawAxes(ctx, m, opts) {
   ctx.lineTo(xAxisRight, xAxisY + arrowSize/2);
   ctx.closePath(); ctx.fill();
   // O label
-  ctx.fillStyle = '#14323d';
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-  ctx.font = `bold ${fs}px 'Segoe UI', sans-serif`;
-  ctx.fillText('O', originX - 6, originY + 4);
+  label('O', originX - 6, originY + 4);
 }
 
 function drawShipIcon(ctx, cx, cy, cellS, isCommander, opts) {
@@ -1780,6 +1819,17 @@ const MM = (() => {
     $('mm-height').addEventListener('change', e => setSize($('mm-width').value, e.target.value));
     $('mm-width').addEventListener('input', e => setSize(e.target.value, $('mm-height').value));
     $('mm-height').addEventListener('input', e => setSize($('mm-width').value, e.target.value));
+    // rows / columns steppers
+    const stepSize = (inpId, d) => {
+      const el = $(inpId);
+      const v = clamp((parseInt(el.value) || 10) + d, 4, 20);
+      el.value = v;
+      setSize($('mm-width').value, $('mm-height').value);
+    };
+    $('mm-wminus').addEventListener('click', () => stepSize('mm-width', -1));
+    $('mm-wplus').addEventListener('click', () => stepSize('mm-width', +1));
+    $('mm-hminus').addEventListener('click', () => stepSize('mm-height', -1));
+    $('mm-hplus').addEventListener('click', () => stepSize('mm-height', +1));
     // seed box
     $('mm-load').addEventListener('click', () => loadSeed($('mm-seed').value));
     $('mm-seed').addEventListener('keydown', e => {
@@ -2097,9 +2147,7 @@ const BT = (() => {
     const HEADER_ALLOWANCE = 0.8;
     const cardARs = App.bt.teams.map(t => t.width / (t.height + HEADER_ALLOWANCE));
     const vw = window.innerWidth, vh = window.innerHeight;
-    // Reserve 208px at the bottom for the cannon shooter + floating Next Turn
-    // button (see .game-zone padding) so the grid is sized to the free area.
-    const availW = vw - 32 - 24, availH = vh - 56 - 40 - 208;
+    const availW = vw - 32 - 24, availH = vh - 56 - 40 - 24;
     // Try each column count; pick the one that gives the biggest minimum card
     // dimension (so the smallest grid is as large as possible) while fitting.
     let bestCols = n, bestMinDim = -Infinity, bestCardW = 0;
