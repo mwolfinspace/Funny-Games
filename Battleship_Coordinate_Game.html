@@ -87,6 +87,8 @@ body {
 .btn:active { transform: translateY(0); }
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn-primary:hover { background: #f08930; }
+.btn-danger { background: var(--bad); color: #fff; border-color: var(--bad); }
+.btn-danger:hover { background: #d64545; }
 .btn-soft { background: var(--paper); border-color: var(--line); }
 .btn-soft:hover { background: var(--paper-2); }
 .btn-ghost { background: transparent; box-shadow: none; border-color: transparent; color: var(--ink-soft); }
@@ -301,6 +303,29 @@ body {
 }
 /* Setup: click the team title to rename (locked once the game starts) */
 .team-map .map-header .name.renameable { cursor: pointer; }
+/* Setup: a ✕ in the card corner removes this team */
+.team-map .team-remove-x {
+  position: absolute;
+  top: 4px; right: 4px;
+  z-index: 5;
+  width: 22px; height: 22px;
+  line-height: 1;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.10);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.team-map .team-remove-x:hover {
+  background: var(--bad);
+  color: #fff;
+  transform: scale(1.1);
+}
 .team-map .map-header .name.renameable:hover .label {
   text-decoration: underline dotted;
   color: var(--accent);
@@ -915,7 +940,6 @@ body {
     <button class="btn btn-soft" id="bt-back-mm">◀ Map Maker</button>
     <div class="brand"><span class="emoji">⚔️</span> Go Battle</div>
     <button class="btn btn-soft" id="bt-add-team">➕ Add Team</button>
-    <button class="btn btn-soft" id="bt-remove-team">➖ Remove Team</button>
     <button class="btn btn-soft" id="bt-auto-gen">⚡ Auto Generate</button>
     <div class="size-group">
       <label>Turns</label>
@@ -1012,6 +1036,18 @@ body {
       <canvas class="wheel-canvas" id="wheel-canvas" width="340" height="340"></canvas>
       <button class="btn btn-primary wheel-spin-btn" id="wheel-spin">🎯 Spin!</button>
       <div style="font-size:13px;color:var(--ink-soft);font-weight:600;min-height:18px" id="wheel-info">Click to spin for next team...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFIRM POPUP (styled replacement for native confirm) ===== -->
+<div id="confirm-popup" class="popup-backdrop hidden">
+  <div class="popup" style="max-width:400px">
+    <h2 id="confirm-title">⚠️ Please confirm</h2>
+    <div id="confirm-msg" style="font-size:14px;color:var(--ink);line-height:1.5"></div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-primary" id="confirm-ok">OK</button>
     </div>
   </div>
 </div>
@@ -1244,6 +1280,33 @@ function showToast(text, kind='info') {
   el.textContent = text;
   clearTimeout(el._t);
   el._t = setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+// ------------------------------------------------------------
+// confirmDialog(msg, opts) — styled replacement for native confirm().
+//   msg   : message to show (may contain HTML)
+//   opts  : { ok='OK', cancel='Cancel', danger=false }
+// Returns a Promise<boolean> resolving true when OK is clicked.
+// Only one confirm dialog at a time; the latest call wins.
+// ------------------------------------------------------------
+let _confirmCb = null;
+function confirmDialog(msg, opts = {}) {
+  return new Promise((resolve) => {
+    const pop = $('confirm-popup');
+    if (!pop) { resolve(false); return; }
+    const okBtn = $('confirm-ok');
+    $('confirm-msg').innerHTML = msg;
+    $('confirm-title').textContent = opts.title || '⚠️ Please confirm';
+    okBtn.textContent = opts.ok || 'OK';
+    $('confirm-cancel').textContent = opts.cancel || 'Cancel';
+    okBtn.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+    _confirmCb = (val) => {
+      pop.classList.add('hidden');
+      _confirmCb = null;
+      resolve(val);
+    };
+    pop.classList.remove('hidden');
+  });
 }
 
 // Floating notification stack (top-right). `kind` controls color + icon:
@@ -1742,11 +1805,13 @@ const MM = (() => {
 
   function clear() {
     if (App.mm.ships.size === 0) return;
-    if (!confirm('Clear all ships on the map?')) return;
-    App.mm.ships.clear();
-    updateSeed();
-    scheduleDraw();
-    saveLocal();
+    confirmDialog('Clear all ships on the map?', { ok: 'Clear', danger: true }).then(ok => {
+      if (!ok) return;
+      App.mm.ships.clear();
+      updateSeed();
+      scheduleDraw();
+      saveLocal();
+    });
   }
 
   function saveLocal() {
@@ -2061,15 +2126,16 @@ const BT = (() => {
   }
 
   // ---------- Remove Team ----------
-  function removeTeam() {
+  function removeTeam(teamId) {
     if (App.bt.state === 'playing') {
       showToast('⚠️ Cannot remove teams during play.');
       return;
     }
     if (App.bt.teams.length === 0) return;
-    const last = App.bt.teams[App.bt.teams.length - 1];
-    if (!confirm(`Remove team "${last.name}"?`)) return;
-    App.bt.teams.pop();
+    const idx = App.bt.teams.findIndex(t => t.id === teamId);
+    if (idx < 0) return;
+    App.bt.teams.splice(idx, 1);
+    if (App.bt.targetTeamId === teamId) App.bt.targetTeamId = null;
     renderTeams();
     updateStatus();
     saveSnapshot();
@@ -2271,14 +2337,30 @@ const BT = (() => {
       // vertical space so the grid can expand bigger.
       const header = document.createElement('div');
       header.className = 'map-header';
-      header.innerHTML = `
-        <div class="name" style="flex:1; justify-content:center">
-          <span class="label">${escapeHtml(team.name)}</span>
-        </div>
-      `;
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'name';
+      nameDiv.style.flex = '1';
+      nameDiv.style.justifyContent = 'center';
+      nameDiv.innerHTML = `<span class="label">${escapeHtml(team.name)}</span>`;
+      header.appendChild(nameDiv);
+      // Setup only: a ✕ button in the card corner removes this team (no number
+      // input needed). Hidden once the game starts.
+      if (App.bt.state === 'setup') {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'team-remove-x';
+        removeBtn.type = 'button';
+        removeBtn.title = 'Remove this team';
+        removeBtn.textContent = '✕';
+        removeBtn.setAttribute('aria-label', 'Remove ' + escapeHtml(team.name));
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeTeam(team.id);
+        });
+        card.appendChild(removeBtn);
+      }
       card.appendChild(header);
       // Setup only: click the team title to rename. Locked once the game starts.
-      if (App.bt.state === 'setup') enableTeamRename(header.querySelector('.name'), team);
+      if (App.bt.state === 'setup') enableTeamRename(nameDiv, team);
       // canvas wrapper (flexes to fill remaining card height)
       const wrap = document.createElement('div');
       wrap.className = 'canvas-wrap';
@@ -2573,8 +2655,9 @@ const BT = (() => {
   // ---------- Finish Game (early end) ----------
   function finishGame() {
     if (App.bt.state !== 'playing') return;
-    if (!confirm('Finish the game now and show the scoreboard?')) return;
-    endGame('Game finished early by player.');
+    confirmDialog('Finish the game now and show the scoreboard?', { ok: 'Finish', danger: true }).then(ok => {
+      if (ok) endGame('Game finished early by player.');
+    });
   }
 
   // ---------- Shoot at a cell ----------
@@ -2829,7 +2912,6 @@ const BT = (() => {
     openWheelPopup();
     $('bt-start').classList.add('hidden');
     $('bt-add-team').disabled = true;
-    $('bt-remove-team').disabled = true;
     $('bt-auto-gen').disabled = true;
     $('bt-turn-limit').disabled = true;
     document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = true);
@@ -3310,7 +3392,7 @@ const BT = (() => {
     $('bt-start').classList.remove('hidden');
     $('bt-start').disabled = false;
     $('bt-add-team').disabled = false;
-    $('bt-remove-team').disabled = false;
+    $('bt-auto-gen').disabled = false;
     $('bt-auto-gen').disabled = false;
     $('bt-turn-limit').disabled = false;
     document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = false);
@@ -3345,7 +3427,6 @@ const BT = (() => {
     App.bt.nextTeamId = 1;
     $('bt-start').classList.remove('hidden');
     $('bt-add-team').disabled = false;
-    $('bt-remove-team').disabled = false;
     $('bt-auto-gen').disabled = false;
     $('bt-turn-limit').disabled = false;
     document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = false);
@@ -3361,7 +3442,10 @@ const BT = (() => {
   // ---------- Back to Map Maker (preserve state) ----------
   function backToMapMaker() {
     if (App.bt.state === 'playing') {
-      if (!confirm('Leave the battle? You can come back via Go Battle button.')) return;
+      confirmDialog('Leave the battle? You can come back via the Go Battle button.', { ok: 'Leave' }).then(ok => {
+        if (ok) switchScreen('mapmaker');
+      });
+      return;
     }
     switchScreen('mapmaker');
   }
@@ -3596,6 +3680,9 @@ function init() {
   // Welcome
   $('goto-mapmaker').addEventListener('click', () => switchScreen('mapmaker'));
   $('goto-battle').addEventListener('click', () => switchScreen('battle'));
+  // Confirm dialog buttons
+  $('confirm-ok').addEventListener('click', () => { if (_confirmCb) _confirmCb(true); });
+  $('confirm-cancel').addEventListener('click', () => { if (_confirmCb) _confirmCb(false); });
   // Map Maker init
   MM.init();
 
@@ -3622,8 +3709,6 @@ function init() {
     }, 0);
   });
 
-  // Battle: remove team
-  $('bt-remove-team').addEventListener('click', BT.removeTeam);
   // Battle: auto gen
   $('bt-auto-gen').addEventListener('click', BT.autoGenerate);
   // Battle: start
