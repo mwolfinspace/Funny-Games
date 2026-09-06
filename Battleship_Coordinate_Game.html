@@ -455,10 +455,10 @@ body {
 .statusbar {
   background: rgba(255,255,255,0.96);
   border-top: 2px solid var(--line);
-  padding: 10px 16px;
+  padding: 8px 16px;
   display: flex; align-items: center; gap: 12px;
   font-size: 12px;
-  min-height: 52px;
+  min-height: 62px;
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
@@ -481,21 +481,38 @@ body {
 .statusbar #bt-chips {
   display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
 }
-/* Per-team compact chip: [color dot] Name [seed] ⭐ 💥/🚢 */
+/* Per-team pill: top row = [◉] Name ⭐ 💥/🚢, bottom = [rank] full seed */
 .team-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 12px 6px 8px;
+  display: inline-flex; flex-direction: column; align-items: stretch;
+  gap: 2px;
+  padding: 5px 10px 5px 8px;
   background: var(--paper-2);
   border: 1px solid var(--line);
   border-left: 5px solid var(--line);
   border-radius: 10px;  /* soft pill corners */
   font-weight: 700; font-size: 12px;
   flex-shrink: 0;
-  height: 36px;
+  min-width: 170px;
+  height: auto;
   line-height: 1;
   cursor: default;
   transition: opacity 0.2s, transform 0.1s, box-shadow 0.1s;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.team-chip .chip-top {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+}
+.team-chip .chip-meta {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+}
+.team-chip .rank {
+  flex-shrink: 0;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 11px; font-weight: 900;
+  color: var(--ocean-deep);
+  background: var(--paper);
+  padding: 1px 5px; border-radius: 5px;
+  border: 1px solid var(--line);
 }
 .team-chip:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.12); transform: translateY(-1px); }
 /* Active (attacking/turn) team highlight on the status bar */
@@ -531,8 +548,10 @@ body {
   border: 1px solid var(--line);
   cursor: pointer;
   user-select: text; -webkit-user-select: text;
-  max-width: 76px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;          /* full seed code — never clipped */
+  overflow: visible;
   transition: background 0.15s;
 }
 .team-chip .seed:hover { background: #fff5e8; border-color: var(--accent); }
@@ -822,10 +841,10 @@ body {
   .color-grid { grid-template-columns: repeat(8, 1fr); }
   .welcome-card { padding: 28px 20px; }
   /* status bar compact on mobile */
-  .statusbar { padding: 7px 10px; min-height: 44px; gap: 8px; }
-  .team-chip { height: 30px; padding: 4px 8px 4px 6px; font-size: 11px; }
+  .statusbar { padding: 7px 10px; min-height: 58px; gap: 8px; }
+  .team-chip { min-width: 0; padding: 4px 8px 4px 6px; font-size: 11px; }
   .team-chip .name { max-width: 64px; }
-  .team-chip .seed { max-width: 56px; font-size: 9px; }
+  .team-chip .seed { max-width: none; font-size: 9px; }
   .turn-chip { height: 30px; padding: 4px 9px; font-size: 11px; }
   /* compact cannon + floater on phones */
   #cannon-wrap { bottom: 46px; transform: scale(0.82); transform-origin: 50% 100%; }
@@ -2153,12 +2172,17 @@ const BT = (() => {
     // the card tightly. We pick the column count that maximizes card size
     // while keeping all cards visible without scrolling, AND we set an
     // explicit width on each card so the aspect-ratio is honored properly.
-    const n = App.bt.teams.length;
+    // Eliminated teams drop out during play so survivors take over the
+    // freed space (the whole battlefield reads at a glance).
+    const layoutTeams = (App.bt.state === 'playing')
+      ? App.bt.teams.filter(t => t.alive)
+      : App.bt.teams;
+    const n = Math.max(1, layoutTeams.length);
     // Each team's card aspect ratio = gridWidth / (gridHeight + 0.8) — the +0.8
     // accounts for the title-only header (no star badge now, so smaller allowance).
     // This makes the canvas inside the card exactly grid-aspect-shaped.
     const HEADER_ALLOWANCE = 0.8;
-    const cardARs = App.bt.teams.map(t => t.width / (t.height + HEADER_ALLOWANCE));
+    const cardARs = layoutTeams.map(t => t.width / (t.height + HEADER_ALLOWANCE));
     const vw = window.innerWidth, vh = window.innerHeight;
     const availW = vw - 32 - 24, availH = vh - 56 - 40 - 24;
     // Try each column count; pick the one that gives the biggest minimum card
@@ -2193,7 +2217,7 @@ const BT = (() => {
     }
     const cols = bestCols;
     grid.style.gridTemplateColumns = `repeat(${cols}, ${Math.floor(bestCardW)}px)`;
-    for (const team of App.bt.teams) {
+    for (const team of layoutTeams) {
       const card = document.createElement('div');
       card.className = 'team-map';
       card.dataset.teamId = team.id;
@@ -2371,6 +2395,13 @@ const BT = (() => {
   }
 
   // ---------- Update status (status bar chips + topbar buttons) ----------
+  function shipStat(team) {
+    let sunk = 0, alive = 0;
+    for (const s of team.ships.values()) {
+      if (team.board[s.y][s.x].hit) sunk++; else alive++;
+    }
+    return { sunk, alive };
+  }
   function updateStatus() {
     // topbar buttons
     $('bt-start').disabled = App.bt.teams.length < 2 || App.bt.state !== 'setup';
@@ -2379,7 +2410,7 @@ const BT = (() => {
     const cannon = $('cannon-wrap');
     if (cannon) cannon.classList.toggle('cannon-off', App.bt.state !== 'playing');
     // ---- status bar per-team chips ----
-    // Compact format: [color dot] Name [seed (clickable)] ⭐stars 💥sunk/🚢alive
+    // Pill: top row = [◉] Name ⭐stars 💥sunk/🚢alive, bottom = rank + full seed.
     // Always visible (status bar sits above turn-list popup z-index).
     // (Star score is shown here, NOT in the card header — header is title-only.)
     const chips = $('bt-chips');
@@ -2387,6 +2418,17 @@ const BT = (() => {
     chips.innerHTML = '';
     // current attacker (highlight its chip while playing)
     const currentId = (App.bt.state === 'playing') ? (currentAttacker() ? currentAttacker().id : null) : null;
+    // Live ranking during play → every pill's bottom shows its position.
+    // Leader = most ships left, then most ⭐ won, then fewest sunk.
+    const rankOrder = (App.bt.state === 'playing')
+      ? [...App.bt.teams].sort((a, b) => {
+        const sa = shipStat(a), sb = shipStat(b);
+        if (sa.alive !== sb.alive) return sb.alive - sa.alive;
+        const sa_ = a.battleStars || 0, sb_ = b.battleStars || 0;
+        if (sa_ !== sb_) return sb_ - sa_;
+        return sa.sunk - sb.sunk;
+      })
+      : [];
     // Turn indicator (only during play)
     if (App.bt.state === 'playing' && App.bt.turnList.length > 0) {
       const tc = document.createElement('div');
@@ -2401,21 +2443,30 @@ const BT = (() => {
       chip.className = 'team-chip' + (team.alive ? '' : ' dead');
       if (team.id === currentId) chip.classList.add('active');
       chip.style.borderLeftColor = team.color;
-      // count sunk vs alive ships
-      let sunk = 0, alive = 0;
-      for (const s of team.ships.values()) {
-        if (team.board[s.y][s.x].hit) sunk++; else alive++;
+      const st = shipStat(team);
+      let rankHtml = '';
+      if (App.bt.state === 'playing') {
+        const pos = rankOrder.findIndex(t => t.id === team.id) + 1;
+        const medal = team.alive
+          ? (pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`)
+          : `💀#${pos}`;
+        rankHtml = `<span class="rank" title="Rank ${pos} — more ships left, then more ⭐, then fewer sunk">${medal}</span>`;
       }
-      // seed (clickable to copy)
+      // seed (clickable to copy) — always full, never clipped
       const seedStr = team._seedStr || (team._seedStr = encodeSeed(team.width, team.height, team.ships));
       chip.innerHTML = `
-        <span class="dot" style="background:${team.color}"></span>
-        <span class="name" title="${escapeHtml(team.name)}">${escapeHtml(team.name)}</span>
-        <span class="seed" title="Click to copy seed" data-seed="${escapeHtml(seedStr)}">${escapeHtml(seedStr)}</span>
-        <span class="star">⭐${team.battleStars}</span>
-        <span class="ships">
-          <span class="sunk" title="Ships destroyed">💥${sunk}</span><span class="sep">/</span><span class="alive" title="Ships remaining">🚢${alive}</span>
-        </span>
+        <div class="chip-top">
+          <span class="dot" style="background:${team.color}"></span>
+          <span class="name" title="${escapeHtml(team.name)}">${escapeHtml(team.name)}</span>
+          <span class="star">⭐${team.battleStars}</span>
+          <span class="ships">
+            <span class="sunk" title="Ships destroyed">💥${st.sunk}</span><span class="sep">/</span><span class="alive" title="Ships remaining">🚢${st.alive}</span>
+          </span>
+        </div>
+        <div class="chip-meta">
+          ${rankHtml}
+          <span class="seed" title="Click to copy seed" data-seed="${escapeHtml(seedStr)}">${escapeHtml(seedStr)}</span>
+        </div>
       `;
       // seed click → copy
       chip.querySelector('.seed').addEventListener('click', (e) => {
@@ -2508,6 +2559,9 @@ const BT = (() => {
         playSound('sunk');
         showToast(`💀 ${targetTeam.name} has been eliminated!`);
         notify('sunk', `${targetTeam.name} has been fully sunk and eliminated! 💀`, 4500);
+        // hide the dead map so survivors spread into the freed space
+        if (App.bt.viewMode === 'focus') applyFocusView();
+        else renderTeams();
       }
       updateStatus();
       renderTurnList();
@@ -3239,12 +3293,13 @@ const BT = (() => {
     const gridEl = $('bt-grid');
     const teams = App.bt.teams;
     const targetId = App.bt.targetTeamId;
-    const focused = teams.find(t => t.id === targetId)
-      || currentAttacker()
+    const focused = teams.find(t => t.id === targetId && t.alive)
+      || teams.find(t => currentAttacker() && t.id === currentAttacker().id && t.alive)
       || teams.find(t => t.alive)
       || teams[0];
     if (!focused) { applyMainView(); return; }
-    const others = teams.filter(t => t.id !== focused.id);
+    // Eliminated teams hide away — survivors stretch into the freed space.
+    const others = teams.filter(t => t.id !== focused.id && t.alive);
     const gapC = 12, gapT = 10, headH = 36;
     const availW = window.innerWidth - 32 - 24;
     const availH = window.innerHeight - 56 - 40 - 24;
