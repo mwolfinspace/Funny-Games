@@ -709,6 +709,13 @@ body {
   transition: opacity 0.25s;
 }
 #cannon-wrap.cannon-off { opacity: 0; }
+/* In Focus View the cannon docks to the right corner (main map sits left,
+   gallery on the right) — head still follows the cursor via the same pivot. */
+#cannon-wrap.focus {
+  left: auto; right: 22px;
+  margin-left: 0;
+  bottom: 52px;
+}
 /* Rotating arm (barrel + head); pivot is the wrapping point at (70,112) */
 #cannon-arm {
   position: absolute; left: 70px; top: 112px;
@@ -822,6 +829,7 @@ body {
   .turn-chip { height: 30px; padding: 4px 9px; font-size: 11px; }
   /* compact cannon + floater on phones */
   #cannon-wrap { bottom: 46px; transform: scale(0.82); transform-origin: 50% 100%; }
+  #cannon-wrap.focus { right: 6px; bottom: 42px; transform: scale(0.7); transform-origin: 100% 100%; }
   .next-turn-floater { bottom: 54px; padding: 10px 22px; font-size: 15px; }
   .boom-proj { width: 40px; height: 40px; font-size: 40px; line-height: 40px; }
 }
@@ -2806,6 +2814,11 @@ const BT = (() => {
     App.bt.state = 'playing';
     App.bt.currentTurnIdx = 0;
     App.bt.turnCounter = 1;
+    // Always start battles in the clean main view (focus is opt-in per watch).
+    App.bt.viewMode = 'main';
+    $('bt-view-toggle').textContent = '🎥 Focus View';
+    const cn0 = $('cannon-wrap');
+    if (cn0) cn0.classList.remove('focus');
     // Hide ships: re-render teams (they hide automatically based on state)
     renderTeams();
     updateStatus();
@@ -3139,6 +3152,8 @@ const BT = (() => {
     App.bt.comboShots = 0;
     App.bt.viewMode = 'main';
     $('bt-view-toggle').textContent = '🎥 Focus View';
+    const cn = $('cannon-wrap');
+    if (cn) cn.classList.remove('focus');
     $('bt-start').classList.remove('hidden');
     $('bt-start').disabled = false;
     $('bt-add-team').disabled = false;
@@ -3212,76 +3227,134 @@ const BT = (() => {
     }
   }
   function applyFocusView() {
-    // Focus view: target map centered & large; other teams shown as small
-    // thumbnails on the left and right sides (split evenly).
-    // We use a 3-column grid: [left thumbs] [center target] [right thumbs].
+    // Meeting-app style Focus View:
+    //   LEFT  — the focused team's map (the target currently being shot), as
+    //           large as the viewport allows.
+    //   RIGHT — every other team tiled in a smart gallery grid: the column
+    //           count that gives the biggest possible maps in the leftover
+    //           space (2 teams → one right tile, 3 teams → two, 4 teams →
+    //           three … like Zoom/Meet splitting the speaker gallery).
+    // Tiles adapt to portrait/landscape boards and fill the whole right zone,
+    // while the cannon docks to the right corner (head still loves the cursor).
     const gridEl = $('bt-grid');
     const teams = App.bt.teams;
     const targetId = App.bt.targetTeamId;
-    const others = teams.filter(t => t.id !== targetId);
-    const half = Math.ceil(others.length / 2);
-    const leftOthers = others.slice(0, half);
-    const rightOthers = others.slice(half);
-    // Reorder DOM: left thumbs, target, right thumbs — so grid placement matches.
+    const focused = teams.find(t => t.id === targetId)
+      || currentAttacker()
+      || teams.find(t => t.alive)
+      || teams[0];
+    if (!focused) { applyMainView(); return; }
+    const others = teams.filter(t => t.id !== focused.id);
+    const gapC = 12, gapT = 10, headH = 36;
+    const availW = window.innerWidth - 32 - 24;
+    const availH = window.innerHeight - 56 - 40 - 24;
+    const mainAspect = focused.width / (focused.height + 0.8);
+    const minSide = others.length ? 180 : 0;
+    let mainW = (availH - headH) * mainAspect;               // fill available height
+    if (mainW + minSide + gapC > availW) mainW = Math.max(150, availW - minSide - gapC);
+    mainW = Math.floor(mainW);
+
     gridEl.innerHTML = '';
     App.bt.canvasById.clear();
     App.bt.canvases = [];
-    const allOrdered = [...leftOthers, teams.find(t => t.id === targetId), ...rightOthers].filter(Boolean);
-    // Use 3 columns: left / center / right
-    gridEl.style.gridTemplateColumns = 'auto 1fr auto';
+    gridEl.style.gridTemplateColumns = others.length ? `${mainW}px 1fr` : `${mainW}px`;
     gridEl.style.alignItems = 'center';
     gridEl.style.justifyItems = 'center';
     gridEl.style.alignContent = 'center';
     gridEl.style.justifyContent = 'center';
-    gridEl.style.gap = '12px';
-    for (const team of allOrdered) {
-      const card = document.createElement('div');
-      card.className = 'team-map';
-      card.dataset.teamId = team.id;
-      card.style.background = teamBg(team.color);
-      card.style.borderColor = teamBorder(team.color);
-      const isTarget = team.id === targetId;
-      if (isTarget) {
-        // Center: large, square-ish to fit viewport height
-        card.style.width = '';
-        card.style.height = 'calc(100vh - 160px)';
-        card.style.maxWidth = 'calc(100vw - 480px)';
-        card.style.aspectRatio = String(team.width / (team.height + 0.8));
-        if (!team.alive) card.classList.add('dead');
-      } else {
-        // Side thumbnails: small fixed size
-        card.style.width = '180px';
-        card.style.height = '';
-        card.style.maxHeight = 'calc(100vh - 160px)';
-        card.style.aspectRatio = String(team.width / (team.height + 0.8));
-        if (!team.alive) card.classList.add('dead');
-        else if (App.bt.state === 'playing') card.classList.add('dim');
+    gridEl.style.gap = `${gapC}px`;
+
+    const mainCard = makeFocusCard(focused, mainW, true);
+    gridEl.appendChild(mainCard.card);
+    registerFocusCanvas(mainCard, focused);
+
+    if (others.length) {
+      const sideW = Math.max(150, availW - mainW - gapC);
+      const layout = bestTileLayout(others, sideW, availH, gapT, headH);
+      const sideBox = document.createElement('div');
+      sideBox.style.display = 'grid';
+      sideBox.style.gridTemplateColumns = `repeat(${layout.cols}, ${layout.tileW}px)`;
+      sideBox.style.gridAutoRows = 'auto';
+      sideBox.style.gap = `${gapT}px`;
+      sideBox.style.alignContent = 'center';
+      sideBox.style.justifyContent = 'center';
+      sideBox.style.minWidth = '0';
+      for (const team of others) {
+        const c = makeFocusCard(team, layout.tileW, false);
+        sideBox.appendChild(c.card);
+        registerFocusCanvas(c, team);
       }
-      if (isTarget) card.classList.add('target');
-      // header (title only, no star/dot — saves space for the grid)
-      const header = document.createElement('div');
-      header.className = 'map-header';
-      header.innerHTML = `
-        <div class="name" style="flex:1; justify-content:${isTarget ? 'center' : 'flex-start'}">
+      gridEl.appendChild(sideBox);
+    }
+    // cannon docks into the right corner in Focus View
+    const cannon = $('cannon-wrap');
+    if (cannon) cannon.classList.add('focus');
+    requestAnimationFrame(drawAllTeams);
+  }
+  function registerFocusCanvas(fc, team) {
+    App.bt.canvasById.set(team.id, fc.cv);
+    App.bt.canvases.push({ canvas: fc.cv, team });
+    attachTeamCanvas(fc.cv, team);
+  }
+  function makeFocusCard(team, w, isMain) {
+    const card = document.createElement('div');
+    card.className = 'team-map';
+    card.dataset.teamId = team.id;
+    card.style.background = teamBg(team.color);
+    card.style.borderColor = teamBorder(team.color);
+    card.style.width = w + 'px';
+    card.style.aspectRatio = String(team.width / (team.height + 0.8));
+    card.style.maxHeight = 'calc(100vh - 40px)';
+    if (isMain) card.classList.add('target');
+    if (!team.alive) card.classList.add('dead');
+    else if (isMain && App.bt.state === 'playing') card.classList.remove('dim');
+    else if (!isMain && App.bt.state === 'playing') card.classList.add('dim');
+    const header = document.createElement('div');
+    header.className = 'map-header';
+    header.innerHTML = `
+        <div class="name" style="flex:1; justify-content:${isMain ? 'center' : 'flex-start'}">
           <span class="label">${escapeHtml(team.name)}</span>
         </div>
       `;
-      card.appendChild(header);
-      // canvas
-      const wrap = document.createElement('div');
-      wrap.className = 'canvas-wrap';
-      const cv = document.createElement('canvas');
-      wrap.appendChild(cv);
-      card.appendChild(wrap);
-      gridEl.appendChild(card);
-      App.bt.canvasById.set(team.id, cv);
-      App.bt.canvases.push({ canvas: cv, team });
-      attachTeamCanvas(cv, team);
+    card.appendChild(header);
+    const wrap = document.createElement('div');
+    wrap.className = 'canvas-wrap';
+    const cv = document.createElement('canvas');
+    wrap.appendChild(cv);
+    card.appendChild(wrap);
+    return { card, cv };
+  }
+  // Pick the column count that makes every gallery tile as big as possible
+  // inside a box of boxW × boxH, honouring each board's own aspect ratio.
+  function bestTileLayout(teamList, boxW, boxH, gap, headH) {
+    const N = teamList.length;
+    let best = null;
+    for (let cols = 1; cols <= N; cols++) {
+      const tileWw = (boxW - (cols - 1) * gap) / cols;
+      if (tileWw < 40) continue;
+      const rows = Math.ceil(N / cols);
+      let totalH = (rows - 1) * gap;
+      for (let r = 0; r < rows; r++) {
+        let rowWide = 0;
+        for (let c = 0; c < cols; c++) {
+          const i = r * cols + c;
+          if (i >= N) break;
+          // "wide" aspect = gravity of the row (tile height = tileW / aspect)
+          rowWide = Math.max(rowWide, teamList[i].width / (teamList[i].height + 0.8));
+        }
+        totalH += headH + (rowWide ? tileWw / rowWide : 0);
+      }
+      let tileW = tileWw;
+      if (totalH > boxH) tileW = Math.max(30, tileWw * (boxH / totalH));
+      tileW = Math.floor(tileW);
+      if (!best || tileW > best.tileW) best = { cols, rows, tileW };
     }
-    requestAnimationFrame(drawAllTeams);
+    return best || { cols: 1, rows: N, tileW: 30 };
   }
   function applyMainView() {
     // Re-render with the normal adaptive layout (rebuilds cards properly)
+    const cannon = $('cannon-wrap');
+    if (cannon) cannon.classList.remove('focus');
     gridEl_resetCSS();
     renderTeams();
   }
