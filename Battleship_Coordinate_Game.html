@@ -1137,6 +1137,7 @@ const App = {
     mode: 'mercy',        // 'mercy' | 'combo'
     state: 'setup',       // 'setup' | 'wheel' | 'playing' | 'over'
     targetTeamId: null,    // current attack target
+    shotOpen: false,       // true only while this turn's shot(s) may still be fired
     comboShots: 0,        // shots taken in current combo
     viewMode: 'main',     // 'main' | 'focus'
     canvasById: new Map(),
@@ -2550,6 +2551,7 @@ const BT = (() => {
   // ---------- Shoot at a cell ----------
   function shootAt(targetTeam, x, y, clientX, clientY) {
     if (App.bt.state !== 'playing') return;
+    if (App.bt.shotOpen !== true) return; // turn already resolved (miss / mercy hit) — no more shots
     if (!targetTeam.alive) return;
     const cell = targetTeam.board[y][x];
     if (cell.hit || cell.miss) {
@@ -2581,7 +2583,7 @@ const BT = (() => {
     const wrap = $('cannon-wrap');
     if (wrap && !wrap.classList.contains('cannon-off')) {
       const r = wrap.getBoundingClientRect();
-      let a = Math.atan2(toX - (r.left + 70), -(toY - (r.top + 112)));
+      let a = Math.atan2(toX - r.right, -(toY - r.bottom));
       const lim = 82 * Math.PI / 180;
       a = Math.max(-lim, Math.min(lim, a));
       App.bt._cannonAngle = a;
@@ -2639,13 +2641,15 @@ const BT = (() => {
           notify('combo', `🔥 Combo x${App.bt.comboShots + 1}! ${attacker.name} gets an extra shot.`, 3000);
         }
       } else {
-        // Mercy mode: 1 shot per turn
+        // Mercy mode: 1 shot per turn — turn is now over
+        App.bt.shotOpen = false;
+        App.bt.targetTeamId = null;
         if (checkGameOver()) return;
         // wait for "Next Turn" button
         setNextTurnVisible(true);
       }
     } else {
-      // miss
+      // miss — turn is over (ends the turn in BOTH modes)
       cell.miss = true;
       showFeedbackEmoji(MISS_EMOJI);
       playSound('miss');
@@ -2658,6 +2662,8 @@ const BT = (() => {
         notify('combo', `Combo ended after ${App.bt.comboShots + 1} shots.`, 2800);
       }
       App.bt.comboShots = 0;
+      App.bt.shotOpen = false;     // combo over — no more shots this turn
+      App.bt.targetTeamId = null;
       if (checkGameOver()) return;
       setNextTurnVisible(true);
     }
@@ -2689,6 +2695,7 @@ const BT = (() => {
   function updateCannon(e) {
     if (App.bt.state !== 'playing') return;
     if (!App.bt.targetTeamId) return;   // only aim while picking a coordinate to shoot
+    if (App.bt.shotOpen !== true) return; // no aim once this turn's shots are spent
     const wrap = $('cannon-wrap');
     const arm = $('cannon-arm');
     if (!wrap || !arm) return;
@@ -2781,6 +2788,7 @@ const BT = (() => {
     App.bt.currentTurnIdx = 0;
     App.bt.turnCounter = 1;
     App.bt.targetTeamId = null;
+    App.bt.shotOpen = false;
     App.bt.comboShots = 0;
     App.bt.wheelState = {
       remaining: App.bt.teams.map(t => ({ id: t.id, name: t.name, color: t.color })),
@@ -2944,6 +2952,7 @@ const BT = (() => {
       return;
     }
     App.bt.targetTeamId = null;
+    App.bt.shotOpen = false;
     App.bt.comboShots = 0;
     msg($('bt-msg'), `🎯 ${attacker.name}'s turn. Pick a team to attack.`, 4000);
     notify('info', `Turn ${App.bt.turnCounter} — ${attacker.name}, pick a team to attack.`, 3500);
@@ -3010,6 +3019,7 @@ const BT = (() => {
       return;
     }
     App.bt.targetTeamId = team.id;
+    App.bt.shotOpen = true;   // attack phase re-armed: this turn may fire again
     $('attack-popup').classList.add('hidden');
     attackPopupOpen = false;
     // highlight target team map
@@ -3113,6 +3123,7 @@ const BT = (() => {
       if (team && team.alive) {
         App.bt.currentTurnIdx = (App.bt.currentTurnIdx + i) % n;
         App.bt.targetTeamId = null;
+        App.bt.shotOpen = false;
         renderTeams();
         startTurn();
         return;
@@ -3263,6 +3274,7 @@ const BT = (() => {
     App.bt.currentTurnIdx = 0;
     App.bt.turnCounter = 1;
     App.bt.targetTeamId = null;
+    App.bt.shotOpen = false;
     App.bt.comboShots = 0;
     App.bt.viewMode = 'main';
     $('bt-view-toggle').textContent = '🎥 Focus View';
