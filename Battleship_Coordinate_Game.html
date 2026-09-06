@@ -1341,53 +1341,82 @@ function decodeSeed(seed) {
 }
 
 // ============================================================
-// AUTO-COMMANDER DETECTION
-// Detect inline groups (horizontal / vertical / diagonal) of >=2 ships
-// sharing a common line direction. For odd group, the center is commander.
-// For even group, pick a random middle one (one of the two middle).
-// Singletons (no neighbors in any inline direction) are NOT commanders.
+// AUTO-COMMANDER DETECTION — one commander per straight LINE group
+// A "line group" is a maximal straight run (horizontal or vertical) of ships.
+// Rules:
+//   1. A run needs >= 3 ships before it can have a commander (a 1- or 2-ship
+//      line never does; singletons never do).
+//   2. The commander sits at a middle cell of its run, with a normal ship both
+//      in FRONT and BEHIND it along the run (never an end of the run).
+//   3. The cell where another line group attaches at one of ITS ends (the
+//      junction, e.g. the top of a T-stem) can NEVER be a commander.
+//   4. A run yields exactly ONE commander. Priority goes to a cell that is the
+//      middle of BOTH a horizontal and a vertical run (a true cross); otherwise
+//      the bottom-most / left-most eligible middle is picked.
+//      Two perpendicular runs may therefore each produce a (distinct) commander.
 // ============================================================
 function computeCommanders(width, height, shipsMap) {
-  // reset
   for (const s of shipsMap.values()) s.commander = false;
-  // Build groups by checking 4 directions: E, S, SE, NE
-  const dirs = [[1,0], [0,1], [1,1], [1,-1]];
-  const visited = new Set();
-  const groups = [];
-  for (const ship of shipsMap.values()) {
-    for (const [dx, dy] of dirs) {
-      // Try to find the start of an inline chain in this direction
-      let sx = ship.x, sy = ship.y;
-      // Walk backward to find the start
-      while (shipsMap.has(key(sx - dx, sy - dy))) { sx -= dx; sy -= dy; }
-      // Now collect the chain from (sx, sy) forward
-      const chain = [];
-      let cx = sx, cy = sy;
-      while (shipsMap.has(key(cx, cy))) {
-        chain.push(shipsMap.get(key(cx, cy)));
-        cx += dx; cy += dy;
-      }
-      if (chain.length < 2) continue;
-      // Use a unique group key to avoid duplicates for same chain
-      const gkey = `${dx},${dy},${chain[0].x},${chain[0].y}`;
-      if (visited.has(gkey)) continue;
-      visited.add(gkey);
-      groups.push(chain);
+  if (shipsMap.size === 0) return;
+
+  const midIdx = L => L % 2 ? [(L - 1) / 2] : [L / 2 - 1, L / 2];
+
+  // Maximal straight runs (horizontal + vertical), each with its middle cells.
+  const runs = [];
+  const hMids = new Set();   // cells that are a middle of a horizontal run
+  const vMids = new Set();   // cells that are a middle of a vertical run
+  const runEnds = new Set(); // first/last cell of ANY run (junction can never be a commander)
+
+  const addRun = (list, dx) => {
+    if (list.length >= 2) {
+      runEnds.add(key(list[0].x, list[0].y));
+      runEnds.add(key(list[list.length - 1].x, list[list.length - 1].y));
+    }
+    if (list.length < 3) return;
+    const mids = [];
+    for (const i of midIdx(list.length)) mids.push(list[i]);
+    for (const c of mids) (dx === 1 ? hMids : vMids).add(key(c.x, c.y));
+    runs.push({ dx, mids });
+  };
+
+  for (let y = 0; y < height; y++) {
+    let x = 0;
+    while (x < width) {
+      if (!shipsMap.has(key(x, y))) { x++; continue; }
+      let s = x;
+      while (s < width && shipsMap.has(key(s, y))) s++;
+      const list = [];
+      for (let i = x; i < s; i++) list.push(shipsMap.get(key(i, y)));
+      addRun(list, 1);
+      x = s;
     }
   }
-  // Pick commander for each group
-  for (const chain of groups) {
-    const n = chain.length;
-    let cmdIdx;
-    if (n % 2 === 1) {
-      cmdIdx = Math.floor(n/2);
-    } else {
-      // pick random of the two middle
-      cmdIdx = (Math.random() < 0.5) ? (n/2 - 1) : (n/2);
+  for (let x = 0; x < width; x++) {
+    let y = 0;
+    while (y < height) {
+      if (!shipsMap.has(key(x, y))) { y++; continue; }
+      let s = y;
+      while (s < height && shipsMap.has(key(x, s))) s++;
+      const list = [];
+      for (let i = y; i < s; i++) list.push(shipsMap.get(key(x, i)));
+      addRun(list, 0);
+      y = s;
     }
-    chain[cmdIdx].commander = true;
   }
-  return groups;
+
+  // One commander per run: a middle cell that is not a run end, preferring a
+  // true cross (middle of a horizontal AND a vertical run).
+  for (const r of runs) {
+    const cands = r.mids.filter(c => !runEnds.has(key(c.x, c.y)));
+    if (cands.length === 0) continue;
+    const isCross = c => hMids.has(key(c.x, c.y)) && vMids.has(key(c.x, c.y));
+    cands.sort((a, b) => {
+      const ac = isCross(a) ? 1 : 0, bc = isCross(b) ? 1 : 0;
+      if (ac !== bc) return bc - ac;
+      return (a.y - b.y) || (a.x - b.x);
+    });
+    cands[0].commander = true;
+  }
 }
 
 function recomputeCommandersForState(state) {
