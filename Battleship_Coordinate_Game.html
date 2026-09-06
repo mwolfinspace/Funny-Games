@@ -231,7 +231,9 @@ body {
 .game-zone {
   flex: 1; position: relative;
   overflow: hidden;
-  padding: 12px;
+  /* 208px bottom reserve keeps the board clear of the cannon shooter
+     (fixed, below center) and the floating Next Turn button. */
+  padding: 12px 12px 208px 12px;
   display: flex; align-items: center; justify-content: center;
   min-height: 0;
 }
@@ -258,14 +260,14 @@ body {
 }
 .team-map .map-header {
   display: flex; align-items: center; justify-content: center;
-  gap: 6px; margin-bottom: 4px;
+  gap: 6px; margin-bottom: 2px;
   font-size: 13px; font-weight: 800;
-  padding: 4px 8px;
-  border-radius: 6px;  /* small curve corners */
-  background: var(--paper-2);
+  padding: 2px 6px;
+  border-radius: 0;
+  background: transparent;  /* blend with the card — no white title bar */
   color: var(--ink);
   flex-shrink: 0;
-  min-height: 28px;
+  min-height: 24px;
   line-height: 1;
   box-sizing: border-box;
   text-align: center;
@@ -483,6 +485,18 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .team-chip:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.12); transform: translateY(-1px); }
+/* Active (attacking/turn) team highlight on the status bar */
+.team-chip.active {
+  background: #fff3e2;
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(255,122,26,0.28), var(--shadow);
+  transform: translateY(-1px);
+  animation: chipPulse 1.1s ease-in-out infinite;
+}
+@keyframes chipPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255,122,26,0.28), var(--shadow); }
+  50%      { box-shadow: 0 0 0 6px rgba(255,122,26,0.14), var(--shadow); }
+}
 .team-chip.dead { opacity: 0.4; text-decoration: line-through; }
 .team-chip .dot {
   width: 14px; height: 14px; border-radius: 50%;
@@ -670,6 +684,89 @@ body {
 .attack-card canvas { display: block; width: 100%; height: auto; background: var(--paper); border-radius: 4px; }
 .attack-card .label { font-size: 12px; font-weight: 700; margin-top: 4px; color: var(--ink); }
 
+/* ===== Cannon shooter (egg-shooter style, above the status bar) ===== */
+#cannon-wrap {
+  position: fixed;
+  left: 50%; bottom: 58px;
+  width: 140px; height: 150px;
+  margin-left: -70px;
+  z-index: 45;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.25s;
+}
+#cannon-wrap.cannon-off { opacity: 0; }
+/* Rotating arm (barrel + head); pivot is the wrapping point at (70,112) */
+#cannon-arm {
+  position: absolute; left: 70px; top: 112px;
+  width: 0; height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  transition: transform 0.12s ease-out;
+}
+#cannon-barrel {
+  position: absolute; left: -14px; top: -96px;
+  width: 28px; height: 96px;
+  background: linear-gradient(90deg, #7a4a22, #b07a3f 45%, #8a5a2b);
+  border: 3px solid #52300f;
+  border-radius: 7px;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.28);
+}
+#cannon-muzzle {
+  position: absolute; left: -21px; top: -124px;
+  width: 42px; height: 34px;
+  background: radial-gradient(circle at 50% 55%, #ffd27a, #e09b3a);
+  border: 3px solid #52300f;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;                      /* loaded boom at the cannon head */
+  box-shadow: 0 3px 5px rgba(0,0,0,0.22);
+}
+#cannon-cart {
+  position: absolute; left: 24px; top: 100px;
+  width: 92px; height: 44px;
+  background: linear-gradient(180deg, #c98a4a, #8a5a2b);
+  border: 3px solid #52300f;
+  border-radius: 10px 10px 9px 9px;
+  box-shadow: 0 5px 9px rgba(0,0,0,0.3);
+}
+#cannon-cart::before, #cannon-cart::after {
+  content: ''; position: absolute; bottom: -7px;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: #4a321c; border: 2px solid #2c2014;
+}
+#cannon-cart::before { left: 8px; }
+#cannon-cart::after { right: 8px; }
+
+/* Flying boom projectile (💣 → 💥 on impact) */
+.boom-proj {
+  position: fixed; z-index: 95;
+  width: 46px; height: 46px;
+  font-size: 46px;
+  line-height: 46px;
+  text-align: center;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 12px rgba(0,0,0,0.4));
+  transition: transform 0.16s;
+}
+
+/* Floating "Next Turn" button — center, above the cannon, never on the board */
+.next-turn-floater {
+  position: fixed; left: 50%;
+  transform: translateX(-50%);
+  bottom: 148px;
+  z-index: 80;
+  padding: 14px 30px;
+  font-size: 17px; font-weight: 900;
+  border-radius: 9999px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.38), 0 0 0 5px rgba(255,255,255,0.5);
+  animation: popIn 0.25s ease-out;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none; -webkit-user-select: none;
+}
+.next-turn-floater:active { transform: translateX(-50%) scale(0.95); }
+
 /* ===== Mobile ===== */
 @media (max-width: 760px) {
   :root { --ctrl-h: 32px; --ctrl-font: 12px; }
@@ -681,7 +778,7 @@ body {
   .seed-box label, .size-group label { display: none; }
   .game-grid { gap: 8px; padding: 0; }
   .team-map { padding: 6px; }
-  .team-map .map-header { font-size: 11px; padding: 3px 6px; min-height: 24px; }
+  .team-map .map-header { font-size: 11px; padding: 2px 4px; min-height: 22px; }
   .turn-list-popup { min-width: 140px; max-width: 200px; padding: 6px 8px; top: 70px; right: 8px; }
   .turn-list-popup li { font-size: 11px; padding: 4px 6px; }
   .popup { padding: 16px; }
@@ -694,6 +791,11 @@ body {
   .team-chip .name { max-width: 64px; }
   .team-chip .seed { max-width: 56px; font-size: 9px; }
   .turn-chip { height: 30px; padding: 4px 9px; font-size: 11px; }
+  /* compact cannon + floater on phones */
+  #cannon-wrap { bottom: 46px; transform: scale(0.82); transform-origin: 50% 100%; }
+  .next-turn-floater { bottom: 122px; padding: 12px 24px; font-size: 15px; }
+  .boom-proj { width: 40px; height: 40px; font-size: 40px; line-height: 40px; }
+  .game-zone { padding: 8px 8px 174px 8px; }
 }
 </style>
 </head>
@@ -767,6 +869,15 @@ body {
   <div class="game-zone" id="bt-zone">
     <div class="game-grid" id="bt-grid"></div>
   </div>
+  <!-- Cannon shooter (bottom, above status bar) + floating Next Turn button -->
+  <div id="cannon-wrap" class="cannon-off">
+    <div id="cannon-arm">
+      <div id="cannon-barrel"></div>
+      <div id="cannon-muzzle">💣</div>
+    </div>
+    <div id="cannon-cart"></div>
+  </div>
+  <button class="btn btn-soft next-turn-floater hidden" id="bt-next-turn-floater">➡️ Next Turn</button>
   <div class="statusbar" id="bt-statusbar">
     <div class="msg" id="bt-msg">Add teams to start. Each team needs a seed from Map Maker.</div>
     <div id="bt-chips"></div>
@@ -967,6 +1078,8 @@ const App = {
     wheelState: null,
     nextTeamId: 1,
     initialTeamsSnapshot: null,  // for new game restart
+    _cannonAngle: 0,            // cannon barrel aim (rad), 0 = straight up
+    shotInFlight: false,     // true while a boom projectile is flying (blocks double shots)
   },
 };
 
@@ -1014,6 +1127,8 @@ function playSound(type) {
     case 'wheel-stop': tone(220, 0.4, 'sawtooth', 0.12, 120); break;
     case 'sunk':  noise(0.5, 0.22, 400); tone(80, 0.4, 'sawtooth', 0.18, -40); break;
     case 'win':   [660, 880, 1320].forEach((f,i)=>setTimeout(()=>tone(f, 0.18, 'triangle', 0.15), i*150)); break;
+    case 'cannon': noise(0.08, 0.16, 600); tone(180, 0.14, 'square', 0.1, -120); break;  // launch "thunk"
+    case 'boom':  noise(0.45, 0.28, 700); tone(70, 0.5, 'sawtooth', 0.22, -25); break;   // impact explosion
   }
 }
 
@@ -1982,7 +2097,9 @@ const BT = (() => {
     const HEADER_ALLOWANCE = 0.8;
     const cardARs = App.bt.teams.map(t => t.width / (t.height + HEADER_ALLOWANCE));
     const vw = window.innerWidth, vh = window.innerHeight;
-    const availW = vw - 32 - 24, availH = vh - 56 - 40 - 24;
+    // Reserve 208px at the bottom for the cannon shooter + floating Next Turn
+    // button (see .game-zone padding) so the grid is sized to the free area.
+    const availW = vw - 32 - 24, availH = vh - 56 - 40 - 208;
     // Try each column count; pick the one that gives the biggest minimum card
     // dimension (so the smallest grid is as large as possible) while fitting.
     let bestCols = n, bestMinDim = -Infinity, bestCardW = 0;
@@ -2156,7 +2273,7 @@ const BT = (() => {
       // click handling depends on game state
       if (App.bt.state === 'playing' && App.bt.targetTeamId === team.id) {
         const cell = teamCanvasToCell(canvas, team, e.clientX, e.clientY);
-        if (cell) shootAt(team, cell.x, cell.y);
+        if (cell) shootAt(team, cell.x, cell.y, e.clientX, e.clientY);
       } else if (App.bt.state === 'over') {
         // no action on click during 'over'
       }
@@ -2197,6 +2314,9 @@ const BT = (() => {
     // topbar buttons
     $('bt-start').disabled = App.bt.teams.length < 2 || App.bt.state !== 'setup';
     $('bt-view-toggle').disabled = App.bt.state !== 'playing';
+    // cannon shooter visible only while a battle is in progress
+    const cannon = $('cannon-wrap');
+    if (cannon) cannon.classList.toggle('cannon-off', App.bt.state !== 'playing');
     // ---- status bar per-team chips ----
     // Compact format: [color dot] Name [seed (clickable)] ⭐stars 💥sunk/🚢alive
     // Always visible (status bar sits above turn-list popup z-index).
@@ -2204,6 +2324,8 @@ const BT = (() => {
     const chips = $('bt-chips');
     if (!chips) return;
     chips.innerHTML = '';
+    // current attacker (highlight its chip while playing)
+    const currentId = (App.bt.state === 'playing') ? (currentAttacker() ? currentAttacker().id : null) : null;
     // Turn indicator (only during play)
     if (App.bt.state === 'playing' && App.bt.turnList.length > 0) {
       const tc = document.createElement('div');
@@ -2216,6 +2338,7 @@ const BT = (() => {
     for (const team of App.bt.teams) {
       const chip = document.createElement('div');
       chip.className = 'team-chip' + (team.alive ? '' : ' dead');
+      if (team.id === currentId) chip.classList.add('active');
       chip.style.borderLeftColor = team.color;
       // count sunk vs alive ships
       let sunk = 0, alive = 0;
@@ -2257,7 +2380,7 @@ const BT = (() => {
   }
 
   // ---------- Shoot at a cell ----------
-  function shootAt(targetTeam, x, y) {
+  function shootAt(targetTeam, x, y, clientX, clientY) {
     if (App.bt.state !== 'playing') return;
     if (!targetTeam.alive) return;
     const cell = targetTeam.board[y][x];
@@ -2266,8 +2389,48 @@ const BT = (() => {
       showToast('⚠️ Already shot here. Pick another spot.');
       return;
     }
+    if (App.bt.shotInFlight) return;  // one boom at a time
     const attacker = currentAttacker();
     if (!attacker) return;
+
+    // Landing point: the actual clicked/touched screen point (falls back to
+    // the target cell center on its canvas if coordinates aren't given).
+    let toX, toY;
+    const canvas = App.bt.canvasById.get(targetTeam.id);
+    if (typeof clientX === 'number') {
+      toX = clientX; toY = clientY;
+    } else if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const m = getDrawingMetrics(canvas.getContext('2d'), targetTeam.width, targetTeam.height);
+      const p = getIntersection(x, y, m);
+      toX = rect.left + p.cx; toY = rect.top + p.cy;
+    } else {
+      toX = window.innerWidth / 2; toY = window.innerHeight / 2;
+    }
+
+    const from = cannonMuzzleScreenPoint();
+    // Snap the barrel toward the tapped point before launching (great on touch).
+    const wrap = $('cannon-wrap');
+    if (wrap && !wrap.classList.contains('cannon-off')) {
+      const r = wrap.getBoundingClientRect();
+      let a = Math.atan2(toX - (r.left + 70), -(toY - (r.top + 112)));
+      const lim = 82 * Math.PI / 180;
+      a = Math.max(-lim, Math.min(lim, a));
+      App.bt._cannonAngle = a;
+      const arm = $('cannon-arm');
+      if (arm) arm.style.transform = `rotate(${a}rad)`;
+    }
+    App.bt.shotInFlight = true;
+    fireBoom(from.x, from.y, toX, toY, () => {
+      App.bt.shotInFlight = false;
+      applyShot(targetTeam, x, y);
+    });
+  }
+
+  // Resolve a shot (reveal miss mark ✖ or ship location) — runs AFTER the boom lands.
+  function applyShot(targetTeam, x, y) {
+    const cell = targetTeam.board[y][x];
+    const attacker = currentAttacker();
     if (cell.ship) {
       // hit
       cell.hit = true;
@@ -2308,7 +2471,7 @@ const BT = (() => {
         // Mercy mode: 1 shot per turn
         if (checkGameOver()) return;
         // wait for "Next Turn" button
-        $('bt-next-turn').classList.remove('hidden');
+        setNextTurnVisible(true);
       }
     } else {
       // miss
@@ -2325,8 +2488,92 @@ const BT = (() => {
       }
       App.bt.comboShots = 0;
       if (checkGameOver()) return;
-      $('bt-next-turn').classList.remove('hidden');
+      setNextTurnVisible(true);
     }
+  }
+
+  // Show/hide BOTH the top-bar Next Turn and the center floater at once.
+  function setNextTurnVisible(v) {
+    $('bt-next-turn').classList.toggle('hidden', !v);
+    const fl = $('bt-next-turn-floater');
+    if (fl) fl.classList.toggle('hidden', !v);
+    // while the floater is up the cannon is done aiming — fade it so the
+    // barrel never hides behind the button.
+    const cannon = $('cannon-wrap');
+    if (cannon) cannon.classList.toggle('cannon-off', v);
+  }
+
+  // Screen point where the cannon barrel throws the boom (armored fallback when off-screen).
+  function cannonMuzzleScreenPoint() {
+    const wrap = $('cannon-wrap');
+    if (wrap && !wrap.classList.contains('cannon-off')) {
+      const r = wrap.getBoundingClientRect();
+      const px = r.left + 70, py = r.top + 112;
+      const a = App.bt._cannonAngle || 0;
+      const L = 124;
+      return { x: px + Math.sin(a) * L, y: py - Math.cos(a) * L };
+    }
+    return { x: window.innerWidth / 2, y: window.innerHeight - 120 };
+  }
+
+  // Point the cannon head at the cursor (rad 0 = straight up).
+  function updateCannon(e) {
+    if (App.bt.state !== 'playing') return;
+    if (!App.bt.targetTeamId) return;   // only aim while picking a coordinate to shoot
+    const wrap = $('cannon-wrap');
+    const arm = $('cannon-arm');
+    if (!wrap || !arm) return;
+    const r = wrap.getBoundingClientRect();
+    const px = r.left + 70, py = r.top + 112;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    let a = Math.atan2(dx, -dy);   // 0 = up, + = right (clockwise)
+    const lim = 82 * Math.PI / 180;
+    a = Math.max(-lim, Math.min(lim, a));
+    App.bt._cannonAngle = a;
+    arm.style.transform = `rotate(${a}rad)`;
+  }
+
+  // Fire the boom emoji from the cannon head to the click point, arc trajectory.
+  function fireBoom(fromX, fromY, toX, toY, onLand) {
+    playSound('cannon');
+    const proj = document.createElement('div');
+    proj.className = 'boom-proj';
+    proj.textContent = '💣';
+    document.body.appendChild(proj);
+    // small recoil on the cannon (kickback along the barrel axis)
+    const arm = $('cannon-arm');
+    if (arm) {
+      const aim = App.bt._cannonAngle || 0;
+      arm.style.transform = `rotate(${aim}rad) translateY(18px)`;
+      setTimeout(() => { arm.style.transform = `rotate(${aim}rad)`; }, 130);
+    }
+    const size = proj.offsetWidth || 46;
+    proj.style.left = (fromX - size / 2) + 'px';
+    proj.style.top = (fromY - size / 2) + 'px';
+    const dist = Math.hypot(toX - fromX, toY - fromY);
+    const dur = Math.min(1150, Math.max(620, 400 + dist * 0.38));  // slow enough to see the fly
+    const arcH = Math.min(130, Math.max(70, dist * 0.22));
+    const t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const x = fromX + (toX - fromX) * e;
+      const y = fromY + (toY - fromY) * e - Math.sin(p * Math.PI) * arcH;
+      proj.style.left = (x - size / 2) + 'px';
+      proj.style.top = (y - size / 2) + 'px';
+      if (p < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // impact 💥 pop
+        proj.textContent = '💥';
+        proj.style.fontSize = Math.round(size * 1.55) + 'px';
+        proj.style.filter = 'drop-shadow(0 0 18px rgba(255,122,26,0.85))';
+        playSound('boom');
+        if (onLand) onLand();
+        setTimeout(() => { if (proj.parentNode) proj.parentNode.removeChild(proj); }, 320);
+      }
+    };
+    requestAnimationFrame(step);
   }
 
   function teamAllSunk(team) {
@@ -2511,7 +2758,7 @@ const BT = (() => {
     updateStatus();
     $('bt-view-toggle').disabled = false;
     $('bt-scoreboard').classList.add('hidden');
-    $('bt-next-turn').classList.add('hidden');
+    setNextTurnVisible(false);
     $('bt-finish').classList.remove('hidden');  // show Finish Game during play
     // start first turn
     startTurn();
@@ -2665,7 +2912,7 @@ const BT = (() => {
 
   // ---------- Next Turn ----------
   function nextTurn() {
-    $('bt-next-turn').classList.add('hidden');
+    setNextTurnVisible(false);
     // Check turn limit (0 = endless)
     if (App.bt.turnLimit > 0 && App.bt.turnCounter >= App.bt.turnLimit) {
       endGame('Turn limit reached.');
@@ -2729,7 +2976,7 @@ const BT = (() => {
       }
       team.surviveStars = survive;
     }
-    $('bt-next-turn').classList.add('hidden');
+    setNextTurnVisible(false);
     $('bt-finish').classList.add('hidden');  // hide Finish Game when game ends
     $('bt-scoreboard').classList.remove('hidden');
     updateStatus();
@@ -2846,7 +3093,7 @@ const BT = (() => {
     $('bt-auto-gen').disabled = false;
     $('bt-turn-limit').disabled = false;
     document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = false);
-    $('bt-next-turn').classList.add('hidden');
+    setNextTurnVisible(false);
     $('bt-finish').classList.add('hidden');
     $('bt-scoreboard').classList.add('hidden');
     $('turn-list-popup').classList.add('hidden');
@@ -2881,7 +3128,7 @@ const BT = (() => {
     $('bt-auto-gen').disabled = false;
     $('bt-turn-limit').disabled = false;
     document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = false);
-    $('bt-next-turn').classList.add('hidden');
+    setNextTurnVisible(false);
     $('bt-finish').classList.add('hidden');
     $('bt-scoreboard').classList.add('hidden');
     $('turn-list-popup').classList.add('hidden');
@@ -3022,7 +3269,13 @@ const BT = (() => {
     const cur = currentAttacker();
     [...list.children].forEach(li => {
       li.classList.remove('current');
-      if (cur && parseInt(li.dataset.teamId) === cur.id && App.bt.state === 'playing') li.classList.add('current');
+      li.style.boxShadow = '';
+      li.style.transform = '';
+      if (cur && parseInt(li.dataset.teamId) === cur.id && App.bt.state === 'playing') {
+        li.classList.add('current');
+        li.style.boxShadow = `inset 0 0 0 2px ${cur.color}, 0 3px 10px rgba(0,0,0,0.18)`;
+        li.style.transform = 'translateX(-2px)';
+      }
     });
   }
 
@@ -3038,6 +3291,7 @@ const BT = (() => {
     spinWheel, beginPlay, startTurn, advanceToNextAlive,
     finishGame,
     openRestartPopup, closeRestartPopup, applyRestart,
+    aimCannon: updateCannon, fireBoom, cannonMuzzleScreenPoint, setNextTurnVisible,
   };
 })();
 
@@ -3101,6 +3355,9 @@ function init() {
   $('bt-start').addEventListener('click', BT.startGame);
   // Battle: next turn
   $('bt-next-turn').addEventListener('click', BT.nextTurn);
+  $('bt-next-turn-floater').addEventListener('click', BT.nextTurn);
+  // Cannon aiming — follow the cursor (pointer covers mouse + touch)
+  window.addEventListener('pointermove', e => { BT.aimCannon(e); }, { passive: true });
   // Battle: finish game early
   $('bt-finish').addEventListener('click', BT.finishGame);
   // Battle: scoreboard button (during/after play)
