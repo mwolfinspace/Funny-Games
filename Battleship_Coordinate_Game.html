@@ -1,1480 +1,3178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coordinate Battleship</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Custom styles */
-        body {
-            font-family: 'Inter', sans-serif;
-            overscroll-behavior: none;
-        }
-        canvas {
-            background-color: #F0F9FF; /* sky-50 */
-            border-radius: 0.5rem;
-            border: 2px solid #D1D5DB; /* gray-300 */
-        }
-        .game-screen {
-            display: grid;
-            grid-template-rows: auto 1fr auto;
-            height: 100%;
-        }
-        /* Replaced Tailwind @apply rules with plain CSS so the file works without a build step */
-        .btn {
-            padding: 0.5rem 1rem; /* py-2 px-4 */
-            border-radius: 0.5rem; /* rounded-lg */
-            font-weight: 600; /* font-semibold */
-            color: #ffffff; /* text-white */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* shadow-md */
-            transition: all 200ms ease; /* transition-all duration-200 */
-            border: none;
-            cursor: pointer;
-            background-color: #2563EB; /* default to blue-600 for buttons unless overridden */
-        }
-        .btn:focus {
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(59,130,246,0.25); /* focus ring approximation */
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⚓ Coordinate Battleship — Make Map & Go Battle</title>
+<style>
+:root {
+  --ocean-1: #d6f1f7;
+  --ocean-2: #a8dde9;
+  --ocean-3: #7cc8db;
+  --ocean-deep: #2a7a92;
+  --sand: #f8f4e3;
+  --ink: #14323d;
+  --ink-soft: #41606c;
+  --paper: #ffffff;
+  --paper-2: #f5fbfd;
+  --line: #b6d6e0;
+  --line-strong: #5fa0b3;
+  --accent: #ff7a1a;
+  --accent-2: #ffb347;
+  --good: #2da06a;
+  --bad: #d65454;
+  --warn: #f0b429;
+  --shadow: 0 6px 18px rgba(20, 50, 61, 0.12);
+  --shadow-strong: 0 12px 28px rgba(20, 50, 61, 0.22);
+  --radius: 14px;
+  --radius-sm: 8px;
+  /* Unified top-bar control height — all interactive elements match this so
+     the top bar looks vertically centered and consistent. */
+  --ctrl-h: 36px;
+  --ctrl-font: 13px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  height: 100%; width: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+}
+body {
+  background: linear-gradient(180deg, #e6f6fb 0%, #c1e7f0 100%);
+  position: relative;
+}
+/* Light wave background animation (very low cost) */
+.wave-bg {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  overflow: hidden;
+}
+.wave-bg::before, .wave-bg::after {
+  content: ''; position: absolute; left: -50%; right: -50%; height: 200%;
+  background: radial-gradient(ellipse 60% 6% at 50% 50%, rgba(125,200,219,0.18), transparent 70%);
+  animation: waveMove 18s linear infinite;
+}
+.wave-bg::after { animation-duration: 26s; animation-direction: reverse; opacity: 0.6; top: 30%; }
+.wave-bg::before { top: -40%; }
+@keyframes waveMove {
+  0%   { transform: translateX(-12%) translateY(0) rotate(-1deg); }
+  50%  { transform: translateX(12%) translateY(2%) rotate(1deg); }
+  100% { transform: translateX(-12%) translateY(0) rotate(-1deg); }
+}
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  z-index: 1;
+}
+.hidden { display: none !important; }
 
-        .btn-primary {
-            background-color: #2563EB; /* blue-600 */
-        }
-        .btn-primary:hover { background-color: #1D4ED8; /* blue-700 */ }
-        .btn-primary:focus { box-shadow: 0 0 0 4px rgba(37,99,235,0.30); }
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--ctrl-h);
+  padding: 0 14px; border-radius: var(--radius-sm);
+  font-weight: 700; font-size: var(--ctrl-font); letter-spacing: 0.2px;
+  border: 2px solid transparent; cursor: pointer;
+  background: var(--paper); color: var(--ink);
+  box-shadow: var(--shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+  line-height: 1;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-strong); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: #f08930; }
+.btn-soft { background: var(--paper); border-color: var(--line); }
+.btn-soft:hover { background: var(--paper-2); }
+.btn-ghost { background: transparent; box-shadow: none; border-color: transparent; color: var(--ink-soft); }
+.btn-ghost:hover { background: rgba(20,50,61,0.06); box-shadow: none; }
+.btn-icon { padding: 0 8px; min-width: var(--ctrl-h); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none; }
 
-        .btn-secondary {
-            background-color: #6B7280; /* gray-500 */
-        }
-        .btn-secondary:hover { background-color: #4B5563; /* gray-600 */ }
-        .btn-secondary:focus { box-shadow: 0 0 0 4px rgba(107,114,128,0.20); }
+/* ===== Topbar ===== */
+.topbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; min-height: calc(var(--ctrl-h) + 16px);
+  background: rgba(255,255,255,0.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(20,50,61,0.06);
+  z-index: 10;
+}
+.topbar .spacer { flex: 1; }
+.topbar .brand {
+  font-size: 15px; font-weight: 800; letter-spacing: 0.4px;
+  color: var(--ocean-deep);
+  display: flex; align-items: center; gap: 6px;
+  margin-right: 4px;
+  height: var(--ctrl-h);
+  line-height: 1;
+}
+.topbar .brand .emoji { font-size: 20px; }
 
-        .btn-danger {
-            background-color: #DC2626; /* red-600 */
-        }
-        .btn-danger:hover { background-color: #B91C1C; /* red-700 */ }
-        .btn-danger:focus { box-shadow: 0 0 0 4px rgba(220,38,38,0.20); }
+/* ===== Seed box ===== */
+.seed-box {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0 6px 0 8px;
+  height: var(--ctrl-h);
+}
+.seed-box label {
+  font-size: 10px; color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  font-weight: 700;
+}
+.seed-box input {
+  background: transparent; border: none; outline: none;
+  font-family: 'Courier New', monospace;
+  font-size: 13px; font-weight: 700; color: var(--ocean-deep);
+  min-width: 80px; max-width: 260px;
+  padding: 4px 2px;
+  letter-spacing: 0.4px;
+  user-select: text; -webkit-user-select: text;
+  height: 100%;
+}
+.size-group {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  height: var(--ctrl-h);
+}
+.size-group label {
+  font-size: 10px; color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  font-weight: 700;
+}
+.size-group select, .size-group input[type=number] {
+  border: none; background: transparent; outline: none;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--ocean-deep);
+  width: 44px; text-align: center;
+  height: 100%;
+}
+.size-group select { width: 64px; cursor: pointer; }
 
-        .btn-utility {
-            background-color: #EAB308; /* yellow-500 */
-            color: #000000; /* text-black */
-        }
-        .btn-utility:hover { background-color: #D97706; /* yellow-600 */ }
-        .btn-utility:focus { box-shadow: 0 0 0 4px rgba(234,179,8,0.18); }
+/* ===== Welcome screen ===== */
+#welcome-screen {
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+.welcome-card {
+  background: var(--paper);
+  padding: 40px 32px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-strong);
+  max-width: 480px;
+  width: calc(100% - 32px);
+  text-align: center;
+  border: 3px solid var(--ocean-3);
+}
+.welcome-card h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 5vw, 40px);
+  color: var(--ocean-deep);
+  letter-spacing: 1px;
+}
+.welcome-card p.sub {
+  margin: 0 0 28px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.welcome-btns { display: flex; flex-direction: column; gap: 14px; }
+.welcome-btns .btn {
+  padding: 16px 20px;
+  font-size: 18px;
+  justify-content: center;
+}
 
-        .screen {
-            width: 100%;
-            height: 100%;
-            max-width: 64rem; /* approx max-w-4xl */
-            margin-left: auto;
-            margin-right: auto;
-            padding: 0.5rem; /* p-2 */
-            position: relative; /* allow overlays positioned inside screens */
-        }
-        @media (min-width: 640px) {
-            .screen { padding: 1rem; /* sm:p-4 */ }
-        }
+/* ===== Map zone ===== */
+.map-zone {
+  flex: 1; position: relative;
+  display: flex; align-items: stretch; justify-content: center;
+  overflow: hidden;
+  padding: 10px;
+  min-height: 0;
+}
+.map-frame {
+  position: relative;
+  background: linear-gradient(180deg, #ffffff 0%, #f3faff 100%);
+  border-radius: var(--radius);
+  border: 3px solid var(--line-strong);
+  box-shadow: var(--shadow-strong);
+  padding: 10px;
+  display: flex;
+  align-items: center; justify-content: center;
+  touch-action: none;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+.map-frame canvas {
+  display: block;
+  touch-action: none;
+  border-radius: 6px;
+  cursor: crosshair;
+  width: 100%;
+  height: 100%;
+}
 
-        /* Feedback overlay styles */
-        .feedback-overlay {
-            position: absolute;
-            inset: 0; /* cover parent */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none; /* clicks pass through */
-            z-index: 60;
-        }
+/* ===== Battle game zone ===== */
+.game-zone {
+  flex: 1; position: relative;
+  overflow: hidden;
+  padding: 12px;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 0;
+}
+.game-grid {
+  display: grid; gap: 14px;
+  width: 100%; height: 100%;
+  align-content: center; justify-content: center;
+  justify-items: center;  /* don't stretch cards to column width — respect aspect-ratio */
+  /* grid-auto-rows: auto so cards size to their aspect-ratio (not stretch) */
+}
+.team-map {
+  position: relative;
+  background: var(--paper);
+  border-radius: var(--radius);
+  border: 3px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+  /* aspect-ratio is set inline per team based on grid dimensions,
+     so the card tightly hugs the grid (square grid → square card,
+     wide grid → wide card). */
+  transition: opacity 0.25s, transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+.team-map .map-header {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; margin-bottom: 4px;
+  font-size: 13px; font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;  /* small curve corners */
+  background: var(--paper-2);
+  color: var(--ink);
+  flex-shrink: 0;
+  min-height: 28px;
+  line-height: 1;
+  box-sizing: border-box;
+  text-align: center;
+}
+.team-map .map-header .name {
+  display: flex; align-items: center; gap: 6px;
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+.team-map .map-header .name .label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+  text-align: center;
+  width: 100%;
+}
+.team-map .canvas-wrap {
+  /* holds the canvas; flexes to fill remaining card height after the header */
+  flex: 1; min-height: 0; min-width: 0;
+  display: flex; align-items: stretch; justify-content: stretch;
+  position: relative;
+}
+.team-map canvas {
+  display: block;
+  width: 100%; height: 100%;
+  touch-action: none;
+  border-radius: 4px;
+}
+.team-map.dim { opacity: 0.32; transform: scale(0.96); }
+.team-map.target { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255,122,26,0.18), var(--shadow-strong); }
+.team-map.dead .map-header { opacity: 0.5; text-decoration: line-through; }
+.team-map.dead canvas { filter: grayscale(1) brightness(0.92); }
 
-        .feedback-emoji {
-            font-size: 6rem;
-            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.25));
-            opacity: 0;
-            transform: scale(0.6);
-            will-change: transform, opacity;
-            /* default animation: fade in (1.5s) then stay then fade out */
-            animation: feedbackFadeIn 1.5s forwards, feedbackFadeOut 0.6s 1.6s forwards;
-        }
+/* ===== Popups ===== */
+.popup-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(20,50,61,0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.18s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.popup {
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-strong);
+  padding: 24px;
+  max-width: 520px; width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border: 2px solid var(--line-strong);
+  animation: popIn 0.22s ease-out;
+}
+@keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.popup h2 {
+  margin: 0 0 14px;
+  font-size: 20px; color: var(--ocean-deep);
+  display: flex; align-items: center; gap: 8px;
+}
+.popup .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.popup .row label { font-size: 12px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.4px; min-width: 80px; }
+.popup input[type=text], .popup input[type=number] {
+  flex: 1; min-width: 120px;
+  padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  font-size: 14px; font-family: inherit;
+  outline: none; color: var(--ink);
+  user-select: text; -webkit-user-select: text;
+}
+.popup input:focus { border-color: var(--line-strong); background: var(--paper); }
+.popup .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+.popup .check-info {
+  background: var(--paper-2);
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px; color: var(--ink-soft);
+  margin-top: -6px; margin-bottom: 12px;
+}
+.popup .check-info.bad { color: var(--bad); border-color: var(--bad); background: #fff5f5; }
+.popup .check-info.good { color: var(--good); border-color: var(--good); background: #f3fff8; }
 
-        @keyframes feedbackFadeIn {
-            0% { opacity: 0; transform: scale(0.6); }
-            100% { opacity: 1; transform: scale(1.15); }
-        }
+.color-grid {
+  display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px;
+  margin: 8px 0;
+}
+.color-swatch {
+  width: 100%; aspect-ratio: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  position: relative;
+  transition: transform 0.1s;
+}
+.color-swatch:hover { transform: scale(1.1); }
+.color-swatch.selected { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(20,50,61,0.18); }
+.color-swatch.disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+.color-swatch.disabled::after {
+  content: '✕'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bad); font-weight: 800; font-size: 18px;
+}
 
-        @keyframes feedbackFadeOut {
-            0% { opacity: 1; transform: scale(1.15); }
-            100% { opacity: 0; transform: scale(1.25); }
-        }
+/* ===== Wheel popup ===== */
+.wheel-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.wheel-canvas {
+  background: var(--paper-2);
+  border-radius: 50%;
+  border: 3px solid var(--line-strong);
+  box-shadow: var(--shadow-strong);
+}
+.wheel-pointer {
+  width: 0; height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-top: 22px solid var(--accent);
+  margin-bottom: -10px;
+  z-index: 2;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
+}
+.wheel-spin-btn { font-size: 18px; padding: 14px 28px; }
 
-        /* Start screen/card sizing to avoid title wrapping */
-        .start-card {
-            max-width: 1000px; /* allow wide title */
-            min-width: 640px; /* ensure enough room for controls on desktop/tablet */
-            padding: 2.5rem; /* larger padding */
-        }
+/* ===== Turn list popup ===== */
+.turn-list-popup {
+  position: fixed; top: 76px; right: 12px;
+  background: rgba(255,255,255,0.96);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-strong);
+  padding: 10px 12px;
+  z-index: 50;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.turn-list-popup h3 {
+  margin: 0 0 8px;
+  font-size: 12px; color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  text-align: center;
+  font-weight: 800;
+}
+.turn-list-popup ol {
+  margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.turn-list-popup li {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+  background: var(--paper-2);
+  font-size: 13px; font-weight: 700;
+  border-left: 4px solid var(--line);
+}
+.turn-list-popup li.current { background: #fff5e8; border-left-color: var(--accent); box-shadow: 0 2px 6px rgba(255,122,26,0.2); }
+.turn-list-popup li.dead { opacity: 0.5; text-decoration: line-through; }
+.turn-list-popup li .rank { font-size: 11px; color: var(--ink-soft); font-weight: 800; }
+.turn-list-popup li .score {
+  background: var(--ink); color: #ffd34d;
+  padding: 2px 6px; border-radius: 9999px;
+  font-size: 11px; font-weight: 800;
+  font-family: 'Courier New', monospace;
+}
 
-        /* Make sure buttons and control text don't wrap and are comfortably sized */
-        .btn {
-            white-space: nowrap;
-            padding: 0.75rem 1.25rem;
-            font-size: 1rem;
-        }
+/* ===== Status bar ===== */
+.statusbar {
+  background: rgba(255,255,255,0.96);
+  border-top: 2px solid var(--line);
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12px;
+  min-height: 52px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+  /* Always visible above turn-list popup (which sits at z=50) */
+  z-index: 60;
+}
+.statusbar::-webkit-scrollbar { height: 6px; }
+.statusbar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.statusbar .msg {
+  color: var(--ink-soft); font-weight: 700;
+  flex-shrink: 0;
+  max-width: 320px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding-right: 12px; border-right: 1px solid var(--line);
+  letter-spacing: 0.2px;
+}
+.statusbar #bt-chips {
+  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+}
+/* Per-team compact chip: [color dot] Name [seed] ⭐ 💥/🚢 */
+.team-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 8px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--line);
+  border-radius: 10px;  /* soft pill corners */
+  font-weight: 700; font-size: 12px;
+  flex-shrink: 0;
+  height: 36px;
+  line-height: 1;
+  cursor: default;
+  transition: opacity 0.2s, transform 0.1s, box-shadow 0.1s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.team-chip:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.12); transform: translateY(-1px); }
+.team-chip.dead { opacity: 0.4; text-decoration: line-through; }
+.team-chip .dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1.5px var(--line-strong);
+  flex-shrink: 0;
+}
+.team-chip .name {
+  color: var(--ink);
+  max-width: 96px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.team-chip .seed {
+  font-family: 'Courier New', monospace;
+  font-size: 10px; font-weight: 700;
+  color: var(--ocean-deep);
+  background: var(--paper);
+  padding: 2px 6px; border-radius: 5px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  user-select: text; -webkit-user-select: text;
+  max-width: 76px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background 0.15s;
+}
+.team-chip .seed:hover { background: #fff5e8; border-color: var(--accent); }
+.team-chip .star {
+  font-family: 'Courier New', monospace;
+  font-weight: 800; font-size: 11px;
+  color: #b8860b;
+  flex-shrink: 0;
+}
+.team-chip .ships {
+  font-size: 11px; font-weight: 700;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.team-chip .ships .sunk { color: var(--bad); }
+.team-chip .ships .alive { color: var(--good); }
+.team-chip .sep { color: var(--line); margin: 0 2px; }
+/* Turn indicator chip */
+.turn-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px;
+  background: var(--accent); color: #fff;
+  border-radius: 10px;
+  font-weight: 800; font-size: 12px;
+  flex-shrink: 0;
+  height: 36px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.turn-chip .label { font-size: 10px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; }
+.turn-chip .num { font-family: 'Courier New', monospace; font-size: 15px; }
 
-        /* Title should prefer a single line but scale on small screens */
-        #title {
-            white-space: nowrap;
-            overflow-wrap: normal;
-            font-size: clamp(1.6rem, 3.5vw, 2.4rem);
-            line-height: 1.02;
-        }
+/* ===== Floating notifications (toast stack) ===== */
+#toast-wrap {
+  position: fixed; top: 14px; right: 14px; z-index: 500;
+  display: flex; flex-direction: column; gap: 8px;
+  align-items: flex-end;
+  pointer-events: none;
+  max-width: min(360px, calc(100vw - 28px));
+}
+.toast-item {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; color: var(--ink);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px; font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  border-left: 6px solid var(--line-strong);
+  max-width: 100%;
+  animation: toastIn 0.25s ease forwards;
+}
+.toast-item .ti { font-size: 18px; flex-shrink: 0; }
+.toast-item.out { animation: toastOut 0.3s ease forwards; }
+.toast-item.hit { border-left-color: var(--good); }
+.toast-item.miss { border-left-color: #9e9e9e; }
+.toast-item.combo { border-left-color: #ff9800; }
+.toast-item.sunk { border-left-color: var(--bad); }
+.toast-item.info { border-left-color: var(--accent); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
 
-        /* Make start screen controls comfortably large */
-        #team-count, #lang-select {
-            min-width: 180px;
-            font-size: 1rem;
-            white-space: nowrap;
-        }
+/* ===== Share popup ===== */
+.share-box {
+  background: var(--paper-2);
+  border: 2px dashed var(--line-strong);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  margin: 10px 0;
+}
+.share-box .seed-display {
+  font-family: 'Courier New', monospace;
+  font-size: 18px; font-weight: 800;
+  color: var(--ocean-deep);
+  word-break: break-all;
+  letter-spacing: 1px;
+  padding: 12px;
+  background: var(--paper);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  user-select: all; -webkit-user-select: all;
+}
 
-        /* Ensure grid size display doesn't wrap */
-        #grid-size-display { white-space: nowrap; }
+/* ===== Feedback overlay ===== */
+.feedback-overlay {
+  position: fixed; inset: 0; pointer-events: none; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+.feedback-emoji {
+  font-size: 96px;
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.25));
+  opacity: 0; transform: scale(0.6);
+  animation: fbIn 1.3s forwards, fbOut 0.5s 1.4s forwards;
+}
+@keyframes fbIn { 0% { opacity: 0; transform: scale(0.4) rotate(-12deg); } 60% { opacity: 1; transform: scale(1.25) rotate(8deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes fbOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.3); } }
 
-        /* Circle labels shouldn't wrap */
-        .team-circle-label { white-space: nowrap; }
+/* ===== Scoreboard popup ===== */
+.scoreboard-list { display: flex; flex-direction: column; gap: 8px; }
+.scoreboard-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  background: var(--paper-2);
+  border-left: 4px solid var(--line);
+}
+.scoreboard-row .rank-emoji { font-size: 28px; min-width: 36px; text-align: center; }
+.scoreboard-row .name { flex: 1; font-weight: 800; font-size: 15px; }
+.scoreboard-row .details { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.scoreboard-row .total {
+  font-family: 'Courier New', monospace;
+  font-weight: 800; font-size: 18px;
+  color: var(--ocean-deep);
+  background: var(--paper);
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.scoreboard-row.rank-1 { background: linear-gradient(90deg, #fff5d6, #fff8e6); border-left-color: #f0b429; }
+.scoreboard-row.rank-2 { background: linear-gradient(90deg, #f0f0f0, #f8f8f8); border-left-color: #888; }
+.scoreboard-row.rank-3 { background: linear-gradient(90deg, #f5e0c5, #faeed8); border-left-color: #b87333; }
 
-        /* Scoreboard entries shouldn't wrap */
-        #scoreboard > div { white-space: nowrap; }
+/* ===== Mode toggle (Mercy/Combo) ===== */
+.mode-toggle {
+  display: inline-flex; align-items: center; gap: 0;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  padding: 2px;
+  height: var(--ctrl-h);
+}
+.mode-toggle button {
+  border: none; background: transparent;
+  padding: 0 14px;
+  height: 100%;
+  border-radius: 9999px;
+  font-weight: 700; font-size: var(--ctrl-font);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.mode-toggle button.active { background: var(--accent); color: #fff; }
 
-        /* Turn info should not wrap on larger screens; allow smaller font on narrow screens */
-        #turn-info { white-space: nowrap; }
+/* ===== Attack popup mini map ===== */
+.attack-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.attack-card {
+  background: var(--paper-2);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.attack-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.attack-card.dead { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.attack-card canvas { display: block; width: 100%; height: auto; background: var(--paper); border-radius: 4px; }
+.attack-card .label { font-size: 12px; font-weight: 700; margin-top: 4px; color: var(--ink); }
 
-        /* On very small screens allow smaller min-width so layout doesn't overflow the viewport */
-        @media (max-width: 760px) {
-            .start-card { min-width: 320px; padding: 1rem; }
-            #title { white-space: normal; font-size: 1.4rem; }
-            #team-count, #lang-select { min-width: 120px; }
-            .team-circle { width:48px; height:48px; }
-            .team-circle-label { font-size:0.72rem; }
-            .btn { font-size:0.95rem; padding:0.6rem 1rem; }
-        }
-
-        /* Team circle UI */
-        .team-circle {
-            width: 56px;
-            height: 56px;
-            border-radius: 9999px;
-            background: #ffffff;
-            border: 2px solid rgba(0,0,0,0.12);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.12s ease, box-shadow 0.12s ease;
-            user-select: none;
-        }
-        .team-circle:active { transform: scale(0.96); }
-    .team-circle-label { display:block; text-align:center; font-size:0.78rem; margin-top:6px; color:#333; min-width:100px; }
-
-        .team-circle.small { width:48px; height:48px; }
-        .team-circle-wrapper { display:flex; flex-direction:column; align-items:center; min-width:120px; }
-
-        /* reduce wrapper min-width on small screens */
-        @media (max-width: 760px) {
-            .team-circle-wrapper { min-width:84px; }
-        }
-
-        /* Windows 11 Style Hover Effect */
-        .btn, .team-circle {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before, .team-circle::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: inherit;
-            background: radial-gradient(circle at var(--x) var(--y), rgba(255, 255, 255, 0.6) 0%, transparent 50%);
-            opacity: 0;
-            transition: opacity 0.2s ease-out;
-            pointer-events: none;
-        }
-
-        .btn:hover::before, .team-circle:hover::before {
-            opacity: 1;
-        }
-    </style>
-    <style>
-        a.return-to-menu {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            font-size: 24px;
-            background-color: rgba(0,0,0,0.2);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            text-decoration: none;
-            opacity: 0.5;
-            transition: opacity 0.3s, background-color 0.3s;
-            z-index: 1000;
-        }
-        a.return-to-menu:hover {
-            opacity: 1;
-            background-color: rgba(0,0,0,0.5);
-        }
-    </style>
+/* ===== Mobile ===== */
+@media (max-width: 760px) {
+  :root { --ctrl-h: 32px; --ctrl-font: 12px; }
+  .topbar { padding: 6px 8px; gap: 6px; min-height: calc(var(--ctrl-h) + 12px); }
+  .topbar .brand { font-size: 13px; }
+  .topbar .brand .emoji { font-size: 18px; }
+  .btn { padding: 0 10px; font-size: 12px; }
+  .seed-box input { min-width: 70px; max-width: 160px; font-size: 11px; }
+  .seed-box label, .size-group label { display: none; }
+  .game-grid { gap: 8px; padding: 0; }
+  .team-map { padding: 6px; }
+  .team-map .map-header { font-size: 11px; padding: 3px 6px; min-height: 24px; }
+  .turn-list-popup { min-width: 140px; max-width: 200px; padding: 6px 8px; top: 70px; right: 8px; }
+  .turn-list-popup li { font-size: 11px; padding: 4px 6px; }
+  .popup { padding: 16px; }
+  .popup h2 { font-size: 17px; }
+  .color-grid { grid-template-columns: repeat(8, 1fr); }
+  .welcome-card { padding: 28px 20px; }
+  /* status bar compact on mobile */
+  .statusbar { padding: 7px 10px; min-height: 44px; gap: 8px; }
+  .team-chip { height: 30px; padding: 4px 8px 4px 6px; font-size: 11px; }
+  .team-chip .name { max-width: 64px; }
+  .team-chip .seed { max-width: 56px; font-size: 9px; }
+  .turn-chip { height: 30px; padding: 4px 9px; font-size: 11px; }
+}
+</style>
 </head>
-<body class="bg-gray-100 text-gray-900 h-screen overflow-hidden">
-<a class="return-to-menu" href="index.html">🏠</a>
+<body>
+<div class="wave-bg"></div>
 
-    <!-- Step 1: Team Setup -->
-    <div id="team-setup-screen" class="screen flex flex-col items-center justify-center h-full">
-    <div class="bg-white p-8 rounded-lg shadow-xl text-center start-card">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                <h1 id="title" class="text-3xl font-bold mb-6">🚢 Coordinate Battleship</h1>
-                <div style="margin-left:8px;">
-                    <label for="lang-select" class="sr-only">Language</label>
-                    <select id="lang-select" aria-label="Language" style="padding:6px;border-radius:8px;font-weight:600;">
-                        <option value="en">English</option>
-                        <option value="vi">Tiếng Việt</option>
-                    </select>
-                </div>
-            </div>
-            <label for="team-count" class="block text-lg mb-2">Select number of teams (1-5):</label>
-            <label id="team-count-label" for="team-count" class="sr-only">Select number of teams</label>
-            <select id="team-count" class="bg-gray-200 text-gray-900 border border-gray-300 p-2 rounded-lg text-lg mb-4 w-full">
-                <option value="1">1 Team</option>
-                <option value="2" selected>2 Teams</option>
-                <option value="3">3 Teams</option>
-                <option value="4">4 Teams</option>
-                <option value="5">5 Teams</option>
-            </select>
-
-            <!-- Team color circles: allow quick selection by clicking. -->
-            <div id="team-circles" style="display:flex;justify-content:center;gap:22px;margin-bottom:12px;">
-                <!-- will be populated by JS if not present -->
-            </div>
-
-            <!-- Extra Turn Rules Toggle -->
-            <div class="mb-6">
-                <label for="extra-turn-toggle" class="flex items-center justify-center cursor-pointer select-none">
-                    <input type="checkbox" id="extra-turn-toggle" class="sr-only peer">
-                    <div class="relative w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
-                    <span id="extra-turn-label" class="ml-3 text-lg font-medium text-gray-900">⚔️ Extra Turn Rules</span>
-                </label>
-                <p id="extra-turn-desc" class="text-sm text-gray-600 mt-2">Hit an enemy ship? Get an extra turn! (Until miss)</p>
-            </div>
-
-            <button id="start-setup-btn" class="btn btn-primary text-xl w-full mb-3">Continue to Grid Setup 🚢</button>
-            <button id="menu-btn-setup" class="btn btn-secondary text-lg w-full">◀️ Back to Menu</button>
-        </div>
+<!-- ===== WELCOME SCREEN ===== -->
+<div id="welcome-screen" class="screen">
+  <div class="welcome-card">
+    <h1>⚓ Coordinate Battleship</h1>
+    <p class="sub">Set up your secret map, then battle other teams on the Oxy grid.</p>
+    <div class="welcome-btns">
+      <button class="btn btn-primary" id="goto-mapmaker">🗺️ Make Map</button>
+      <button class="btn btn-soft" id="goto-battle">⚔️ Go Battle</button>
     </div>
+  </div>
+</div>
 
-        <!-- Feedback overlay for hit/miss emoji animations -->
-        <div id="feedback-overlay" class="feedback-overlay" aria-hidden="true"></div>
-
-    <!-- Step 2: Grid Setup -->
-    <div id="grid-setup-screen" class="screen hidden flex flex-col h-full items-center justify-center">
-        <div class="bg-white p-4 md:p-6 rounded-lg shadow-xl w-full flex flex-col flex-grow min-h-0 max-w-3xl" style="max-height: 90vh;">
-            <h2 class="text-2xl font-bold mb-4 text-center flex-shrink-0">Setup Grid Size</h2>
-            <div class="flex items-center justify-center space-x-4 mb-2 flex-shrink-0">
-                <button id="decrease-grid-btn" class="btn btn-secondary w-16 text-2xl">–</button>
-                <span id="grid-size-display" class="text-3xl font-bold w-40 text-center">5 x 5</span>
-                <button id="increase-grid-btn" class="btn btn-secondary w-16 text-2xl">+</button>
-            </div>
-            <p class="text-gray-600 mb-2 text-center flex-shrink-0">Adjust the coordinate system size. (Min 5x5, Max 20x20)</p>
-            <div class="flex-grow w-full min-h-0 mb-2 flex items-center justify-center" style="max-height: 70vh;">
-                <canvas id="grid-setup-canvas" style="width: 100%; height: 100%; max-width: 900px; max-height: 70vh;"></canvas>
-            </div>
-                <button id="confirm-grid-btn" class="btn btn-primary text-lg w-full flex-shrink-0 mb-2">Confirm Grid & Start Placement ⚓</button>
-            <button id="menu-btn-grid" class="btn btn-secondary text-sm w-full flex-shrink-0">◀️ Back to Menu</button>
-        </div>
+<!-- ===== MAP MAKER SCREEN ===== -->
+<div id="mapmaker-screen" class="screen hidden">
+  <div class="topbar">
+    <button class="btn btn-soft" id="mm-back">◀ Menu</button>
+    <div class="brand"><span class="emoji">🗺️</span> Map Maker</div>
+    <div class="size-group">
+      <label>Size</label>
+      <input type="number" id="mm-width" min="4" max="20" value="10">
+      <span>×</span>
+      <input type="number" id="mm-height" min="4" max="20" value="10">
     </div>
-
-    <!-- Step 3 & 4: Placement & Game -->
-    <div id="game-container" class="screen hidden flex-col h-full overflow-hidden items-center justify-center">
-        <div class="w-full max-w-4xl flex flex-col h-full" style="max-height: 95vh;">
-            <!-- Header: Turn Info & Messages -->
-            <div class="flex-shrink-0 p-4 bg-white rounded-lg shadow-lg mb-2">
-                <h2 id="turn-info" class="text-2xl font-bold text-center mb-2">Red Team: Place Your Ships</h2>
-                <p id="message-box" class="text-center text-indigo-600 h-6"></p>
-            </div>
-
-            <!-- Main Content: Game Board -->
-            <div class="flex-grow w-full min-h-0 flex items-center justify-center mb-2" style="max-height: 65vh;">
-                <canvas id="game-canvas" style="width: 100%; height: 100%; max-width: 1000px; max-height: 65vh;"></canvas>
-            </div>
-            
-            <!-- Footer: Scoreboard & Controls -->
-            <div class="flex-shrink-0">
-                <!-- Scoreboard -->
-                <div id="scoreboard" class="flex flex-wrap justify-center gap-2 mb-2">
-                    <!-- Scores will be injected here by JS -->
-                </div>
-                <!-- Controls -->
-                <div class="flex flex-wrap justify-center gap-2">
-                    <button id="next-btn" class="btn btn-primary text-lg">Next Team ➡️</button>
-                    <button id="start-game-btn" class="btn btn-primary text-lg hidden">Start Game ▶️</button>
-                    <button id="end-game-btn" class="btn btn-utility text-lg hidden">End Game (Bonus) 🔚</button>
-                    <button id="reveal-all-btn" class="btn btn-danger text-lg hidden">Reveal All 🔍</button>
-                    <button id="new-game-btn" class="btn btn-primary text-lg hidden">New Game 🔄</button>
-                    <button id="menu-btn-game" class="btn btn-secondary text-lg hidden">◀️ Back to Menu</button>
-                </div>
-            </div>
-        </div>
+    <div class="seed-box">
+      <label>Seed</label>
+      <input type="text" id="mm-seed" placeholder="seed..." spellcheck="false" autocomplete="off">
+      <button class="btn btn-ghost btn-icon" id="mm-load" title="Load seed">📂</button>
+      <button class="btn btn-ghost btn-icon" id="mm-copy" title="Copy seed">📋</button>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- CONSTANTS & STATE ---
-            const TEAM_COLORS = [
-                { name: 'Red', color: '#EF4444' },    // red-500
-                { name: 'Blue', color: '#1D4ED8' },   // blue-700 (darker blue)
-                { name: 'Green', color: '#22C55E' },  // green-500
-                { name: 'Yellow', color: '#EAB308' }, // yellow-500
-                { name: 'Purple', color: '#A855F7' }, // purple-500
-            ];
-            // Current UI language
-            let currentLang = 'en';
-
-            // Simple translation dictionary (short and tidy)
-            const I18N = {
-                title: { en: '🚢 Coordinate Battleship', vi: '🚢 Trận chiến Tọa độ' },
-                select_teams: { en: 'Select number of teams (1-5):', vi: 'Chọn số đội (1-5):' },
-                extra_turn_label: { en: '⚔️ Extra Turn Rules', vi: '⚔️ Luật lượt thêm' },
-                extra_turn_desc: { en: 'Hit an enemy ship? Get an extra turn! (Until miss)', vi: 'Trúng tàu địch? Được lượt thêm! (Cho đến khi trượt)' },
-                continue_btn: { en: 'Continue to Grid Setup 🚢', vi: 'Tiếp tục tới lưới 🚢' },
-                back_menu: { en: '◀️ Back to Menu', vi: '◀️ Trở về' },
-                setup_grid_title: { en: 'Setup Grid Size', vi: 'Cài kích thước lưới' },
-                adjust_grid_desc: { en: 'Adjust the coordinate system size. (Min 5x5, Max 20x20)', vi: 'Điều chỉnh kích thước hệ tọa độ. (Tối thiểu 5x5, tối đa 20x20)' },
-                confirm_grid: { en: 'Confirm Grid & Start Placement ⚓', vi: 'Xác nhận & Bắt đầu đặt tàu ⚓' },
-                next_team: { en: 'Next Team ➡️', vi: 'Đội tiếp theo ➡️' },
-                start_game: { en: 'Start Game ▶️', vi: 'Bắt đầu ▶️' },
-                end_game: { en: 'End Game (Bonus) 🔚', vi: 'Kết thúc (Thưởng) 🔚' },
-                reveal_all: { en: 'Reveal All 🔍', vi: 'Hiện tất cả 🔍' },
-                new_game: { en: 'New Game 🔄', vi: 'Trò chơi mới 🔄' },
-                place_ships: { en: 'Place Your Ships', vi: 'Đặt tàu' },
-                team_turn: { en: "Team's Turn", vi: 'Lượt của đội' },
-                extra_turn_badge: { en: '(Extra Turn)', vi: '(Lượt thêm)' },
-                placement_help: { en: 'Click once: place ship | Click twice: promote to Commander (3pts) | Click thrice: remove', vi: 'Nhấn 1 lần: đặt tàu | 2 lần: thăng hạng Chỉ huy (3 điểm) | 3 lần: gỡ' },
-                promoted: { en: 'Promoted to Commander Ship! (Worth 3 points)', vi: 'Đã thăng Chỉ huy! (3 điểm)' },
-                ship_removed: { en: 'Ship removed!', vi: 'Đã gỡ tàu!' },
-                ship_placed: { en: 'Ship placed! Click again to promote to Commander', vi: 'Đã đặt tàu! Nhấn lại để thăng Chỉ huy' },
-                cant_place: { en: "Can't place ship here! (Too close to enemy or spot taken)", vi: 'Không thể đặt ở đây! (Quá gần kẻ địch hoặc chỗ đã có)' },
-                victory_bonus: { en: 'Victory! {team} Team gets bonus for surviving ships!', vi: 'Chiến thắng! Đội {team} nhận thưởng cho tàu sống sót!' },
-                all_revealed: { en: 'All ships revealed! No survival bonus.', vi: 'Tất cả tàu đã lộ! Không có thưởng.' },
-                hit_own: { en: '{player} hit their own {shipType}! -{points}!', vi: '{player} bắn trúng tàu đội mình {shipType}! -{points}!' },
-                hit_own_single: { en: '{player} hit their own {shipType}! +{points}!', vi: '{player} bắn trúng tàu đội mình {shipType}! +{points}!' },
-                hit_enemy: { en: '{player} hit {team} team\'s {shipType}! +{points}!{extra}', vi: '{player} trúng tàu đội {team} {shipType}! +{points}!{extra}' },
-                already_revealed: { en: 'This spot has already been revealed.', vi: 'Vị trí này đã được lộ.' },
-                miss: { en: 'Miss!', vi: 'Trượt!' },
-                bonus_awarded: { en: 'Bonus points awarded to all surviving ships!', vi: 'Đã cộng điểm thưởng cho tàu sống sót!' },
-                tie_message: { en: '🎉 Game Over! Tie between: {teams}!', vi: '🎉 Trò chơi kết thúc! Hòa giữa: {teams}!' },
-                game_over_win: { en: '🏆 Game Over! {team} Team wins!', vi: '🏆 Kết thúc! Đội {team} thắng!' },
-                already_playing: { en: ' (Extra turn applied)', vi: ' (áp dụng lượt thêm)' },
-                color_Red: { en: 'Red', vi: 'Đỏ' },
-                color_Blue: { en: 'Blue', vi: 'Xanh dương' },
-                color_Green: { en: 'Green', vi: 'Xanh lá' },
-                color_Yellow: { en: 'Yellow', vi: 'Vàng' },
-                color_Purple: { en: 'Purple', vi: 'Tím' },
-            };
-
-            function t(key, vars = {}) {
-                const entry = I18N[key];
-                const str = entry ? (entry[currentLang] || entry.en) : key;
-                return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : ''));
-            }
-
-            function getTeamLabel(team) {
-                // team.name contains the English color name (e.g., 'Red')
-                const key = 'color_' + team.name;
-                return I18N[key] ? t(key) : team.name;
-            }
-            const GRID_COLOR_EMPTY = '#DBEAFE'; // blue-100 (very light blue)
-            const GRID_COLOR_BANNED = '#6B7281'; // gray-500
-            const GRID_COLOR_HIDDEN_SHIP = '#4B5563'; // gray-600
-            const GRID_COLOR_MISS = '#E5E7EB'; // gray-200
-            const GRID_COLOR_UNREVEALED = '#93C5FD'; // blue-300
-
-            let gameState = 'TEAM_SETUP'; // 'TEAM_SETUP', 'GRID_SETUP', 'PLACEMENT', 'GAME', 'GAME_OVER'
-            let teams = [];
-            let gridSize = { x: 5, y: 5 };
-            let board = []; // 2D array of cell objects
-            let currentPlacingTeamIndex = 0;
-            let currentPlayerIndex = 0;
-            let revealAll = false;
-            let extraTurnEnabled = false;
-            let isExtraTurn = false;
-            let canvas, ctx;
-            let setupCanvas, setupCtx;
-            let hoveredCell = { x: -1, y: -1 };
-            let mousePos = { x: 0, y: 0 };
-            // Audio context - created lazily on first interaction to satisfy browser autoplay
-            let audioCtx = null;
-            function ensureAudioContext() {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                } else if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-                return audioCtx;
-            }
-
-            // --- UI ELEMENTS ---
-            const screens = {
-                teamSetup: document.getElementById('team-setup-screen'),
-                gridSetup: document.getElementById('grid-setup-screen'),
-                game: document.getElementById('game-container'),
-            };
-            const teamCountSelect = document.getElementById('team-count');
-            const extraTurnToggle = document.getElementById('extra-turn-toggle');
-            const startSetupBtn = document.getElementById('start-setup-btn');
-            const langSelect = document.getElementById('lang-select');
-            
-            const gridSizeDisplay = document.getElementById('grid-size-display');
-            const decreaseGridBtn = document.getElementById('decrease-grid-btn');
-            const increaseGridBtn = document.getElementById('increase-grid-btn');
-            const confirmGridBtn = document.getElementById('confirm-grid-btn');
-            setupCanvas = document.getElementById('grid-setup-canvas');
-            setupCtx = setupCanvas.getContext('2d');
-            
-            canvas = document.getElementById('game-canvas');
-            ctx = canvas.getContext('2d');
-            const teamCirclesContainer = document.getElementById('team-circles');
-            const turnInfo = document.getElementById('turn-info');
-            const messageBox = document.getElementById('message-box');
-            const scoreboard = document.getElementById('scoreboard');
-            const nextBtn = document.getElementById('next-btn');
-            const startGameBtn = document.getElementById('start-game-btn');
-            const endGameBtn = document.getElementById('end-game-btn');
-            const revealAllBtn = document.getElementById('reveal-all-btn');
-            const newGameBtn = document.getElementById('new-game-btn');
-            const menuBtnSetup = document.getElementById('menu-btn-setup');
-            const menuBtnGrid = document.getElementById('menu-btn-grid');
-            const menuBtnGame = document.getElementById('menu-btn-game');
-
-            // --- Team circles UI state ---
-            const CIRCLE_COUNT = 5;
-            // circleState holds color index (0..TEAM_COLORS.length-1) or null for white/unassigned
-            let circleState = new Array(CIRCLE_COUNT).fill(null);
-            const COLOR_EMOJIS = ['🔴','🔵','🟢','🟡','🟣'];
-
-            function createCircleElement(i) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'team-circle-wrapper';
-
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'team-circle';
-                btn.dataset.index = String(i);
-                btn.setAttribute('aria-label', `Team circle ${i+1}`);
-
-                const label = document.createElement('span');
-                label.className = 'team-circle-label';
-                label.id = `circle-label-${i}`;
-                label.textContent = '';
-
-                btn.addEventListener('click', () => {
-                    // cycle color: null(white) -> 0 -> 1 -> ... -> last -> null
-                    const cur = circleState[i];
-                    const cycleLen = TEAM_COLORS.length + 1; // include null state
-                    let nextIdx;
-                    if (cur === null) nextIdx = 0;
-                    else {
-                        const k = (cur + 1) % cycleLen;
-                        nextIdx = (k === TEAM_COLORS.length) ? null : k;
-                    }
-                    circleState[i] = nextIdx;
-                    renderCircle(i);
-                    updateSelectFromCircles();
-                });
-
-                wrapper.appendChild(btn);
-                wrapper.appendChild(label);
-                return wrapper;
-            }
-
-            function renderCircle(i) {
-                const wrapper = teamCirclesContainer.children[i];
-                if (!wrapper) return;
-                const btn = wrapper.querySelector('.team-circle');
-                const label = wrapper.querySelector('.team-circle-label');
-                const colorIdx = circleState[i];
-                if (colorIdx === null || colorIdx === undefined) {
-                    btn.style.background = '#ffffff';
-                    btn.style.border = '2px solid rgba(0,0,0,0.12)';
-                    label.textContent = '';
-                } else {
-                    const color = TEAM_COLORS[colorIdx].color;
-                    btn.style.background = color;
-                    btn.style.border = '2px solid rgba(0,0,0,0.08)';
-                    // show emoji + localized team name
-                    const emoji = COLOR_EMOJIS[colorIdx] || '';
-                    label.textContent = emoji + ' ' + getTeamLabel(TEAM_COLORS[colorIdx]);
-                }
-            }
-
-            function initCircles() {
-                if (!teamCirclesContainer) return;
-                teamCirclesContainer.innerHTML = '';
-                    for (let i = 0; i < CIRCLE_COUNT; i++) {
-                        const el = createCircleElement(i);
-                        teamCirclesContainer.appendChild(el);
-                    }
-                // set initial circles according to the select default
-                applySelectToCircles();
-            }
-
-            function applySelectToCircles() {
-                const n = parseInt(teamCountSelect.value) || 0;
-                // assign first n circles unique colors in order
-                for (let i = 0; i < CIRCLE_COUNT; i++) {
-                    if (i < n) {
-                        circleState[i] = i % TEAM_COLORS.length;
-                    } else {
-                        circleState[i] = null;
-                    }
-                    renderCircle(i);
-                }
-            }
-
-            function updateSelectFromCircles() {
-                // count unique color indices among circleState (exclude null)
-                const unique = [];
-                circleState.forEach(ci => {
-                    if (ci === null) return;
-                    if (!unique.includes(ci)) unique.push(ci);
-                });
-                const count = unique.length;
-                // update select value to match unique count
-                teamCountSelect.value = String(Math.max(1, count));
-                // also update displayed labels and scoreboard (if teams exist later)
-                updateScoreboard();
-            }
-
-
-            // Apply language to static elements
-            function applyLanguage() {
-                // header / labels
-                const titleEl = document.getElementById('title'); if (titleEl) titleEl.textContent = t('title');
-                const teamLabel = document.querySelector('label[for="team-count"]'); if (teamLabel) teamLabel.textContent = t('select_teams');
-                const extraLabel = document.getElementById('extra-turn-label'); if (extraLabel) extraLabel.textContent = t('extra_turn_label');
-                const extraDesc = document.getElementById('extra-turn-desc'); if (extraDesc) extraDesc.textContent = t('extra_turn_desc');
-                // Grid setup
-                const gridTitle = document.querySelector('.text-2xl.font-bold.mb-4'); if (gridTitle) gridTitle.textContent = t('setup_grid_title');
-                const adjustDesc = document.querySelector('.text-gray-600.mb-2'); if (adjustDesc) adjustDesc.textContent = t('adjust_grid_desc');
-                // Buttons
-                startSetupBtn.textContent = t('continue_btn');
-                document.getElementById('menu-btn-setup').textContent = t('back_menu');
-                document.getElementById('confirm-grid-btn').textContent = t('confirm_grid');
-                document.getElementById('menu-btn-grid').textContent = t('back_menu');
-                document.getElementById('next-btn').textContent = t('next_team');
-                document.getElementById('start-game-btn').textContent = t('start_game');
-                document.getElementById('end-game-btn').textContent = t('end_game');
-                document.getElementById('reveal-all-btn').textContent = t('reveal_all');
-                document.getElementById('new-game-btn').textContent = t('new_game');
-                document.getElementById('menu-btn-game').textContent = t('back_menu');
-                // update dynamic labels
-                updateTurnInfo();
-                updateScoreboard();
-            }
-
-            // language selector
-            if (langSelect) {
-                langSelect.value = currentLang;
-                langSelect.addEventListener('change', (e) => {
-                    currentLang = e.target.value;
-                    applyLanguage();
-                    // re-render circle labels in new language
-                    for (let i = 0; i < CIRCLE_COUNT; i++) renderCircle(i);
-                });
-            }
-
-            // initialize circles after language and dom ready
-            initCircles();
-
-            // --- UI UPDATE FUNCTIONS ---
-
-            function showMessage(msg) {
-                // Prefix messages with a small chat emoji to match the playful theme
-                const full = '💬 ' + msg;
-                messageBox.textContent = full;
-                setTimeout(() => {
-                    if (messageBox.textContent === full) {
-                        messageBox.textContent = '';
-                    }
-                }, 3000);
-            }
-
-            // --- Feedback visuals & sounds ---
-            // duration for the fade-in portion in milliseconds (adjustable)
-            const FEEDBACK_FADEIN_MS = 1500;
-
-            function showFeedback(type) {
-                // type: 'hit' or 'miss'
-                const overlay = document.getElementById('feedback-overlay');
-                if (!overlay) return;
-
-                const span = document.createElement('div');
-                span.className = 'feedback-emoji';
-                span.style.animation = `feedbackFadeIn ${FEEDBACK_FADEIN_MS}ms forwards, feedbackFadeOut 600ms ${FEEDBACK_FADEIN_MS + 100}ms forwards`;
-                span.textContent = (type === 'hit') ? '💥' : '😅';
-                overlay.appendChild(span);
-
-                // remove after animations finish
-                const totalMs = FEEDBACK_FADEIN_MS + 800;
-                setTimeout(() => {
-                    if (overlay.contains(span)) overlay.removeChild(span);
-                }, totalMs + 50);
-            }
-
-            // Simple synthesized explosion sound using WebAudio
-            function playExplosion() {
-                const ctx = ensureAudioContext();
-                if (!ctx) return;
-                const bufferSize = 2 * ctx.sampleRate;
-                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                // fill buffer with white noise shaped by an exponential decay envelope
-                for (let i = 0; i < bufferSize; i++) {
-                    const t = i / ctx.sampleRate;
-                    // white noise
-                    data[i] = (Math.random() * 2 - 1) * Math.exp(-3 * t);
-                }
-                const noise = ctx.createBufferSource();
-                noise.buffer = buffer;
-                const lp = ctx.createBiquadFilter();
-                lp.type = 'lowpass';
-                lp.frequency.value = 1200;
-                const gain = ctx.createGain();
-                gain.gain.setValueAtTime(1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-                noise.connect(lp).connect(gain).connect(ctx.destination);
-                noise.start();
-                noise.stop(ctx.currentTime + 1.3);
-            }
-
-            // Simple synthesized sad beep
-            function playSadBeep() {
-                const ctx = ensureAudioContext();
-                if (!ctx) return;
-                const o = ctx.createOscillator();
-                const g = ctx.createGain();
-                o.type = 'sine';
-                o.frequency.setValueAtTime(680, ctx.currentTime);
-                g.gain.setValueAtTime(0.0001, ctx.currentTime);
-                g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
-                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
-                o.connect(g).connect(ctx.destination);
-                o.start();
-                o.stop(ctx.currentTime + 0.55);
-            }
-
-            // Helper: choose readable contrast color (black or white) for a background hex color
-            function getContrastColor(hex) {
-                if (!hex) return '#000000';
-                // strip # if present
-                const h = hex.replace('#', '');
-                const r = parseInt(h.substring(0,2),16);
-                const g = parseInt(h.substring(2,4),16);
-                const b = parseInt(h.substring(4,6),16);
-                // Perceived luminance
-                const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
-                return luminance > 0.6 ? '#000000' : '#FFFFFF';
-            }
-
-            function updateScoreboard() {
-                scoreboard.innerHTML = '';
-                teams.forEach(team => {
-                    const scoreEl = document.createElement('div');
-                    scoreEl.className = 'p-3 rounded-lg shadow-md text-center';
-                    scoreEl.style.backgroundColor = team.color;
-                    scoreEl.style.color = getContrastColor(team.color);
-                    scoreEl.style.minWidth = '120px';
-                    // find emoji for this team's color (matching TEAM_COLORS order)
-                    const idx = TEAM_COLORS.findIndex(tc => tc.color.toLowerCase() === team.color.toLowerCase());
-                    const emoji = (idx >= 0 && idx < COLOR_EMOJIS.length) ? COLOR_EMOJIS[idx] + ' ' : '';
-                    scoreEl.innerHTML = `
-                        <span class="block font-bold text-lg">${emoji}${getTeamLabel(team)}</span>
-                        <span class="block text-2xl">${team.score}</span>
-                    `;
-                    scoreboard.appendChild(scoreEl);
-                });
-            }
-
-            function getEmojiForTeam(team) {
-                if (!team) return '';
-                const idx = TEAM_COLORS.findIndex(tc => tc.color.toLowerCase() === team.color.toLowerCase());
-                return (idx >= 0 && idx < COLOR_EMOJIS.length) ? COLOR_EMOJIS[idx] : '';
-            }
-            
-            function updateTurnInfo() {
-                if (gameState === 'PLACEMENT') {
-                        const team = teams[currentPlacingTeamIndex];
-                            const teamEmoji = getEmojiForTeam(team);
-                            turnInfo.textContent = `${teamEmoji} ${getTeamLabel(team)} ${t('place_ships')}`;
-                        turnInfo.style.color = team.color;
-                        showMessage(t('placement_help'));
-                } else if (gameState === 'GAME') {
-                    const team = teams[currentPlayerIndex];
-                    const teamEmoji = getEmojiForTeam(team);
-                    const extraBadge = isExtraTurn ? ' (Extra Turn)' : '';
-                        const extraText = isExtraTurn ? ' ' + t('extra_turn_badge') : '';
-                        turnInfo.textContent = `${teamEmoji} ${getTeamLabel(team)} ${t('team_turn')}${extraText}`;
-                    turnInfo.style.color = team.color;
-                }
-            }
-
-            // --- CANVAS DRAWING UTILITIES ---
-            function getDrawingMetrics(c, gridW, gridH) {
-                const axisPadding = { top: 30, right: 30, bottom: 70, left: 70 };
-                const canvasWidth = c.canvas.width;
-                const canvasHeight = c.canvas.height;
-                if (canvasWidth === 0 || canvasHeight === 0) {
-                    return { cellS: 20, radius: 7, originX: 70, originY: 130, gridW, gridH };
-                }
-                const gridWidth = canvasWidth - axisPadding.left - axisPadding.right;
-                const gridHeight = canvasHeight - axisPadding.top - axisPadding.bottom;
-                const cellS_W = gridWidth / gridW;
-                const cellS_H = gridHeight / gridH;
-                const cellS = Math.min(cellS_W, cellS_H);
-                const radius = (cellS * 0.7) / 2;
-                const originX = axisPadding.left;
-                const originY = c.canvas.height - axisPadding.bottom;
-                return { cellS, radius, originX, originY, gridW, gridH };
-            }
-
-            function getCircleCenter(x, y, cellS, originX, originY) {
-                const cx = originX + (x + 0.5) * cellS;
-                const cy = originY - (y + 0.5) * cellS;
-                return { cx, cy };
-            }
-
-            function drawAxes(c, metrics) {
-                const { cellS, originX, originY, gridW, gridH } = metrics;
-                // Theme: both axes and grid lines share the same color
-                const axisColor = '#0f9ed5'; // axis stroke color (Ox and Oy)
-                const axisWidth = 8;
-                const arrowheadSize = 20;
-                const gridLineColor = '#0f9ed5'; // grid line color matches axis
-
-                // Number colors: X-axis numbers blue, Y-axis numbers red, corner zero black
-                const xNumberColor = '#0f9ed5';
-                const yNumberColor = '#ff0000';
-                const cornerZeroColor = '#000000';
-
-                const gridWidth = gridW * cellS;
-                const gridHeight = gridH * cellS;
-
-                // --- Draw Grid Lines ---
-                c.strokeStyle = gridLineColor;
-                c.lineWidth = 4;
-                for (let x = 0; x < gridW; x++) {
-                    const lineX = originX + (x + 0.5) * cellS;
-                    c.beginPath();
-                    c.moveTo(lineX, originY);
-                    c.lineTo(lineX, originY - gridHeight);
-                    c.stroke();
-                }
-                for (let y = 0; y < gridH; y++) {
-                    const lineY = originY - (y + 0.5) * cellS;
-                    c.beginPath();
-                    c.moveTo(originX, lineY);
-                    c.lineTo(originX + gridWidth, lineY);
-                    c.stroke();
-                }
-
-                // --- Draw Numbers and Axes ---
-                c.strokeStyle = axisColor;
-                c.fillStyle = axisColor;
-                c.lineWidth = axisWidth;
-
-                // Dynamic font size: matches circle size (0.7 * cellS)
-                const numberFontSize = cellS * 0.7;
-                c.font = `bold ${numberFontSize}px sans-serif`;
-                c.textAlign = 'center';
-                c.textBaseline = 'middle';
-
-                // --- X-Axis Numbers (only x > 0) ---
-                c.textBaseline = 'top';
-                c.textAlign = 'center';
-                for (let x = 1; x < gridW; x++) {
-                    const cx = originX + (x + 0.5) * cellS;
-                    const cy = originY + 10;
-                    c.fillStyle = xNumberColor;
-                    c.fillText(x, cx, cy);
-                }
-
-                // --- Y-Axis Numbers (only y > 0) ---
-                c.textAlign = 'right';
-                c.textBaseline = 'middle';
-                for (let y = 1; y < gridH; y++) {
-                    const cx = originX - 10;
-                    const cy = originY - (y + 0.5) * cellS;
-                    c.fillStyle = yNumberColor;
-                    c.fillText(y, cx, cy);
-                }
-
-                // --- Single corner zero (0) ---
-                c.fillStyle = cornerZeroColor;
-                // place corner 0 just outside the axes intersection (left and below)
-                const cornerX = originX - 10;
-                const cornerY = originY + 10;
-                c.textAlign = 'center';
-                c.textBaseline = 'middle';
-                c.fillText('0', cornerX, cornerY);
-                
-                // --- Draw Axes Lines ---
-                const yAxisX = originX + (0.5 * cellS);
-                const yAxisTop = originY - gridHeight - 10;
-                const yAxisBottom = originY;
-                c.beginPath();
-                c.moveTo(yAxisX, yAxisBottom);
-                c.lineTo(yAxisX, yAxisTop);
-                c.stroke();
-                c.beginPath();
-                c.moveTo(yAxisX, yAxisTop - arrowheadSize);
-                c.lineTo(yAxisX - arrowheadSize / 2, yAxisTop);
-                c.lineTo(yAxisX + arrowheadSize / 2, yAxisTop);
-                c.closePath();
-                // ensure arrowhead fills use the axis color (blue)
-                c.fillStyle = axisColor;
-                c.fill();
-
-                const xAxisY = originY - (0.5 * cellS);
-                const xAxisLeft = originX;
-                const xAxisRight = originX + gridWidth + 10;
-                c.beginPath();
-                c.moveTo(xAxisLeft, xAxisY);
-                c.lineTo(xAxisRight, xAxisY);
-                c.stroke();
-                c.beginPath();
-                c.moveTo(xAxisRight + arrowheadSize, xAxisY);
-                c.lineTo(xAxisRight, xAxisY - arrowheadSize / 2);
-                c.lineTo(xAxisRight, xAxisY + arrowheadSize / 2);
-                c.closePath();
-                // ensure arrowhead fills use the axis color (blue)
-                c.fillStyle = axisColor;
-                c.fill();
-            }
-
-            function drawCircle(c, x, y, radius, color, isFill = true) {
-                c.beginPath();
-                c.arc(x, y, radius, 0, Math.PI * 2);
-                if (isFill) {
-                    c.fillStyle = color;
-                    c.fill();
-                } else {
-                    c.strokeStyle = color;
-                    c.lineWidth = 2;
-                    c.stroke();
-                }
-            }
-
-            function drawStar(c, x, y, radius) {
-                const fontSize = radius * 1.5;
-                c.font = `${fontSize}px Arial`;
-                c.textAlign = 'center';
-                c.textBaseline = 'middle';
-                c.fillText('⭐', x, y);
-            }
-
-            function drawQuestionMark(c, x, y, radius) {
-                const fontSize = radius * 1.3;
-                c.font = `${fontSize}px Arial`;
-                c.textAlign = 'center';
-                c.textBaseline = 'middle';
-                c.fillText('❓', x, y);
-            }
-
-            // --- GAME LOGIC ---
-
-            function drawGameBoard() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                const metrics = getDrawingMetrics(ctx, gridSize.x, gridSize.y);
-                const { cellS, radius, originX, originY } = metrics;
-
-                drawAxes(ctx, metrics);
-
-                if (gameState === 'PLACEMENT') {
-                    const currentTeam = teams[currentPlacingTeamIndex];
-                    for (let y = 0; y < gridSize.y; y++) {
-                        for (let x = 0; x < gridSize.x; x++) {
-                            const { cx, cy } = getCircleCenter(x, y, cellS, originX, originY);
-                            const cell = board[y][x];
-                            
-                            if (cell.teamId === currentTeam.id) {
-                                drawCircle(ctx, cx, cy, radius, currentTeam.color);
-                                if (cell.isCommander) {
-                                    drawStar(ctx, cx, cy, radius);
-                                }
-                            } else if (cell.teamId !== null) {
-                                drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY, true);
-                            } else if (isAvailableForPlacing(x, y, currentTeam.id)) {
-                                drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY);
-                            } else {
-                                drawCircle(ctx, cx, cy, radius, GRID_COLOR_EMPTY, true);
-                            }
-
-                            // Draw hover effect
-                            if (hoveredCell.x === x && hoveredCell.y === y) {
-                                ctx.strokeStyle = '#000000';
-                                ctx.lineWidth = 4;
-                                ctx.beginPath();
-                                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                                ctx.stroke();
-                            }
-                        }
-                    }
-                } else if (gameState === 'GAME' || gameState === 'GAME_OVER') {
-                    for (let y = 0; y < gridSize.y; y++) {
-                        for (let x = 0; x < gridSize.x; x++) {
-                            const { cx, cy } = getCircleCenter(x, y, cellS, originX, originY);
-                            const cell = board[y][x];
-
-                            if (revealAll) {
-                                if (cell.teamId !== null) {
-                                    const team = teams.find(t => t.id === cell.teamId);
-                                    drawCircle(ctx, cx, cy, radius, team.color, true);
-                                    if (cell.isCommander) {
-                                        drawStar(ctx, cx, cy, radius);
-                                    }
-                                } else {
-                                    drawCircle(ctx, cx, cy, radius, GRID_COLOR_MISS, true);
-                                }
-                            } else {
-                                if (cell.revealed) {
-                                    if (cell.hitShipColor) {
-                                        drawCircle(ctx, cx, cy, radius, cell.hitShipColor, true);
-                                        if (cell.isCommander) {
-                                            drawStar(ctx, cx, cy, radius);
-                                        }
-                                    } else {
-                                        drawCircle(ctx, cx, cy, radius, GRID_COLOR_MISS, true);
-                                    }
-                                } else {
-                                    drawCircle(ctx, cx, cy, radius, GRID_COLOR_UNREVEALED);
-                                    drawQuestionMark(ctx, cx, cy, radius);
-                                }
-                            }
-
-                            // Draw hover effect (only in GAME state)
-                            if (gameState ==='GAME' && hoveredCell.x === x && hoveredCell.y === y) {
-                                ctx.strokeStyle = '#000000';
-                                ctx.lineWidth = 4;
-                                ctx.beginPath();
-                                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                                ctx.stroke();
-                            }
-                        }
-                    }
-                }
-            }
-
-            function resizeAndDrawGame() {
-                const container = canvas.parentElement;
-                const rect = container.getBoundingClientRect();
-                if (canvas.width !== rect.width || canvas.height !== rect.height) {
-                    canvas.width = rect.width;
-                    canvas.height = rect.height;
-                }
-                drawGameBoard();
-            }
-
-            function drawGridSetupBoard() {
-                const container = setupCanvas.parentElement;
-                const rect = container.getBoundingClientRect();
-                if (setupCanvas.width !== rect.width || setupCanvas.height !== rect.height) {
-                    setupCanvas.width = rect.width;
-                    setupCanvas.height = rect.height;
-                }
-                const metrics = getDrawingMetrics(setupCtx, gridSize.x, gridSize.y);
-                const { cellS, radius, originX, originY } = metrics;
-
-                setupCtx.clearRect(0, 0, setupCanvas.width, setupCanvas.height);
-                drawAxes(setupCtx, metrics);
-                
-                for (let y = 0; y < gridSize.y; y++) {
-                    for (let x = 0; x < gridSize.x; x++) {
-                        const { cx, cy } = getCircleCenter(x, y, cellS, originX, originY);
-                        drawCircle(setupCtx, cx, cy, radius, GRID_COLOR_EMPTY);
-                    }
-                }
-            }
-            
-            function setGameState(newState) {
-                gameState = newState;
-                Object.values(screens).forEach(screen => screen.classList.add('hidden'));
-
-                switch (gameState) {
-                    case 'TEAM_SETUP':
-                        screens.teamSetup.classList.remove('hidden');
-                        break;
-                    case 'GRID_SETUP':
-                        screens.gridSetup.classList.remove('hidden');
-                        setTimeout(drawGridSetupBoard, 0);
-                        break;
-                    case 'PLACEMENT':
-                        screens.game.classList.remove('hidden');
-                        nextBtn.classList.remove('hidden');
-                        startGameBtn.classList.add('hidden');
-                        endGameBtn.classList.add('hidden');
-                        revealAllBtn.classList.add('hidden');
-                        newGameBtn.classList.add('hidden');
-                        menuBtnGame.classList.add('hidden');
-                        updateTurnInfo();
-                        updateScoreboard();
-                        setTimeout(resizeAndDrawGame, 0);
-                        break;
-                    case 'GAME':
-                        screens.game.classList.remove('hidden');
-                        nextBtn.classList.add('hidden');
-                        startGameBtn.classList.add('hidden');
-                        endGameBtn.classList.remove('hidden');
-                        revealAllBtn.classList.remove('hidden');
-                        newGameBtn.classList.add('hidden');
-                        menuBtnGame.classList.add('hidden');
-                        isExtraTurn = false;
-                        updateTurnInfo();
-                        setTimeout(resizeAndDrawGame, 0);
-                        break;
-                    case 'GAME_OVER':
-                        screens.game.classList.remove('hidden');
-                        nextBtn.classList.add('hidden');
-                        startGameBtn.classList.add('hidden');
-                        endGameBtn.classList.add('hidden');
-                        revealAllBtn.classList.add('hidden');
-                        newGameBtn.classList.remove('hidden');
-                        menuBtnGame.classList.remove('hidden');
-                        // Do NOT call updateTurnInfo() here — winner text will set color
-                        setTimeout(resizeAndDrawGame, 0);
-                        break;
-                }
-            }
-
-            function handleTeamSetup() {
-                // If circles have assigned colors, derive teams from unique circle colors (in order of first occurrence)
-                extraTurnEnabled = extraTurnToggle.checked;
-                teams = [];
-                const unique = [];
-                circleState.forEach(ci => {
-                    if (ci === null || unique.includes(ci)) return;
-                    unique.push(ci);
-                });
-                if (unique.length > 0) {
-                    unique.forEach((ci, idx) => {
-                        const colorObj = TEAM_COLORS[ci];
-                        teams.push({ id: idx + 1, ...colorObj, ships: [], score: 0 });
-                    });
-                } else {
-                    // fallback to select value
-                    const numTeams = parseInt(teamCountSelect.value) || 1;
-                    for (let i = 0; i < numTeams; i++) {
-                        teams.push({ id: i + 1, ...TEAM_COLORS[i], ships: [], score: 0 });
-                    }
-                }
-                // apply language to team labels immediately
-                updateScoreboard();
-                setGameState('GRID_SETUP');
-            }
-
-            function handleGridAdjust(change) {
-                let newSize = gridSize.x + change;
-                if (newSize >= 5 && newSize <= 20) {
-                    gridSize = { x: newSize, y: newSize };
-                    gridSizeDisplay.textContent = `${newSize} x ${newSize}`;
-                    drawGridSetupBoard();
-                }
-            }
-
-            function handleGridConfirm() {
-                board = [];
-                for (let y = 0; y < gridSize.y; y++) {
-                    const row = [];
-                    for (let x = 0; x < gridSize.x; x++) {
-                        row.push({
-                            x, y,
-                            teamId: null,
-                            isCommander: false,
-                            revealed: false,
-                            hitShipColor: null,
-                            miss: false,
-                        });
-                    }
-                    board.push(row);
-                }
-                currentPlacingTeamIndex = 0;
-                setGameState('PLACEMENT');
-            }
-
-            function isAvailableForPlacing(x, y, placingTeamId) {
-                if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return false;
-                const cell = board[y][x];
-                if (cell.teamId !== null && cell.teamId !== placingTeamId) return false;
-                for (let dy = -1; dy <= 1; dy++) {
-                    for (let dx = -1; dx <= 1; dx++) {
-                        if (dx === 0 && dy === 0) continue;
-                        const nx = x + dx, ny = y + dy;
-                        if (nx >= 0 && nx < gridSize.x && ny >= 0 && ny < gridSize.y) {
-                            const neighborTeamId = board[ny][nx].teamId;
-                            if (neighborTeamId !== null && neighborTeamId !== placingTeamId) {
-                                return false;
-                            }
-                        }
-                    }
-                }
-                return true;
-            }
-
-            function placeShip(x, y) {
-                if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return;
-                const currentTeam = teams[currentPlacingTeamIndex];
-                const cell = board[y][x];
-                
-                if (cell.teamId === currentTeam.id) {
-                    if (!cell.isCommander) {
-                        cell.isCommander = true;
-                        const shipIndex = currentTeam.ships.findIndex(s => s.x === x && s.y === y);
-                        if (shipIndex !== -1) {
-                            currentTeam.ships[shipIndex].isCommander = true;
-                        }
-                        showMessage(t('promoted'));
-                    } else {
-                        cell.teamId = null;
-                        cell.isCommander = false;
-                        currentTeam.ships = currentTeam.ships.filter(s => !(s.x === x && s.y === y));
-                        showMessage(t('ship_removed'));
-                    }
-                    resizeAndDrawGame();
-                    return;
-                }
-                
-                if (isAvailableForPlacing(x, y, currentTeam.id)) {
-                    cell.teamId = currentTeam.id;
-                    cell.isCommander = false;
-                    currentTeam.ships.push({ x, y, isCommander: false });
-                    showMessage(t('ship_placed'));
-                    resizeAndDrawGame();
-                } else {
-                    showMessage(t('cant_place'));
-                }
-            }
-
-            // --- NEW: Check for last team standing (with bonus) ---
-            function checkLastTeamStanding() {
-                // If only one team in the game, don't treat them as "last team standing" immediately.
-                // This allows single-player mode to continue until all ships are revealed or the player ends the game.
-                if (teams.length <= 1) return false;
-
-                const activeTeamIds = new Set();
-                for (let y = 0; y < gridSize.y; y++) {
-                    for (let x = 0; x < gridSize.x; x++) {
-                        const cell = board[y][x];
-                        if (cell.teamId !== null && !cell.revealed) {
-                            activeTeamIds.add(cell.teamId);
-                        }
-                    }
-                }
-
-                if (activeTeamIds.size === 1) {
-                    const winnerId = Array.from(activeTeamIds)[0];
-                    const winnerTeam = teams.find(t => t.id === winnerId);
-
-                    // Award bonus points for all surviving ships
-                    for (let y = 0; y < gridSize.y; y++) {
-                        for (let x = 0; x < gridSize.x; x++) {
-                            const cell = board[y][x];
-                            if (cell.teamId === winnerId && !cell.revealed) {
-                                const bonus = cell.isCommander ? 3 : 1;
-                                winnerTeam.score += bonus;
-                            }
-                        }
-                    }
-
-                    updateScoreboard();
-                    revealAll = true;
-                    setGameState('GAME_OVER');
-                    showFinalWinnerMessage();
-                    showMessage(t('victory_bonus', { team: getTeamLabel(winnerTeam) }));
-                    return true;
-                }
-                return false;
-            }
-
-            // --- Centralized winner calculation ---
-            function showFinalWinnerMessage() {
-                let maxScore = -Infinity;
-                let winners = [];
-
-                teams.forEach(team => {
-                    if (team.score > maxScore) {
-                        maxScore = team.score;
-                        winners = [team];
-                    } else if (team.score === maxScore) {
-                        winners.push(team);
-                    }
-                });
-
-                if (winners.length > 1) {
-                    // For tie: use neutral color (black)
-                    const names = winners.map(t => getTeamLabel(t)).join(', ');
-                    turnInfo.textContent = t('tie_message', { teams: names });
-                    turnInfo.style.color = '#000000';
-                } else {
-                    // Single winner: use their team color
-                    const winner = winners[0];
-                    turnInfo.textContent = t('game_over_win', { team: getTeamLabel(winner) });
-                    turnInfo.style.color = winner.color;
-                }
-            }
-
-            function checkGameOver() {
-                let totalShips = 0, revealedShips = 0;
-                for (let y = 0; y < gridSize.y; y++) {
-                    for (let x = 0; x < gridSize.x; x++) {
-                        const cell = board[y][x];
-                        if (cell.teamId !== null) {
-                            totalShips++;
-                            if (cell.revealed) revealedShips++;
-                        }
-                    }
-                }
-
-                // 1. All ships revealed → end with no bonus
-                if (totalShips > 0 && revealedShips === totalShips) {
-                    revealAll = true;
-                    setGameState('GAME_OVER');
-                    showFinalWinnerMessage();
-                    showMessage(t('all_revealed'));
-                    return;
-                }
-
-                // 2. Last team standing → bonus applied
-                if (checkLastTeamStanding()) {
-                    return;
-                }
-            }
-
-            function makeGuess(x, y) {
-                if (x < 0 || x >= gridSize.x || y < 0 || y >= gridSize.y) return;
-                const cell = board[y][x];
-                if (cell.revealed) {
-                    showMessage(t('already_revealed'));
-                    return;
-                }
-
-                cell.revealed = true;
-                const currentPlayer = teams[currentPlayerIndex];
-                const hitTeamId = cell.teamId;
-
-                if (hitTeamId !== null) {
-                    const hitTeam = teams.find(t => t.id === hitTeamId);
-                    cell.hitShipColor = hitTeam.color;
-                    const pointValue = cell.isCommander ? 3 : 1;
-
-                    if (hitTeamId === currentPlayer.id) {
-                        const shipType = cell.isCommander ? (currentLang === 'vi' ? 'Chỉ huy' : 'Commander ship') : (currentLang === 'vi' ? 'tàu' : 'ship');
-                        if (teams.length === 1) {
-                            // Single-team mode: reward player instead of penalize
-                            currentPlayer.score += pointValue;
-                            showMessage(t('hit_own_single', { player: currentPlayer.name, shipType: shipType, points: pointValue }));
-                        } else {
-                            currentPlayer.score -= pointValue;
-                            showMessage(t('hit_own', { player: currentPlayer.name, shipType: shipType, points: pointValue }));
-                        }
-                        isExtraTurn = false;
-                        nextTurn();
-                        // show explosion even for self-hit (can be changed)
-                        showFeedback('hit');
-                        playExplosion();
-                    } else {
-                        currentPlayer.score += pointValue;
-                        const shipType = cell.isCommander ? (currentLang === 'vi' ? 'Chỉ huy' : 'Commander ship') : (currentLang === 'vi' ? 'tàu' : 'ship');
-                        const extraMsg = extraTurnEnabled ? t('already_playing') : '';
-                        showMessage(t('hit_enemy', { player: currentPlayer.name, team: getTeamLabel(hitTeam), shipType: shipType, points: pointValue, extra: extraMsg }));
-                        if (extraTurnEnabled) {
-                            isExtraTurn = true;
-                            updateTurnInfo();
-                            showFeedback('hit');
-                            playExplosion();
-                        } else {
-                            showFeedback('hit');
-                            playExplosion();
-                            nextTurn();
-                        }
-                    }
-                } else {
-                    cell.miss = true;
-                    showMessage(t('miss'));
-                    isExtraTurn = false;
-                    nextTurn();
-                    // miss feedback
-                    showFeedback('miss');
-                    playSadBeep();
-                }
-
-                updateScoreboard();
-                resizeAndDrawGame();
-                checkGameOver();
-            }
-
-            function nextTurn() {
-                isExtraTurn = false;
-                currentPlayerIndex = (currentPlayerIndex + 1) % teams.length;
-                updateTurnInfo();
-            }
-
-            function handleNextTeam() {
-                currentPlacingTeamIndex++;
-                if (currentPlacingTeamIndex >= teams.length) {
-                    setGameState('GAME');
-                } else {
-                    if (currentPlacingTeamIndex === teams.length - 1) {
-                        nextBtn.classList.add('hidden');
-                        startGameBtn.classList.remove('hidden');
-                    }
-                    updateTurnInfo();
-                    resizeAndDrawGame();
-                }
-            }
-            
-            function handleCanvasClick(event) {
-                const rect = canvas.getBoundingClientRect();
-                const canvasX = event.clientX - rect.left;
-                const canvasY = event.clientY - rect.top;
-                const { cellS, originX, originY } = getDrawingMetrics(ctx, gridSize.x, gridSize.y);
-                const gridX = canvasX - originX;
-                const gridY = originY - canvasY;
-                const x = Math.floor(gridX / cellS);
-                const y = Math.floor(gridY / cellS);
-
-                if (gameState === 'PLACEMENT') {
-                    placeShip(x, y);
-                } else if (gameState === 'GAME') {
-                    makeGuess(x, y);
-                }
-            }
-
-            function handleEndGame() {
-                // Award bonus for all unrevealed ships (all teams)
-                for (let y = 0; y < gridSize.y; y++) {
-                    for (let x = 0; x < gridSize.x; x++) {
-                        const cell = board[y][x];
-                        if (cell.teamId !== null && !cell.revealed) {
-                            const team = teams.find(t => t.id === cell.teamId);
-                            const bonus = cell.isCommander ? 3 : 1;
-                            team.score += bonus;
-                        }
-                    }
-                }
-                updateScoreboard();
-                revealAll = true;
-                setGameState('GAME_OVER');
-                showFinalWinnerMessage();
-                showMessage("Bonus points awarded to all surviving ships!");
-            }
-
-            function handleRevealAll() {
-                revealAll = true;
-                setGameState('GAME_OVER');
-                showFinalWinnerMessage();
-                showMessage("All ships revealed! No survival bonus.");
-            }
-
-            function handleNewGame() {
-                teams = [];
-                board = [];
-                currentPlacingTeamIndex = 0;
-                currentPlayerIndex = 0;
-                revealAll = false;
-                isExtraTurn = false;
-                gridSize = { x: 5, y: 5 };
-                gridSizeDisplay.textContent = '5 x 5';
-                extraTurnToggle.checked = false;
-                setGameState('TEAM_SETUP');
-            }
-
-            function handleBackToMenu() {
-                window.location.href = 'index.html';
-            }
-
-            // --- EVENT LISTENERS ---
-            startSetupBtn.addEventListener('click', handleTeamSetup);
-            decreaseGridBtn.addEventListener('click', () => handleGridAdjust(-1));
-            increaseGridBtn.addEventListener('click', () => handleGridAdjust(1));
-            confirmGridBtn.addEventListener('click', handleGridConfirm);
-            // change select updates circles
-            teamCountSelect.addEventListener('change', applySelectToCircles);
-            window.addEventListener('resize', () => {
-                if (gameState === 'GRID_SETUP') drawGridSetupBoard();
-                if (gameState === 'PLACEMENT' || gameState === 'GAME' || gameState === 'GAME_OVER') {
-                    resizeAndDrawGame();
-                }
-            });
-
-            canvas.addEventListener('click', handleCanvasClick);
-
-            canvas.addEventListener('mousemove', e => {
-                if (gameState !== 'GAME' && gameState !== 'PLACEMENT') return;
-
-                const rect = canvas.getBoundingClientRect();
-                const canvasX = e.clientX - rect.left;
-                const canvasY = e.clientY - rect.top;
-                const { cellS, originX, originY } = getDrawingMetrics(ctx, gridSize.x, gridSize.y);
-
-                const gridX = canvasX - originX;
-                const gridY = originY - canvasY;
-                const x = Math.floor(gridX / cellS);
-                const y = Math.floor(gridY / cellS);
-
-                mousePos = { x: canvasX, y: canvasY };
-
-                if (x !== hoveredCell.x || y !== hoveredCell.y) {
-                    if (x >= 0 && x < gridSize.x && y >= 0 && y < gridSize.y) {
-                        hoveredCell = { x, y };
-                    } else {
-                        hoveredCell = { x: -1, y: -1 };
-                    }
-                    drawGameBoard();
-                }
-            });
-
-            canvas.addEventListener('mouseout', () => {
-                if (hoveredCell.x !== -1 || hoveredCell.y !== -1) {
-                    hoveredCell = { x: -1, y: -1 };
-                    drawGameBoard();
-                }
-            });
-
-            nextBtn.addEventListener('click', handleNextTeam);
-            startGameBtn.addEventListener('click', () => setGameState('GAME'));
-            endGameBtn.addEventListener('click', handleEndGame);
-            revealAllBtn.addEventListener('click', handleRevealAll);
-            newGameBtn.addEventListener('click', handleNewGame);
-            menuBtnSetup.addEventListener('click', handleBackToMenu);
-            menuBtnGrid.addEventListener('click', handleBackToMenu);
-            menuBtnGame.addEventListener('click', handleBackToMenu);
-
-            // --- Windows 11 Style Hover Effect (delegated) ---
-            document.body.addEventListener('mousemove', e => {
-                const el = e.target.closest('.btn, .team-circle');
-                if (el) {
-                    const rect = el.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    el.style.setProperty('--x', `${x}px`);
-                    el.style.setProperty('--y', `${y}px`);
-                }
-            });
-
-            // --- INITIALIZE ---
-            setGameState('TEAM_SETUP');
+    <button class="btn btn-soft" id="mm-share">📤 Share</button>
+    <button class="btn btn-soft" id="mm-clear">🧹 Clear</button>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="mm-gobattle">⚔️ Go Battle</button>
+  </div>
+  <div class="map-zone" id="mm-zone">
+    <div class="map-frame" id="mm-frame">
+      <canvas id="mm-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BATTLE SCREEN ===== -->
+<div id="battle-screen" class="screen hidden">
+  <div class="topbar" id="bt-topbar">
+    <button class="btn btn-soft" id="bt-back-mm">◀ Map Maker</button>
+    <div class="brand"><span class="emoji">⚔️</span> Go Battle</div>
+    <button class="btn btn-soft" id="bt-add-team">➕ Add Team</button>
+    <button class="btn btn-soft" id="bt-remove-team">➖ Remove Team</button>
+    <button class="btn btn-soft" id="bt-auto-gen">⚡ Auto Generate</button>
+    <div class="size-group">
+      <label>Turns</label>
+      <input type="number" id="bt-turn-limit" min="0" max="999" value="0" title="0 = endless until only one team survives">
+    </div>
+    <div class="mode-toggle">
+      <button data-mode="mercy" class="active">🛡️ Mercy</button>
+      <button data-mode="combo">🔥 Combo</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-soft" id="bt-view-toggle" disabled>🎥 Focus View</button>
+    <button class="btn btn-primary" id="bt-start" disabled>▶️ Start Game</button>
+    <button class="btn btn-soft hidden" id="bt-next-turn">➡️ Next Turn</button>
+    <button class="btn btn-soft hidden" id="bt-finish">🏁 Finish Game</button>
+    <button class="btn btn-soft hidden" id="bt-scoreboard">🏆 Scoreboard</button>
+  </div>
+  <div class="game-zone" id="bt-zone">
+    <div class="game-grid" id="bt-grid"></div>
+  </div>
+  <div class="statusbar" id="bt-statusbar">
+    <div class="msg" id="bt-msg">Add teams to start. Each team needs a seed from Map Maker.</div>
+    <div id="bt-chips"></div>
+  </div>
+</div>
+
+<!-- ===== TURN LIST POPUP (corner) ===== -->
+<div id="turn-list-popup" class="turn-list-popup hidden">
+  <h3>Turn List</h3>
+  <ol id="turn-list"></ol>
+</div>
+
+<!-- ===== FEEDBACK OVERLAY ===== -->
+<div id="feedback-overlay" class="feedback-overlay"></div>
+
+<!-- ===== FLOATING NOTIFICATIONS ===== -->
+<div id="toast-wrap"></div>
+
+<!-- ===== ADD TEAM POPUP ===== -->
+<div id="add-team-popup" class="popup-backdrop hidden">
+  <div class="popup">
+    <h2>➕ Add Team</h2>
+    <div class="row">
+      <label>Name</label>
+      <input type="text" id="at-name" placeholder="Team name" maxlength="20" autocomplete="off">
+    </div>
+    <div class="row">
+      <label>Seed</label>
+      <input type="text" id="at-seed" placeholder="paste seed from Map Maker..." spellcheck="false" autocomplete="off">
+      <button class="btn btn-soft" id="at-check">✓ Check</button>
+    </div>
+    <div class="check-info" id="at-check-info">Paste a seed and click Check to verify.</div>
+    <div class="row" style="margin-bottom:4px">
+      <label>Color</label>
+    </div>
+    <div class="color-grid" id="at-color-grid"></div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="at-cancel">Cancel</button>
+      <button class="btn btn-primary" id="at-add" disabled>Add Team</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHARE POPUP ===== -->
+<div id="share-popup" class="popup-backdrop hidden">
+  <div class="popup" style="max-width:420px">
+    <h2>📤 Share Map Seed</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Write down this code so you can load it again or share with teammates:</p>
+    <div class="share-box">
+      <div class="seed-display" id="share-seed-text">—</div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-soft" id="share-copy">📋 Copy</button>
+      <button class="btn btn-primary" id="share-close">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WHEEL POPUP ===== -->
+<div id="wheel-popup" class="popup-backdrop hidden">
+  <div class="popup" style="max-width:440px;text-align:center">
+    <h2 style="justify-content:center">🎡 Turn Order Wheel</h2>
+    <div class="wheel-wrap">
+      <div class="wheel-pointer"></div>
+      <canvas class="wheel-canvas" id="wheel-canvas" width="340" height="340"></canvas>
+      <button class="btn btn-primary wheel-spin-btn" id="wheel-spin">🎯 Spin!</button>
+      <div style="font-size:13px;color:var(--ink-soft);font-weight:600;min-height:18px" id="wheel-info">Click to spin for next team...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ATTACK POPUP ===== -->
+<div id="attack-popup" class="popup-backdrop hidden">
+  <div class="popup" style="max-width:680px">
+    <h2 id="attack-title">🎯 Which team do you want to attack?</h2>
+    <div id="attack-sub" style="font-size:13px;color:var(--ink-soft);font-weight:700;min-height:18px;margin-top:2px"></div>
+    <div class="attack-list" id="attack-list"></div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="attack-cancel">Cancel</button>
+      <button class="btn btn-soft hidden" id="attack-pick-random">🎲 Pick Random</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCOREBOARD POPUP ===== -->
+<div id="scoreboard-popup" class="popup-backdrop hidden">
+  <div class="popup" style="max-width:560px">
+    <h2>🏆 Final Scoreboard</h2>
+    <div class="scoreboard-list" id="scoreboard-list"></div>
+    <div class="actions" style="margin-top:18px">
+      <button class="btn btn-soft" id="sb-viewmap">🗺️ View Maps</button>
+      <button class="btn btn-soft" id="sb-reopen">📋 Reopen</button>
+      <button class="btn btn-primary" id="sb-newgame">🔄 New Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RESTART / NEW GAME OPTIONS ===== -->
+<div id="restart-popup" class="popup-backdrop hidden">
+  <div class="popup" style="max-width:460px">
+    <h2>🔄 New Round</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:2px 0 12px">
+      Forgot to toggle Mercy/Combo or set the turn limit? Adjust it now, then
+      restart with the same maps — or clear everything and start fresh.
+    </p>
+    <div class="row" style="margin-bottom:4px">
+      <label>Mode</label>
+    </div>
+    <div class="mode-toggle" id="restart-mode-toggle">
+      <button data-mode="mercy" class="active">🛡️ Mercy</button>
+      <button data-mode="combo">🔥 Combo</button>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <label>Turns</label>
+      <input type="number" id="restart-turn-limit" min="0" max="999" value="0" style="min-width:80px">
+    </div>
+    <div class="actions" style="margin-top:20px">
+      <button class="btn btn-ghost" id="restart-cancel">Cancel</button>
+      <button class="btn btn-soft" id="restart-fresh">🧹 Start Fresh</button>
+      <button class="btn btn-primary" id="restart-keep">🔄 Keep Maps &amp; Restart</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// CONSTANTS, STATE, UTILITIES
+// ============================================================
+
+// 20 preset colors for education / printing (CMYK-friendly)
+const TEAM_COLORS = [
+  '#e53935', // red
+  '#1e88e5', // blue
+  '#43a047', // green
+  '#8e24aa', // purple
+  '#f4511e', // orange
+  '#fdd835', // yellow
+  '#00acc1', // cyan
+  '#d81b60', // pink/magenta
+  '#5e35b1', // deep purple
+  '#00897b', // teal
+  '#6d4c41', // brown
+  '#3949ab', // indigo
+  '#7cb342', // light green
+  '#fb8c00', // amber
+  '#039be5', // light blue
+  '#c0ca33', // olive
+  '#ec407a', // rose
+  '#26a69a', // muted teal
+  '#8d6e63', // tan
+  '#546e7a'  // slate
+];
+
+const SHIP_EMOJI = '🚢';       // normal ship
+const COMMANDER_EMOJI = '⚓';   // commander ship (star-ish)
+const HIT_EMOJI = '💥';
+const MISS_EMOJI = '❌';
+const WAVE_EMOJI = '🌊';
+const STAR_EMOJI = '⭐';
+const BOOM_HOVER = '💣';
+const SUNK_EMOJI = '💀';
+
+// Exactly 91 distinct chars (base-91 seed system)
+const SEED_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@#$^*-+=?_.;:,()|[]{}<>/\\'&%` ";
+const SEED_BASE = 91n;
+
+// App state
+const App = {
+  screen: 'welcome',
+  // Map Maker
+  mm: {
+    width: 10, height: 10,
+    // ships: Map of "x,y" -> {x,y,commander:boolean}
+    ships: new Map(),
+    seed: '',
+    canvas: null, ctx: null,
+    pan: { x: 0, y: 0, scale: 1 },
+    pinch: null,
+    hover: null,
+    drawRAF: null,
+  },
+  // Battle
+  bt: {
+    teams: [],            // {id, name, color, width, height, ships:Set, board:2D, alive:boolean, battleStars:0, surviveStars:0}
+    turnList: [],         // team ids in order
+    currentTurnIdx: 0,
+    turnCounter: 1,       // current turn number (starts at 1)
+    turnLimit: 0,
+    mode: 'mercy',        // 'mercy' | 'combo'
+    state: 'setup',       // 'setup' | 'wheel' | 'playing' | 'over'
+    targetTeamId: null,    // current attack target
+    comboShots: 0,        // shots taken in current combo
+    viewMode: 'main',     // 'main' | 'focus'
+    canvasById: new Map(),
+    canvases: [],
+    wheelState: null,
+    nextTeamId: 1,
+    initialTeamsSnapshot: null,  // for new game restart
+  },
+};
+
+// ============================================================
+// AUDIO (lazy)
+// ============================================================
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playSound(type) {
+  const ctx = ensureAudio(); if (!ctx) return;
+  const now = ctx.currentTime;
+  const tone = (freq, dur, oscType='sine', vol=0.15, slide=0) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = oscType;
+    o.frequency.setValueAtTime(freq, now);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq+slide), now+dur);
+    g.gain.setValueAtTime(vol, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(now); o.stop(now+dur);
+  };
+  const noise = (dur, vol=0.1, filterFreq=1000) => {
+    const buf = ctx.createBuffer(1, ctx.sampleRate*dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*(1-i/d.length);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=filterFreq;
+    const g = ctx.createGain(); g.gain.value=vol;
+    src.connect(f).connect(g).connect(ctx.destination);
+    src.start(now);
+  };
+  switch (type) {
+    case 'click': tone(520, 0.05, 'triangle', 0.06); break;
+    case 'hit':   noise(0.25, 0.18, 800); tone(120, 0.25, 'square', 0.1, -80); break;
+    case 'miss':  tone(440, 0.15, 'sine', 0.12, -180); break;
+    case 'spin':  tone(880, 0.04, 'square', 0.06); break;
+    case 'wheel-stop': tone(220, 0.4, 'sawtooth', 0.12, 120); break;
+    case 'sunk':  noise(0.5, 0.22, 400); tone(80, 0.4, 'sawtooth', 0.18, -40); break;
+    case 'win':   [660, 880, 1320].forEach((f,i)=>setTimeout(()=>tone(f, 0.18, 'triangle', 0.15), i*150)); break;
+  }
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function $(id) { return document.getElementById(id); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function lightenHex(hex, amt=0.82) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = c => Math.round(c + (255-c)*amt);
+  const h = v => v.toString(16).padStart(2, '0');
+  return `#${h(mix((n>>16)&255))}${h(mix((n>>8)&255))}${h(mix(n&255))}`;
+}
+function teamBg(hex) { return lightenHex(hex, 0.88); }
+function teamBorder(hex) { return lightenHex(hex, 0.55); }
+function contrastColor(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return '#000';
+  const n = parseInt(m[1], 16);
+  const lum = (0.299*((n>>16)&255) + 0.587*((n>>8)&255) + 0.114*(n&255)) / 255;
+  return lum > 0.6 ? '#14323d' : '#ffffff';
+}
+function key(x,y) { return x+','+y; }
+function randInt(max) { return Math.floor(Math.random()*max); }
+function pick(arr) { return arr[randInt(arr.length)]; }
+function shuffle(arr) {
+  for (let i=arr.length-1; i>0; i--) {
+    const j = randInt(i+1); [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+function msg(el, text, ms=2800) {
+  if (typeof el === 'string') el = $(el);
+  if (!el) return;
+  el.textContent = text;
+  if (ms > 0 && text) {
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, ms);
+  }
+}
+function showToast(text, kind='info') {
+  const el = $('bt-msg'); if (!el) return;
+  el.textContent = text;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+// Floating notification stack (top-right). `kind` controls color + icon:
+// hit, miss, combo, sunk, info, star.
+const TOAST_ICONS = { hit:'💥', miss:'❌', combo:'🔥', sunk:'💀', star:'⭐', info:'ℹ️' };
+function notify(kind, text, duration=3200) {
+  const wrap = $('toast-wrap');
+  if (!wrap) return;
+  const item = document.createElement('div');
+  item.className = 'toast-item ' + (TOAST_ICONS[kind] ? kind : 'info');
+  item.innerHTML = `<span class="ti">${TOAST_ICONS[kind] || 'ℹ️'}</span><span>${text}</span>`;
+  wrap.appendChild(item);
+  // Keep at most 4 visible toasts; slide oldest out
+  while (wrap.children.length > 4) {
+    const old = wrap.firstChild;
+    old.classList.add('out');
+    setTimeout(() => old.remove(), 300);
+  }
+  setTimeout(() => {
+    if (!item.parentNode) return;
+    item.classList.add('out');
+    setTimeout(() => { if (item.parentNode) item.remove(); }, 300);
+  }, duration);
+}
+
+// ============================================================
+// SEED ENCODE/DECODE — base-91 with optional inversion
+// Layout (BigInt, pushed in reverse decode order):
+//   num = num * 16 + (width - 4)         // 4..20 -> 0..16
+//   num = num * 16 + (height - 4)
+//   num = num * 2 + inverted             // 1 bit
+//   num = num * (cells+1) + count        // count check
+//   for each ship: num = num * cells + pos
+//   Then num -> base-91 string (MSB first).
+// ============================================================
+
+function encodeSeed(width, height, ships) {
+  const cells = width * height;
+  const shipList = [...ships.values()].sort((a,b) => (a.y*width + a.x) - (b.y*width + b.x));
+  const shipCount = shipList.length;
+  const inverted = shipCount > Math.floor(cells / 2);
+  let toEncode = [];
+  if (inverted) {
+    const sset = new Set(shipList.map(s => s.y*width + s.x));
+    for (let i=0; i<cells; i++) if (!sset.has(i)) toEncode.push(i);
+  } else {
+    toEncode = shipList.map(s => s.y*width + s.x);
+  }
+  // Push ships FIRST (so they end up MOST significant), then count, inverted, height, width LAST.
+  // Width and height end up LEAST significant so decode can pop them first.
+  let num = 0n;
+  for (const p of toEncode) num = num * BigInt(cells) + BigInt(p);
+  num = num * BigInt(cells + 1) + BigInt(toEncode.length);
+  num = num * 2n + (inverted ? 1n : 0n);
+  num = num * 16n + BigInt(height - 4);
+  num = num * 16n + BigInt(width - 4);
+  if (num === 0n) return "0";
+  let s = "";
+  while (num > 0n) {
+    s = SEED_ALPHABET[Number(num % SEED_BASE)] + s;
+    num /= SEED_BASE;
+  }
+  return s;
+}
+
+function decodeSeed(seed) {
+  let num = 0n;
+  for (const c of seed) {
+    const idx = SEED_ALPHABET.indexOf(c);
+    if (idx < 0) throw new Error("Invalid character: " + c);
+    num = num * SEED_BASE + BigInt(idx);
+  }
+  // Pop in REVERSE order of push: width, height, inverted, count, ships
+  const width = Number(num % 16n) + 4; num /= 16n;
+  const height = Number(num % 16n) + 4; num /= 16n;
+  if (width < 4 || width > 20 || height < 4 || height > 20) throw new Error("Bad size");
+  const cells = width * height;
+  const inverted = (num % 2n) === 1n; num /= 2n;
+  const count = Number(num % BigInt(cells + 1)); num /= BigInt(cells + 1);
+  if (count > cells) throw new Error("Bad count");
+  const popped = new Set();
+  for (let i=0; i<count; i++) {
+    popped.add(Number(num % BigInt(cells))); num /= BigInt(cells);
+  }
+  const ships = new Map();
+  for (let i=0; i<cells; i++) {
+    const isPopped = popped.has(i);
+    const hasShip = inverted ? !isPopped : isPopped;
+    if (hasShip) {
+      const x = i % width, y = Math.floor(i / width);
+      ships.set(key(x,y), { x, y, commander: false });
+    }
+  }
+  return { width, height, ships, shipCount: ships.size };
+}
+
+// ============================================================
+// AUTO-COMMANDER DETECTION
+// Detect inline groups (horizontal / vertical / diagonal) of >=2 ships
+// sharing a common line direction. For odd group, the center is commander.
+// For even group, pick a random middle one (one of the two middle).
+// Singletons (no neighbors in any inline direction) are NOT commanders.
+// ============================================================
+function computeCommanders(width, height, shipsMap) {
+  // reset
+  for (const s of shipsMap.values()) s.commander = false;
+  // Build groups by checking 4 directions: E, S, SE, NE
+  const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+  const visited = new Set();
+  const groups = [];
+  for (const ship of shipsMap.values()) {
+    for (const [dx, dy] of dirs) {
+      // Try to find the start of an inline chain in this direction
+      let sx = ship.x, sy = ship.y;
+      // Walk backward to find the start
+      while (shipsMap.has(key(sx - dx, sy - dy))) { sx -= dx; sy -= dy; }
+      // Now collect the chain from (sx, sy) forward
+      const chain = [];
+      let cx = sx, cy = sy;
+      while (shipsMap.has(key(cx, cy))) {
+        chain.push(shipsMap.get(key(cx, cy)));
+        cx += dx; cy += dy;
+      }
+      if (chain.length < 2) continue;
+      // Use a unique group key to avoid duplicates for same chain
+      const gkey = `${dx},${dy},${chain[0].x},${chain[0].y}`;
+      if (visited.has(gkey)) continue;
+      visited.add(gkey);
+      groups.push(chain);
+    }
+  }
+  // Pick commander for each group
+  for (const chain of groups) {
+    const n = chain.length;
+    let cmdIdx;
+    if (n % 2 === 1) {
+      cmdIdx = Math.floor(n/2);
+    } else {
+      // pick random of the two middle
+      cmdIdx = (Math.random() < 0.5) ? (n/2 - 1) : (n/2);
+    }
+    chain[cmdIdx].commander = true;
+  }
+  return groups;
+}
+
+function recomputeCommandersForState(state) {
+  // state = { width, height, ships } (ships is Map)
+  computeCommanders(state.width, state.height, state.ships);
+}
+
+// ============================================================
+// CANVAS DRAWING — Oxy mathematical grid
+// The grid has `width` x `height` intersections.
+// Origin (0,0) at bottom-left. X axis along bottom, Y axis along left.
+// Each intersection is a "cell" where ships sit.
+// Numbers are large and readable.
+// ============================================================
+function getDrawingMetrics(ctx, width, height, padding) {
+  // Padding scales with the canvas size so the grid always fills the available
+  // space as tightly as possible. For small canvases (team battle cards) the
+  // padding shrinks proportionally; for large canvases (Map Maker) it stays
+  // readable. Minimums ensure axis labels and arrows still fit.
+  const cw = ctx.canvas.clientWidth;
+  const ch = ctx.canvas.clientHeight;
+  if (cw === 0 || ch === 0) return { cellS: 20, originX: 56, originY: 0, gridW: width, gridH: height };
+  // First, estimate cell size with no padding to get a base scale.
+  const baseCellS = Math.max(8, Math.min(cw / width, ch / height));
+  // Padding = roughly 1 cell + a minimum for axis label/arrow, but capped so it
+  // never exceeds 18% of the canvas dimension (avoids wasting space on small cards).
+  const padLR = Math.max(14, Math.min(baseCellS * 1.2, cw * 0.18));  // left/right (Y label + arrow)
+  const padTop = Math.max(14, Math.min(baseCellS * 0.9, ch * 0.15));   // top (arrow)
+  const padBottom = Math.max(18, Math.min(baseCellS * 1.2, ch * 0.18)); // bottom (X label + arrow + O label)
+  const padLeft = padLR;   // Y numbers
+  const padRight = padLR;  // X arrow
+  padding = padding || { top: padTop, right: padRight, bottom: padBottom, left: padLeft };
+  const availW = cw - padding.left - padding.right;
+  const availH = ch - padding.top - padding.bottom;
+  const cellS = Math.max(8, Math.min(availW / width, availH / height));
+  const gridW = width * cellS;
+  const gridH = height * cellS;
+  const originX = padding.left + (availW - gridW) / 2;
+  const originY = ch - padding.bottom - (availH - gridH) / 2;
+  return { cellS, originX, originY, gridW: width, gridH: height };
+}
+
+function getIntersection(x, y, m) {
+  return { cx: m.originX + (x + 0.5) * m.cellS, cy: m.originY - (y + 0.5) * m.cellS };
+}
+
+function drawAxes(ctx, m, opts) {
+  opts = opts || {};
+  const { cellS, originX, originY, gridW, gridH } = m;
+  const axisColor = opts.axisColor || '#0f7a9c';
+  const gridColor = opts.gridColor || '#b6d6e0';
+  const xColor = opts.xColor || '#0f7a9c';
+  const yColor = opts.yColor || '#d65454';
+  const gridWidth = gridW * cellS;
+  const gridHeight = gridH * cellS;
+  // Grid lines (passing through intersections)
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = Math.max(1.2, cellS * 0.04);
+  for (let x = 0; x < gridW; x++) {
+    const lx = originX + (x + 0.5) * cellS;
+    ctx.beginPath(); ctx.moveTo(lx, originY); ctx.lineTo(lx, originY - gridHeight); ctx.stroke();
+  }
+  for (let y = 0; y < gridH; y++) {
+    const ly = originY - (y + 0.5) * cellS;
+    ctx.beginPath(); ctx.moveTo(originX, ly); ctx.lineTo(originX + gridWidth, ly); ctx.stroke();
+  }
+  // Numbers
+  const fs = Math.max(11, cellS * 0.55);
+  ctx.font = `bold ${fs}px 'Segoe UI', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // X numbers (below x-axis)
+  ctx.fillStyle = xColor;
+  ctx.textBaseline = 'top';
+  for (let x = 0; x < gridW; x++) {
+    const cx = originX + (x + 0.5) * cellS;
+    ctx.fillText(x, cx, originY + 8);
+  }
+  // Y numbers (left of y-axis)
+  ctx.fillStyle = yColor;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let y = 0; y < gridH; y++) {
+    const cy = originY - (y + 0.5) * cellS;
+    ctx.fillText(y, originX - 8, cy);
+  }
+  // Axes lines with arrows
+  ctx.strokeStyle = axisColor;
+  ctx.fillStyle = axisColor;
+  ctx.lineWidth = Math.max(3, cellS * 0.18);
+  const arrowSize = Math.max(12, cellS * 0.5);
+  // Y axis (vertical, going up) at x=0 column center
+  const yAxisX = originX + 0.5 * cellS;
+  const yAxisTop = originY - gridHeight - 10;
+  ctx.beginPath(); ctx.moveTo(yAxisX, originY); ctx.lineTo(yAxisX, yAxisTop); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(yAxisX, yAxisTop - arrowSize);
+  ctx.lineTo(yAxisX - arrowSize/2, yAxisTop);
+  ctx.lineTo(yAxisX + arrowSize/2, yAxisTop);
+  ctx.closePath(); ctx.fill();
+  // X axis (horizontal, going right) at y=0 row center
+  const xAxisY = originY - 0.5 * cellS;
+  const xAxisRight = originX + gridWidth + 10;
+  ctx.beginPath(); ctx.moveTo(originX, xAxisY); ctx.lineTo(xAxisRight, xAxisY); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(xAxisRight + arrowSize, xAxisY);
+  ctx.lineTo(xAxisRight, xAxisY - arrowSize/2);
+  ctx.lineTo(xAxisRight, xAxisY + arrowSize/2);
+  ctx.closePath(); ctx.fill();
+  // O label
+  ctx.fillStyle = '#14323d';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.font = `bold ${fs}px 'Segoe UI', sans-serif`;
+  ctx.fillText('O', originX - 6, originY + 4);
+}
+
+function drawShipIcon(ctx, cx, cy, cellS, isCommander, opts) {
+  opts = opts || {};
+  const visible = opts.visible !== false;
+  if (!visible) return;
+  const fontSize = Math.max(14, cellS * 0.78);
+  ctx.font = `${fontSize}px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#14323d';
+  ctx.fillText(isCommander ? COMMANDER_EMOJI : SHIP_EMOJI, cx, cy);
+}
+
+function drawMissMarker(ctx, cx, cy, cellS) {
+  const s = Math.max(8, cellS * 0.35);
+  ctx.strokeStyle = '#d65454';
+  ctx.lineWidth = Math.max(2, cellS * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx + s, cy + s);
+  ctx.moveTo(cx - s, cy + s); ctx.lineTo(cx + s, cy - s);
+  ctx.stroke();
+}
+
+function drawHoverGhost(ctx, cx, cy, cellS, isAdd, isShip, emoji) {
+  // large clickable hit-zone is the cell itself; this draws the visual ghost
+  ctx.save();
+  const r = Math.max(cellS * 0.42, 12);
+  ctx.globalAlpha = 0.32;
+  if (isShip) {
+    // ghost = remove hint (red ring)
+    ctx.strokeStyle = '#d65454';
+    ctx.lineWidth = Math.max(2, cellS * 0.1);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+  } else if (isAdd) {
+    // ghost = add hint (green ring + faded ship)
+    ctx.strokeStyle = '#2da06a';
+    ctx.fillStyle = '#2da06a';
+    ctx.lineWidth = Math.max(2, cellS * 0.1);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 0.45;
+    ctx.font = `${Math.max(14, cellS * 0.7)}px 'Segoe UI Emoji', sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(emoji || SHIP_EMOJI, cx, cy);
+  }
+  ctx.restore();
+}
+
+// Resize canvas to fit its parent (uses clientWidth/Height)
+function fitCanvas(canvas) {
+  const parent = canvas.parentElement;
+  if (!parent) return;
+  const rect = parent.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(40, Math.floor(rect.width));
+  const h = Math.max(40, Math.floor(rect.height));
+  if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+
+// ============================================================
+// MAP MAKER
+// ============================================================
+const MM = (() => {
+  const canvas = $('mm-canvas');
+  const frame = $('mm-frame');
+  let ctx = null;
+  let hover = null;
+  let rafPending = false;
+  let pan = { x: 0, y: 0 };
+  let pinchDist = 0;
+  let scale = 1;
+  let dragging = false;
+  let dragStart = null;
+
+  function scheduleDraw() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => { rafPending = false; draw(); });
+  }
+
+  function getMetrics() {
+    // Do NOT call fitCanvas here — it resets the transform (setTransform),
+    // which would wipe out pan/zoom applied in draw().
+    // fitCanvas is called once at the top of draw() / pointerToCell instead.
+    if (!ctx) ctx = fitCanvas(canvas);
+    return getDrawingMetrics(ctx, App.mm.width, App.mm.height);
+  }
+
+  function draw() {
+    // fitCanvas must be called BEFORE save/translate/scale so that
+    // the dpr base transform is set first, then pan/zoom are applied on top.
+    ctx = fitCanvas(canvas);
+    if (!ctx) return;
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    if (cw === 0 || ch === 0) return; // not visible yet — ResizeObserver will trigger redraw
+    ctx.clearRect(0, 0, cw, ch);
+    // background gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, ch);
+    grad.addColorStop(0, '#f3fbff');
+    grad.addColorStop(1, '#dff3fb');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.save();
+    // apply pan/zoom on top of dpr base transform
+    ctx.translate(pan.x, pan.y);
+    ctx.scale(scale, scale);
+    const m = getMetrics();
+    drawAxes(ctx, m);
+    // draw ships
+    for (const ship of App.mm.ships.values()) {
+      const { cx, cy } = getIntersection(ship.x, ship.y, m);
+      drawShipIcon(ctx, cx, cy, m.cellS, ship.commander, { visible: true });
+    }
+    // hover ghost
+    if (hover) {
+      const { cx, cy } = getIntersection(hover.x, hover.y, m);
+      const isShip = App.mm.ships.has(key(hover.x, hover.y));
+      drawHoverGhost(ctx, cx, cy, m.cellS, true, isShip, SHIP_EMOJI);
+    }
+    ctx.restore();
+  }
+
+  function pointerToCell(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const px = (clientX - rect.left - pan.x) / scale;
+    const py = (clientY - rect.top - pan.y) / scale;
+    if (!ctx) ctx = fitCanvas(canvas);
+    const m = getMetrics();
+    const x = Math.floor((px - m.originX) / m.cellS);
+    const y = Math.floor((m.originY - py) / m.cellS + 1) - 1; // careful: y measured from bottom
+    // Actually: cy = originY - (y + 0.5) * cellS -> y = (originY - py)/cellS - 0.5
+    const y2 = Math.floor((m.originY - py) / m.cellS);
+    if (x < 0 || x >= App.mm.width || y2 < 0 || y2 >= App.mm.height) return null;
+    return { x, y: y2 };
+  }
+
+  function toggleShip(cell) {
+    const k = key(cell.x, cell.y);
+    if (App.mm.ships.has(k)) {
+      App.mm.ships.delete(k);
+    } else {
+      App.mm.ships.set(k, { x: cell.x, y: cell.y, commander: false });
+    }
+    recomputeCommanders();
+    updateSeed();
+    scheduleDraw();
+    saveLocal();
+  }
+
+  function recomputeCommanders() {
+    computeCommanders(App.mm.width, App.mm.height, App.mm.ships);
+  }
+
+  function updateSeed() {
+    const seed = encodeSeed(App.mm.width, App.mm.height, App.mm.ships);
+    App.mm.seed = seed;
+    const inp = $('mm-seed');
+    if (inp && document.activeElement !== inp) inp.value = seed;
+  }
+
+  function loadSeed(seedStr) {
+    try {
+      const r = decodeSeed(seedStr.trim());
+      App.mm.width = r.width;
+      App.mm.height = r.height;
+      App.mm.ships = r.ships;
+      recomputeCommanders();
+      $('mm-width').value = r.width;
+      $('mm-height').value = r.height;
+      updateSeed();
+      // reset view
+      pan.x = 0; pan.y = 0; scale = 1;
+      scheduleDraw();
+      saveLocal();
+      msg($('bt-msg'), `✅ Loaded map: ${r.width}×${r.height}, ${r.shipCount} ships`, 2500);
+      return true;
+    } catch (e) {
+      msg($('bt-msg'), '❌ Invalid seed: ' + e.message, 3500);
+      return false;
+    }
+  }
+
+  function setSize(w, h) {
+    w = clamp(parseInt(w) || 10, 4, 20);
+    h = clamp(parseInt(h) || 10, 4, 20);
+    if (w === App.mm.width && h === App.mm.height) return;
+    // trim out-of-bounds ships
+    for (const k of [...App.mm.ships.keys()]) {
+      const [x, y] = k.split(',').map(Number);
+      if (x >= w || y >= h) App.mm.ships.delete(k);
+    }
+    App.mm.width = w; App.mm.height = h;
+    recomputeCommanders();
+    updateSeed();
+    scheduleDraw();
+    saveLocal();
+  }
+
+  function clear() {
+    if (App.mm.ships.size === 0) return;
+    if (!confirm('Clear all ships on the map?')) return;
+    App.mm.ships.clear();
+    updateSeed();
+    scheduleDraw();
+    saveLocal();
+  }
+
+  function saveLocal() {
+    try {
+      localStorage.setItem('battleship.mm', JSON.stringify({
+        width: App.mm.width, height: App.mm.height,
+        ships: [...App.mm.ships.entries()].map(([k, v]) => [k, { x: v.x, y: v.y, commander: v.commander }]),
+        seed: App.mm.seed,
+      }));
+    } catch (e) {}
+  }
+
+  function loadLocal() {
+    try {
+      const s = localStorage.getItem('battleship.mm');
+      if (!s) return false;
+      const data = JSON.parse(s);
+      if (!data || !data.width) return false;
+      App.mm.width = clamp(data.width, 4, 20);
+      App.mm.height = clamp(data.height, 4, 20);
+      App.mm.ships = new Map();
+      if (data.ships) {
+        for (const [k, v] of data.ships) {
+          App.mm.ships.set(k, { x: v.x, y: v.y, commander: !!v.commander });
+        }
+      }
+      recomputeCommanders();
+      $('mm-width').value = App.mm.width;
+      $('mm-height').value = App.mm.height;
+      updateSeed();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ---- Touch / pointer handlers ----
+  function onPointerDown(e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    canvas.setPointerCapture(e.pointerId);
+    dragging = true;
+    dragStart = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y, time: Date.now(), moved: false };
+  }
+  function onPointerMove(e) {
+    if (dragging && dragStart) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragStart.moved = true;
+      if (dragStart.moved) {
+        pan.x = dragStart.panX + dx;
+        pan.y = dragStart.panY + dy;
+        scheduleDraw();
+        return;
+      }
+    }
+    const cell = pointerToCell(e.clientX, e.clientY);
+    if (!cell) {
+      if (hover) { hover = null; scheduleDraw(); }
+      return;
+    }
+    if (!hover || hover.x !== cell.x || hover.y !== cell.y) {
+      hover = cell; scheduleDraw();
+    }
+  }
+  function onPointerUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    if (dragStart && !dragStart.moved) {
+      const cell = pointerToCell(e.clientX, e.clientY);
+      if (cell) toggleShip(cell);
+    }
+    dragStart = null;
+  }
+  function onPointerLeave(e) {
+    if (hover) { hover = null; scheduleDraw(); }
+  }
+  function onWheel(e) {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+    const newScale = clamp(scale * factor, 0.5, 3);
+    const k = newScale / scale;
+    pan.x = mx - (mx - pan.x) * k;
+    pan.y = my - (my - pan.y) * k;
+    scale = newScale;
+    scheduleDraw();
+  }
+  // pinch
+  let pinchStart = null;
+  function onTouchStart(e) {
+    if (e.touches.length === 2) {
+      const [a, b] = e.touches;
+      pinchStart = {
+        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        scale: scale,
+        cx: (a.clientX + b.clientX) / 2,
+        cy: (a.clientY + b.clientY) / 2,
+      };
+      e.preventDefault();
+    }
+  }
+  function onTouchMove(e) {
+    if (e.touches.length === 2 && pinchStart) {
+      const [a, b] = e.touches;
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const factor = d / pinchStart.dist;
+      const newScale = clamp(pinchStart.scale * factor, 0.5, 3);
+      const rect = canvas.getBoundingClientRect();
+      const mx = pinchStart.cx - rect.left, my = pinchStart.cy - rect.top;
+      const k = newScale / scale;
+      pan.x = mx - (mx - pan.x) * k;
+      pan.y = my - (my - pan.y) * k;
+      scale = newScale;
+      scheduleDraw();
+      e.preventDefault();
+    }
+  }
+  function onTouchEnd(e) {
+    if (e.touches.length < 2) pinchStart = null;
+  }
+
+  function init() {
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
+    canvas.addEventListener('pointerleave', onPointerLeave);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd);
+    // size inputs
+    $('mm-width').addEventListener('change', e => setSize(e.target.value, $('mm-height').value));
+    $('mm-height').addEventListener('change', e => setSize($('mm-width').value, e.target.value));
+    $('mm-width').addEventListener('input', e => setSize(e.target.value, $('mm-height').value));
+    $('mm-height').addEventListener('input', e => setSize($('mm-width').value, e.target.value));
+    // seed box
+    $('mm-load').addEventListener('click', () => loadSeed($('mm-seed').value));
+    $('mm-seed').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); loadSeed($('mm-seed').value); }
+    });
+    $('mm-seed').addEventListener('input', e => {
+      // Don't auto-load on every keystroke; just update visual
+    });
+    $('mm-copy').addEventListener('click', () => {
+      const s = App.mm.seed;
+      navigator.clipboard.writeText(s).then(() => msg($('bt-msg'), '📋 Seed copied!', 1800)).catch(() => {
+        // fallback
+        const inp = $('mm-seed'); inp.select(); document.execCommand('copy');
+        msg($('bt-msg'), '📋 Seed copied!', 1800);
+      });
+    });
+    // share button
+    $('mm-share').addEventListener('click', () => {
+      $('share-seed-text').textContent = App.mm.seed;
+      $('share-popup').classList.remove('hidden');
+    });
+    // clear
+    $('mm-clear').addEventListener('click', clear);
+    // go battle
+    $('mm-gobattle').addEventListener('click', () => {
+      saveLocal();
+      switchScreen('battle');
+    });
+    $('mm-back').addEventListener('click', () => switchScreen('welcome'));
+    // ResizeObserver: auto-redraw when the frame/canvas size changes.
+    // This is critical for when the Map Maker screen first becomes visible —
+    // without this, the canvas starts at 0×0 (hidden) and only redraws on
+    // the first mouse move, leaving the grid invisible until then.
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => scheduleDraw());
+      ro.observe(frame);
+      ro.observe(canvas);
+    }
+    // initial load
+    if (!loadLocal()) {
+      updateSeed();
+    }
+    // Schedule an initial draw (will no-op if canvas is 0×0, ResizeObserver handles the rest)
+    scheduleDraw();
+  }
+
+  function resize() {
+    scheduleDraw();
+  }
+
+  return {
+    init, draw, scheduleDraw, resize,
+    loadSeed, setSize, updateSeed, saveLocal, loadLocal, recomputeCommanders,
+  };
+})();
+
+// ============================================================
+// BATTLE SETUP & GAME LOGIC
+// ============================================================
+const BT = (() => {
+  const grid = $('bt-grid');
+  let pendingTeam = null; // {name, seed, decoded, color}
+  let attackPopupOpen = false;
+
+  // ---------- Add Team Popup ----------
+  function openAddTeam() {
+    if (App.bt.state === 'playing') {
+      showToast('⚠️ Cannot add teams during play. Restart from Scoreboard.');
+      return;
+    }
+    pendingTeam = { name: '', seed: '', decoded: null, color: null };
+    $('at-name').value = `Team ${App.bt.nextTeamId}`;
+    $('at-seed').value = '';
+    $('at-check-info').textContent = 'Paste a seed and click Check to verify.';
+    $('at-check-info').className = 'check-info';
+    $('at-add').disabled = true;
+    buildColorGrid();
+    $('add-team-popup').classList.remove('hidden');
+    setTimeout(() => $('at-seed').focus(), 100);
+  }
+
+  function buildColorGrid() {
+    const container = $('at-color-grid');
+    container.innerHTML = '';
+    const used = new Set(App.bt.teams.map(t => t.color.toLowerCase()));
+    TEAM_COLORS.forEach((c, i) => {
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch';
+      sw.style.background = c;
+      if (used.has(c.toLowerCase())) sw.classList.add('disabled');
+      if (pendingTeam && pendingTeam.color && pendingTeam.color.toLowerCase() === c.toLowerCase()) sw.classList.add('selected');
+      sw.addEventListener('click', () => {
+        if (sw.classList.contains('disabled')) return;
+        pendingTeam.color = c;
+        buildColorGrid();
+      });
+      container.appendChild(sw);
+    });
+  }
+
+  function checkSeed() {
+    const s = $('at-seed').value.trim();
+    if (!s) {
+      $('at-check-info').textContent = '⚠️ Paste a seed first.';
+      $('at-check-info').className = 'check-info bad';
+      pendingTeam.decoded = null;
+      $('at-add').disabled = true;
+      return;
+    }
+    try {
+      const r = decodeSeed(s);
+      pendingTeam.decoded = r;
+      pendingTeam.seed = s;
+      $('at-check-info').textContent = `✅ Valid map: ${r.width} × ${r.height} grid, ${r.shipCount} ships`;
+      $('at-check-info').className = 'check-info good';
+      $('at-add').disabled = !pendingTeam.color;
+    } catch (e) {
+      pendingTeam.decoded = null;
+      $('at-check-info').textContent = '❌ Invalid seed: ' + e.message;
+      $('at-check-info').className = 'check-info bad';
+      $('at-add').disabled = true;
+    }
+  }
+
+  function onColorPicked() { $('at-add').disabled = !pendingTeam.color || !pendingTeam.decoded; }
+
+  function commitTeam() {
+    if (!pendingTeam || !pendingTeam.decoded || !pendingTeam.color) return;
+    const name = $('at-name').value.trim() || `Team ${App.bt.nextTeamId}`;
+    const t = {
+      id: App.bt.nextTeamId++,
+      name,
+      color: pendingTeam.color,
+      width: pendingTeam.decoded.width,
+      height: pendingTeam.decoded.height,
+      ships: pendingTeam.decoded.ships,  // Map of "x,y" -> {x,y,commander}
+      // board: 2D array [y][x] = { x, y, ship: object|null, hit: false, miss: false }
+      board: null,
+      alive: true,
+      battleStars: 0,
+      surviveStars: 0,
+    };
+    // Recompute commanders on the decoded ships (decodeSeed doesn't do this)
+    computeCommanders(t.width, t.height, t.ships);
+    // build board
+    t.board = [];
+    for (let y = 0; y < t.height; y++) {
+      const row = [];
+      for (let x = 0; x < t.width; x++) {
+        const ship = t.ships.get(key(x, y)) || null;
+        row.push({ x, y, ship, hit: false, miss: false });
+      }
+      t.board.push(row);
+    }
+    App.bt.teams.push(t);
+    $('add-team-popup').classList.add('hidden');
+    pendingTeam = null;
+    renderTeams();
+    updateStatus();
+    saveSnapshot();
+  }
+
+  function cancelAddTeam() {
+    $('add-team-popup').classList.add('hidden');
+    pendingTeam = null;
+  }
+
+  // ---------- Remove Team ----------
+  function removeTeam() {
+    if (App.bt.state === 'playing') {
+      showToast('⚠️ Cannot remove teams during play.');
+      return;
+    }
+    if (App.bt.teams.length === 0) return;
+    const last = App.bt.teams[App.bt.teams.length - 1];
+    if (!confirm(`Remove team "${last.name}"?`)) return;
+    App.bt.teams.pop();
+    renderTeams();
+    updateStatus();
+    saveSnapshot();
+  }
+
+  // ---------- Auto Generate ----------
+  function autoGenerate() {
+    if (App.bt.state === 'playing') {
+      showToast('⚠️ Cannot auto-generate during play.');
+      return;
+    }
+    // determine target ship count based on existing teams
+    let referenceSize = null;
+    let referenceCount = null;
+    if (App.bt.teams.length > 0) {
+      // use the average ship count of existing teams
+      const counts = App.bt.teams.map(t => t.ships.size);
+      referenceCount = Math.round(counts.reduce((a,b)=>a+b,0) / counts.length);
+      referenceSize = { w: App.bt.teams[0].width, h: App.bt.teams[0].height };
+    }
+    // default size = 10x10 unless reference says otherwise
+    const W = referenceSize ? referenceSize.w : 10;
+    const H = referenceSize ? referenceSize.h : 10;
+    const cells = W * H;
+    // target ship count: between 20% and 40% of cells (if no reference)
+    let target;
+    if (referenceCount != null) {
+      target = referenceCount;
+    } else {
+      const lo = Math.max(3, Math.floor(cells * 0.20));
+      const hi = Math.max(lo + 1, Math.floor(cells * 0.40));
+      target = lo + randInt(hi - lo + 1);
+    }
+    // Auto-place ship groups (3, 4, 5 ships) inline (H/V/Diag)
+    const ships = autoPlaceGroups(W, H, target);
+    const seed = encodeSeed(W, H, ships);
+    // create team
+    const team = {
+      id: App.bt.nextTeamId++,
+      name: `Auto ${App.bt.nextTeamId - 1}`,
+      color: pickAvailableColor(),
+      width: W, height: H,
+      ships,
+      board: null,
+      alive: true,
+      battleStars: 0,
+      surviveStars: 0,
+    };
+    // build board
+    team.board = [];
+    for (let y = 0; y < team.height; y++) {
+      const row = [];
+      for (let x = 0; x < team.width; x++) {
+        const ship = team.ships.get(key(x, y)) || null;
+        row.push({ x, y, ship, hit: false, miss: false });
+      }
+      team.board.push(row);
+    }
+    App.bt.teams.push(team);
+    renderTeams();
+    updateStatus();
+    saveSnapshot();
+    showToast(`⚡ Auto-generated "${team.name}": ${W}×${H}, ${team.ships.size} ships`);
+  }
+
+  function pickAvailableColor() {
+    const used = new Set(App.bt.teams.map(t => t.color.toLowerCase()));
+    for (const c of TEAM_COLORS) {
+      if (!used.has(c.toLowerCase())) return c;
+    }
+    return TEAM_COLORS[randInt(TEAM_COLORS.length)];
+  }
+
+  function autoPlaceGroups(W, H, targetCount) {
+    // try to place groups of 3, 4, 5 ships inline (H/V/Diag) without crossing other groups
+    // groups can touch each other but not cross (overlap)
+    const occupied = new Set();
+    const ships = new Map();
+    const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+    let placed = 0;
+    let attempts = 0;
+    while (placed < targetCount && attempts < 1000) {
+      attempts++;
+      const groupSize = pick([3, 4, 5]);
+      const dir = pick(dirs);
+      const [dx, dy] = dir;
+      // random start
+      const startX = randInt(W);
+      const startY = randInt(H);
+      // check chain fits in bounds
+      const endX = startX + (groupSize - 1) * dx;
+      const endY = startY + (groupSize - 1) * dy;
+      if (endX < 0 || endX >= W || endY < 0 || endY >= H) continue;
+      // check no overlap with existing ships
+      let ok = true;
+      for (let i = 0; i < groupSize; i++) {
+        const x = startX + i * dx, y = startY + i * dy;
+        if (occupied.has(key(x, y))) { ok = false; break; }
+      }
+      if (!ok) continue;
+      // place
+      for (let i = 0; i < groupSize; i++) {
+        const x = startX + i * dx, y = startY + i * dy;
+        const k = key(x, y);
+        occupied.add(k);
+        ships.set(k, { x, y, commander: false });
+        placed++;
+        if (placed >= targetCount) break;
+      }
+    }
+    // recompute commanders
+    computeCommanders(W, H, ships);
+    return ships;
+  }
+
+  // ---------- Render teams grid ----------
+  function renderTeams() {
+    grid.innerHTML = '';
+    App.bt.canvasById.clear();
+    App.bt.canvases = [];
+    if (App.bt.teams.length === 0) {
+      grid.style.gridTemplateColumns = '';
+      const hint = document.createElement('div');
+      hint.style.cssText = 'color:var(--ink-soft);font-size:14px;text-align:center;padding:20px;';
+      hint.textContent = '👆 Click "Add Team" to set up teams. Each team needs a map seed from Map Maker.';
+      grid.appendChild(hint);
+      return;
+    }
+    // Adaptive layout: each card adopts the aspect ratio of its grid
+    // (square grid → square card, wide grid → wide card) so the canvas fills
+    // the card tightly. We pick the column count that maximizes card size
+    // while keeping all cards visible without scrolling, AND we set an
+    // explicit width on each card so the aspect-ratio is honored properly.
+    const n = App.bt.teams.length;
+    // Each team's card aspect ratio = gridWidth / (gridHeight + 0.8) — the +0.8
+    // accounts for the title-only header (no star badge now, so smaller allowance).
+    // This makes the canvas inside the card exactly grid-aspect-shaped.
+    const HEADER_ALLOWANCE = 0.8;
+    const cardARs = App.bt.teams.map(t => t.width / (t.height + HEADER_ALLOWANCE));
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const availW = vw - 32 - 24, availH = vh - 56 - 40 - 24;
+    // Try each column count; pick the one that gives the biggest minimum card
+    // dimension (so the smallest grid is as large as possible) while fitting.
+    let bestCols = n, bestMinDim = -Infinity, bestCardW = 0;
+    for (let c = 1; c <= n; c++) {
+      const rows = Math.ceil(n / c);
+      const colW = (availW - (c - 1) * 14) / c;
+      // For each row, the tallest card in that row determines the row height.
+      let totalH = 0;
+      let minCardDim = Infinity;
+      for (let r = 0; r < rows; r++) {
+        let minARInRow = Infinity;
+        for (let i = r * c; i < Math.min((r + 1) * c, n); i++) {
+          minARInRow = Math.min(minARInRow, cardARs[i]);
+        }
+        const rowCardH = colW / minARInRow;
+        totalH += rowCardH + 14;
+        minCardDim = Math.min(minCardDim, colW, rowCardH);
+      }
+      // If totalH exceeds availH, scale down colW so it fits
+      let actualColW = colW;
+      if (totalH > availH) {
+        actualColW = colW * (availH / totalH) * 0.98;  // small safety margin
+      }
+      const actualMinDim = Math.min(actualColW, actualColW / Math.min(...cardARs));
+      if (actualMinDim > bestMinDim) {
+        bestMinDim = actualMinDim;
+        bestCols = c;
+        bestCardW = actualColW;
+      }
+    }
+    const cols = bestCols;
+    grid.style.gridTemplateColumns = `repeat(${cols}, ${Math.floor(bestCardW)}px)`;
+    for (const team of App.bt.teams) {
+      const card = document.createElement('div');
+      card.className = 'team-map';
+      card.dataset.teamId = team.id;
+      card.style.background = teamBg(team.color);
+      card.style.borderColor = teamBorder(team.color);
+      card.style.width = Math.floor(bestCardW) + 'px';
+      // Card aspect ratio matches the grid (with header allowance), so the
+      // canvas inside (canvas-wrap, flex:1) is exactly grid-shaped and the
+      // grid fills it tightly with minimal padding.
+      const ar = team.width / (team.height + HEADER_ALLOWANCE);
+      card.style.aspectRatio = String(ar);
+      if (!team.alive) card.classList.add('dead');
+      if (App.bt.targetTeamId === team.id) card.classList.add('target');
+      // dim if not target during play
+      if (App.bt.state === 'playing' && App.bt.targetTeamId && App.bt.targetTeamId !== team.id) {
+        card.classList.add('dim');
+      }
+      // header — title only (no star badge, no color dot).
+      // Star score is shown in the status bar chips; removing it here saves
+      // vertical space so the grid can expand bigger.
+      const header = document.createElement('div');
+      header.className = 'map-header';
+      header.innerHTML = `
+        <div class="name" style="flex:1; justify-content:center">
+          <span class="label">${escapeHtml(team.name)}</span>
+        </div>
+      `;
+      card.appendChild(header);
+      // canvas wrapper (flexes to fill remaining card height)
+      const wrap = document.createElement('div');
+      wrap.className = 'canvas-wrap';
+      const cv = document.createElement('canvas');
+      wrap.appendChild(cv);
+      card.appendChild(wrap);
+      grid.appendChild(card);
+      App.bt.canvasById.set(team.id, cv);
+      App.bt.canvases.push({ canvas: cv, team });
+      // attach pointer handlers (we will draw + handle in a unified function)
+      attachTeamCanvas(cv, team);
+    }
+    requestAnimationFrame(drawAllTeams);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]);
+  }
+
+  function drawTeam(team, canvas) {
+    const ctx = fitCanvas(canvas);
+    if (!ctx) return;
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    ctx.clearRect(0, 0, cw, ch);
+    // background tint
+    ctx.fillStyle = teamBg(team.color);
+    ctx.fillRect(0, 0, cw, ch);
+    const m = getDrawingMetrics(ctx, team.width, team.height);
+    // axes colored using team color tinted
+    drawAxes(ctx, m, {
+      axisColor: teamBorder(team.color),
+      gridColor: lightenHex(team.color, 0.78),
+      xColor: teamBorder(team.color),
+      yColor: teamBorder(team.color),
+    });
+    // draw cells (ships ALWAYS HIDDEN except when individually hit during play,
+    // or revealed at game-over in the scoreboard end-view)
+    for (let y = 0; y < team.height; y++) {
+      for (let x = 0; x < team.width; x++) {
+        const cell = team.board[y][x];
+        const { cx, cy } = getIntersection(x, y, m);
+        if (App.bt.state === 'over') {
+          // reveal ALL ships at end of battle (scoreboard / view maps)
+          if (cell.ship) drawShipIcon(ctx, cx, cy, m.cellS, cell.ship.commander, { visible: true });
+          if (cell.miss) drawMissMarker(ctx, cx, cy, m.cellS);
+          if (cell.hit) {
+            // red ring around hit ship
+            ctx.strokeStyle = '#d65454';
+            ctx.lineWidth = Math.max(2, m.cellS * 0.1);
+            ctx.beginPath(); ctx.arc(cx, cy, m.cellS * 0.4, 0, Math.PI*2); ctx.stroke();
+          }
+        } else {
+          // setup OR playing: ships are hidden — only revealed by being shot
+          if (cell.hit) {
+            drawShipIcon(ctx, cx, cy, m.cellS, cell.ship.commander, { visible: true });
+            ctx.strokeStyle = '#d65454';
+            ctx.lineWidth = Math.max(2, m.cellS * 0.1);
+            ctx.beginPath(); ctx.arc(cx, cy, m.cellS * 0.4, 0, Math.PI*2); ctx.stroke();
+          } else if (cell.miss) {
+            drawMissMarker(ctx, cx, cy, m.cellS);
+          }
+        }
+      }
+    }
+    // hover ghost (boom emoji) for attacking team
+    if (App.bt.state === 'playing' && App.bt.targetTeamId === team.id && team._hover) {
+      const { x, y } = team._hover;
+      if (x >= 0 && x < team.width && y >= 0 && y < team.height) {
+        const { cx, cy } = getIntersection(x, y, m);
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.font = `${Math.max(16, m.cellS * 0.8)}px 'Segoe UI Emoji', sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(BOOM_HOVER, cx, cy);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawAllTeams() {
+    for (const { canvas, team } of App.bt.canvases) drawTeam(team, canvas);
+  }
+
+  function attachTeamCanvas(canvas, team) {
+    let dragging = false, moved = false, sx = 0, sy = 0;
+    canvas.addEventListener('pointerdown', e => {
+      dragging = true; moved = false; sx = e.clientX; sy = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (dragging) {
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+      }
+      if (App.bt.state !== 'playing') return;
+      // hover (boom ghost) only when this team is the target
+      if (App.bt.targetTeamId !== team.id) return;
+      const cell = teamCanvasToCell(canvas, team, e.clientX, e.clientY);
+      if (!cell) {
+        if (team._hover) { team._hover = null; drawTeam(team, canvas); }
+        return;
+      }
+      if (!team._hover || team._hover.x !== cell.x || team._hover.y !== cell.y) {
+        team._hover = cell; drawTeam(team, canvas);
+      }
+    });
+    canvas.addEventListener('pointerup', e => {
+      dragging = false;
+      if (moved) return;
+      // click handling depends on game state
+      if (App.bt.state === 'playing' && App.bt.targetTeamId === team.id) {
+        const cell = teamCanvasToCell(canvas, team, e.clientX, e.clientY);
+        if (cell) shootAt(team, cell.x, cell.y);
+      } else if (App.bt.state === 'over') {
+        // no action on click during 'over'
+      }
+    });
+    canvas.addEventListener('pointerleave', () => {
+      if (team._hover) { team._hover = null; drawTeam(team, canvas); }
+    });
+    // Auto-redraw when the canvas size changes (e.g. window resize, layout reflow).
+    // This keeps the grid filled tightly at all times.
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => drawTeam(team, canvas));
+      ro.observe(canvas);
+    }
+  }
+
+  function teamCanvasToCell(canvas, team, clientX, clientY) {
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    const m = getDrawingMetrics(ctx, team.width, team.height);
+    const x = Math.floor((px - m.originX) / m.cellS);
+    const y = Math.floor((m.originY - py) / m.cellS);
+    if (x < 0 || x >= team.width || y < 0 || y >= team.height) return null;
+    return { x, y };
+  }
+
+  // ---------- Save snapshot for new game ----------
+  function saveSnapshot() {
+    App.bt.initialTeamsSnapshot = App.bt.teams.map(t => ({
+      id: t.id, name: t.name, color: t.color,
+      width: t.width, height: t.height,
+      ships: new Map([...t.ships.entries()].map(([k, v]) => [k, { x: v.x, y: v.y, commander: v.commander }])),
+    }));
+  }
+
+  // ---------- Update status (status bar chips + topbar buttons) ----------
+  function updateStatus() {
+    // topbar buttons
+    $('bt-start').disabled = App.bt.teams.length < 2 || App.bt.state !== 'setup';
+    $('bt-view-toggle').disabled = App.bt.state !== 'playing';
+    // ---- status bar per-team chips ----
+    // Compact format: [color dot] Name [seed (clickable)] ⭐stars 💥sunk/🚢alive
+    // Always visible (status bar sits above turn-list popup z-index).
+    // (Star score is shown here, NOT in the card header — header is title-only.)
+    const chips = $('bt-chips');
+    if (!chips) return;
+    chips.innerHTML = '';
+    // Turn indicator (only during play)
+    if (App.bt.state === 'playing' && App.bt.turnList.length > 0) {
+      const tc = document.createElement('div');
+      tc.className = 'turn-chip';
+      const turnNum = App.bt.turnCounter;
+      const attacker = currentAttacker();
+      tc.innerHTML = `<span class="label">Turn</span><span class="num">${turnNum}</span>${attacker ? '·' + escapeHtml(attacker.name) : ''}`;
+      chips.appendChild(tc);
+    }
+    for (const team of App.bt.teams) {
+      const chip = document.createElement('div');
+      chip.className = 'team-chip' + (team.alive ? '' : ' dead');
+      chip.style.borderLeftColor = team.color;
+      // count sunk vs alive ships
+      let sunk = 0, alive = 0;
+      for (const s of team.ships.values()) {
+        if (team.board[s.y][s.x].hit) sunk++; else alive++;
+      }
+      // seed (clickable to copy)
+      const seedStr = team._seedStr || (team._seedStr = encodeSeed(team.width, team.height, team.ships));
+      chip.innerHTML = `
+        <span class="dot" style="background:${team.color}"></span>
+        <span class="name" title="${escapeHtml(team.name)}">${escapeHtml(team.name)}</span>
+        <span class="seed" title="Click to copy seed" data-seed="${escapeHtml(seedStr)}">${escapeHtml(seedStr)}</span>
+        <span class="star">⭐${team.battleStars}</span>
+        <span class="ships">
+          <span class="sunk" title="Ships destroyed">💥${sunk}</span><span class="sep">/</span><span class="alive" title="Ships remaining">🚢${alive}</span>
+        </span>
+      `;
+      // seed click → copy
+      chip.querySelector('.seed').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const s = e.currentTarget.dataset.seed;
+        navigator.clipboard.writeText(s).then(() => showToast('📋 Seed copied!', 1800)).catch(() => {
+          // fallback
+          const ta = document.createElement('textarea');
+          ta.value = s; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); showToast('📋 Seed copied!', 1800); } catch(_) {}
+          document.body.removeChild(ta);
         });
-    </script>
+      });
+      chips.appendChild(chip);
+    }
+  }
+
+  // ---------- Finish Game (early end) ----------
+  function finishGame() {
+    if (App.bt.state !== 'playing') return;
+    if (!confirm('Finish the game now and show the scoreboard?')) return;
+    endGame('Game finished early by player.');
+  }
+
+  // ---------- Shoot at a cell ----------
+  function shootAt(targetTeam, x, y) {
+    if (App.bt.state !== 'playing') return;
+    if (!targetTeam.alive) return;
+    const cell = targetTeam.board[y][x];
+    if (cell.hit || cell.miss) {
+      // already revealed; no extra shot, no penalty (per spec)
+      showToast('⚠️ Already shot here. Pick another spot.');
+      return;
+    }
+    const attacker = currentAttacker();
+    if (!attacker) return;
+    if (cell.ship) {
+      // hit
+      cell.hit = true;
+      const points = cell.ship.commander ? 3 : 1;
+      attacker.battleStars += points;
+      showFeedbackEmoji(HIT_EMOJI);
+      playSound('hit');
+      msg($('bt-msg'), `💥 ${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ship ⭐' : 'ship'}! +${points}⭐`, 3500);
+      notify(cell.ship.commander ? 'star' : 'hit', `${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ⭐' : 'ship'} (+${points}⭐)`, 3000);
+      drawTeam(targetTeam, App.bt.canvasById.get(targetTeam.id));
+      // check if target team is sunk
+      if (teamAllSunk(targetTeam)) {
+        targetTeam.alive = false;
+        playSound('sunk');
+        showToast(`💀 ${targetTeam.name} has been eliminated!`);
+        notify('sunk', `${targetTeam.name} has been fully sunk and eliminated! 💀`, 4500);
+      }
+      updateStatus();
+      renderTurnList();
+      // Combo mode: extra shot on hit
+      if (App.bt.mode === 'combo') {
+        App.bt.comboShots++;
+        // continue turn (do NOT advance)
+        // refresh attack popup (so the player can pick new target if desired)
+        // Re-open attack popup if needed — but for combo, the same target stays active.
+        // However, if the target is sunk, force a new target pick.
+        if (!targetTeam.alive) {
+          // target dead — check game end / advance
+          if (checkGameOver()) return;
+          // open attack popup again to pick a new target
+          openAttackPopup();
+        } else {
+          // continue same target — prompt to keep shooting
+          msg($('bt-msg'), `🔥 Combo! +1 extra shot. Keep firing at ${targetTeam.name}.`, 3500);
+          notify('combo', `🔥 Combo x${App.bt.comboShots + 1}! ${attacker.name} gets an extra shot.`, 3000);
+        }
+      } else {
+        // Mercy mode: 1 shot per turn
+        if (checkGameOver()) return;
+        // wait for "Next Turn" button
+        $('bt-next-turn').classList.remove('hidden');
+      }
+    } else {
+      // miss
+      cell.miss = true;
+      showFeedbackEmoji(MISS_EMOJI);
+      playSound('miss');
+      msg($('bt-msg'), `❌ ${attacker.name} missed at (${x}, ${y}).`, 2500);
+      notify('miss', `${attacker.name} missed at (${x}, ${y}).`, 2500);
+      drawTeam(targetTeam, App.bt.canvasById.get(targetTeam.id));
+      updateStatus();
+      if (App.bt.mode === 'combo' && App.bt.comboShots > 0) {
+        msg($('bt-msg'), `🔥 Combo ended after ${App.bt.comboShots + 1} shots.`, 3000);
+        notify('combo', `Combo ended after ${App.bt.comboShots + 1} shots.`, 2800);
+      }
+      App.bt.comboShots = 0;
+      if (checkGameOver()) return;
+      $('bt-next-turn').classList.remove('hidden');
+    }
+  }
+
+  function teamAllSunk(team) {
+    for (let y = 0; y < team.height; y++) {
+      for (let x = 0; x < team.width; x++) {
+        const cell = team.board[y][x];
+        if (cell.ship && !cell.hit) return false;
+      }
+    }
+    return true;
+  }
+
+  function currentAttacker() {
+    if (App.bt.turnList.length === 0) return null;
+    const teamId = App.bt.turnList[App.bt.currentTurnIdx % App.bt.turnList.length];
+    return App.bt.teams.find(t => t.id === teamId);
+  }
+
+  function showFeedbackEmoji(emoji) {
+    const overlay = $('feedback-overlay');
+    if (!overlay) return;
+    const span = document.createElement('div');
+    span.className = 'feedback-emoji';
+    span.textContent = emoji;
+    overlay.appendChild(span);
+    setTimeout(() => { if (overlay.contains(span)) overlay.removeChild(span); }, 2000);
+  }
+
+  // ---------- Start Game (wheel turn popup) ----------
+  function startGame() {
+    if (App.bt.teams.length < 2) return;
+    if (App.bt.state === 'playing' || App.bt.state === 'over') return;
+    App.bt.turnLimit = clamp(parseInt($('bt-turn-limit').value) || 0, 0, 999);
+    App.bt.state = 'wheel';
+    App.bt.turnList = [];
+    App.bt.currentTurnIdx = 0;
+    App.bt.turnCounter = 1;
+    App.bt.targetTeamId = null;
+    App.bt.comboShots = 0;
+    App.bt.wheelState = {
+      remaining: App.bt.teams.map(t => ({ id: t.id, name: t.name, color: t.color })),
+      rotation: 0,
+      spinning: false,
+    };
+    $('turn-list-popup').classList.remove('hidden');
+    renderTurnList();
+    openWheelPopup();
+    $('bt-start').classList.add('hidden');
+    $('bt-add-team').disabled = true;
+    $('bt-remove-team').disabled = true;
+    $('bt-auto-gen').disabled = true;
+    $('bt-turn-limit').disabled = true;
+    document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = true);
+  }
+
+  function openWheelPopup() {
+    $('wheel-popup').classList.remove('hidden');
+    drawWheel();
+  }
+  function closeWheelPopup() {
+    $('wheel-popup').classList.add('hidden');
+  }
+  function drawWheel() {
+    const canvas = $('wheel-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = W/2, cy = H/2, R = Math.min(W, H)/2 - 12;
+    ctx.clearRect(0, 0, W, H);
+    const teams = App.bt.wheelState.remaining;
+    const n = teams.length;
+    if (n === 0) return;
+    const angleStep = (Math.PI * 2) / n;
+    const rot = App.bt.wheelState.rotation;
+    for (let i = 0; i < n; i++) {
+      const a0 = rot + i * angleStep - Math.PI/2;
+      const a1 = a0 + angleStep;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = teams[i].color;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // label
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a0 + angleStep/2);
+      ctx.fillStyle = contrastColor(teams[i].color);
+      ctx.font = `bold ${n <= 4 ? 16 : n <= 6 ? 14 : 12}px 'Segoe UI', sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      const label = teams[i].name.length > 14 ? teams[i].name.slice(0,12)+'…' : teams[i].name;
+      ctx.fillText(label, R - 14, 0);
+      ctx.restore();
+    }
+    // center hub
+    ctx.beginPath();
+    ctx.arc(cx, cy, 24, 0, Math.PI*2);
+    ctx.fillStyle = '#14323d';
+    ctx.fill();
+    ctx.fillStyle = '#ffd34d';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🎯', cx, cy);
+  }
+  function spinWheel() {
+    if (App.bt.wheelState.spinning) return;
+    if (App.bt.wheelState.remaining.length === 0) return;
+    App.bt.wheelState.spinning = true;
+    const start = performance.now();
+    const duration = 3500 + randInt(2000);
+    const startRot = App.bt.wheelState.rotation;
+    const spins = 5 + randInt(4);
+    const totalDelta = Math.PI * 2 * spins + Math.random() * Math.PI * 2;
+    const n = App.bt.wheelState.remaining.length;
+    const angleStep = (Math.PI*2) / n;
+    function frame(now) {
+      const t = Math.min(1, (now - start) / duration);
+      // ease-out
+      const e = 1 - Math.pow(1 - t, 3);
+      App.bt.wheelState.rotation = startRot + totalDelta * e;
+      drawWheel();
+      playSound('spin');
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        // figure out which slice is at top (-π/2)
+        let r = App.bt.wheelState.rotation;
+        // normalize
+        r = ((r % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+        // pointer at -π/2 (top). slice i occupies [r + i*step - π/2, r + (i+1)*step - π/2)
+        // the slice at top is the one where -π/2 is in its range:
+        // i*step - π/2 + r <= -π/2 <= (i+1)*step - π/2 + r  =>  -r/slide <= i <= (-r + 0)/slide ...
+        // Simpler: top = ((Math.PI*2 - r) / angleStep) % n, ceiling
+        const idx = Math.floor(((Math.PI*2 - r) % (Math.PI*2)) / angleStep) % n;
+        const picked = App.bt.wheelState.remaining[idx];
+        App.bt.wheelState.spinning = false;
+        playSound('wheel-stop');
+        $('wheel-info').textContent = `🎯 ${picked.name} goes #${App.bt.turnList.length + 1}!`;
+        // Add to turn list
+        App.bt.turnList.push(picked.id);
+        // Remove from wheel
+        App.bt.wheelState.remaining = App.bt.wheelState.remaining.filter(t => t.id !== picked.id);
+        renderTurnList();
+        // wait for user click to spin again OR auto-spin last
+        if (App.bt.wheelState.remaining.length === 0) {
+          // All done — start game
+          setTimeout(() => {
+            closeWheelPopup();
+            beginPlay();
+          }, 600);
+        } else if (App.bt.wheelState.remaining.length === 1) {
+          // Last team — auto-assign to end of turn list and start
+          const last = App.bt.wheelState.remaining[0];
+          App.bt.turnList.push(last.id);
+          App.bt.wheelState.remaining = [];
+          renderTurnList();
+          $('wheel-info').textContent = `🎯 ${last.name} goes last!`;
+          setTimeout(() => {
+            closeWheelPopup();
+            beginPlay();
+          }, 900);
+        } else {
+          // user clicks to spin again
+          $('wheel-info').textContent = `🎯 ${picked.name} → #${App.bt.turnList.length}. Click Spin for next team.`;
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Begin Play ----------
+  function beginPlay() {
+    App.bt.state = 'playing';
+    App.bt.currentTurnIdx = 0;
+    App.bt.turnCounter = 1;
+    // Hide ships: re-render teams (they hide automatically based on state)
+    renderTeams();
+    updateStatus();
+    $('bt-view-toggle').disabled = false;
+    $('bt-scoreboard').classList.add('hidden');
+    $('bt-next-turn').classList.add('hidden');
+    $('bt-finish').classList.remove('hidden');  // show Finish Game during play
+    // start first turn
+    startTurn();
+  }
+
+  function startTurn() {
+    const attacker = currentAttacker();
+    if (!attacker || !attacker.alive) {
+      // skip dead — but actually we should already skip in nextTurn
+      advanceToNextAlive();
+      return;
+    }
+    App.bt.targetTeamId = null;
+    App.bt.comboShots = 0;
+    msg($('bt-msg'), `🎯 ${attacker.name}'s turn. Pick a team to attack.`, 4000);
+    notify('info', `Turn ${App.bt.turnCounter} — ${attacker.name}, pick a team to attack.`, 3500);
+    updateTurnListHighlight();
+    openAttackPopup();
+  }
+
+  function openAttackPopup() {
+    const list = $('attack-list');
+    list.innerHTML = '';
+    const attacker = currentAttacker();
+    if (!attacker) return;
+    // Title shows WHO is picking (turn + attacker name). Each card shows the target.
+    $('attack-title').textContent = `🎯 Turn ${App.bt.turnCounter} — ${attacker.name} picks a team to attack`;
+    $('attack-sub').innerHTML = `Mercy = 1 shot per turn · Combo = keep firing while you hit`;
+    const pickRandomBtn = $('attack-pick-random');
+    if (pickRandomBtn) pickRandomBtn.classList.remove('hidden');
+    for (const team of App.bt.teams) {
+      if (team.id === attacker.id) continue;
+      if (!team.alive) continue;
+      const card = document.createElement('div');
+      card.className = 'attack-card';
+      card.style.borderColor = teamBorder(team.color);
+      card.style.background = teamBg(team.color);
+      const cv = document.createElement('canvas');
+      cv.width = 120; cv.height = 120;
+      card.appendChild(cv);
+      // mini map
+      drawMiniMap(cv, team);
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.innerHTML = `⚔️ Attack <b>${escapeHtml(team.name)}</b><br><span style="font-size:10px;color:var(--ink-soft)">⭐${team.battleStars} · ${aliveShipCount(team)}/${team.ships.size} ships</span>`;
+      card.appendChild(label);
+      card.addEventListener('click', () => {
+        pickTarget(team, attacker);
+      });
+      list.appendChild(card);
+    }
+    // Random pick helper (avoids indecision permanent-stall).
+    pickRandomBtn.onclick = () => {
+      const alive = App.bt.teams.filter(t => t.id !== attacker.id && t.alive);
+      if (alive.length === 0) return;
+      pickTarget(pick(alive), attacker);
+    };
+    if (list.children.length === 0) {
+      // No targets — game should already be over
+      const none = document.createElement('div');
+      none.textContent = 'No targets available.';
+      none.style.cssText = 'padding:20px;color:var(--ink-soft);text-align:center;';
+      list.appendChild(none);
+    }
+    $('attack-popup').classList.remove('hidden');
+    attackPopupOpen = true;
+  }
+
+  // Confirm a target pick from the attack popup.
+  function pickTarget(team, attacker) {
+    App.bt.targetTeamId = team.id;
+    $('attack-popup').classList.add('hidden');
+    attackPopupOpen = false;
+    // highlight target team map
+    renderTeams();
+    // if focus view: switch view to target
+    if (App.bt.viewMode === 'focus') applyFocusView();
+    msg($('bt-msg'), `🎯 ${attacker.name} is attacking ${team.name}. Click a spot to fire!`, 4500);
+    notify('info', `${attacker.name} → attacks ${team.name}. Click a spot on their map to fire!`, 3500);
+  }
+
+  function closeAttackPopup() {
+    $('attack-popup').classList.add('hidden');
+    attackPopupOpen = false;
+    // == DEADLOCK GUARD ==
+    // During play you MUST pick a target to take your shot. If the popup was
+    // closed without a target (e.g. Cancel), re-open the picker so the turn
+    // can always proceed — no hard-block.
+    if (App.bt.state === 'playing' && !App.bt.targetTeamId) {
+      notify('info', 'Pick a team to attack — the turn can\u2019t proceed without a target.', 3000);
+      setTimeout(() => {
+        if (App.bt.state === 'playing' && !App.bt.targetTeamId) openAttackPopup();
+      }, 450);
+    }
+  }
+
+  function drawMiniMap(canvas, team) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = teamBg(team.color);
+    ctx.fillRect(0, 0, W, H);
+    const pad = 6;
+    const cellS = Math.min((W - pad*2) / team.width, (H - pad*2) / team.height);
+    const gridW = team.width * cellS, gridH = team.height * cellS;
+    const ox = (W - gridW) / 2, oy = (H + gridH) / 2;
+    ctx.strokeStyle = lightenHex(team.color, 0.7);
+    ctx.lineWidth = 0.6;
+    for (let x = 0; x < team.width; x++) {
+      ctx.beginPath();
+      ctx.moveTo(ox + (x + 0.5)*cellS, oy);
+      ctx.lineTo(ox + (x + 0.5)*cellS, oy - gridH);
+      ctx.stroke();
+    }
+    for (let y = 0; y < team.height; y++) {
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - (y + 0.5)*cellS);
+      ctx.lineTo(ox + gridW, oy - (y + 0.5)*cellS);
+      ctx.stroke();
+    }
+    // mini markers
+    for (let y = 0; y < team.height; y++) {
+      for (let x = 0; x < team.width; x++) {
+        const cell = team.board[y][x];
+        const cx = ox + (x + 0.5)*cellS, cy = oy - (y + 0.5)*cellS;
+        if (cell.hit) {
+          ctx.fillStyle = '#d65454';
+          ctx.beginPath(); ctx.arc(cx, cy, Math.max(2, cellS*0.25), 0, Math.PI*2); ctx.fill();
+        } else if (cell.miss) {
+          ctx.strokeStyle = '#999';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cx - cellS*0.18, cy - cellS*0.18);
+          ctx.lineTo(cx + cellS*0.18, cy + cellS*0.18);
+          ctx.moveTo(cx - cellS*0.18, cy + cellS*0.18);
+          ctx.lineTo(cx + cellS*0.18, cy - cellS*0.18);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function aliveShipCount(team) {
+    let c = 0;
+    for (const s of team.ships.values()) {
+      const cell = team.board[s.y][s.x];
+      if (!cell.hit) c++;
+    }
+    return c;
+  }
+
+  // ---------- Next Turn ----------
+  function nextTurn() {
+    $('bt-next-turn').classList.add('hidden');
+    // Check turn limit (0 = endless)
+    if (App.bt.turnLimit > 0 && App.bt.turnCounter >= App.bt.turnLimit) {
+      endGame('Turn limit reached.');
+      return;
+    }
+    App.bt.turnCounter++;
+    App.bt.currentTurnIdx = (App.bt.currentTurnIdx + 1) % App.bt.turnList.length;
+    updateStatus();  // refresh turn counter chip
+    advanceToNextAlive();
+  }
+
+  function advanceToNextAlive() {
+    if (App.bt.turnList.length === 0) return;
+    const n = App.bt.turnList.length;
+    for (let i = 0; i < n; i++) {
+      const teamId = App.bt.turnList[(App.bt.currentTurnIdx + i) % n];
+      const team = App.bt.teams.find(t => t.id === teamId);
+      if (team && team.alive) {
+        App.bt.currentTurnIdx = (App.bt.currentTurnIdx + i) % n;
+        App.bt.targetTeamId = null;
+        renderTeams();
+        startTurn();
+        return;
+      }
+    }
+    // No alive teams? game over
+    endGame('All teams eliminated.');
+  }
+
+  // ---------- Check Game Over ----------
+  function checkGameOver() {
+    // Win condition: only one team survives (or zero)
+    const alive = App.bt.teams.filter(t => t.alive);
+    if (alive.length <= 1) {
+      endGame(alive.length === 1 ? `${alive[0].name} is the last team standing!` : 'All teams eliminated.');
+      return true;
+    }
+    // Turn limit
+    if (App.bt.turnLimit > 0 && App.bt.turnCounter >= App.bt.turnLimit) {
+      endGame('Turn limit reached.');
+      return true;
+    }
+    return false;
+  }
+
+  function endGame(reason) {
+    App.bt.state = 'over';
+    App.bt.targetTeamId = null;
+    // Ensure any open picker/toast is dismissed cleanly.
+    $('attack-popup').classList.add('hidden');
+    attackPopupOpen = false;
+    // Reveal all maps
+    renderTeams();
+    notify('info', `🏁 Game Over — ${reason}`, 5000);
+    // Compute survival stars
+    for (const team of App.bt.teams) {
+      let survive = 0;
+      for (const s of team.ships.values()) {
+        const cell = team.board[s.y][s.x];
+        if (!cell.hit) survive += s.commander ? 3 : 1;
+      }
+      team.surviveStars = survive;
+    }
+    $('bt-next-turn').classList.add('hidden');
+    $('bt-finish').classList.add('hidden');  // hide Finish Game when game ends
+    $('bt-scoreboard').classList.remove('hidden');
+    updateStatus();
+    renderTurnList();
+    playSound('win');
+    msg($('bt-msg'), `🏆 Game Over — ${reason}`, 6000);
+    openScoreboard();
+  }
+
+  // ---------- Scoreboard ----------
+  function openScoreboard() {
+    const list = $('scoreboard-list');
+    list.innerHTML = '';
+    // rank teams by total = battle + survive
+    const ranked = [...App.bt.teams].map(t => ({
+      team: t,
+      battle: t.battleStars,
+      survive: t.surviveStars,
+      total: t.battleStars + t.surviveStars,
+    })).sort((a, b) => b.total - a.total);
+    const rankEmojis = ['🥇','🥈','🥉','🏅','🎖️','🎗️','📊','🎯'];
+    ranked.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = `scoreboard-row rank-${i+1 <= 3 ? i+1 : 'none'}`;
+      const emoji = rankEmojis[i] || `#${i+1}`;
+      row.innerHTML = `
+        <div class="rank-emoji">${emoji}</div>
+        <div class="name" style="color:${r.team.color}">${escapeHtml(r.team.name)}</div>
+        <div class="details">
+          <div>Battle ⭐ ${r.battle} · Survived ⭐ ${r.survive}</div>
+        </div>
+        <div class="total">${r.total}⭐</div>
+      `;
+      list.appendChild(row);
+    });
+    $('scoreboard-popup').classList.remove('hidden');
+  }
+  function closeScoreboard() {
+    $('scoreboard-popup').classList.add('hidden');
+  }
+
+  function viewMapMode() {
+    // Just close the scoreboard to reveal maps underneath
+    closeScoreboard();
+  }
+
+  // ---------- New Game ----------
+  // ---------- New Game / Restart ----------
+  function openRestartPopup() {
+    // Sync the restart modal's controls with the current settings.
+    const curMode = App.bt.mode || 'mercy';
+    $('restart-mode-toggle').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === curMode);
+    });
+    $('restart-turn-limit').value = App.bt.turnLimit > 0 ? App.bt.turnLimit : 0;
+    $('restart-popup').classList.remove('hidden');
+  }
+  function closeRestartPopup() {
+    $('restart-popup').classList.add('hidden');
+  }
+
+  function applyRestart(keepMaps) {
+    closeRestartPopup();
+    if (!keepMaps) {
+      // Start fresh: clear teams entirely
+      resetBattleSetup();
+      notify('info', 'Fresh setup started — add teams to begin.', 3200);
+      return;
+    }
+    // Keep maps: apply mercy/combo + turn limit chosen in restart modal
+    const chosenMode = ($('restart-mode-toggle').querySelector('button.active') || {}).dataset?.mode || App.bt.mode || 'mercy';
+    App.bt.mode = chosenMode;
+    document.querySelectorAll('.mode-toggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === chosenMode);
+    });
+    App.bt.turnLimit = clamp(parseInt($('restart-turn-limit').value) || 0, 0, 999);
+    $('bt-turn-limit').value = App.bt.turnLimit;
+    if (!App.bt.initialTeamsSnapshot) {
+      resetBattleSetup();
+      return;
+    }
+    // Restore teams from snapshot (fresh boards, no hits)
+    App.bt.teams = App.bt.initialTeamsSnapshot.map(s => {
+      const ships = new Map([...s.ships.entries()].map(([k, v]) => [k, { x: v.x, y: v.y, commander: false }]));
+      computeCommanders(s.width, s.height, ships);
+      const board = [];
+      for (let y = 0; y < s.height; y++) {
+        const row = [];
+        for (let x = 0; x < s.width; x++) {
+          const ship = ships.get(key(x, y)) || null;
+          row.push({ x, y, ship, hit: false, miss: false });
+        }
+        board.push(row);
+      }
+      return {
+        id: s.id, name: s.name, color: s.color,
+        width: s.width, height: s.height,
+        ships, board, alive: true,
+        battleStars: 0, surviveStars: 0,
+      };
+    });
+    App.bt.state = 'setup';
+    App.bt.turnList = [];
+    App.bt.currentTurnIdx = 0;
+    App.bt.turnCounter = 1;
+    App.bt.targetTeamId = null;
+    App.bt.comboShots = 0;
+    App.bt.viewMode = 'main';
+    $('bt-view-toggle').textContent = '🎥 Focus View';
+    $('bt-start').classList.remove('hidden');
+    $('bt-start').disabled = false;
+    $('bt-add-team').disabled = false;
+    $('bt-remove-team').disabled = false;
+    $('bt-auto-gen').disabled = false;
+    $('bt-turn-limit').disabled = false;
+    document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = false);
+    $('bt-next-turn').classList.add('hidden');
+    $('bt-finish').classList.add('hidden');
+    $('bt-scoreboard').classList.add('hidden');
+    $('turn-list-popup').classList.add('hidden');
+    closeScoreboard();
+    $('bt-grid').style.gridTemplateColumns = '';
+    $('bt-grid').style.alignItems = '';
+    $('bt-grid').style.justifyItems = '';
+    $('bt-grid').style.alignContent = '';
+    $('bt-grid').style.justifyContent = '';
+    $('bt-grid').style.gap = '';
+    renderTeams();
+    updateStatus();
+    msg($('bt-msg'), `🔄 Maps kept. Restarting with ${chosenMode === 'combo' ? '🔥 Combo' : '🛡️ Mercy'} mode, ${App.bt.turnLimit > 0 ? App.bt.turnLimit + ' turn limit' : 'endless turns'}.`, 5000);
+    notify('info', `Maps kept — restart with ${chosenMode === 'combo' ? '🔥 Combo' : '🛡️ Mercy'} mode & ${App.bt.turnLimit > 0 ? App.bt.turnLimit + ' turns' : 'endless'}`, 4000);
+  }
+
+  function newGame() {
+    // Old behavior (direct new game); now routed to restart modal for options.
+    openRestartPopup();
+  }
+
+  function resetBattleSetup() {
+    App.bt.teams = [];
+    App.bt.state = 'setup';
+    App.bt.turnList = [];
+    App.bt.turnCounter = 1;
+    App.bt.initialTeamsSnapshot = null;
+    App.bt.nextTeamId = 1;
+    $('bt-start').classList.remove('hidden');
+    $('bt-add-team').disabled = false;
+    $('bt-remove-team').disabled = false;
+    $('bt-auto-gen').disabled = false;
+    $('bt-turn-limit').disabled = false;
+    document.querySelectorAll('.mode-toggle button').forEach(b => b.disabled = false);
+    $('bt-next-turn').classList.add('hidden');
+    $('bt-finish').classList.add('hidden');
+    $('bt-scoreboard').classList.add('hidden');
+    $('turn-list-popup').classList.add('hidden');
+    closeScoreboard();
+    renderTeams();
+    updateStatus();
+  }
+
+  // ---------- Back to Map Maker (preserve state) ----------
+  function backToMapMaker() {
+    if (App.bt.state === 'playing') {
+      if (!confirm('Leave the battle? You can come back via Go Battle button.')) return;
+    }
+    switchScreen('mapmaker');
+  }
+
+  // ---------- View mode toggle ----------
+  function toggleViewMode() {
+    if (App.bt.state !== 'playing') return;
+    if (App.bt.viewMode === 'main') {
+      App.bt.viewMode = 'focus';
+      $('bt-view-toggle').textContent = '🗺️ Main View';
+      applyFocusView();
+    } else {
+      App.bt.viewMode = 'main';
+      $('bt-view-toggle').textContent = '🎥 Focus View';
+      applyMainView();
+    }
+  }
+  function applyFocusView() {
+    // Focus view: target map centered & large; other teams shown as small
+    // thumbnails on the left and right sides (split evenly).
+    // We use a 3-column grid: [left thumbs] [center target] [right thumbs].
+    const gridEl = $('bt-grid');
+    const teams = App.bt.teams;
+    const targetId = App.bt.targetTeamId;
+    const others = teams.filter(t => t.id !== targetId);
+    const half = Math.ceil(others.length / 2);
+    const leftOthers = others.slice(0, half);
+    const rightOthers = others.slice(half);
+    // Reorder DOM: left thumbs, target, right thumbs — so grid placement matches.
+    gridEl.innerHTML = '';
+    App.bt.canvasById.clear();
+    App.bt.canvases = [];
+    const allOrdered = [...leftOthers, teams.find(t => t.id === targetId), ...rightOthers].filter(Boolean);
+    // Use 3 columns: left / center / right
+    gridEl.style.gridTemplateColumns = 'auto 1fr auto';
+    gridEl.style.alignItems = 'center';
+    gridEl.style.justifyItems = 'center';
+    gridEl.style.alignContent = 'center';
+    gridEl.style.justifyContent = 'center';
+    gridEl.style.gap = '12px';
+    for (const team of allOrdered) {
+      const card = document.createElement('div');
+      card.className = 'team-map';
+      card.dataset.teamId = team.id;
+      card.style.background = teamBg(team.color);
+      card.style.borderColor = teamBorder(team.color);
+      const isTarget = team.id === targetId;
+      if (isTarget) {
+        // Center: large, square-ish to fit viewport height
+        card.style.width = '';
+        card.style.height = 'calc(100vh - 160px)';
+        card.style.maxWidth = 'calc(100vw - 480px)';
+        card.style.aspectRatio = String(team.width / (team.height + 0.8));
+        if (!team.alive) card.classList.add('dead');
+      } else {
+        // Side thumbnails: small fixed size
+        card.style.width = '180px';
+        card.style.height = '';
+        card.style.maxHeight = 'calc(100vh - 160px)';
+        card.style.aspectRatio = String(team.width / (team.height + 0.8));
+        if (!team.alive) card.classList.add('dead');
+        else if (App.bt.state === 'playing') card.classList.add('dim');
+      }
+      if (isTarget) card.classList.add('target');
+      // header (title only, no star/dot — saves space for the grid)
+      const header = document.createElement('div');
+      header.className = 'map-header';
+      header.innerHTML = `
+        <div class="name" style="flex:1; justify-content:${isTarget ? 'center' : 'flex-start'}">
+          <span class="label">${escapeHtml(team.name)}</span>
+        </div>
+      `;
+      card.appendChild(header);
+      // canvas
+      const wrap = document.createElement('div');
+      wrap.className = 'canvas-wrap';
+      const cv = document.createElement('canvas');
+      wrap.appendChild(cv);
+      card.appendChild(wrap);
+      gridEl.appendChild(card);
+      App.bt.canvasById.set(team.id, cv);
+      App.bt.canvases.push({ canvas: cv, team });
+      attachTeamCanvas(cv, team);
+    }
+    requestAnimationFrame(drawAllTeams);
+  }
+  function applyMainView() {
+    // Re-render with the normal adaptive layout (rebuilds cards properly)
+    gridEl_resetCSS();
+    renderTeams();
+  }
+  function gridEl_resetCSS() {
+    const gridEl = $('bt-grid');
+    gridEl.style.gridTemplateColumns = '';
+    gridEl.style.alignItems = '';
+    gridEl.style.justifyItems = '';
+    gridEl.style.alignContent = '';
+    gridEl.style.justifyContent = '';
+    gridEl.style.gap = '';
+  }
+
+  // ---------- Turn List rendering ----------
+  function renderTurnList() {
+    const list = $('turn-list');
+    list.innerHTML = '';
+    App.bt.turnList.forEach((tid, i) => {
+      const team = App.bt.teams.find(t => t.id === tid);
+      if (!team) return;
+      const li = document.createElement('li');
+      li.dataset.teamId = tid;
+      li.style.borderLeftColor = team.color;
+      li.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="rank">#${i+1}</span>
+          <span>${escapeHtml(team.name)}</span>
+        </div>
+        <span class="score" style="background:${team.color};color:${contrastColor(team.color)}">⭐${team.battleStars}</span>
+      `;
+      if (!team.alive) li.classList.add('dead');
+      list.appendChild(li);
+    });
+    updateTurnListHighlight();
+  }
+  function updateTurnListHighlight() {
+    const list = $('turn-list');
+    const cur = currentAttacker();
+    [...list.children].forEach(li => {
+      li.classList.remove('current');
+      if (cur && parseInt(li.dataset.teamId) === cur.id && App.bt.state === 'playing') li.classList.add('current');
+    });
+  }
+
+  return {
+    openAddTeam, cancelAddTeam, commitTeam, checkSeed, buildColorGrid,
+    removeTeam, autoGenerate, renderTeams, drawAllTeams, drawTeam, updateStatus,
+    saveSnapshot, shootAt,
+    setupState: () => App.bt.state,
+    startGame, nextTurn, openAttackPopup, closeAttackPopup,
+    toggleViewMode, openScoreboard, closeScoreboard,
+    newGame, backToMapMaker, viewMapMode,
+    renderTurnList, updateTurnListHighlight,
+    spinWheel, beginPlay, startTurn, advanceToNextAlive,
+    finishGame,
+    openRestartPopup, closeRestartPopup, applyRestart,
+  };
+})();
+
+// ============================================================
+// SCREEN SWITCHER
+// ============================================================
+function switchScreen(name) {
+  App.screen = name;
+  $('welcome-screen').classList.toggle('hidden', name !== 'welcome');
+  $('mapmaker-screen').classList.toggle('hidden', name !== 'mapmaker');
+  $('battle-screen').classList.toggle('hidden', name !== 'battle');
+  // Use double requestAnimationFrame to ensure layout has settled after
+  // removing the 'hidden' class before we try to draw. setTimeout(0) can
+  // fire before the browser computes the new layout, leaving canvas at 0×0.
+  if (name === 'mapmaker') {
+    requestAnimationFrame(() => requestAnimationFrame(() => { MM.resize(); MM.updateSeed(); }));
+  }
+  if (name === 'battle') {
+    requestAnimationFrame(() => requestAnimationFrame(() => BT.drawAllTeams()));
+  }
+}
+
+// ============================================================
+// EVENT LISTENERS & INIT
+// ============================================================
+function init() {
+  // Welcome
+  $('goto-mapmaker').addEventListener('click', () => switchScreen('mapmaker'));
+  $('goto-battle').addEventListener('click', () => switchScreen('battle'));
+  // Map Maker init
+  MM.init();
+
+  // Battle: add team popup
+  $('bt-add-team').addEventListener('click', BT.openAddTeam);
+  $('at-cancel').addEventListener('click', BT.cancelAddTeam);
+  $('at-check').addEventListener('click', BT.checkSeed);
+  $('at-add').addEventListener('click', BT.commitTeam);
+  $('at-name').addEventListener('input', () => {
+    if (!pendingTeam) return;
+    pendingTeam.name = $('at-name').value;
+  });
+  // Update at-add state when color picked (handled in buildColorGrid)
+  const _origBuildColorGrid = BT.buildColorGrid;
+  // Note: the original buildColorGrid closure uses pendingTeam var from BT module scope.
+  // We already call $('at-add').disabled = !pendingTeam.color || !pendingTeam.decoded inside checkSeed; but color pick alone doesn't update at-add.
+  // Patch: re-check on each color pick by intercepting via MutationObserver is overkill; instead just check after each click on the color grid:
+  $('at-color-grid').addEventListener('click', () => {
+    setTimeout(() => {
+      // pendingTeam is in BT closure; expose check via BT.checkSeed-like
+      // simpler: if both name+seed are filled, just enable; we re-check via global helper
+      // Trigger checkSeed behavior indirectly:
+      BT.checkSeed();
+    }, 0);
+  });
+
+  // Battle: remove team
+  $('bt-remove-team').addEventListener('click', BT.removeTeam);
+  // Battle: auto gen
+  $('bt-auto-gen').addEventListener('click', BT.autoGenerate);
+  // Battle: start
+  $('bt-start').addEventListener('click', BT.startGame);
+  // Battle: next turn
+  $('bt-next-turn').addEventListener('click', BT.nextTurn);
+  // Battle: finish game early
+  $('bt-finish').addEventListener('click', BT.finishGame);
+  // Battle: scoreboard button (during/after play)
+  $('bt-scoreboard').addEventListener('click', BT.openScoreboard);
+  // Battle: view toggle
+  $('bt-view-toggle').addEventListener('click', BT.toggleViewMode);
+  // Battle: back to map maker
+  $('bt-back-mm').addEventListener('click', BT.backToMapMaker);
+  // Mode toggle
+  document.querySelectorAll('.mode-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (App.bt.state !== 'setup') return;
+      document.querySelectorAll('.mode-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      App.bt.mode = btn.dataset.mode;
+    });
+  });
+
+  // Wheel spin button
+  $('wheel-spin').addEventListener('click', () => { BT.spinWheel(); });
+  // Attack cancel
+  $('attack-cancel').addEventListener('click', BT.closeAttackPopup);
+
+  // Share popup
+  $('share-close').addEventListener('click', () => $('share-popup').classList.add('hidden'));
+  $('share-copy').addEventListener('click', () => {
+    const s = $('share-seed-text').textContent;
+    navigator.clipboard.writeText(s).then(() => showToast('📋 Seed copied!', 1800)).catch(() => {
+      // fallback select+execCommand
+      const r = document.createRange();
+      r.selectNode($('share-seed-text'));
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+      try { document.execCommand('copy'); showToast('📋 Seed copied!', 1800); } catch(e) {}
+    });
+  });
+
+  // Scoreboard popup
+  $('sb-viewmap').addEventListener('click', () => { BT.closeScoreboard(); });
+  $('sb-reopen').addEventListener('click', () => { BT.openScoreboard(); });
+  $('sb-newgame').addEventListener('click', () => { BT.openRestartPopup(); });
+
+  // Restart / New Round modal
+  $('restart-cancel').addEventListener('click', () => BT.closeRestartPopup());
+  $('restart-fresh').addEventListener('click', () => BT.applyRestart(false));
+  $('restart-keep').addEventListener('click', () => BT.applyRestart(true));
+  document.querySelectorAll('#restart-mode-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#restart-mode-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Window resize — re-render teams so the adaptive column layout recomputes
+  window.addEventListener('resize', () => {
+    if (App.screen === 'mapmaker') MM.resize();
+    if (App.screen === 'battle') BT.renderTeams();  // re-render to recompute columns
+  });
+
+  // Initial battle state render
+  BT.renderTeams();
+
+  // Start on welcome
+  switchScreen('welcome');
+}
+
+// Hook init to DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
 </body>
 </html>
