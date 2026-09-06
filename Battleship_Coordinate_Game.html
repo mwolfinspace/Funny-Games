@@ -83,7 +83,7 @@ body {
 button, input, select, textarea { font: inherit; }
 button, input, select { font-family: var(--ui-font); }
 .btn, .topbar, .size-group, .seed-box, .popup, .statusbar, .team-map { font-family: var(--ui-font); }
-.brand .emoji, .toast-item .ti, .feedback-emoji {
+.brand .emoji, .toast-item .ti {
   font-family: var(--emoji-font);
   font-variant-emoji: emoji;
   font-synthesis: none;
@@ -762,15 +762,27 @@ button, input, select { font-family: var(--ui-font); }
   position: fixed; inset: 0; pointer-events: none; z-index: 200;
   display: flex; align-items: center; justify-content: center;
 }
-.feedback-emoji {
-  font-size: 96px;
-  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.25));
-  opacity: 0; transform: scale(0.6);
-  animation: fbIn 0.65s forwards, fbOut 0.28s 0.72s forwards;
+.feedback-effect {
+  width: 84px; height: 84px;
+  position: relative; opacity: 0; transform: scale(.45);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--turn-color) 28%, #fff 72%) 0 10%, color-mix(in srgb, var(--turn-color) 72%, transparent) 11% 18%, transparent 19%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn-color) 48%, transparent), 0 0 30px color-mix(in srgb, var(--turn-color) 35%, transparent);
 }
-.feedback-emoji.feedback-replay { animation: fbIn 0.65s forwards, fbOut 0.28s 0.72s forwards; }
-@keyframes fbIn { 0% { opacity: 0; transform: scale(0.4) rotate(-12deg); } 60% { opacity: 1; transform: scale(1.25) rotate(8deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
-@keyframes fbOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.3); } }
+.feedback-effect::before, .feedback-effect::after {
+  content:''; position:absolute; inset: 8px; border: 4px solid var(--turn-color); border-radius: 50%; opacity:.9;
+}
+.feedback-effect::after { inset: 18px; border-width: 3px; opacity:.55; }
+.feedback-effect.miss {
+  border-radius: 0; width: 74px; height: 74px; background: none; box-shadow:none;
+}
+.feedback-effect.miss::before, .feedback-effect.miss::after {
+  inset: 34px 0 auto 0; width: 74px; height: 5px; border:0; border-radius: 4px; background:var(--turn-color); transform:rotate(45deg); opacity:1;
+}
+.feedback-effect.miss::after { transform:rotate(-45deg); }
+.feedback-effect.feedback-replay { animation: fbIn 0.38s cubic-bezier(.2,.8,.2,1) forwards, fbOut 0.22s .38s ease-out forwards; }
+@keyframes fbIn { 0% { opacity:0; transform:scale(.45); } 70% { opacity:1; transform:scale(1.08); } 100% { opacity:1; transform:scale(1); } }
+@keyframes fbOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(1.22); } }
 
 /* ===== Scoreboard popup ===== */
 .scoreboard-list { display: flex; flex-direction: column; gap: 8px; }
@@ -3177,7 +3189,7 @@ const BT = (() => {
     arm.style.transform = `rotate(${a}rad)`;
   }
 
-  // Fire the boom emoji from the cannon head to the click point, arc trajectory.
+  // Fire a lightweight projectile from the cannon muzzle to the click point, arc trajectory.
   function fireBoom(fromX, fromY, toX, toY, onLand) {
     playSound('cannon');
     const proj = document.createElement('div');
@@ -3208,12 +3220,11 @@ const BT = (() => {
         App.bt.boomRaf = requestAnimationFrame(step);
       } else {
         App.bt.boomRaf = 0;
-        // impact 💥 pop
+        // lightweight impact pulse; no emoji/raster glyph allocation
         proj.classList.add('impact');
-        proj.style.filter = 'drop-shadow(0 0 18px color-mix(in srgb, var(--turn-color) 70%, transparent))';
         playSound('boom');
         if (onLand) onLand();
-        defer(() => { if (proj.parentNode) proj.parentNode.removeChild(proj); }, 180);
+        defer(() => { if (proj.parentNode) proj.remove(); }, 120);
       }
     };
     App.bt.boomRaf = requestAnimationFrame(step);
@@ -3238,17 +3249,17 @@ const BT = (() => {
   function showFeedbackEmoji(emoji) {
     const overlay = $('feedback-overlay');
     if (!overlay) return;
-    let span = App.bt.feedbackNode;
-    if (!span || !overlay.contains(span)) {
-      span = document.createElement('div');
-      span.className = 'feedback-emoji';
-      overlay.appendChild(span);
-      App.bt.feedbackNode = span;
+    let fx = App.bt.feedbackNode;
+    if (!fx || !overlay.contains(fx)) {
+      fx = document.createElement('div');
+      overlay.appendChild(fx);
+      App.bt.feedbackNode = fx;
     }
-    span.textContent = emoji;
-    span.classList.remove('feedback-replay');
-    void span.offsetWidth;
-    span.classList.add('feedback-replay');
+    fx.className = 'feedback-effect' + (emoji === MISS_EMOJI ? ' miss' : '');
+    fx.setAttribute('aria-hidden', 'true');
+    fx.classList.remove('feedback-replay');
+    void fx.offsetWidth;
+    fx.classList.add('feedback-replay');
   }
 
   // ---------- Start Game (wheel turn popup) ----------
