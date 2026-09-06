@@ -83,7 +83,7 @@ body {
 button, input, select, textarea { font: inherit; }
 button, input, select { font-family: var(--ui-font); }
 .btn, .topbar, .size-group, .seed-box, .popup, .statusbar, .team-map { font-family: var(--ui-font); }
-.brand .emoji, .toast-item .ti {
+.brand .emoji, .toast-item .ti, .feedback-emoji {
   font-family: var(--emoji-font);
   font-variant-emoji: emoji;
   font-synthesis: none;
@@ -2919,6 +2919,66 @@ const BT = (() => {
     }
   }
 
+  // Lightweight live update used after a shot. During combo mode we must NOT rebuild
+  // the status/turn DOM on every hit; update only existing text/state in place.
+  function refreshBattleUIAfterShot(changedTeam) {
+    if (App.bt.state !== 'playing') { updateStatus(); return; }
+    applyCommandTheme(currentAttacker());
+
+    const current = currentAttacker();
+    const currentId = current ? current.id : null;
+    const chips = $('bt-chips');
+    if (chips) {
+      for (const chip of chips.children) {
+        const id = Number(chip.dataset.teamId);
+        const team = App.bt.teams.find(t => t.id === id);
+        if (!team) continue;
+        const st = shipStat(team);
+        chip.classList.toggle('active', team.id === currentId);
+        chip.classList.toggle('dead', !team.alive);
+        chip.style.borderLeftColor = team.color;
+        const star = chip.querySelector('.star');
+        const sunk = chip.querySelector('.sunk');
+        const alive = chip.querySelector('.alive');
+        if (star) star.textContent = `⭐${team.battleStars}`;
+        if (sunk) sunk.textContent = `💥${st.sunk}`;
+        if (alive) alive.textContent = `🚢${st.alive}`;
+      }
+    }
+
+    const turnChipEl = $('bt-turn-chip');
+    if (turnChipEl && current) {
+      turnChipEl.classList.remove('hidden');
+      const num = turnChipEl.querySelector('.num');
+      const teamEl = turnChipEl.querySelector('.team');
+      if (num) num.textContent = App.bt.turnCounter;
+      if (teamEl) teamEl.textContent = current.name;
+      turnChipEl.style.background = current.color;
+      turnChipEl.style.color = contrastColor(current.color);
+    }
+
+    // Update existing turn-list rows in place. No innerHTML rebuild.
+    updateTurnListLiveScores();
+    updateTurnListHighlight();
+  }
+
+  function updateTurnListLiveScores() {
+    const list = $('turn-list');
+    if (!list) return;
+    for (const li of list.children) {
+      const teamId = Number(li.dataset.teamId);
+      const team = App.bt.teams.find(t => t.id === teamId);
+      if (!team) continue;
+      const score = li.querySelector('.score');
+      if (score) {
+        score.textContent = `⭐${team.battleStars}`;
+        score.style.background = team.color;
+        score.style.color = contrastColor(team.color);
+      }
+      li.classList.toggle('dead', !team.alive);
+    }
+  }
+
   // ---------- Update status (status bar chips + topbar buttons) ----------
   function shipStat(team) {
     let sunk = 0, alive = 0;
@@ -2972,6 +3032,7 @@ const BT = (() => {
     for (const team of App.bt.teams) {
       const chip = document.createElement('div');
       chip.className = 'team-chip' + (team.alive ? '' : ' dead');
+      chip.dataset.teamId = String(team.id);
       if (team.id === currentId) chip.classList.add('active');
       chip.style.borderLeftColor = team.color;
       const st = shipStat(team);
@@ -3084,7 +3145,9 @@ const BT = (() => {
       cell.hit = true;
       const points = cell.ship.commander ? 3 : 1;
       attacker.battleStars += points;
-      showFeedbackEmoji(HIT_EMOJI);
+      // Combo hits stay on the same turn. Avoid the global feedback animation here: repeated
+      // forced reflow + animation restart creates unnecessary compositor/DOM churn.
+      if (App.bt.mode !== 'combo') showFeedbackEmoji(HIT_EMOJI);
       playSound('hit');
       msg($('bt-msg'), `💥 ${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ship ⭐' : 'ship'}! +${points}⭐`, 3500);
       notify(cell.ship.commander ? 'star' : 'hit', `${attacker.name} hit ${targetTeam.name}'s ${cell.ship.commander ? 'commander ⭐' : 'ship'} (+${points}⭐)`, 3000);
@@ -3099,8 +3162,7 @@ const BT = (() => {
         if (App.bt.viewMode === 'focus') applyFocusView();
         else renderTeams();
       }
-      updateStatus();
-      renderTurnList();
+      refreshBattleUIAfterShot(targetTeam);
       // Combo mode: extra shot on hit
       if (App.bt.mode === 'combo') {
         App.bt.comboShots++;
@@ -3257,9 +3319,15 @@ const BT = (() => {
     }
     fx.className = 'feedback-effect' + (emoji === MISS_EMOJI ? ' miss' : '');
     fx.setAttribute('aria-hidden', 'true');
-    fx.classList.remove('feedback-replay');
-    void fx.offsetWidth;
-    fx.classList.add('feedback-replay');
+    // Restart animation without a synchronous layout read. A monotonically
+    // changing animation-name avoids the old offsetWidth forced reflow.
+    fx.style.animation = 'none';
+    const token = (Number(fx.dataset.fxToken || 0) + 1) % 1000000;
+    fx.dataset.fxToken = String(token);
+    requestAnimationFrame(() => {
+      if (fx !== App.bt.feedbackNode) return;
+      fx.style.animation = `fbIn .38s cubic-bezier(.2,.8,.2,1) forwards, fbOut .22s .38s ease-out forwards`;
+    });
   }
 
   // ---------- Start Game (wheel turn popup) ----------
