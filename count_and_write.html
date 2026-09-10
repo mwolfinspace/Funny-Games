@@ -271,7 +271,7 @@
 (() => {
 
   const EMOJIS = ["🍎","🍌","🍓","🍊","🍐","🍉","🥕","🌽","🍪","⭐","🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵","🚗","🚲","⚽","🎈","🧸","🌈","☀️"];
-  const state = {mode:"many", same:true, colorful:false, auto:false, old:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, wrongs:0, points:0, countdownTimer:null, targetEmoji:"", countMix:[]};
+  const state = {mode:"many", same:true, colorful:false, auto:false, old:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, wrongs:0, points:0, countdownTimer:null, targetEmoji:"", countMix:[], emoji:EMOJIS[Math.floor(Math.random()*EMOJIS.length)]};
 
   // Server OCR endpoint. The strong/steady gitea server runs the OCR; if the
   // endpoint is unreachable (e.g. GitHub Pages hosting) or the request fails,
@@ -379,7 +379,7 @@
   // state.target. Sizes vary big/small (small is still big enough to see).
   function buildCountMix(){
     const pick=()=>EMOJIS[rand(0,EMOJIS.length-1)];
-    state.targetEmoji=pick();
+    state.targetEmoji=targetEmojiNow();
     const mix=[];
     for(let i=0;i<state.target;i++) mix.push({e:state.targetEmoji,s:1});
     const noiseN=Math.min(5,Math.max(2,Math.round(state.target/2)));
@@ -393,23 +393,46 @@
   }
 
   function choiceNumbers(){
-    const out = new Set([state.target]);
+    // Smart distractors: kids usually miscount by 1 or 2, so the wrong choices
+    // sit NEAR the true answer (answer±1, answer±2, ...) — never wildly out of
+    // context like a 0 next to an 8. Still bounded by the lesson range.
     const [lo,hi] = lessonRange();
     const need = Math.min(state.choices, hi - lo + 1);
-    let guard = 0;
-    while(out.size < need && guard++ < 200){
+    const out = new Set([state.target]);
+    let r=1;
+    while(out.size<need && r<=hi-lo){
+      const cands=[];
+      for(const c of [state.target+r, state.target-r]){
+        if(c>=lo && c<=hi && c!==state.target) cands.push(c);
+      }
+      shuffle(cands).forEach(c=>{ if(out.size<need) out.add(c); });
+      r++;
+    }
+    let guard=0;
+    while(out.size<need && guard++<200){
       const x = rand(lo, hi);
-      if(x!==state.target) out.add(x);
+      if(x!==state.target && !out.has(x)) out.add(x);
     }
     return shuffle([...out]);
   }
 
   function emojiItems(count){
-    if(state.same){
-      const e = EMOJIS[rand(0,EMOJIS.length-1)];
-      return Array(count).fill(e);
-    }
-    return Array.from({length:count},()=>EMOJIS[rand(0,EMOJIS.length-1)]);
+    // "Same emoji" ON: one emoji that stays the SAME for every question (1 car,
+    // 2 car, 9 car...) — only the amount changes. OFF: still one emoji per card,
+    // but it MAY switch to a different emoji on the next round (2 dog, 3 cat...).
+    const e = state.same ? state.emoji : EMOJIS[rand(0,EMOJIS.length-1)];
+    state.lastEmoji = e;
+    return Array(count).fill(e);
+  }
+
+  // "Same emoji" also drives the Count mix: ON keeps counting the same target
+  // emoji across rounds; OFF lets the target emoji change.
+  function targetEmojiNow(){
+    if(state.same) return state.emoji;
+    let e;
+    do{ e=EMOJIS[rand(0,EMOJIS.length-1)]; }while(e===state.targetEmoji);
+    state.lastEmoji=e;
+    return e;
   }
 
 // Arrange the emojis in a book-like pattern of rows: each row is a "group",
@@ -1232,7 +1255,11 @@ function emojiGroups(n){
   });
   lesson.addEventListener("change",()=>{state.lesson=+lesson.value;state.round=1;makeTarget();render()});
   document.querySelector("#sameToggle").addEventListener("click",()=>{
-    state.same=!state.same;document.querySelector("#sameToggle .switch").classList.toggle("on",state.same);render();
+    state.same=!state.same;
+    const on=document.querySelector("#sameToggle .switch");
+    on.classList.toggle("on",state.same);
+    if(state.same && state.lastEmoji) state.emoji=state.lastEmoji;
+    render();
   });
   document.querySelector("#colorToggle").addEventListener("click",()=>{
     state.colorful=!state.colorful;
