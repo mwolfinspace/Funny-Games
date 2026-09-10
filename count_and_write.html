@@ -648,43 +648,42 @@ function fitScatter(root){
     return lines.map(([n,p])=>`<div class="gline ${n==="1"?"base":""}" data-pct="${p}">
       <span class="glabel">${n}</span></div>`).join("");
   }
-  // The dim guide number is the ROOT. We size it to fill the board, measure its
-  // actual rendered glyph bounds (not the CSS line box), then snap the grid lines
-  // to those exact pixels — so line 5 = top of the visible digit, line 1 = bottom,
-  // always pixel-perfect regardless of zoom or font metrics.
+  // The dim guide number is the ROOT. We render the same text on an offscreen
+  // canvas, scan for actual ink pixels to find the true glyph bounds, then
+  // snap the grid lines to those exact visual positions.
   function alignGuideToGrid(){
     const board=document.querySelector("#board");
     const g=document.querySelector(".guide-number");
     const overlay=document.querySelector("#gridOverlay");
     if(!board||!g) return;
-    // 1) Size the number to fill ~78% of the board height (with breathing room).
     const bh=board.clientHeight;
     const fs=Math.round(bh*0.78/0.9);
     g.style.fontSize=fs+"px";
-    // 2) Measure the ACTUAL glyph bounds using TextMetrics (not the line box).
-    const tc=document.createElement("canvas").getContext("2d");
+    // Render text on offscreen canvas and scan for actual ink pixel bounds.
+    const w=fs*4, h=fs*2;
+    const tc=document.createElement("canvas");
+    tc.width=w; tc.height=h;
+    const cx=tc.getContext("2d");
+    cx.fillStyle="#fff"; cx.fillRect(0,0,w,h);
+    cx.fillStyle="#000";
     const fam=getComputedStyle(g).fontFamily||"Arial, sans-serif";
-    tc.font=`900 ${fs}px ${fam}`;
-    const tm=tc.measureText(String(state.target));
-    const asc=tm.actualBoundingBoxAscent||fs*0.72;
-    const desc=tm.actualBoundingBoxDescent||fs*0.22;
-    // 3) The guide-number element fills the board (top:0;bottom:0) with flex
-    //    centering, so the text line box is centered. With line-height:0.9 the
-    //    line box height is fs*0.9. The em box (height=fs) is centered within
-    //    the line box via half-leading = (lineBoxH - fs)/2 = -0.05*fs.
-    const lineBoxH=fs*0.9;
-    const lineBoxTop=(bh-lineBoxH)/2;
-    const halfLeading=(lineBoxH-fs)/2;            // negative when lineH < 1
-    const emBoxTop=lineBoxTop+halfLeading;        // top of the em box
-    // The baseline sits at (fs - fontDescent) from the em box top.
-    // Font descent varies, but for digits we can derive it:
-    //   baselineFromEmTop = asc  (because actualBoundingBoxAscent = dist from baseline to glyph top)
-    //   but we need baseline relative to emBoxTop, which is slightly different.
-    // Simpler: the glyph center ≈ em box center, so offset from emBoxTop:
-    const glyphH=asc+desc;
-    const glyphTop=emBoxTop+(fs-glyphH)/2;
-    const glyphBot=glyphTop+glyphH;
-    // 4) Snap the grid overlay to exactly those visual bounds.
+    cx.font=`900 ${fs}px ${fam}`;
+    cx.textAlign="center"; cx.textBaseline="middle";
+    cx.fillText(String(state.target),w/2,h/2);
+    const data=cx.getImageData(0,0,w,h).data;
+    let pixTop=h, pixBot=0;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      if(data[i+3]>128 && data[i]<128){ if(y<pixTop)pixTop=y; if(y>pixBot)pixBot=y; }
+    }
+    const glyphH=pixBot-pixTop+1;
+    // The glyph center on canvas vs the element center — use the offset
+    // so the DOM glyph lands exactly where the scanned ink is.
+    const glyphCenter=(pixTop+pixBot)/2;
+    const canvasOffset=glyphCenter-h/2;  // how far glyph center is from canvas center
+    const visCenter=bh/2+canvasOffset;
+    const glyphTop=visCenter-glyphH/2;
+    // Snap the grid overlay to exactly those visual bounds.
     if(overlay){
       overlay.style.top=glyphTop+"px";
       overlay.style.height=glyphH+"px";
