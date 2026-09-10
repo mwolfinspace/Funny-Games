@@ -339,19 +339,54 @@
   // Friendly kid voice: says the number out loud. Resolves when the utterance
   // finishes (or errors / times out) so celebrations can run strictly in
   // sequence: SFX first, then the voice, only then the countdown.
-  function speak(text){
-    return new Promise(resolve=>{
+  //
+  // Platform hardening for touch/TV/Android:
+  //  - Voices must be primed (getVoices + voiceschanged) after a first user
+  //    gesture, or Chrome/Android and iOS silently drop the first speak.
+  //  - Speaks are serialized so cancel()+speak() never race (a known Android
+  //    bug where the new utterance gets killed by the still-running cancel).
+  //  - A chosen en-US voice is pinned so pitch/rate behave consistently.
+  let voiceReady=null, voicePick=null;
+  function primeVoices(){
+    if(voiceReady) return voiceReady;
+    voiceReady=new Promise(resolve=>{
       try{
         if(!("speechSynthesis" in window)){ resolve(); return; }
-        speechSynthesis.cancel();
+        const pick=()=>{
+          const vs=speechSynthesis.getVoices();
+          const en=vs.filter(v=>/^en(-|_)/i.test(v.lang||""));
+          voicePick=en.find(v=>/google/i.test(v.name)) || en.find(v=>/en(-|_)us/i.test(v.lang||"")) || en[0] || null;
+          resolve();
+        };
+        if(speechSynthesis.getVoices().length){ pick(); }
+        else{
+          let picked=false;
+          const onChanged=()=>{ if(picked) return; picked=true; pick(); };
+          speechSynthesis.addEventListener("voiceschanged",onChanged,{once:true});
+          setTimeout(onChanged,1200);
+        }
+      }catch(e){ resolve(); }
+    });
+    return voiceReady;
+  }
+  ["pointerdown","touchstart","keydown"].forEach(ev=>
+    document.addEventListener(ev,primeVoices,{passive:true}));
+  let voiceChain=Promise.resolve();
+  function speak(text){
+    const job=voiceChain.then(()=>primeVoices()).then(()=>new Promise(resolve=>{
+      try{
+        if(!("speechSynthesis" in window)){ resolve(); return; }
         const u=new SpeechSynthesisUtterance(String(text));
-        u.lang="en-US"; u.rate=0.85; u.pitch=1.1;
+        if(voicePick){ u.voice=voicePick; u.lang=voicePick.lang; }
+        u.lang=u.lang||"en-US"; u.rate=0.85; u.pitch=1.1;
         const done=()=>{ clearTimeout(timer); resolve(); };
         const timer=setTimeout(done,4500);
         u.onend=done; u.onerror=done;
         speechSynthesis.speak(u);
       }catch(e){ resolve(); }
-    });
+    }));
+    voiceChain=job.catch(()=>{});
+    return job;
   }
   function speakNumber(n){
     const words=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
