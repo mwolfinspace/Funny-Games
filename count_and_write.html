@@ -1101,11 +1101,17 @@ function fitScatter(root){
   // Real amount of ink drawn (a single continuous stroke may be 1 stroke
   // with many points — e.g. writing "5" in one line without lifting).
   function inkPoints(){ let n=0; for(const s of strokes) n+=s.length; return n; }
+  // Penmanship grade 0..1 from the shape match + ink + tidiness. No free
+  // bonus: a merely-"ok" drawing lands mid pack; only clean, confident,
+  // well-covered writing reaches the top, so 3 stars stays special.
+  function computeQuality(conf){
+    const [ink,,,pathPenalty]=analyzeDrawing();
+    return clamp(.68*conf + .24*ink + .02 - pathPenalty,0,1);
+  }
+  function gradeStars(q){ return q>=.80?3:q>=.52?2:1; }
   function liveQuality(ev){
     if(ev.number !== state.target) return null;
-    const [ink,,,pathPenalty]=analyzeDrawing();
-    const conf=clamp(ev.confidence,0,1);
-    return clamp(.62*conf + .22*ink + .16 - pathPenalty,0,1);
+    return computeQuality(clamp(ev.confidence,0,1));
   }
   function renderLivePill(result){
     const pill=document.querySelector("#liveBoard")||liveRead;
@@ -1114,7 +1120,7 @@ function fitScatter(root){
     pill.classList.remove("ok","warn","busy");
     const q=liveQuality(result);
     if(result.number === state.target && q !== null){
-      const st=q>=.70?"★★★":q>=.45?"★★":"★";
+      const st="★".repeat(gradeStars(q))+"☆".repeat(3-gradeStars(q));
       pill.className="status-pill live-board ok";
       pill.textContent=`✓ ${state.target} ${st} · ${result.method}`;
     }else{
@@ -1184,10 +1190,9 @@ function fitScatter(root){
     // Correct digit → grade penmanship, boosted by recognition confidence.
     // The kid may write anywhere on the board, so don't reward the guide
     // corridor — just shape similarity (=confidence) + ink + tidiness.
-    const [ink,,,pathPenalty]=analyzeDrawing();
     const conf=clamp(ev.confidence,0,1);
-    const quality=clamp(.62*conf + .22*ink + .16 - pathPenalty,0,1);
-    const stars=quality>=.70?3:quality>=.45?2:1;
+    const quality=computeQuality(conf);
+    const stars=gradeStars(quality);
     state.stars=stars;state.answered=true;
     state.points+=stars*10;
     statusMsg.textContent=stars===3?"Beautiful writing! 🌟":stars===2?"Nice job! Let's shape it smoothly next time.":"Good try! Let's practice this number again.";
