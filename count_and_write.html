@@ -1583,9 +1583,17 @@ function fitScatter(root){
   // Browser pinch-zoom is blocked so drawing never gets interrupted by an
   // accidental two-finger zoom. Instead the teacher uses this button.
   const fsBtn=document.querySelector("#fsBtn");
+  const doc = document, de = document.documentElement;
+  const vendorFullscreen = (()=>{
+    const req = de.requestFullscreen || de.webkitRequestFullscreen || de.mozRequestFullScreen || de.msRequestFullscreen || null;
+    const ex  = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen || null;
+    const el  = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement || null;
+    return {req, ex, el};
+  })();
+  function isFs(){ return vendorFullscreen.el ? !!vendorFullscreen.el() : !!document.fullscreenElement; }
   function syncFsBtn(){
-    fsBtn.textContent = document.fullscreenElement ? "✕" : "⛶";
-    fsBtn.title = document.fullscreenElement ? "Exit full screen" : "Full screen";
+    fsBtn.textContent = isFs() ? "✕" : "⛶";
+    fsBtn.title = isFs() ? "Exit full screen" : "Full screen";
   }
   for(const ev of ["gesturestart","gesturechange","gestureend"]) {
     document.addEventListener(ev,e=>e.preventDefault());
@@ -1595,14 +1603,16 @@ function fitScatter(root){
   },{passive:false});
   fsBtn.addEventListener("click",async()=>{
     try{
-      if(document.fullscreenElement){ await document.exitFullscreen(); }
-      else{ const r=document.documentElement; await (r.requestFullscreen||r.webkitRequestFullscreen||r.msRequestFullscreen)(); }
+      if(isFs()){ if(vendorFullscreen.ex){ await vendorFullscreen.ex(); } }
+      else if(vendorFullscreen.req){ await vendorFullscreen.req.call(de); }
     }catch(e){}
     syncFsBtn();
     // Re-fit every layout piece so fullscreen doesn't leave anything clipped.
     requestAnimationFrame(()=>{ setupCanvas(); fitAllEmoji(); alignGuideToGrid(); });
   });
-  document.addEventListener("fullscreenchange",()=>{ syncFsBtn(); setTimeout(()=>{ setupCanvas(); fitAllEmoji(); alignGuideToGrid(); },60); });
+  for(const ev of ["fullscreenchange","webkitfullscreenchange","mozfullscreenchange","MSFullscreenChange"]){
+    document.addEventListener(ev,()=>{ syncFsBtn(); setTimeout(()=>{ setupCanvas(); fitAllEmoji(); alignGuideToGrid(); },60); });
+  }
   syncFsBtn();
 
   function populateLessons(){
