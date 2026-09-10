@@ -119,8 +119,8 @@
   .target-number{font-size:clamp(54px,9vw,130px);line-height:.9;opacity:.16}
   .board-wrap{position:relative;min-height:0;background:#fff8c9;border:3px solid #e8d979;border-radius:24px;box-shadow:var(--shadow);overflow:hidden}
   #drawCanvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
-  .board-guide{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden}
-  .guide-number{font-size:min(45vh,40vw,400px);font-weight:900;color:#665736;opacity:.13;line-height:.9}
+  .board-guide{position:absolute;left:0;right:0;top:12px;bottom:12px;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;overflow:hidden}
+  .guide-number{font-weight:900;color:#665736;opacity:.13;line-height:.9}
   .guide-copy{position:absolute;top:7px;left:10px;font-size:11px;font-weight:900;color:#887b48;background:#fffbe3dd;padding:4px 7px;border-radius:9px}
   .live-board{position:absolute;top:7px;right:10px;z-index:3;font-size:12px;font-weight:900;
     padding:4px 9px;border-radius:10px;border:2px solid var(--line);background:#fff;
@@ -650,6 +650,19 @@ function fitScatter(root){
     return tops.map(([n,p])=>`<div class="gline ${n==="1"?"base":""}" style="top:${p}%;margin-top:-1px">
       <span class="glabel">${n}</span></div>`).join("");
   }
+  // Size the dim guide number so its feet sit exactly on line 1 (bold baseline)
+  // and its top reaches line 5 — same height for 1, 2 or 3 digit numbers.
+  // Multi-digit numbers just squeeze narrower horizontally.
+  function alignGuideToGrid(){
+    const board=document.querySelector("#board");
+    const g=document.querySelector(".guide-number");
+    if(!board||!g)return;
+    const bh=board.clientHeight;
+    const gridTop=12, gridBot=12, gridH=bh-gridTop-gridBot;
+    const line5=gridTop+gridH*0.08;
+    const line1=gridTop+gridH*0.736;
+    g.style.fontSize=Math.round((line1-line5)/0.9)+"px";
+  }
   function renderPick(){
     const choices=choiceNumbers();
     const isCount=state.mode==="count";
@@ -742,11 +755,9 @@ function fitScatter(root){
       ? `<div class="count-q">How many <span class="big-emoji">${emojiName(state.targetEmoji)}</span>?</div>`
       : `<div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>`;
     const emojis=isCount?emojiScatterHtml():emojiGridHtml({compact:true});
-    const digits=String(state.target).length;
-    const guideSize=Math.min(window.innerHeight*0.45, Math.min(window.innerWidth*0.40,400)/digits*0.92);
     const guide=isCount
       ? `<div class="guide-copy">Write how many <b class="target-name-in">${emojiName(state.targetEmoji)}</b> you see ✏️</div>`
-      : `<div class="board-guide"><div class="guide-number" style="font-size:${guideSize}px">${state.target}</div></div>
+      : `<div class="board-guide"><div class="guide-number">${state.target}</div></div>
          <div class="guide-copy">Write the number anywhere on the board ✏️</div>`;
     game.innerHTML=`
       <div class="write-layout">
@@ -775,6 +786,7 @@ function fitScatter(root){
     window.addEventListener("resize",setupCanvas);
     window.removeEventListener("resize",fitAllEmoji);
     window.addEventListener("resize",fitAllEmoji);
+    window.addEventListener("resize",alignGuideToGrid);
     bindDrawing();
     game.querySelector("#writeEmojiCard").addEventListener("click",()=>speakNumber(state.target),{passive:true});
     document.querySelector("#finish").addEventListener("click",scoreDrawing);
@@ -796,7 +808,7 @@ function fitScatter(root){
       saveSettings();
     });
     fitAllEmoji();
-    setTimeout(fitAllEmoji,0);
+    setTimeout(()=>{ fitAllEmoji(); alignGuideToGrid(); },0);
   }
 
   function setupCanvas(){
