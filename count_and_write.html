@@ -616,27 +616,15 @@ function emojiGroups(n){
   }
 
   // ---- Drawing capture + OCR failover --------------------------------
-  // Renders the current strokes to a clean white PNG data URL (scaled down
-  // for the network) that we send to the server OCR endpoint.
-  function strokesToImageDataUrl(){
+  // Renders the current strokes to a clean white-black canvas (staff for
+  // both local matcher and in-browser Tesseract.js OCR).
+  function strokesImage(){
     const w=canvas.clientWidth,h=canvas.clientHeight;
     const scale=Math.min(1, 480/Math.max(w,h));
-    const cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
-    const c=document.createElement("canvas"); c.width=cw; c.height=ch;
-    const g=c.getContext("2d");
-    g.fillStyle="#fff"; g.fillRect(0,0,cw,ch);
-    g.scale(scale,scale);
-    g.lineCap="round"; g.lineJoin="round";
-    g.lineWidth=Math.max(9,Math.min(21,w*.021));
-    g.strokeStyle="#000";
-    for(const s of strokes){
-      if(s.length<2)continue;
-      g.beginPath(); g.moveTo(s[0].x,s[0].y);
-      for(let i=1;i<s.length;i++) g.lineTo(s[i].x,s[i].y);
-      g.stroke();
-    }
-    return c.toDataURL("image/png");
+    return strokesCanvas(Math.max(1,Math.round(Math.max(w,h)*scale)));
   }
+  // Renders the strokes to a clean white PNG data URL (for the server OCR).
+  function strokesToImageDataUrl(){ return strokesImage().toDataURL("image/png"); }
 
   async function serverOcrHealth(){
     if(ocrHealthy!==null) return ocrHealthy;
@@ -648,6 +636,47 @@ function emojiGroups(n){
       ocrHealthy=r.ok;
     }catch(e){ ocrHealthy=false; }
     return ocrHealthy;
+  }
+
+  // ---- In-browser OCR (Tesseract.js) -------------------------------
+  // Pure client-side, digits-only recognizer (the standard sample approach:
+  // https://github.com/naptha/tesseract.js — whitelist digits). No server,
+  // no custom endpoint, so nothing a network policy / ad-blocker can block.
+  let tesseractReady = null;     // null = not loaded, Promise = in flight
+  let ocrWorker = null;          // reused worker
+  function loadTesseract(){
+    if(window.Tesseract) return Promise.resolve(window.Tesseract);
+    if(tesseractReady) return tesseractReady;
+    tesseractReady = new Promise((resolve)=>{
+      const s=document.createElement("script");
+      s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+      s.async=true;
+      s.onload=()=>resolve(window.Tesseract || null);
+      s.onerror=()=>{ tesseractReady=null; resolve(null); };
+      document.head.appendChild(s);
+    });
+    return tesseractReady;
+  }
+  function withTimeout(promise,ms){
+    let t; const timeout=new Promise((_,rej)=>{ t=setTimeout(()=>rej(new Error("timeout")),ms); });
+    return Promise.race([promise,timeout]).finally(()=>clearTimeout(t));
+  }
+
+  // Recognizes the drawn number entirely on-device. Returns
+  // {number, confidence} or null on any failure.
+  async function clientOcrRecognize(){
+    try{
+      const T=await withTimeout(loadTesseract(),15000);
+      if(!T) return null;
+      if(!ocrWorker) ocrWorker = await withTimeout(T.createWorker("eng"),30000);
+      await withTimeout(ocrWorker.setParameters({ tessedit_char_whitelist:"0123456789" }),10000);
+      const { data } = await withTimeout(ocrWorker.recognize(strokesImage()),20000);
+      const digits=String(data.text||"").replace(/[^0-9]/g,"");
+      if(!digits) return null;
+      const n=parseInt(digits,10);
+      if(!Number.isInteger(n)) return null;
+      return { number:n, confidence: typeof data.confidence==="number" ? Math.min(1,data.confidence/100) : 0 };
+    }catch(e){ return null; }
   }
 
   // Calls the server OCR. Returns {number, confidence} or null on any failure.
@@ -785,7 +814,10 @@ function emojiGroups(n){
   }
 
   async function evaluateDrawing(){
-    // 1) Prefer the server OCR if it's healthy; returns {number,confidence}.
+    // 1) In-browser Tesseract.js — most reliable, cannot be blocked.
+    const c=await clientOcrRecognize();
+    if(c && Number.isInteger(c.number)) return {method:"client", number:c.number, confidence:c.confidence};
+    // 2) Server OCR fallback (may be blocked by network policy / adblock).
     try{
       const ok = await serverOcrHealth();
       if(ok){
@@ -793,7 +825,7 @@ function emojiGroups(n){
         if(res) return {method:"server", number:res.number, confidence:res.confidence};
       }
     }catch(e){}
-    // 2) Failsafe: local matcher.
+    // 3) Failsafe: local matcher.
     const v=localDigitVerify();
     return {method:"local", number: v.correct ? state.target : v.guessed, confidence: v.confidence};
   }
@@ -848,7 +880,8 @@ function emojiGroups(n){
 
   function showResult(stars,quality,method){
     bigStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
-    resultScore.textContent=`Score ${Math.round(quality*100)}% · ${state.target} was the number · ${method==="server"?"server":"local"} check`;
+    const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
+    resultScore.textContent=`Score ${Math.round(quality*100)}% · ${state.target} was the number · ${engineLabel} check`;
     resultOverlay.classList.remove("hidden");
     // Write mode: honor the Auto toggle too — count down then auto-advance.
     if(state.auto && !state.countdownTimer){
