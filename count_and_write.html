@@ -142,7 +142,7 @@
   .grid-btn.on{background:#e3f6e3;color:#1e6b1e;border-color:#7ecb7e}
   .grid-overlay{position:absolute;left:14px;right:62px;z-index:1;pointer-events:none;opacity:.9}
   .grid-overlay .gline{position:absolute;left:0;right:0;border-top:2px dashed #d8c98f}
-  .grid-overlay .gline.base{border-top:6px solid #7a6a3a}
+  .grid-overlay .gline.base{border-top:3px solid #7a6a3a}
   .grid-overlay .glabel{position:absolute;right:-52px;transform:translateY(-50%);font-size:11px;font-weight:900;color:#b3a467;line-height:1;white-space:nowrap}
   .grid-overlay .gline.base .glabel{color:#7a6a3a}
   .board-wrap.shake{animation:shake .28s;outline:4px solid #e38a81}
@@ -675,13 +675,14 @@ function fitScatter(root){
     ctx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     const m=ctx.measureText(String(state.target));
     const asc=m.actualBoundingBoxAscent ?? cs.fontSize*0.72;
-    const desc=m.actualBoundingBoxDescent ?? 0;
-    const topY=baseY-asc;       // line 5 — top of the digits
-    const footY=baseY+desc;     // line 1 — bold foot of the digits
+    // Digit feet sit ON the baseline; tighten the span a touch so the number
+    // fills lines 5-1 instead of floating with breathing room on top.
+    const compress=0.96;
+    const topY=baseY-asc*compress;  // line 5 — just above the digit top
+    const footY=baseY;              // line 1 — bold foot = the baseline itself
     const glyphH=footY-topY;
     if(glyphH<=0) return;
-    const shift=2;              // nudge the whole grid up a hair so the foot
-    overlay.style.top=(topY-shift)+"px";   // sits right on the bold baseline
+    overlay.style.top=topY+"px";
     overlay.style.height=glyphH+"px";
     overlay.querySelectorAll(".gline").forEach(el=>{
       el.style.top=el.dataset.pct+"%";
