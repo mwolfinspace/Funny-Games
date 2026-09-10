@@ -122,6 +122,12 @@
   .board-guide{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden}
   .guide-number{font-size:min(45vh,40vw,400px);font-weight:900;color:#665736;opacity:.13;line-height:.9}
   .guide-copy{position:absolute;top:7px;left:10px;font-size:11px;font-weight:900;color:#887b48;background:#fffbe3dd;padding:4px 7px;border-radius:9px}
+  .live-board{position:absolute;top:7px;right:10px;z-index:3;font-size:12px;font-weight:900;
+    padding:4px 9px;border-radius:10px;border:2px solid var(--line);background:#fff;
+    max-width:calc(100% - 140px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.15s}
+  .live-board.ok{background:#e3f6e3;border-color:#7ecb7e;color:#1e6b1e}
+  .live-board.warn{background:#fff0dc;border-color:#e8c46a;color:#8a5a00}
+  .live-board.busy{background:#f0f0f0;border-color:#ccc;color:#777}
   .finish{
     position:absolute;right:11px;bottom:11px;min-width:124px;height:56px;border-radius:16px;
     background:#d9a126;color:#fff;font-weight:900;font-size:20px;box-shadow:0 5px 0 #b77e19;z-index:2;touch-action:manipulation
@@ -733,6 +739,7 @@ function fitScatter(root){
         </div>
         <section class="board-wrap" id="board">
           ${guide}
+          <span class="status-pill live-board hidden" id="liveBoard"></span>
           <canvas id="drawCanvas"></canvas>
           <button class="finish" id="finish">Finish ✓</button>
           <button class="clear-btn" id="clearBtn" title="Clear the board">↺ Clear</button>
@@ -751,7 +758,7 @@ function fitScatter(root){
     document.querySelector("#clearBtn").addEventListener("click",()=>{
       if(state.answered)return;
       strokes=[]; current=null; redrawAll();
-      lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); }
+      lastEval=null; (document.querySelector("#liveBoard")||liveRead).classList.add("hidden");
       statusMsg.textContent="Start fresh — write the number again.";
       statusStars.textContent="☆☆☆";
       starsScore.classList.add("hidden");
@@ -1096,26 +1103,26 @@ function fitScatter(root){
     return clamp(.62*conf + .22*ink + .16 - pathPenalty,0,1);
   }
   function renderLivePill(result){
-    if(!liveRead) return;
-    if(!result || result.number < 0 || inkPoints()===0){ liveRead.classList.add("hidden"); return; }
-    liveRead.classList.remove("hidden");
-    liveRead.classList.remove("ok","warn","busy");
+    const pill=document.querySelector("#liveBoard")||liveRead;
+    if(!pill) return;
+    if(!result || result.number < 0 || inkPoints()===0){ pill.classList.add("hidden"); return; }
+    pill.classList.remove("ok","warn","busy");
     const q=liveQuality(result);
     if(result.number === state.target && q !== null){
       const st=q>=.70?"★★★":q>=.45?"★★":"★";
-      liveRead.className="status-pill live-read ok";
-      liveRead.textContent=`✓ ${state.target} ${st} · ${result.method}`;
+      pill.className="status-pill live-board ok";
+      pill.textContent=`✓ ${state.target} ${st} · ${result.method}`;
     }else{
-      liveRead.className="status-pill live-read warn";
-      liveRead.textContent=`I see ${result.number} · try again`;
+      pill.className="status-pill live-board warn";
+      pill.textContent=`I see ${result.number} · try again`;
     }
   }
   async function runLiveCheck(){
     if(liveBusy) return;
     liveBusy=true;
-    if(liveRead) liveRead.className="status-pill live-read busy";
-    if(liveRead) liveRead.classList.remove("hidden");
-    if(liveRead) liveRead.textContent="⏳ reading…";
+    const pill=document.querySelector("#liveBoard")||liveRead;
+    if(pill){ pill.className="status-pill live-board busy"; pill.classList.remove("hidden"); }
+    if(pill) pill.textContent="⏳ reading…";
     const result=await evaluateDrawing().catch(()=>({method:"local", number:-1, confidence:0}));
     const key=strokeKey();
     lastEval={key, result};
@@ -1125,7 +1132,7 @@ function fitScatter(root){
   }
   function scheduleLive(){
     if(state.answered || (state.mode!=="write" && state.mode!=="writeCount")){ return; }
-    if(inkPoints()===0){ lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); } return; }
+    if(inkPoints()===0){ lastEval=null; (document.querySelector("#liveBoard")||liveRead).classList.add("hidden"); return; }
     clearTimeout(liveTimer);
     liveTimer=setTimeout(()=>{ liveRun=runLiveCheck(); }, 500);
   }
@@ -1282,7 +1289,7 @@ function fitScatter(root){
   function nextRound(){
     clearCountdown();
     nextShortEl.classList.add("hidden");
-    if(liveRead){ liveRead.classList.add("hidden"); }
+    (document.querySelector("#liveBoard")||liveRead).classList.add("hidden");
     lastEval=null;
     resultOverlay.classList.add("hidden");state.round++;makeTarget();render();
   }
