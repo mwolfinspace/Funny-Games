@@ -1260,6 +1260,33 @@ function fitScatter(root){
     return best;
   }
 
+  // How "closed" the pen path is: 0 = the pen ends exactly where it started
+  // (a real loop, like 0 / 6 / 8 / 9), approaching 1 = it runs out somewhere
+  // far away. A kid's "2" head can look blobby enough to read as a 0, but the
+  // base line always ends on the RIGHT, far from where the head started — so
+  // this signal cleanly separates 2 from 0 no matter how the head curls.
+  function strokeLoopClosure(){
+    if(!strokes.length) return 1;
+    const first=strokes[0][0];
+    const lastArr=strokes[strokes.length-1];
+    const last=lastArr[lastArr.length-1];
+    let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    for(const s of strokes) for(const p of s){
+      if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+      if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    }
+    const diag=Math.hypot(maxX-minX,maxY-minY);
+    return diag? Math.hypot(last.x-first.x,last.y-first.y)/diag : 1;
+  }
+  // Loop digits (0,6,8,9) deserve a CLOSED pen path; open digits (2,3,5,7...)
+  // deserve an OPEN one. Boost the fit accordingly so a genuinely open "2"
+  // outscores a marginal "0" and vice versa.
+  function digitLoopNeeds(n){ const d=n>9?n%10:n; return [0,6,8,9].includes(d)?1:0; }
+  function loopFit(needsClosed,closeVal){
+    if(needsClosed) return closeVal<0.22 ? 1.15 : 0.8;
+    return closeVal<0.22 ? 0.85 : 1.0;
+  }
+
   function strokesCanvas(width){
     const w=canvas.clientWidth,h=canvas.clientHeight;
     const c=document.createElement("canvas"); c.width=width; c.height=Math.max(1,Math.round(width*h/w));
@@ -1311,11 +1338,13 @@ function fitScatter(root){
     if(!strokes.length) return {correct:false, guessed:-1, confidence:0};
     const ink=strokesToRaster();
     if(!ink) return {correct:false, guessed:-1, confidence:0};
-    const targetScore=glyphBestIoU(ink,state.target);
+    const closeVal=strokeLoopClosure();
+    const fitOf=n=>loopFit(digitLoopNeeds(n),closeVal);
+    const targetScore=glyphBestIoU(ink,state.target)*fitOf(state.target);
     let bestScore=0, bestN=-1;
     for(const n of digitCandidateSet()){
       if(n===state.target) continue;
-      const s=glyphBestIoU(ink,n);
+      const s=glyphBestIoU(ink,n)*fitOf(n);
       if(s>bestScore){ bestScore=s; bestN=n; }
     }
     const correct = targetScore > bestScore + 0.03 && targetScore > 0.18;
