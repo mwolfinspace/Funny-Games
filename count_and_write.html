@@ -188,6 +188,7 @@
     <button class="control toggle" id="sameToggle"><span>Same emoji</span><span class="switch on"><i></i></span></button>
     <button class="control toggle" id="colorToggle"><span>Colorful</span><span class="switch"><i></i></span></button>
     <button class="control toggle" id="autoToggle"><span>Auto</span><span class="switch"><i></i></span></button>
+    <button class="control toggle" id="oldToggle"><span>Old numbers</span><span class="switch"><i></i></span></button>
     <div class="control limit"><button id="minus">−</button><div class="limit-value" id="limitVal">4 choices</div><button id="plus">+</button></div>
     <div class="spacer"></div>
     <button class="control reset" id="newGame">↻ New round</button>
@@ -218,7 +219,7 @@
 <script>
 (() => {
   const EMOJIS = ["🍎","🍌","🍓","🍊","🍐","🍉","🥕","🌽","🍪","⭐","🐶","🐱","🐸","🐵","🦊","🐼","🦄","🚗","🚲","⚽","🎈","🧸","🌈","☀️"];
-  const state = {mode:"many", same:true, colorful:false, auto:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, points:0, countdownTimer:null};
+  const state = {mode:"many", same:true, colorful:false, auto:false, old:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, points:0, countdownTimer:null};
 
   const game = document.querySelector("#game"), lesson = document.querySelector("#lesson");
   const statusMsg = document.querySelector("#statusMsg"), statusStars = document.querySelector("#statusStars");
@@ -283,7 +284,9 @@
   }
 
   function makeTarget(){
-    state.target = state.lesson;
+    // Focus on the current lesson's number. When the "Old numbers" extra
+    // toggle is on, previously learned numbers (1..lesson) also join in.
+    state.target = state.old ? rand(1, state.lesson) : state.lesson;
   }
 
   function choiceNumbers(){
@@ -306,18 +309,36 @@
     return Array.from({length:count},()=>EMOJIS[rand(0,EMOJIS.length-1)]);
   }
 
-  // Arrange the emojis in a book-like pattern of rows: each row is a "group",
-// so 6 looks like 3+3, 8 like 4+4, 10 like two rows of 5 (a ten-frame), 9 like
-// three rows of 3, etc. This builds the grouping/arrays intuition (5-group,
-// 3-group, 2-group) that kids reuse later.
-  function emojiGroups(n){
+// Arrange the emojis in a book-like pattern of rows: each row is a "group",
+// like 6 = 3+3, 8 = 4+4 or 5+3, 10 = two rows of 5 (a ten-frame), 9 = three
+// rows of 3, etc. Each number has a few possible groupings so the same lesson
+// number keeps being shown in many different ways — building the group
+// (5-group, 3-group, 2-group) intuition kids reuse later.
+function emojiGroups(n){
     const table={
-      1:[1],2:[2],3:[3],4:[2,2],5:[5],
-      6:[3,3],7:[5,2],8:[4,4],9:[3,3,3],10:[5,5],
-      11:[5,3,3],12:[4,4,4],13:[5,4,4],14:[5,5,4],15:[5,5,5],
-      16:[4,4,4,4],17:[5,4,4,4],18:[5,5,4,4],19:[5,5,5,4],20:[5,5,5,5]
+      1:[[1]],
+      2:[[2]],
+      3:[[3],[2,1]],
+      4:[[2,2],[4]],
+      5:[[5],[2,3]],
+      6:[[3,3],[2,2,2],[4,2]],
+      7:[[5,2],[4,3],[2,2,3]],
+      8:[[4,4],[5,3],[2,2,2,2]],
+      9:[[3,3,3],[5,4],[2,2,2,3]],
+      10:[[5,5],[2,2,2,2,2],[3,3,4]],
+      11:[[5,5,1],[5,3,3],[2,2,2,2,3]],
+      12:[[4,4,4],[5,5,2],[3,3,3,3]],
+      13:[[5,4,4],[5,5,3],[4,4,3,2]],
+      14:[[5,5,4],[4,4,4,2],[5,3,3,3]],
+      15:[[5,5,5],[3,3,3,3,3],[5,4,4,2]],
+      16:[[4,4,4,4],[5,5,5,1],[5,4,4,3]],
+      17:[[5,4,4,4],[5,5,5,2],[4,4,4,5]],
+      18:[[5,5,4,4],[5,5,5,3]],
+      19:[[5,5,5,4],[4,4,4,4,3]],
+      20:[[5,5,5,5],[4,4,4,4,4]]
     };
-    if(table[n]) return table[n];
+    const variants = table[n];
+    if(variants) return variants[rand(0, variants.length-1)];
     const rows=[]; let rem=n;
     while(rem>5){ rows.push(5); rem-=5; }
     if(rem) rows.push(rem);
@@ -379,7 +400,7 @@
     game.innerHTML=`
       <div class="many-layout">
         <section class="card emoji-card many-emoji-card" id="manyEmojiCard">
-          <div class="caption" id="manyCaption">Count ${state.target}</div>
+          <div class="caption" id="manyCaption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>
           <div class="emoji-tap-hint">👆 Tap emoji to hear the number</div>
           ${emojiGridHtml()}
         </section>
@@ -451,7 +472,7 @@
       <div class="write-layout">
         <div class="prompt-row">
           <section class="card emoji-card" id="writeEmojiCard">
-            <div class="caption">Count ${state.target}</div>${emojis}
+            <div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>${emojis}
           </section>
           <section class="target-preview card">
             <div class="target-label">Trace this number</div><div class="target-number">${state.target}</div>
@@ -619,6 +640,13 @@
     if(state.auto){ nextShortEl.classList.add("hidden"); }
     statusMsg.textContent = state.auto ? "Auto on: next puzzle starts after the countdown." : "Auto off: stay on the puzzle to study the answer.";
   });
+  const oldSwitch=document.querySelector("#oldToggle .switch");
+  document.querySelector("#oldToggle").addEventListener("click",()=>{
+    state.old=!state.old;
+    oldSwitch.classList.toggle("on",state.old);
+    makeTarget(); render();
+  });
+
   document.querySelector("#minus").addEventListener("click",()=>{state.choices=clamp(state.choices-1,1,8);limitVal.textContent=`${state.choices} choice${state.choices===1?"":"s"}`;render()});
   document.querySelector("#plus").addEventListener("click",()=>{state.choices=clamp(state.choices+1,1,8);limitVal.textContent=`${state.choices} choices`;render()});
   document.querySelector("#newGame").addEventListener("click",()=>{state.round=1;makeTarget();render()});
