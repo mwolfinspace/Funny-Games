@@ -987,22 +987,62 @@ function fitScatter(root){
     return grid;
   }
 
-  // Renders the target number string as one reference glyph.
-  function glyphCanvas(n){
+  // Renders the target number string as reference glyphs in several fonts.
+  // Kids write digits in many styles (open "4", slashed "7", round "9"...),
+  // so matching against ONE canonical font is too strict. We render each
+  // candidate number in a small set of shapes and take the best fit — that
+  // keeps "4" recognizable whether it is drawn open or closed.
+  const REFERENCE_FONTS=[
+    900,'Arial, Helvetica, sans-serif',
+    700,'Arial, Helvetica, sans-serif',
+    800,'Trebuchet MS, Verdana, sans-serif',
+    700,'Georgia, "Times New Roman", serif',
+    700,'"Comic Sans MS", "Comic Sans", cursive',
+    800,'Impact, "Arial Black", sans-serif'
+  ];
+  function glyphCanvas(n,weight,family){
     const digits=String(n).length;
     const W=Math.max(220,digits*220), H=240;
     const c=document.createElement("canvas"); c.width=W; c.height=H;
     const g=c.getContext("2d");
     g.fillStyle="#fff"; g.fillRect(0,0,W,H);
     g.fillStyle="#000";
-    // Font can come from the (optional) guide number or any visible text — in
-    // Write Count there is no dim guide, so fall back to the page font.
-    const guide=document.querySelector(".guide-number");
-    const fam=guide ? getComputedStyle(guide).fontFamily : getComputedStyle(document.body).fontFamily || 'Arial, sans-serif';
-    g.font=`900 ${Math.round(H*0.9)}px ${fam}`;
+    g.font=`${weight} ${Math.round(H*0.9)}px ${family}`;
     g.textAlign="center"; g.textBaseline="middle";
     g.fillText(String(n), W/2, H/2);
     return c;
+  }
+  // Cache of reference rasters per number (all font variants).
+  const glyphRasterCache={};
+  function glyphRasters(n){
+    if(glyphRasterCache[n]) return glyphRasterCache[n];
+    const list=[];
+    for(let i=0;i<REFERENCE_FONTS.length;i+=2){
+      const g=glyphCanvas(n,REFERENCE_FONTS[i],REFERENCE_FONTS[i+1]);
+      // Dilation makes the reference a bit tolerant to imperfect tracing.
+      list.push(dilate1(rasterFromCanvas(g)));
+    }
+    glyphRasterCache[n]=list;
+    return list;
+  }
+  // Expand ink by 1 px so a slightly wobbly stroke still overlaps the glyph.
+  function dilate1(g){
+    if(!g||!g.length) return g;
+    const h=g.length,w=g[0].length,copy=g.map(r=>r.slice());
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      if(!g[y][x])continue;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        const ny=y+dy,nx=x+dx;
+        if(ny>=0&&ny<h&&nx>=0&&nx<w) copy[ny][nx]=1;
+      }
+    }
+    return copy;
+  }
+  // Best IoU of the ink against any reference font variant.
+  function glyphBestIoU(ink,n){
+    let best=0;
+    for(const r of glyphRasters(n)) best=Math.max(best,rasterIoU(ink,r));
+    return best;
   }
 
   function strokesCanvas(width){
@@ -1023,8 +1063,7 @@ function fitScatter(root){
     return c;
   }
 
-  function glyphToRaster(n){ return rasterFromCanvas(glyphCanvas(n)); }
-  function strokesToRaster(){ return rasterFromCanvas(strokesCanvas(280)); }
+  function strokesToRaster(){ return dilate1(rasterFromCanvas(strokesCanvas(280))); }
 
   // IoU of two binary grids.
   function rasterIoU(a,b){
@@ -1057,11 +1096,11 @@ function fitScatter(root){
     if(!strokes.length) return {correct:false, guessed:-1, confidence:0};
     const ink=strokesToRaster();
     if(!ink) return {correct:false, guessed:-1, confidence:0};
-    const targetScore=rasterIoU(ink,glyphToRaster(state.target));
+    const targetScore=glyphBestIoU(ink,state.target);
     let bestScore=0, bestN=-1;
     for(const n of digitCandidateSet()){
       if(n===state.target) continue;
-      const s=rasterIoU(ink,glyphToRaster(n));
+      const s=glyphBestIoU(ink,n);
       if(s>bestScore){ bestScore=s; bestN=n; }
     }
     const correct = targetScore > bestScore + 0.03 && targetScore > 0.18;
