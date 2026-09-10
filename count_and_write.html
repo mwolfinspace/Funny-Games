@@ -1289,24 +1289,60 @@ function fitScatter(root){
     resultOverlay.classList.add("hidden");state.round++;makeTarget();render();
   }
 
+  // Remember the teacher's setup so a reload starts the SAME game (same emoji,
+  // colorful, auto, old numbers, lesson, choices, mode) instead of the defaults.
+  const STORE_KEY="countWriteSettings";
+  function saveSettings(){
+    try{
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        mode:state.mode, same:state.same, colorful:state.colorful, auto:state.auto,
+        old:state.old, lesson:state.lesson, choices:state.choices, emoji:state.emoji
+      }));
+    }catch(e){}
+  }
+  function loadSettings(){
+    try{
+      const raw=localStorage.getItem(STORE_KEY);
+      if(!raw) return;
+      const d=JSON.parse(raw);
+      if(!d || typeof d!=="object") return;
+      if(["many","count","write","writeCount"].includes(d.mode)) state.mode=d.mode;
+      if(typeof d.same==="boolean") state.same=d.same;
+      if(typeof d.colorful==="boolean") state.colorful=d.colorful;
+      if(typeof d.auto==="boolean") state.auto=d.auto;
+      if(typeof d.old==="boolean") state.old=d.old;
+      if(typeof d.lesson==="number" && d.lesson>=1 && d.lesson<=20) state.lesson=d.lesson;
+      if(typeof d.choices==="number" && d.choices>=1 && d.choices<=8) state.choices=d.choices;
+      if(typeof d.emoji==="string" && EMOJIS.includes(d.emoji)) state.emoji=d.emoji;
+    }catch(e){}
+  }
+  function syncControls(){
+    document.querySelectorAll("#modeSeg button[data-mode]").forEach(b=>b.classList.toggle("active",b.dataset.mode===state.mode));
+    document.querySelector("#sameToggle .switch").classList.toggle("on",state.same);
+    document.querySelector("#colorToggle .switch").classList.toggle("on",state.colorful);
+    autoSwitch.classList.toggle("on",state.auto);
+    oldSwitch.classList.toggle("on",state.old);
+    limitVal.textContent=`${state.choices} choice${state.choices===1?"":"s"}`;
+  }
+
   document.querySelector("#modeSeg").addEventListener("click",e=>{
     const b=e.target.closest("button[data-mode]"); if(!b)return;
     state.mode=b.dataset.mode;
     document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.toggle("active",x===b));
-    state.round=1; makeTarget(); render();
+    state.round=1; makeTarget(); render(); saveSettings();
   });
-  lesson.addEventListener("change",()=>{state.lesson=+lesson.value;state.round=1;makeTarget();render()});
+  lesson.addEventListener("change",()=>{state.lesson=+lesson.value;state.round=1;makeTarget();render();saveSettings()});
   document.querySelector("#sameToggle").addEventListener("click",()=>{
     state.same=!state.same;
     const on=document.querySelector("#sameToggle .switch");
     on.classList.toggle("on",state.same);
     if(state.same && state.lastEmoji) state.emoji=state.lastEmoji;
-    render();
+    render(); saveSettings();
   });
   document.querySelector("#colorToggle").addEventListener("click",()=>{
     state.colorful=!state.colorful;
     document.querySelector("#colorToggle .switch").classList.toggle("on",state.colorful);
-    render();
+    render(); saveSettings();
   });
   const autoSwitch=document.querySelector("#autoToggle .switch");
   autoSwitch.classList.toggle("on",state.auto);
@@ -1315,16 +1351,18 @@ function fitScatter(root){
     autoSwitch.classList.toggle("on",state.auto);
     if(state.auto){ nextShortEl.classList.add("hidden"); }
     statusMsg.textContent = state.auto ? "Auto on: next puzzle starts after the countdown." : "Auto off: stay on the puzzle to study the answer.";
+    saveSettings();
   });
   const oldSwitch=document.querySelector("#oldToggle .switch");
   document.querySelector("#oldToggle").addEventListener("click",()=>{
     state.old=!state.old;
     oldSwitch.classList.toggle("on",state.old);
-    makeTarget(); render();
+    makeTarget(); render(); saveSettings();
   });
 
-  document.querySelector("#minus").addEventListener("click",()=>{state.choices=clamp(state.choices-1,1,8);limitVal.textContent=`${state.choices} choice${state.choices===1?"":"s"}`;render()});
-  document.querySelector("#plus").addEventListener("click",()=>{state.choices=clamp(state.choices+1,1,8);limitVal.textContent=`${state.choices} choices`;render()});
+  document.querySelector("#minus").addEventListener("click",()=>{state.choices=clamp(state.choices-1,1,8);limitVal.textContent=`${state.choices} choice${state.choices===1?"":"s"}`;render();saveSettings()});
+  document.querySelector("#plus").addEventListener("click",()=>{state.choices=clamp(state.choices+1,1,8);limitVal.textContent=`${state.choices} choices`;render();saveSettings()});
+  document.querySelector("#newGame").addEventListener("click",()=>{state.round=1;makeTarget();render()});
   document.querySelector("#newGame").addEventListener("click",()=>{state.round=1;makeTarget();render()});
   document.querySelector("#nextRound").addEventListener("click",nextRound);
   nextShortEl.addEventListener("click",nextRound);
@@ -1340,7 +1378,10 @@ function fitScatter(root){
     }
   }
 
-  populateLessons(); makeTarget(); render();
+  loadSettings();
+  populateLessons();
+  syncControls();
+  makeTarget(); render();
 })();
 </script>
 </body>
