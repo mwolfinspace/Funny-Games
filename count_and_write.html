@@ -1098,6 +1098,25 @@ function fitScatter(root){
     g.fillText(String(n), W/2, H/2);
     return c;
   }
+  // Classic European "7" written with a crossbar — many kids add it, and
+  // without a matching reference the matcher can mistake the slashed 7 for a
+  // closed "0" (both read as near-ellipses). Render a 7 with a bar across the
+  // middle of the body so ink hitting the bar still matches.
+  function glyph7barCanvas(){
+    const W=220,H=240;
+    const c=document.createElement("canvas"); c.width=W; c.height=H;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,W,H);
+    g.fillStyle="#000";
+    g.font=`700 ${Math.round(H*0.9)}px Arial, Helvetica, sans-serif`;
+    g.textAlign="center"; g.textBaseline="middle";
+    g.fillText("7", W/2, H/2);
+    const y=Math.round(H*0.56);               // through the middle of the stem
+    g.lineWidth=Math.round(H*0.045);
+    g.lineCap="round";
+    g.beginPath(); g.moveTo(W*0.16,y); g.lineTo(W*0.84,y); g.stroke();
+    return c;
+  }
   // Cache of reference rasters per number (all font variants).
   const glyphRasterCache={};
   function glyphRasters(n){
@@ -1107,6 +1126,11 @@ function fitScatter(root){
       const g=glyphCanvas(n,REFERENCE_FONTS[i],REFERENCE_FONTS[i+1]);
       // Dilation makes the reference a bit tolerant to imperfect tracing.
       list.push(dilate1(rasterFromCanvas(g)));
+    }
+    // A crossbar "7" is a very common kid style — include it so a bar that
+    // would otherwise read as an ellipse still matches the target 7.
+    if(n===7){
+      list.push(dilate1(rasterFromCanvas(glyph7barCanvas())));
     }
     glyphRasterCache[n]=list;
     return list;
