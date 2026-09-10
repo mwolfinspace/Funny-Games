@@ -113,12 +113,6 @@
   .prompt-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:9px;min-height:0}
   .prompt-row.single{grid-template-columns:minmax(0,1fr)}
   .prompt-row .emoji-card{min-height:0;display:flex;align-items:center;justify-content:center}
-  .target-preview{
-    display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;
-    background:#fffaf0
-  }
-  .target-label{font-size:11px;color:var(--muted);font-weight:900;margin-bottom:2px}
-  .target-number{font-size:clamp(54px,9vw,130px);line-height:.9;opacity:.16}
   .board-wrap{position:relative;min-height:0;background:#fff8c9;border:3px solid #e8d979;border-radius:24px;box-shadow:var(--shadow);overflow:hidden}
   #drawCanvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
   .board-guide{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;overflow:hidden}
@@ -828,13 +822,10 @@ function fitScatter(root){
          <div class="guide-copy">Write the number anywhere on the board ✏️</div>`;
     game.innerHTML=`
       <div class="write-layout">
-        <div class="prompt-row ${isCount?"single":""}">
+        <div class="prompt-row single">
           <section class="card emoji-card ${isCount?"big-emoji-card":""}" id="writeEmojiCard">
             ${caption}${emojis}
           </section>
-          ${isCount?"":`<section class="target-preview card">
-            <div class="target-label">Write this number</div><div class="target-number">${state.target}</div>
-          </section>`}
         </div>
         <section class="board-wrap" id="board">
           ${guide}
@@ -1020,6 +1011,24 @@ function fitScatter(root){
   function withTimeout(promise,ms){
     let t; const timeout=new Promise((_,rej)=>{ t=setTimeout(()=>rej(new Error("timeout")),ms); });
     return Promise.race([promise,timeout]).finally(()=>clearTimeout(t));
+  }
+
+  // Warms up the OCR stack in the background the moment the teacher switches
+  // into a write mode, so the kid's first "Finish" scores without a long wait.
+  // Loads Tesseract.js + creates the reusable worker early; also pings the
+  // server endpoint once so the health flag is already known.
+  let ocrPreloaded=false;
+  function preloadOcr(){
+    if(ocrPreloaded) return;
+    ocrPreloaded=true;
+    serverOcrHealth();
+    loadTesseract().then(T=>{
+      if(T && !ocrWorker){
+        withTimeout(T.createWorker("eng"),60000)
+          .then(w=>{ ocrWorker=w; })
+          .catch(()=>{ ocrPreloaded=false; });
+      }
+    }).catch(()=>{});
   }
 
   // Recognizes the drawn number entirely on-device. Returns
@@ -1577,6 +1586,7 @@ function fitScatter(root){
     state.mode=b.dataset.mode;
     document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.toggle("active",x===b));
     state.round=1; makeTarget(); render(); saveSettings();
+    if(state.mode==="write"||state.mode==="writeCount") preloadOcr();
   });
   lesson.addEventListener("change",()=>{state.lesson=+lesson.value;state.round=1;makeTarget();render();saveSettings()});
   document.querySelector("#sameToggle").addEventListener("click",()=>{
@@ -1664,6 +1674,7 @@ function fitScatter(root){
   populateLessons();
   syncControls();
   makeTarget(); render();
+  if(state.mode==="write"||state.mode==="writeCount") preloadOcr();
 })();
 </script>
 </body>
