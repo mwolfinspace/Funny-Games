@@ -121,6 +121,7 @@
   #drawCanvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
   .board-guide{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;overflow:hidden}
   .guide-number{position:absolute;left:10%;right:10%;top:0;bottom:0;text-align:center;font-weight:900;color:#665736;opacity:.13;line-height:.9;display:flex;align-items:center;justify-content:center}
+  .guide-number>span{display:inline-block;white-space:nowrap}
   .guide-copy{position:absolute;top:7px;left:10px;font-size:11px;font-weight:900;color:#887b48;background:#fffbe3dd;padding:4px 7px;border-radius:9px}
   .live-board{position:absolute;top:7px;right:10px;z-index:3;font-size:12px;font-weight:900;
     padding:4px 9px;border-radius:10px;border:2px solid var(--line);background:#fff;
@@ -648,49 +649,54 @@ function fitScatter(root){
     return lines.map(([n,p])=>`<div class="gline ${n==="1"?"base":""}" data-pct="${p}">
       <span class="glabel">${n}</span></div>`).join("");
   }
-  // The dim guide number is the ROOT. We render the same text on an offscreen
-  // canvas, scan for actual ink pixels to find the true glyph bounds, then
-  // snap the grid lines to those exact visual positions.
+  // The dim guide number is the ROOT. We rasterize the actual on-screen
+  // guide-number DOM node via SVG foreignObject, scan for real ink pixels,
+  // then snap the grid lines to those exact visual bounds. Pixel-perfect at
+  // any zoom because we measure exactly what the browser renders.
   function alignGuideToGrid(){
     const board=document.querySelector("#board");
     const g=document.querySelector(".guide-number");
     const overlay=document.querySelector("#gridOverlay");
-    if(!board||!g) return;
+    if(!board||!g||!overlay) return;
     const bh=board.clientHeight;
-    const fs=Math.round(bh*0.78/0.9);
-    g.style.fontSize=fs+"px";
-    // Render text on offscreen canvas and scan for actual ink pixel bounds.
-    const w=fs*4, h=fs*2;
-    const tc=document.createElement("canvas");
-    tc.width=w; tc.height=h;
-    const cx=tc.getContext("2d");
-    cx.fillStyle="#fff"; cx.fillRect(0,0,w,h);
-    cx.fillStyle="#000";
-    const fam=getComputedStyle(g).fontFamily||"Arial, sans-serif";
-    cx.font=`900 ${fs}px ${fam}`;
-    cx.textAlign="center"; cx.textBaseline="middle";
-    cx.fillText(String(state.target),w/2,h/2);
-    const data=cx.getImageData(0,0,w,h).data;
-    let pixTop=h, pixBot=0;
-    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
-      const i=(y*w+x)*4;
-      if(data[i+3]>128 && data[i]<128){ if(y<pixTop)pixTop=y; if(y>pixBot)pixBot=y; }
-    }
-    const glyphH=pixBot-pixTop+1;
-    // The glyph center on canvas vs the element center — use the offset
-    // so the DOM glyph lands exactly where the scanned ink is.
-    const glyphCenter=(pixTop+pixBot)/2;
-    const canvasOffset=glyphCenter-h/2;  // how far glyph center is from canvas center
-    const visCenter=bh/2+canvasOffset;
-    const glyphTop=visCenter-glyphH/2;
-    // Snap the grid overlay to exactly those visual bounds.
-    if(overlay){
-      overlay.style.top=glyphTop+"px";
+    g.style.fontSize=Math.round(bh*0.78/0.9)+"px";
+    const bw=board.clientWidth, bhh=board.clientHeight;
+    if(!bw||!bhh) return;
+    // Clone the node and inline its computed styles so the raster matches the
+    // on-screen rendering; render the digit in solid black for crisp scanning.
+    const clone=g.cloneNode(true);
+    const cs=getComputedStyle(g);
+    clone.style.cssText=`position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#000;opacity:1;font-family:${cs.fontFamily};font-weight:900;font-size:${cs.fontSize};line-height:${cs.lineHeight}`;
+    const sp=clone.querySelector("span");
+    if(sp) sp.style.display="inline-block";
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${bw}" height="${bhh}">`+
+      `<foreignObject width="100%" height="100%">`+
+      `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${bw}px;height:${bhh}px;overflow:hidden">`+
+      clone.outerHTML+`</div></foreignObject></svg>`;
+    const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement("canvas");
+      c.width=bw; c.height=bhh;
+      const cx=c.getContext("2d");
+      cx.drawImage(img,0,0,bw,bhh);
+      URL.revokeObjectURL(url);
+      const data=cx.getImageData(0,0,bw,bhh).data;
+      let pixTop=bhh, pixBot=0;
+      for(let y=0;y<bhh;y++) for(let x=0;x<bw;x++){
+        const i=(y*bw+x)*4;
+        if(data[i+3]>200 && data[i]<100){ if(y<pixTop)pixTop=y; if(y>pixBot)pixBot=y; }
+      }
+      if(pixBot<=pixTop) return;
+      const glyphH=pixBot-pixTop+1;
+      overlay.style.top=pixTop+"px";
       overlay.style.height=glyphH+"px";
       overlay.querySelectorAll(".gline").forEach(el=>{
         el.style.top=el.dataset.pct+"%";
       });
-    }
+    };
+    img.src=url;
   }
   function renderPick(){
     const choices=choiceNumbers();
@@ -786,7 +792,7 @@ function fitScatter(root){
     const emojis=isCount?emojiScatterHtml():emojiGridHtml({compact:true});
     const guide=isCount
       ? `<div class="guide-copy">Write how many <b class="target-name-in">${emojiName(state.targetEmoji)}</b> you see ✏️</div>`
-      : `<div class="board-guide"><div class="guide-number">${state.target}</div></div>
+      : `<div class="board-guide"><div class="guide-number"><span id="guideText">${state.target}</span></div></div>
          <div class="guide-copy">Write the number anywhere on the board ✏️</div>`;
     game.innerHTML=`
       <div class="write-layout">
