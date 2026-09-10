@@ -649,54 +649,42 @@ function fitScatter(root){
     return lines.map(([n,p])=>`<div class="gline ${n==="1"?"base":""}" data-pct="${p}">
       <span class="glabel">${n}</span></div>`).join("");
   }
-  // The dim guide number is the ROOT. We rasterize the actual on-screen
-  // guide-number DOM node via SVG foreignObject, scan for real ink pixels,
-  // then snap the grid lines to those exact visual bounds. Pixel-perfect at
-  // any zoom because we measure exactly what the browser renders.
+  // The dim guide number is the ROOT. We find the text baseline using an empty
+  // inline-block anchor (its bottom edge sits exactly on the baseline of the
+  // surrounding text), then measure the glyph's ink bounds with measureText
+  // using the SAME font the guide renders with. Line 1 (bold) = foot = baseY +
+  // descent, line 5 = top = baseY - ascent, lines 2-4 = equal quarters between.
   function alignGuideToGrid(){
     const board=document.querySelector("#board");
     const g=document.querySelector(".guide-number");
+    const guideText=document.querySelector("#guideText");
     const overlay=document.querySelector("#gridOverlay");
-    if(!board||!g||!overlay) return;
+    if(!board||!g||!guideText||!overlay) return;
     const bh=board.clientHeight;
     g.style.fontSize=Math.round(bh*0.78/0.9)+"px";
-    const bw=board.clientWidth, bhh=board.clientHeight;
-    if(!bw||!bhh) return;
-    // Clone the node and inline its computed styles so the raster matches the
-    // on-screen rendering; render the digit in solid black for crisp scanning.
-    const clone=g.cloneNode(true);
+    // 1) Baseline anchor: an empty inline-block's bottom sits on the baseline.
+    const anchor=document.createElement("span");
+    anchor.style.cssText="display:inline-block;width:0;height:0;position:relative;top:0";
+    guideText.appendChild(anchor);
+    const boardRect=board.getBoundingClientRect();
+    const baseY=anchor.getBoundingClientRect().top-boardRect.top;
+    anchor.remove();
+    // 2) Measure ink bounds with a throwaway canvas using the guide's font.
     const cs=getComputedStyle(g);
-    clone.style.cssText=`position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#000;opacity:1;font-family:${cs.fontFamily};font-weight:900;font-size:${cs.fontSize};line-height:${cs.lineHeight}`;
-    const sp=clone.querySelector("span");
-    if(sp) sp.style.display="inline-block";
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${bw}" height="${bhh}">`+
-      `<foreignObject width="100%" height="100%">`+
-      `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${bw}px;height:${bhh}px;overflow:hidden">`+
-      clone.outerHTML+`</div></foreignObject></svg>`;
-    const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const img=new Image();
-    img.onload=()=>{
-      const c=document.createElement("canvas");
-      c.width=bw; c.height=bhh;
-      const cx=c.getContext("2d");
-      cx.drawImage(img,0,0,bw,bhh);
-      URL.revokeObjectURL(url);
-      const data=cx.getImageData(0,0,bw,bhh).data;
-      let pixTop=bhh, pixBot=0;
-      for(let y=0;y<bhh;y++) for(let x=0;x<bw;x++){
-        const i=(y*bw+x)*4;
-        if(data[i+3]>200 && data[i]<100){ if(y<pixTop)pixTop=y; if(y>pixBot)pixBot=y; }
-      }
-      if(pixBot<=pixTop) return;
-      const glyphH=pixBot-pixTop+1;
-      overlay.style.top=pixTop+"px";
-      overlay.style.height=glyphH+"px";
-      overlay.querySelectorAll(".gline").forEach(el=>{
-        el.style.top=el.dataset.pct+"%";
-      });
-    };
-    img.src=url;
+    const ctx=document.createElement("canvas").getContext("2d");
+    ctx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const m=ctx.measureText(String(state.target));
+    const asc=m.actualBoundingBoxAscent ?? cs.fontSize*0.72;
+    const desc=m.actualBoundingBoxDescent ?? 0;
+    const topY=baseY-asc;       // line 5 — top of the digits
+    const footY=baseY+desc;     // line 1 — bold foot of the digits
+    const glyphH=footY-topY;
+    if(glyphH<=0) return;
+    overlay.style.top=topY+"px";
+    overlay.style.height=glyphH+"px";
+    overlay.querySelectorAll(".gline").forEach(el=>{
+      el.style.top=el.dataset.pct+"%";
+    });
   }
   function renderPick(){
     const choices=choiceNumbers();
