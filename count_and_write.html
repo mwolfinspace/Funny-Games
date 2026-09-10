@@ -56,6 +56,7 @@
   }
   .many-emoji-card{height:100%;max-height:calc(100vh - 178px)}
   .emoji-card .caption{position:absolute;top:8px;left:12px;font-size:12px;color:var(--muted);font-weight:900}
+  .emoji-card .emoji-tap-hint{position:absolute;top:8px;right:12px;font-size:11px;color:var(--muted);font-weight:800;opacity:.85}
   .emoji-grid{
     width:100%;height:100%;display:grid;place-items:center;
     align-content:center;justify-content:center;
@@ -68,14 +69,16 @@
     font-family:var(--emoji-font);
     font-variant-emoji:emoji; font-synthesis:none;
   }
-  .many-layout{display:grid;grid-template-rows:minmax(0,1fr) auto;gap:9px;height:100%;min-height:0}
+  .many-layout{display:grid;grid-template-rows:minmax(0,1.618fr) minmax(0,1fr);gap:9px;height:100%;min-height:0}
   .count-card{
-    display:flex;gap:9px;justify-content:center;align-items:center;flex-wrap:nowrap;padding:8px;
-    min-height:70px;flex:0 0 auto
+    display:flex;gap:16px;justify-content:center;align-items:stretch;
+    padding:12px;min-height:0;flex:1 1 0
   }
   .num-btn{
-    flex:1 1 0;max-width:120px;min-width:45px;height:65px;padding:4px 8px;border-radius:16px;border:3px solid #eadfca;background:#fffaf4;
-    font-size:clamp(28px,3.7vw,48px);font-weight:900;color:#4a3b31;box-shadow:0 4px 0 #dfd1bc;touch-action:manipulation
+    flex:1 1 0;max-width:240px;min-width:64px;height:100%;min-height:0;
+    padding:6px 10px;border-radius:24px;border:3px solid #eadfca;background:#fffaf4;
+    font-size:clamp(44px,7.5vw,96px);font-weight:900;line-height:1;color:#4a3b31;
+    box-shadow:0 6px 0 #dfd1bc;touch-action:manipulation
   }
   .num-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #dfd1bc}
   .num-btn.good{box-shadow:0 4px 0 rgba(0,0,0,.12)}
@@ -105,6 +108,11 @@
     display:flex;gap:8px;align-items:center;z-index:5
   }
   .status-pill{background:#f3eadb;border-radius:12px;padding:6px 9px;font-size:12px;font-weight:900;white-space:nowrap}
+  button.status-pill{border:2px solid var(--line);background:#fff;min-height:34px}
+  button.status-pill:hover{background:#fff3c4}
+  .countdown{background:#fff3bf;border:2px solid #ead58a;min-width:86px;text-align:center}
+  .countdown.big{font-size:17px;background:#ffe9a3;animation:pulse 1s infinite}
+  @keyframes pulse{50%{transform:scale(1.08)}}
   .message{flex:1;font-size:13px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .stars{font-size:23px;letter-spacing:1px;white-space:nowrap}
   .overlay{position:fixed;inset:0;background:rgba(61,45,26,.48);display:grid;place-items:center;padding:18px;z-index:20}
@@ -179,6 +187,7 @@
     </label>
     <button class="control toggle" id="sameToggle"><span>Same emoji</span><span class="switch on"><i></i></span></button>
     <button class="control toggle" id="colorToggle"><span>Colorful</span><span class="switch"><i></i></span></button>
+    <button class="control toggle" id="autoToggle"><span>Auto</span><span class="switch"><i></i></span></button>
     <div class="control limit"><button id="minus">−</button><div class="limit-value" id="limitVal">4 choices</div><button id="plus">+</button></div>
     <div class="spacer"></div>
     <button class="control reset" id="newGame">↻ New round</button>
@@ -190,8 +199,10 @@
 
   <footer class="status">
     <div class="status-pill" id="roundText">Round 1</div>
+    <div class="countdown hidden" id="countdown">5</div>
     <div class="message" id="statusMsg">Count the pictures, then tap the matching number.</div>
     <div class="stars" id="statusStars">☆☆☆</div>
+    <button class="status-pill hidden" id="nextRoundShort">Next ➜</button>
   </footer>
 </div>
 
@@ -207,17 +218,60 @@
 <script>
 (() => {
   const EMOJIS = ["🍎","🍌","🍓","🍊","🍐","🍉","🥕","🌽","🍪","⭐","🐶","🐱","🐸","🐵","🦊","🐼","🦄","🚗","🚲","⚽","🎈","🧸","🌈","☀️"];
-  const state = {mode:"many", same:true, colorful:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, points:0};
+  const state = {mode:"many", same:true, colorful:false, auto:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, points:0, countdownTimer:null};
 
   const game = document.querySelector("#game"), lesson = document.querySelector("#lesson");
   const statusMsg = document.querySelector("#statusMsg"), statusStars = document.querySelector("#statusStars");
   const roundText = document.querySelector("#roundText"), limitVal = document.querySelector("#limitVal");
   const resultOverlay = document.querySelector("#resultOverlay"), resultScore = document.querySelector("#resultScore");
   const bigStars = document.querySelector("#bigStars");
+  const countdownEl = document.querySelector("#countdown"), nextShortEl = document.querySelector("#nextRoundShort");
 
   function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
   function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
   function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+
+  // Friendly kid voice: says the number out loud.
+  function speak(text){
+    try{
+      if(!("speechSynthesis" in window)) return;
+      speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(String(text));
+      u.lang="en-US"; u.rate=0.85; u.pitch=1.1;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  function speakNumber(n){
+    const words=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen"];
+    speak(words[n]||n);
+  }
+
+  // Simple fun web-audio SFX (no files needed).
+  let actx=null;
+  function sfx(freq,when,dur,type="triangle",vol=0.28){
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==="suspended") actx.resume();
+      const t=actx.currentTime+(when||0);
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.type=type; o.frequency.value=freq;
+      g.gain.setValueAtTime(vol,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t); o.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  function sfxCorrect(){
+    sfx(523.25,0,0.14,"triangle"); sfx(659.25,0.11,0.14,"triangle");
+    sfx(783.99,0.22,0.20,"triangle"); sfx(1046.5,0.34,0.30,"triangle");
+  }
+  function sfxWrong(){ sfx(196,0,0.22,"sawtooth",0.12); sfx(155.56,0.12,0.30,"sawtooth",0.12); }
+  function sfxTick(){ sfx(987.77,0,0.07,"sine",0.18); }
+
+  function clearCountdown(){
+    if(state.countdownTimer){ clearInterval(state.countdownTimer); state.countdownTimer=null; }
+    countdownEl.classList.add("hidden"); countdownEl.classList.remove("big");
+  }
 
   function lessonRange(){
     const n = state.lesson;
@@ -298,7 +352,7 @@
   }
 
   function render(){
-
+    clearCountdown();
     state.answered=false; state.stars=0;
     roundText.textContent=`Round ${state.round}`;
     statusStars.textContent="☆☆☆";
@@ -309,49 +363,10 @@
   function renderMany(){
     const choices=choiceNumbers();
     game.innerHTML=`
-      ${state.lesson>1 ? `<div class="learn-note">Lesson ${state.lesson}: numbers around ${state.lesson}</div>` : `<div class="learn-note">Learn mode: one answer</div>`}
-      <section class="card emoji-card">
-        <div class="caption">How many?</div>
-        ${emojiGridHtml()}
-      </section>
-      <section class="card count-card">
-        ${choices.map(n=>`<button class="num-btn" data-answer="${n}">${n}</button>`).join("")}
-      </section>
-    `;
-    game.querySelectorAll(".num-btn").forEach(b=>b.addEventListener("click",()=>answerMany(+b.dataset.answer,b)));
-    fitAllEmoji();
-    setTimeout(fitAllEmoji,0);
-  }
-
-  function answerMany(n,btn){
-    if(state.answered)return;
-    if(n===state.target){
-      state.answered=true; state.correct++; state.points+=10;
-      btn.classList.add("good"); state.stars=3;
-      statusMsg.textContent="Correct! 🎉 You counted them!";
-      statusStars.textContent="★★★";
-      setTimeout(nextRound,650);
-    }else{
-      btn.classList.add("bad"); statusMsg.textContent="Try counting again. Look carefully!";
-      statusStars.textContent="★☆☆";
-      setTimeout(()=>btn.classList.remove("bad"),320);
-    }
-  }
-
-  let canvas,ctx,strokes=[],current=null,resizeTimer=null;
-  const colorPalette = [
-    "#F94144","#F3722C","#F8961E","#F9C74F","#90BE6D",
-    "#43AA8B","#4D908E","#277DA1","#4895EF","#4361EE",
-    "#3A0CA3","#7209B7","#B5179E","#F15BB5","#FF66B3",
-    "#00B4D8","#00A896","#8AC926","#BC6C25","#6C584C"
-  ];
-
-  function renderMany(){
-    const choices=choiceNumbers();
-    game.innerHTML=`
       <div class="many-layout">
-        <section class="card emoji-card many-emoji-card">
+        <section class="card emoji-card many-emoji-card" id="manyEmojiCard">
           <div class="caption">How many?</div>
+          <div class="emoji-tap-hint">👆 Tap emoji to hear the number</div>
           ${emojiGridHtml()}
         </section>
         <section class="card count-card">
@@ -359,6 +374,8 @@
         </section>
       </div>
     `;
+    const card=game.querySelector("#manyEmojiCard");
+    card.addEventListener("click",()=>speakNumber(state.target),{passive:true});
     game.querySelectorAll(".num-btn").forEach(b=>b.addEventListener("click",()=>answerMany(+b.dataset.answer,b)));
     fitAllEmoji();
     setTimeout(fitAllEmoji,0);
@@ -368,15 +385,50 @@
     if(state.answered)return;
     if(n===state.target){
       state.answered=true; state.correct++; state.points+=10;
-      btn.classList.add("good"); state.stars=3;
-      statusMsg.textContent="Correct! 🎉 You counted them!";
-      statusStars.textContent="★★★";
-      setTimeout(nextRound,550);
+      playGood(btn);
+      startAutoNext();
+      speakNumber(state.target);
     }else{
       btn.classList.add("bad"); statusMsg.textContent="Try counting again. Look carefully!";
       statusStars.textContent="★☆☆";
+      sfxWrong();
       setTimeout(()=>btn.classList.remove("bad"),320);
     }
+  }
+
+  function playGood(btn){
+    btn.classList.add("good"); state.stars=3;
+    statusMsg.textContent="Correct! 🎉 You counted them!";
+    statusStars.textContent="★★★";
+    sfxCorrect();
+  }
+
+  // After a correct answer: if Auto is off, stay and let the kid study the
+  // answer. If Auto is on, run a 5-second countdown in the status bar, then
+  // start the next puzzle.
+  function startAutoNext(){
+    nextShortEl.classList.add("hidden");
+    if(!state.auto){
+      statusMsg.textContent="Correct! 🎉 Study the answer. Tap Next when ready.";
+      nextShortEl.classList.remove("hidden");
+      return;
+    }
+    statusMsg.textContent=`Next puzzle in 5…`;
+    let left=5;
+    countdownEl.textContent=left;
+    countdownEl.classList.remove("hidden");
+    countdownEl.classList.add("big");
+    sfxTick();
+    state.countdownTimer=setInterval(()=>{
+      left--;
+      if(left<=0){
+        clearCountdown();
+        nextRound();
+      }else{
+        countdownEl.textContent=left;
+        sfxTick();
+      }
+    },1000);
   }
 
   function renderWrite(){
@@ -384,7 +436,7 @@
     game.innerHTML=`
       <div class="write-layout">
         <div class="prompt-row">
-          <section class="card emoji-card">
+          <section class="card emoji-card" id="writeEmojiCard">
             <div class="caption">Count these</div>${emojis}
           </section>
           <section class="target-preview card">
@@ -406,6 +458,7 @@
     window.removeEventListener("resize",fitAllEmoji);
     window.addEventListener("resize",fitAllEmoji);
     bindDrawing();
+    game.querySelector("#writeEmojiCard").addEventListener("click",()=>speakNumber(state.target),{passive:true});
     document.querySelector("#finish").addEventListener("click",scoreDrawing);
   }
 
@@ -505,8 +558,25 @@
     bigStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
     resultScore.textContent=`Score ${Math.round(quality*100)}% · ${state.target} was the number`;
     resultOverlay.classList.remove("hidden");
+    // Write mode: honor the Auto toggle too — count down then auto-advance.
+    if(state.auto && !state.countdownTimer){
+      let left=5;
+      countdownEl.textContent=left;
+      countdownEl.classList.remove("hidden");
+      state.countdownTimer=setInterval(()=>{
+        left--;
+        if(left<=0){
+          clearCountdown();
+          nextRound();
+        }else{
+          countdownEl.textContent=left;
+        }
+      },1000);
+    }
   }
   function nextRound(){
+    clearCountdown();
+    nextShortEl.classList.add("hidden");
     resultOverlay.classList.add("hidden");state.round++;makeTarget();render();
   }
 
@@ -525,10 +595,19 @@
     document.querySelector("#colorToggle .switch").classList.toggle("on",state.colorful);
     render();
   });
+  const autoSwitch=document.querySelector("#autoToggle .switch");
+  autoSwitch.classList.toggle("on",state.auto);
+  document.querySelector("#autoToggle").addEventListener("click",()=>{
+    state.auto=!state.auto;
+    autoSwitch.classList.toggle("on",state.auto);
+    if(state.auto){ nextShortEl.classList.add("hidden"); }
+    statusMsg.textContent = state.auto ? "Auto on: next puzzle starts after the countdown." : "Auto off: stay on the puzzle to study the answer.";
+  });
   document.querySelector("#minus").addEventListener("click",()=>{state.choices=clamp(state.choices-1,1,8);limitVal.textContent=`${state.choices} choice${state.choices===1?"":"s"}`;render()});
   document.querySelector("#plus").addEventListener("click",()=>{state.choices=clamp(state.choices+1,1,8);limitVal.textContent=`${state.choices} choices`;render()});
   document.querySelector("#newGame").addEventListener("click",()=>{state.round=1;makeTarget();render()});
   document.querySelector("#nextRound").addEventListener("click",nextRound);
+  nextShortEl.addEventListener("click",nextRound);
   window.addEventListener("resize",fitAllEmoji);
 
   makeTarget(); render();
