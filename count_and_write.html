@@ -129,6 +129,10 @@
   .countdown.big{font-size:17px;background:#ffe9a3;animation:pulse 1s infinite}
   @keyframes pulse{50%{transform:scale(1.08)}}
   .message{flex:1;font-size:13px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .live-read{position:relative;border:2px solid var(--line);background:#fff;font-size:12px;display:inline-flex;align-items:center;gap:4px;transition:.15s}
+  .live-read.ok{background:#e3f6e3;border-color:#7ecb7e;color:#1e6b1e}
+  .live-read.warn{background:#fff0dc;border-color:#e8c46a;color:#8a5a00}
+  .live-read.busy{background:#f0f0f0;border-color:#ccc;color:#777}
   .stars{font-size:23px;letter-spacing:1px;white-space:nowrap}
   .overlay{position:fixed;inset:0;background:rgba(61,45,26,.48);display:grid;place-items:center;padding:18px;z-index:20}
   .result{width:min(500px,100%);background:#fffaf0;border:3px solid var(--line);border-radius:27px;padding:24px;text-align:center;box-shadow:0 15px 40px #0004}
@@ -218,6 +222,7 @@
     <div class="countdown hidden" id="countdown">5</div>
     <div class="message" id="statusMsg">Count the pictures, then tap the matching number.</div>
     <div class="stars" id="statusStars">☆☆☆</div>
+    <span class="status-pill live-read hidden" id="liveRead"></span>
     <button class="status-pill hidden" id="nextRoundShort">Next ➜</button>
   </footer>
 </div>
@@ -253,6 +258,7 @@
   const resultOverlay = document.querySelector("#resultOverlay"), resultScore = document.querySelector("#resultScore");
   const bigStars = document.querySelector("#bigStars");
   const countdownEl = document.querySelector("#countdown"), nextShortEl = document.querySelector("#nextRoundShort");
+  const liveRead = document.querySelector("#liveRead");
 
   function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
   function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
@@ -527,6 +533,7 @@ function emojiGroups(n){
     document.querySelector("#clearBtn").addEventListener("click",()=>{
       if(state.answered)return;
       strokes=[]; current=null; redrawAll();
+      lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); }
       statusMsg.textContent="Start fresh — write the number again.";
       statusStars.textContent="☆☆☆";
     });
@@ -568,15 +575,15 @@ function emojiGroups(n){
     if(window.PointerEvent){
       canvas.onpointerdown=function(ev){ ev.preventDefault(); const p=getPos(ev); startDrawAt(p.x,p.y,ev.pointerId); };
       canvas.onpointermove=function(ev){ ev.preventDefault(); if(current){ const p=getPos(ev); moveDrawAt(p.x,p.y); } };
-      canvas.onpointerup=canvas.onpointercancel=function(ev){ ev.preventDefault(); current=null; };
+      canvas.onpointerup=canvas.onpointercancel=function(ev){ ev.preventDefault(); current=null; scheduleLive(); };
     } else {
       // Older Chrome: mouse + touch fallback.
       canvas.onmousedown=function(ev){ ev.preventDefault(); const p=getPos(ev); startDrawAt(p.x,p.y,null); };
       canvas.onmousemove=function(ev){ ev.preventDefault(); const p=getPos(ev); moveDrawAt(p.x,p.y); };
-      canvas.onmouseup=canvas.onmouseleave=function(){ current=null; };
+      canvas.onmouseup=canvas.onmouseleave=function(){ current=null; scheduleLive(); };
       canvas.ontouchstart=function(ev){ ev.preventDefault(); const t=ev.touches[0],r=canvas.getBoundingClientRect(); startDrawAt(t.clientX-r.left,t.clientY-r.top,null); };
       canvas.ontouchmove=function(ev){ ev.preventDefault(); const t=ev.touches[0],r=canvas.getBoundingClientRect(); if(t)moveDrawAt(t.clientX-r.left,t.clientY-r.top); };
-      canvas.ontouchend=canvas.ontouchcancel=function(ev){ ev.preventDefault(); current=null; };
+      canvas.ontouchend=canvas.ontouchcancel=function(ev){ ev.preventDefault(); current=null; scheduleLive(); };
     }
   }
 
@@ -830,6 +837,58 @@ function emojiGroups(n){
     return {method:"local", number: v.correct ? state.target : v.guessed, confidence: v.confidence};
   }
 
+  // ---- Live feedback while drawing ---------------------------------
+  // After each stroke the board is re-read so the student can see the
+  // detected number + projected stars right away, and Clear + retry to
+  // improve before pressing Finish. Also proves the engine reads the
+  // number correctly.
+  let lastEval = null;          // {key, result} from the debounced live check
+  let liveTimer = null, liveBusy = false, liveRun = null;
+  function strokeKey(){
+    let n=0; for(const s of strokes) n+=s.length;
+    return strokes.length + ":" + n;
+  }
+  function liveQuality(ev){
+    if(ev.number !== state.target) return null;
+    const [ink,,,pathPenalty]=analyzeDrawing();
+    const conf=clamp(ev.confidence,0,1);
+    return clamp(.62*conf + .22*ink + .16 - pathPenalty,0,1);
+  }
+  function renderLivePill(result){
+    if(!liveRead) return;
+    if(!result || result.number < 0 || strokes.length<2){ liveRead.classList.add("hidden"); return; }
+    liveRead.classList.remove("hidden");
+    liveRead.classList.remove("ok","warn","busy");
+    const q=liveQuality(result);
+    if(result.number === state.target && q !== null){
+      const st=q>=.70?"★★★":q>=.45?"★★":"★";
+      liveRead.className="status-pill live-read ok";
+      liveRead.textContent=`✓ ${state.target} ${st} · ${result.method}`;
+    }else{
+      liveRead.className="status-pill live-read warn";
+      liveRead.textContent=`I see ${result.number} · try again`;
+    }
+  }
+  async function runLiveCheck(){
+    if(liveBusy) return;
+    liveBusy=true;
+    if(liveRead) liveRead.className="status-pill live-read busy";
+    if(liveRead) liveRead.classList.remove("hidden");
+    if(liveRead) liveRead.textContent="⏳ reading…";
+    const result=await evaluateDrawing().catch(()=>({method:"local", number:-1, confidence:0}));
+    const key=strokeKey();
+    lastEval={key, result};
+    liveBusy=false;
+    liveRun=null;
+    renderLivePill(result);
+  }
+  function scheduleLive(){
+    if(state.answered || state.mode!=="write"){ return; }
+    if(strokes.length<2){ lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); } return; }
+    clearTimeout(liveTimer);
+    liveTimer=setTimeout(()=>{ liveRun=runLiveCheck(); }, 500);
+  }
+
   function setFinishBusy(busy){
     const f=document.querySelector("#finish");
     if(!f)return;
@@ -855,7 +914,12 @@ function emojiGroups(n){
       return;
     }
     setFinishBusy(true);
-    const ev = await evaluateDrawing().catch(()=> ({method:"local", number:-1, confidence:0}));
+    // Reuse the live check result when the strokes haven't changed since it ran.
+    let ev=null;
+    if(liveBusy && liveRun) await liveRun.catch(()=>{});
+    if(lastEval && lastEval.key===strokeKey()) ev=lastEval.result;
+    if(!ev) ev = await evaluateDrawing().catch(()=> ({method:"local", number:-1, confidence:0}));
+    if(lastEval) lastEval.key="-";
     setFinishBusy(false);
 
     // Gate: the recognized number must be the one asked for.
@@ -902,6 +966,8 @@ function emojiGroups(n){
   function nextRound(){
     clearCountdown();
     nextShortEl.classList.add("hidden");
+    if(liveRead){ liveRead.classList.add("hidden"); }
+    lastEval=null;
     resultOverlay.classList.add("hidden");state.round++;makeTarget();render();
   }
 
