@@ -377,18 +377,36 @@ function emojiGroups(n){
     return rows;
   }
 
-  function emojiGridHtml(){
+  function emojiGridHtml(opts){
+    opts=opts||{};
     const items = emojiItems(state.target);
-    const groups = emojiGroups(items.length);
+    const n = items.length;
     const gap=`clamp(5px,1vw,14px)`;
     const rows=[];
     let idx=0;
-    for(const g of groups){
-      const cells = items.slice(idx, idx+g).map(e=>`<div class="emoji">${e}</div>`).join("");
-      rows.push(`<div class="emoji-row" data-count="${g}">${cells}</div>`);
-      idx += g;
+    if(opts.compact){
+      // Write mode: keep the block SHORT on screen — emoji go across (columns
+      // first), never many stacked rows, because a low/limited-height webview
+      // can't fit stacked groups. Small counts sit on ONE row; the game only
+      // goes to 20, so up to 2 rows max.
+      const rowCount = n<=8 ? 1 : Math.min(2, Math.ceil(n/8));
+      const per = Math.ceil(n/rowCount);
+      for(let r=0;r<rowCount;r++){
+        const take=Math.min(per, n-idx);
+        const cells = items.slice(idx, idx+take).map(e=>`<div class="emoji">${e}</div>`).join("");
+        rows.push(`<div class="emoji-row" data-count="${take}">${cells}</div>`);
+        idx += take;
+      }
+    } else {
+      const groups = emojiGroups(items.length);
+      for(const g of groups){
+        const take=Math.min(g, n-idx);
+        const cells = items.slice(idx, idx+take).map(e=>`<div class="emoji">${e}</div>`).join("");
+        rows.push(`<div class="emoji-row" data-count="${take}">${cells}</div>`);
+        idx += take;
+      }
     }
-    return `<div class="emoji-grid" data-count="${items.length}" style="gap:${gap}">${rows.join("")}</div>`;
+    return `<div class="emoji-grid" data-count="${n}" style="gap:${gap}">${rows.join("")}</div>`;
   }
 
   // Fit the grouped rows: every emoji gets the same size so the whole little
@@ -499,7 +517,7 @@ function emojiGroups(n){
   }
 
   function renderWrite(){
-    const emojis=emojiGridHtml();
+    const emojis=emojiGridHtml({compact:true});
     const digits=String(state.target).length;
     const guideSize=Math.min(window.innerHeight*0.45, Math.min(window.innerWidth*0.40,400)/digits*0.92);
     game.innerHTML=`
