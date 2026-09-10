@@ -679,8 +679,8 @@ function fitScatter(root){
   // Line 5 = top of the number, line 1 = bottom of the number (bold baseline),
   // lines 2-4 = evenly divide the space between. No line 0.
   // Buttons (Clear / Grid / Finish) live at the bottom of the board, so the
-  // guide number and grid are sized/positioned above that strip so line 1
-  // never collides with them.
+  // guide number and grid are sized/positioned so line 1 never collides with
+  // them. BOARD_BTN_PAD is only used by the plain-grid fallback.
   const BOARD_BTN_PAD = 72; // px of bottom board height reserved for the buttons
   function gridLinesHtml(){
     const lines=[["5",0],["4",25],["3",50],["2",75],["1",100]];
@@ -713,9 +713,9 @@ function fitScatter(root){
       return;
     }
     const bh=board.clientHeight;
-    const avail=bh-BOARD_BTN_PAD;
-    g.style.bottom=BOARD_BTN_PAD+"px";
-    g.style.fontSize=Math.round(avail*0.78/0.9)+"px";
+    // Font sized so the number comfortably fills the drawing area.
+    g.style.fontSize=Math.round(bh*0.72)+"px";
+    g.style.top="0px"; g.style.bottom="0px";   // keep the natural centred box
     // 1) Baseline anchor: an empty inline-block's bottom sits on the baseline.
     const anchor=document.createElement("span");
     anchor.style.cssText="display:inline-block;width:0;height:0;position:relative;top:0";
@@ -736,7 +736,18 @@ function fitScatter(root){
     const footY=baseY;              // line 1 — bold foot = the baseline itself
     const glyphH=footY-topY;
     if(glyphH<=0) return;
-    overlay.style.top=topY+"px";
+    // 3) NUDGE the whole number so its baseline sits right above the bottom
+    // buttons. The flex-centred box alone leaves a big dead gap under line 1;
+    // shifting the box down by (desiredLine1 - actualBaseline) closes it
+    // while keeping line 5 < line 1 < buttons.
+    const fin=document.querySelector("#finish");
+    const btnTop = fin ? fin.getBoundingClientRect().top-boardRect.top : bh;
+    const line1Target = Math.max(topY+10, btnTop - 8); // don't overlap the digits
+    const delta = line1Target - footY;
+    // translateY moves the whole centred box without re-laying it out, so the
+    // measured baseline shifts by exactly delta.
+    g.style.transform = (delta>0) ? `translateY(${delta}px)` : "";
+    overlay.style.top=(topY+Math.max(0,delta))+"px";
     overlay.style.height=glyphH+"px";
     overlay.querySelectorAll(".gline").forEach(el=>{
       el.style.top=el.dataset.pct+"%";
