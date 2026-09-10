@@ -1253,9 +1253,44 @@ function fitScatter(root){
     if(t>=12) return .72;
     return 1-(t-5)/7*.28;     // 5s→1.0 ... 12s→0.72
   }
+  // Grid-fit penalty: the drawn number should sit between line 5 (top) and
+  // line 1 (bottom, bold baseline). A gap at top/bottom, or crossing over
+  // either line too far, reduces the score proportionally to the mismatch.
+  function gridFitPenalty(){
+    if(!state.grid) return 0;
+    if(state.mode!=="write" && state.mode!=="writeCount") return 0;
+    let minY=Infinity,maxY=-Infinity;
+    for(const s of strokes) for(const p of s){
+      if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    }
+    if(!isFinite(minY)||maxY<=minY) return 0;
+    const board=document.querySelector("#board");
+    const overlay=document.querySelector("#gridOverlay");
+    if(!board||!overlay) return 0;
+    const br=board.getBoundingClientRect();
+    let line5Y=null, line1Y=null;
+    overlay.querySelectorAll(".gline").forEach(el=>{
+      const pct=el.dataset.pct;
+      if(pct==="0") line5Y=el.getBoundingClientRect().top-br.top;
+      else if(pct==="100") line1Y=el.getBoundingClientRect().top-br.top;
+    });
+    if(line5Y==null||line1Y==null) return 0;
+    const gridH=line1Y-line5Y;
+    if(gridH<=0) return 0;
+    const tol=gridH*0.06;      // small tolerance so a natural-but-tidy drawing still scores cleanly
+    let mismatch=0;
+    // Too far below line 5 → gap on top; crossing above line 5 → overflow.
+    if(minY>line5Y+tol) mismatch+=minY-(line5Y+tol);
+    else if(minY<line5Y-tol) mismatch+=(line5Y-tol)-minY;
+    // Too far above line 1 → gap at the bottom; crossing below line 1 → overflow.
+    if(maxY<line1Y-tol) mismatch+=(line1Y-tol)-maxY;
+    else if(maxY>line1Y+tol) mismatch+=maxY-(line1Y+tol);
+    if(mismatch<=0) return 0;
+    return clamp(mismatch/gridH*0.30,0,0.30);   // up to 30% off when a full grid-height off
+  }
   function computeQuality(conf){
     const [ink,,,pathPenalty]=analyzeDrawing();
-    const pen=clamp(.68*conf + .24*ink + .02 - pathPenalty,0,1);
+    const pen=clamp(.68*conf + .24*ink + .02 - pathPenalty - gridFitPenalty(),0,1);
     return clamp(pen*timeFactor(),0,1);
   }
   function gradeStars(q){ return q>=.80?3:q>=.52?2:1; }
