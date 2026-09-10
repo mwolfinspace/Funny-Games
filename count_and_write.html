@@ -134,6 +134,11 @@
   .live-read.warn{background:#fff0dc;border-color:#e8c46a;color:#8a5a00}
   .live-read.busy{background:#f0f0f0;border-color:#ccc;color:#777}
   .stars{font-size:23px;letter-spacing:1px;white-space:nowrap}
+   .stars-block{display:flex;flex-direction:column;align-items:center;line-height:1;gap:2px}
+   .stars-score{font-size:12px;font-weight:900;color:#d9a126;white-space:nowrap;
+     animation:scorepop .4s cubic-bezier(.2,.8,.4,1.4) both}
+   @keyframes scorepop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+   .confetti{position:fixed;inset:0;z-index:70;pointer-events:none}
    .fly-star{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
      transform:translate(-50%,-50%) scale(1.15);opacity:1;
      transition:transform .85s cubic-bezier(.2,.7,.3,1), opacity .85s ease-in;
@@ -231,7 +236,7 @@
     <div class="status-pill" id="roundText">Round 1</div>
     <div class="countdown hidden" id="countdown">5</div>
     <div class="message" id="statusMsg">Count the pictures, then tap the matching number.</div>
-    <div class="stars" id="statusStars">☆☆☆</div>
+    <div class="stars-block"><div class="stars" id="statusStars">☆☆☆</div><div class="stars-score hidden" id="starsScore"></div></div>
     <span class="status-pill live-read hidden" id="liveRead"></span>
     <button class="status-pill hidden" id="nextRoundShort">Next ➜</button>
   </footer>
@@ -264,6 +269,7 @@
 
   const game = document.querySelector("#game"), lesson = document.querySelector("#lesson");
   const statusMsg = document.querySelector("#statusMsg"), statusStars = document.querySelector("#statusStars");
+  const starsScore = document.querySelector("#starsScore");
   const roundText = document.querySelector("#roundText"), limitVal = document.querySelector("#limitVal");
   const resultOverlay = document.querySelector("#resultOverlay"), resultScore = document.querySelector("#resultScore");
   const bigStars = document.querySelector("#bigStars");
@@ -451,6 +457,7 @@ function emojiGroups(n){
     state.answered=false; state.stars=0;
     roundText.textContent=`Round ${state.round}`;
     statusStars.textContent="☆☆☆";
+    starsScore.classList.add("hidden");
     statusMsg.textContent=state.mode==="many" ? `Count the ${state.target === state.lesson ? "pictures" : "pictures"}, then tap ${state.lesson}.` : "Write the number anywhere on the board, then Finish.";
     if(state.mode==="many") renderMany(); else renderWrite();
   }
@@ -564,6 +571,7 @@ function emojiGroups(n){
       lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); }
       statusMsg.textContent="Start fresh — write the number again.";
       statusStars.textContent="☆☆☆";
+      starsScore.classList.add("hidden");
     });
     fitAllEmoji();
     setTimeout(fitAllEmoji,0);
@@ -996,8 +1004,12 @@ function emojiGroups(n){
     // No popup: the kid should keep looking at their drawn number. Earned stars
     // appear mid-canvas, then fly into the empty top-right star slot and fill it
     // dim → full, so the slot always shows exactly how many stars were earned.
+    // The percent score pops in beneath the slot, and three stars get confetti.
     const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
     statusMsg.textContent=`${statusMsg.textContent} · ${Math.round(quality*100)}% · ${engineLabel} check`;
+    starsScore.textContent=`${Math.round(quality*100)}%`;
+    starsScore.classList.remove("hidden");
+    if(stars===3) confetti();
     const board=document.querySelector("#board");
     const fly=document.createElement("div");
     fly.className="fly-star";
@@ -1039,6 +1051,41 @@ function emojiGroups(n){
         }
       },1000);
     }
+  }
+  // Simple canvas confetti burst — a quick color shower for a perfect 3-star.
+  function confetti(){
+    const cv=document.createElement("canvas");
+    cv.className="confetti";
+    cv.width=innerWidth;cv.height=innerHeight;
+    document.body.appendChild(cv);
+    const ctx=cv.getContext("2d");
+    const colors=["#ffd23f","#ff6b6b","#4ecdc4","#e8468f","#2e6de0","#6fbf5f","#f47c1f"];
+    const P=[]; const N=120;
+    for(let i=0;i<N;i++){
+      P.push({
+        x:Math.random()*cv.width,
+        y:-20-Math.random()*cv.height*0.5,
+        w:5+Math.random()*6,h:8+Math.random()*8,
+        vy:2+Math.random()*3.5,vx:-1.2+Math.random()*2.4,
+        rot:Math.random()*Math.PI,vr:-.25+Math.random()*.5,
+        c:colors[i%colors.length]
+      });
+    }
+    let t=0;
+    (function tick(){
+      t++;
+      ctx.clearRect(0,0,cv.width,cv.height);
+      let alive=false;
+      for(const p of P){
+        p.y+=p.vy;p.x+=p.vx*p.vy*0.05;p.rot+=p.vr;
+        if(p.y<cv.height+30){alive=true;}
+        ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+        ctx.globalAlpha=Math.min(1,2.5-Math.max(0,p.y)/cv.height);
+        ctx.fillStyle=p.c;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();
+      }
+      if(alive&&t<260) requestAnimationFrame(tick);
+      else cv.remove();
+    })();
   }
   function nextRound(){
     clearCountdown();
