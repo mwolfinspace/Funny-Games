@@ -107,6 +107,10 @@
     background:#d9a126;color:#fff;font-weight:900;font-size:20px;box-shadow:0 5px 0 #b77e19;z-index:2;touch-action:manipulation
   }
   .finish:active{transform:translateY(3px);box-shadow:0 2px 0 #b77e19}
+  .finish[disabled]{opacity:.65}
+  .clear-btn{position:absolute;left:11px;bottom:11px;min-width:96px;height:48px;border-radius:16px;background:#fff2ea;color:#b0563a;font-weight:900;font-size:15px;border:2px solid #e9cfbb;box-shadow:0 4px 0 #e3c3ab;z-index:2;touch-action:manipulation}
+  .clear-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #e3c3ab}
+  .board-wrap.shake{animation:shake .28s;outline:4px solid #e38a81}
   .status{
     min-height:51px;padding:7px 10px;background:rgba(255,250,240,.98);border-top:2px solid var(--line);
     display:flex;gap:8px;align-items:center;z-index:5
@@ -223,6 +227,17 @@
 (() => {
   const EMOJIS = ["🍎","🍌","🍓","🍊","🍐","🍉","🥕","🌽","🍪","⭐","🐶","🐱","🐸","🐵","🦊","🐼","🦄","🚗","🚲","⚽","🎈","🧸","🌈","☀️"];
   const state = {mode:"many", same:true, colorful:false, auto:false, old:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, points:0, countdownTimer:null};
+
+  // Server OCR endpoint. The strong/steady gitea server runs the OCR; if the
+  // endpoint is unreachable (e.g. GitHub Pages hosting) or the request fails,
+  // the game falls back to a built-in local digit-matcher so scoring still
+  // checks the drawn shape. Override or disable with ?ocr= off the query.
+  //  - create the endpoint so it answers GET / (health = 200) and
+  //    POST {image:<png dataURL>, target:<number>} -> {number, confidence}
+  const OCR_QUERY = new URLSearchParams(location.search).get("ocr");
+  const OCR_API = OCR_QUERY !== null ? OCR_QUERY : "https://gitea.xedryk.top/api/ocr";
+  const OCR_TIMEOUT_MS = 3000;
+  let ocrHealthy = null;
 
   const game = document.querySelector("#game"), lesson = document.querySelector("#lesson");
   const statusMsg = document.querySelector("#statusMsg"), statusStars = document.querySelector("#statusStars");
@@ -486,6 +501,7 @@ function emojiGroups(n){
           <div class="guide-copy">Draw over the light number with a smooth, thick line ✏️</div>
           <canvas id="drawCanvas"></canvas>
           <button class="finish" id="finish">Finish ✓</button>
+          <button class="clear-btn" id="clearBtn" title="Clear the board">↺ Clear</button>
         </section>
       </div>
     `;
@@ -498,6 +514,12 @@ function emojiGroups(n){
     bindDrawing();
     game.querySelector("#writeEmojiCard").addEventListener("click",()=>speakNumber(state.target),{passive:true});
     document.querySelector("#finish").addEventListener("click",scoreDrawing);
+    document.querySelector("#clearBtn").addEventListener("click",()=>{
+      if(state.answered)return;
+      strokes=[]; current=null; redrawAll();
+      statusMsg.textContent="Start fresh — trace the number again.";
+      statusStars.textContent="☆☆☆";
+    });
     fitAllEmoji();
     setTimeout(fitAllEmoji,0);
   }
@@ -583,20 +605,203 @@ function emojiGroups(n){
     return [ink,coverage,overflow,pathPenalty];
   }
 
-  function scoreDrawing(){
+  // ---- Drawing capture + OCR failover --------------------------------
+  // Renders the current strokes to a clean white PNG data URL (scaled down
+  // for the network) that we send to the server OCR endpoint.
+  function strokesToImageDataUrl(){
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    const scale=Math.min(1, 480/Math.max(w,h));
+    const cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+    const c=document.createElement("canvas"); c.width=cw; c.height=ch;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,cw,ch);
+    g.scale(scale,scale);
+    g.lineCap="round"; g.lineJoin="round";
+    g.lineWidth=Math.max(9,Math.min(21,w*.021));
+    g.strokeStyle="#000";
+    for(const s of strokes){
+      if(s.length<2)continue;
+      g.beginPath(); g.moveTo(s[0].x,s[0].y);
+      for(let i=1;i<s.length;i++) g.lineTo(s[i].x,s[i].y);
+      g.stroke();
+    }
+    return c.toDataURL("image/png");
+  }
+
+  async function serverOcrHealth(){
+    if(ocrHealthy!==null) return ocrHealthy;
+    if(!OCR_API) { ocrHealthy=false; return false; }
+    try{
+      const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),OCR_TIMEOUT_MS);
+      const r=await fetch(OCR_API,{method:"GET",signal:ctl.signal});
+      clearTimeout(t);
+      ocrHealthy=r.ok;
+    }catch(e){ ocrHealthy=false; }
+    return ocrHealthy;
+  }
+
+  // Calls the server OCR. Returns {number, confidence} or null on any failure.
+  async function serverOcrRecognize(){
+    const dataUrl=strokesToImageDataUrl();
+    try{
+      const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),OCR_TIMEOUT_MS);
+      const r=await fetch(OCR_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:dataUrl,target:state.target}),signal:ctl.signal});
+      clearTimeout(t);
+      if(!r.ok) return null;
+      const j=await r.json().catch(()=>null);
+      if(!j) return null;
+      const n=Number.isInteger(j.number)?j.number:parseInt(j.number,10);
+      if(!Number.isInteger(n)) return null;
+      return {number:n, confidence:typeof j.confidence==="number"?j.confidence:0};
+    }catch(e){ return null; }
+  }
+
+  // ---- Local digit matcher (failsafe, runs without a server) ----------
+  // Rasterizes the strokes into a 56x56 density grid and the guide glyph into
+  // the same grid, then checks the ink against digit templates so a wrong
+  // number (a drawn 2 when 1 is asked) can never get full marks.
+  function glyphToRaster(n){
+    const S=56;
+    const c=document.createElement("canvas"); c.width=S; c.height=S;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,S,S);
+    g.fillStyle="#000";
+    const fam=getComputedStyle(document.querySelector(".guide-number")).fontFamily || 'Arial, sans-serif';
+    g.font=`900 ${S}px ${fam}`;
+    g.textAlign="center"; g.textBaseline="middle";
+    g.fillText(String(n), S/2, S/2);
+    const d=g.getImageData(0,0,S,S).data;
+    const grid=[];
+    for(let y=0;y<S;y++){
+      const row=[];
+      for(let x=0;x<S;x++){
+        row.push(d[(y*S+x)*4+3]>128?1:0);
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  function strokesToRaster(){
+    const S=56;
+    const c=document.createElement("canvas"); c.width=S; c.height=S;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,S,S);
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    g.scale(S/w,S/h);
+    g.lineCap="round"; g.lineJoin="round";
+    g.lineWidth=Math.max(9,Math.min(21,w*.021));
+    g.strokeStyle="#000";
+    for(const s of strokes){
+      if(s.length<2)continue;
+      g.beginPath(); g.moveTo(s[0].x,s[0].y);
+      for(let i=1;i<s.length;i++) g.lineTo(s[i].x,s[i].y);
+      g.stroke();
+    }
+    const d=g.getImageData(0,0,S,S).data;
+    const grid=[];
+    for(let y=0;y<S;y++){
+      const row=[];
+      for(let x=0;x<S;x++){
+        row.push(d[(y*S+x)*4+3]>128?1:0);
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  // IoU of two binary grids.
+  function rasterIoU(a,b){
+    let inter=0, uni=0;
+    for(let y=0;y<a.length;y++){
+      for(let x=0;x<a[0].length;x++){
+        if(a[y][x]&&b[y][x]) inter++;
+        if(a[y][x]||b[y][x]) uni++;
+      }
+    }
+    return uni? inter/uni : 0;
+  }
+
+  // Local failsafe digit check: score the ink against 0..20 glyphs,
+  // best match must be the target to be correct.
+  function localDigitVerify(){
+    if(!strokes.length) return {correct:false, guessed:-1, confidence:0};
+    const ink=strokesToRaster();
+    const targetGrid=glyphToRaster(state.target);
+    const targetScore=rasterIoU(ink,targetGrid);
+    let bestScore=0, bestN=-1;
+    for(let n=0;n<=20;n++){
+      if(n===state.target) continue;
+      const s=rasterIoU(ink,glyphToRaster(n));
+      if(s>bestScore){ bestScore=s; bestN=n; }
+    }
+    const correct = targetScore > bestScore + 0.03 && targetScore > 0.18;
+    return {correct, guessed: bestN, confidence: targetScore};
+  }
+
+  async function evaluateDrawing(){
+    // 1) Prefer the server OCR if it's healthy; returns {number,confidence}.
+    try{
+      const ok = await serverOcrHealth();
+      if(ok){
+        const res=await serverOcrRecognize();
+        if(res) return {method:"server", number:res.number, confidence:res.confidence};
+      }
+    }catch(e){}
+    // 2) Failsafe: local matcher.
+    const v=localDigitVerify();
+    return {method:"local", number: v.correct ? state.target : v.guessed, confidence: v.confidence};
+  }
+
+  function setFinishBusy(busy){
+    const f=document.querySelector("#finish");
+    if(!f)return;
+    f.disabled=busy;
+    f.textContent=busy ? "Checking…" : "Finish ✓";
+  }
+
+  function rejectDrawing(guess){
+    state.answered=false;
+    statusStars.textContent="☆☆☆";
+    const board=document.querySelector("#board");
+    statusMsg.textContent = guess===state.target
+      ? `Hmm, I couldn't read that. Trace the ${state.target} again slowly!`
+      : `That looks like ${guess}. Trace the ${state.target} and try again!`;
+    if(board){ board.classList.remove("shake"); void board.offsetWidth; board.classList.add("shake"); }
+    sfxWrong();
+  }
+
+  async function scoreDrawing(){
     if(state.answered)return;
+    if(strokes.length<2){
+      statusMsg.textContent="Draw the number first ✏️";
+      return;
+    }
+    setFinishBusy(true);
+    const ev = await evaluateDrawing().catch(()=> ({method:"local", number:-1, confidence:0}));
+    setFinishBusy(false);
+
+    // Gate: the recognized number must be the one asked for.
+    if(ev.number !== state.target){
+      rejectDrawing(ev.number);
+      return;
+    }
+
+    // Correct digit → grade penmanship, boosted by recognition confidence.
     const [ink,coverage,overflow,pathPenalty]=analyzeDrawing();
-    const quality=clamp(.62*coverage+.20*ink+.18*(1-overflow)-pathPenalty,0,1);
-    const stars=quality>=.78?3:quality>=.50?2:1;
+    const conf=clamp(ev.confidence,0,1);
+    const quality=clamp(.5*conf + .12*coverage + .10*ink + .12*(1-overflow) + .16 - pathPenalty,0,1);
+    const stars=quality>=.70?3:quality>=.45?2:1;
     state.stars=stars;state.answered=true;statusStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
     state.points+=stars*10;
     statusMsg.textContent=stars===3?"Beautiful number! 🌟":stars===2?"Nice job! Try staying closer to the guide.":"Good try! Let's practice this number again.";
-    showResult(stars,quality);
+    sfxCorrect();
+    showResult(stars,quality,ev.method);
   }
 
-  function showResult(stars,quality){
+  function showResult(stars,quality,method){
     bigStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
-    resultScore.textContent=`Score ${Math.round(quality*100)}% · ${state.target} was the number`;
+    resultScore.textContent=`Score ${Math.round(quality*100)}% · ${state.target} was the number · ${method==="server"?"server":"local"} check`;
     resultOverlay.classList.remove("hidden");
     // Write mode: honor the Auto toggle too — count down then auto-advance.
     if(state.auto && !state.countdownTimer){
