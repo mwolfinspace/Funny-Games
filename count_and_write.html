@@ -1162,6 +1162,60 @@ function fitScatter(root){
     g.beginPath(); g.moveTo(W*0.16,y); g.lineTo(W*0.84,y); g.stroke();
     return c;
   }
+  // Kid-drawn "2" with a CLOSED head: children who "start from the inside"
+  // curl the top into a near-circle, which printed-font 2s (open head) don't
+  // cover — the closed loop then best-matches the "0" ellipse. Stroked paths
+  // let that style match the target 2 instead of 0.
+  function glyphKid2Canvas(){
+    const W=220,H=240;
+    const c=document.createElement("canvas"); c.width=W; c.height=H;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,W,H);
+    g.strokeStyle="#000"; g.lineCap="round"; g.lineJoin="round";
+    g.lineWidth=Math.round(H*0.055);
+    // Closed head loop (a kid-style near-circle at the top-left).
+    g.beginPath();
+    g.ellipse(W*0.42, H*0.30, W*0.18, H*0.13, 0, 0, Math.PI*2);
+    g.stroke();
+    // Diagonal leaving the loop down to the left.
+    g.beginPath();
+    g.moveTo(W*0.60, H*0.40);
+    g.quadraticCurveTo(W*0.32, H*0.55, W*0.26, H*0.70);
+    g.stroke();
+    // Flat base line.
+    g.beginPath();
+    g.moveTo(W*0.20, H*0.76);
+    g.lineTo(W*0.82, H*0.76);
+    g.stroke();
+    return c;
+  }
+  // Kid-drawn "2" as a 7-style top: small flat head + strong diagonal + the
+  // base line. The base line is the part "7" references never have, so this
+  // style maps to 2 rather than 7, and the OCR-7 reads get corrected.
+  function glyphKid2SevenCanvas(){
+    const W=220,H=240;
+    const c=document.createElement("canvas"); c.width=W; c.height=H;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,W,H);
+    g.strokeStyle="#000"; g.lineCap="round"; g.lineJoin="round";
+    g.lineWidth=Math.round(H*0.055);
+    // Short flat head, like a "7" top but curling down at the right end.
+    g.beginPath();
+    g.moveTo(W*0.22, H*0.22);
+    g.quadraticCurveTo(W*0.55, H*0.20, W*0.68, H*0.35);
+    g.stroke();
+    // Strong diagonal down-left.
+    g.beginPath();
+    g.moveTo(W*0.68, H*0.35);
+    g.lineTo(W*0.24, H*0.68);
+    g.stroke();
+    // The base line a real 7 lacks.
+    g.beginPath();
+    g.moveTo(W*0.18, H*0.76);
+    g.lineTo(W*0.84, H*0.76);
+    g.stroke();
+    return c;
+  }
   // Cache of reference rasters per number (all font variants).
   const glyphRasterCache={};
   function glyphRasters(n){
@@ -1176,6 +1230,12 @@ function fitScatter(root){
     // would otherwise read as an ellipse still matches the target 7.
     if(n===7){
       list.push(dilate1(rasterFromCanvas(glyph7barCanvas())));
+    }
+    // A "2" whose head kids closed into a loop (reads as 0) or drew as a
+    // flat 7-style top (reads as 7) needs kid-stroke reference shapes too.
+    if(n===2){
+      list.push(dilate1(rasterFromCanvas(glyphKid2Canvas())));
+      list.push(dilate1(rasterFromCanvas(glyphKid2SevenCanvas())));
     }
     glyphRasterCache[n]=list;
     return list;
