@@ -167,12 +167,14 @@
    .fly-star.hold{animation:starhold 1.4s ease-in-out infinite}
    @keyframes starhold{0%,100%{transform:translate(-50%,-50%) scale(1.15);filter:brightness(1)}
      50%{transform:translate(-50%,-50%) scale(1.02);filter:brightness(1.15)}}
-   .stars.filled span{display:inline-block;animation:starfill .55s cubic-bezier(.2,.8,.4,1.4) forwards}
+.stars.filled span{display:inline-block;animation:starfill .55s cubic-bezier(.2,.8,.4,1.4) forwards}
    .stars.filled span.dim{animation:none}
    .stars.filled span:nth-child(2){animation-delay:.12s}
    .stars.filled span:nth-child(3){animation-delay:.24s}
+   .stars .slot{display:inline-block;color:#c8b98a;opacity:.55;filter:grayscale(1)}
+   .stars .slot.got{color:#ffd23f;opacity:1;filter:none;animation:starfill .5s cubic-bezier(.2,.8,.4,1.4) both}
    @keyframes starfill{from{transform:scale(.35);opacity:.2;filter:brightness(.3)}
-     to{transform:scale(1);opacity:1;filter:brightness(1)}}
+      to{transform:scale(1);opacity:1;filter:brightness(1)}}
   .overlay{position:fixed;inset:0;background:rgba(61,45,26,.48);display:grid;place-items:center;padding:18px;z-index:20}
   .result{width:min(500px,100%);background:#fffaf0;border:3px solid var(--line);border-radius:27px;padding:24px;text-align:center;box-shadow:0 15px 40px #0004}
   .result h2{font-size:34px;margin:0 0 3px}
@@ -1194,46 +1196,44 @@ function fitScatter(root){
 
   async function showResult(stars,quality,method){
     // No popup: the kid should keep looking at their drawn number. Earned stars
-    // appear mid-canvas, pulse there, then fly into the top-right star slot and
-    // fill it dim → full. Every stage waits for the previous one — stars first,
-    // then slot fill, then SFX → voice → countdown — so the flow is linear and
-    // nothing overlaps. The percent score pops in with the stars; 3 stars confetti.
+    // fly into the top-right star slot ONE AT A TIME — each star appears at the
+    // center briefly, then flies bright into its own slot where it fills; the
+    // next star stays back until the previous one has landed. Short center
+    // hold, no all-at-once flight. The percent score pops in with the last
+    // star; 3 stars confetti.
     const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
     statusMsg.textContent=`${statusMsg.textContent} · ${Math.round(quality*100)}% · ${engineLabel} check`;
 
-    // 1) Earned stars appear large in the middle of the canvas.
+    // 1) Fly the earned stars to the slot one by one.
     const board=document.querySelector("#board");
-    const fly=document.createElement("div");
-    fly.className="fly-star";
-    fly.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
-    document.body.appendChild(fly);
     const src=board.getBoundingClientRect();
-    fly.style.left=`${src.left+src.width/2}px`;
-    fly.style.top=`${src.top+src.height/2}px`;
-    const dst=statusStars.getBoundingClientRect();
-    const dx=dst.left+dst.width/2-(src.left+src.width/2);
-    const dy=dst.top+dst.height/2-(src.top+src.height/2);
-    fly.classList.add("hold");
-
-    // 2) Hold at center (kid sees the stars), then fly to the slot. Confetti
-    // starts with the flight so the whole celebration is one timeline. The star
-    // stays BRIGHT during the flight so the kid watches it land on the corner
-    // slot (it shrinks to slot size en route, no fade-out mid-flight).
-    const FLY_AT=2100, FLY_MS=850;
-    await sleep(FLY_AT);
-    if(stars===3) confetti();
-    fly.classList.remove("hold");
-    fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.24)`;
-    fly.style.opacity="1";
-    await sleep(FLY_MS);
-    fly.remove();
-
-    // 3) Fill the star slot dim → full with exactly the earned stars, and the
-    // percent score pops in beneath the slot at the same moment.
-    statusStars.textContent="☆☆☆";
-    statusStars.classList.remove("filled");void statusStars.offsetWidth;
-    statusStars.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
-    statusStars.classList.add("filled");
+    const sx=src.left+src.width/2, sy=src.top+src.height/2;
+    statusStars.innerHTML="<span class=\"slot\">☆</span>".repeat(3);
+    void statusStars.offsetWidth;
+    const slots=[...statusStars.children];
+    const HOLD_AT=650, FLY_MS=850, GAP=160;
+    for(let i=0;i<stars;i++){
+      const fly=document.createElement("div");
+      fly.className="fly-star";
+      fly.textContent="★";
+      document.body.appendChild(fly);
+      fly.style.left=`${sx}px`;
+      fly.style.top=`${sy}px`;
+      fly.classList.add("hold");
+      await sleep(HOLD_AT);
+      if(i===0 && stars===3) confetti();
+      fly.classList.remove("hold");
+      const dst=slots[i].getBoundingClientRect();
+      const dx=dst.left+dst.width/2-sx, dy=dst.top+dst.height/2-sy;
+      fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
+      await sleep(FLY_MS);
+      fly.remove();
+      const slot=slots[i];
+      slot.textContent="★";
+      slot.classList.add("got");
+      void slot.offsetWidth;
+      if(i<stars-1) await sleep(GAP);
+    }
     starsScore.textContent=`${Math.round(quality*100)}%`;
     starsScore.classList.remove("hidden");
 
