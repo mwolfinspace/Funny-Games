@@ -58,14 +58,18 @@
   .emoji-card .caption{position:absolute;top:8px;left:12px;font-size:12px;color:var(--muted);font-weight:900}
   .emoji-card .emoji-tap-hint{position:absolute;top:8px;right:12px;font-size:11px;color:var(--muted);font-weight:800;opacity:.85}
   .emoji-grid{
-    width:100%;height:100%;display:grid;place-items:center;
-    align-content:center;justify-content:center;
-    gap:clamp(5px,1vw,12px);max-width:900px;max-height:100%;
+    width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    gap:clamp(5px,1vw,14px);max-width:900px;max-height:100%;
     margin:0 auto;overflow:hidden
   }
+  .emoji-row{
+    display:flex;justify-content:center;align-items:center;flex:0 0 auto;max-width:100%;
+    gap:clamp(5px,1vw,12px)
+  }
   .emoji{
+    width:var(--emojisz,0px);height:var(--emojisz,0px);font-size:var(--emojif,0px);
     line-height:1;text-align:center;display:flex;align-items:center;justify-content:center;
-    width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;
+    flex:0 0 auto;overflow:hidden;
     font-family:var(--emoji-font);
     font-variant-emoji:emoji; font-synthesis:none;
   }
@@ -179,11 +183,7 @@
       <button data-mode="write">Write Many</button>
     </div>
     <label class="control">Lesson
-      <select id="lesson">
-        <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
-        <option value="4">4</option><option value="5">5</option><option value="10">10</option>
-        <option value="12">12</option>
-      </select>
+      <select id="lesson"></select>
     </label>
     <button class="control toggle" id="sameToggle"><span>Same emoji</span><span class="switch on"><i></i></span></button>
     <button class="control toggle" id="colorToggle"><span>Colorful</span><span class="switch"><i></i></span></button>
@@ -242,7 +242,7 @@
     }catch(e){}
   }
   function speakNumber(n){
-    const words=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen"];
+    const words=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
     speak(words[n]||n);
   }
 
@@ -273,23 +273,26 @@
     countdownEl.classList.add("hidden"); countdownEl.classList.remove("big");
   }
 
+  // Curriculum: each lesson focuses on one number and only ever shows the
+  // numbers the kid has already learned plus the very next one. Lesson N uses
+  // 0..(N+1) up to 10, then for 11..20 moves on one number at a time up to 20.
   function lessonRange(){
     const n = state.lesson;
-    if(n===1) return [1,1];
-    return [Math.max(0,n-2), n+2];
+    const cap = n <= 10 ? 10 : 20;
+    return [0, Math.min(n + 1, cap)];
   }
 
   function makeTarget(){
-    const [lo,hi] = lessonRange();
-    state.target = rand(Math.max(1,lo), hi);
+    state.target = state.lesson;
   }
 
   function choiceNumbers(){
     const out = new Set([state.target]);
     const [lo,hi] = lessonRange();
-    const min = Math.max(0,lo), max = Math.max(state.target+2,hi);
-    while(out.size < state.choices) {
-      let x = rand(min, max);
+    const need = Math.min(state.choices, hi - lo + 1);
+    let guard = 0;
+    while(out.size < need && guard++ < 200){
+      const x = rand(lo, hi);
       if(x!==state.target) out.add(x);
     }
     return shuffle([...out]);
@@ -303,48 +306,59 @@
     return Array.from({length:count},()=>EMOJIS[rand(0,EMOJIS.length-1)]);
   }
 
-  function emojiGridHtml(){
-    const items = emojiItems(state.target);
-    const gap=`clamp(5px,1vw,12px)`;
-    const cells=items.map((e,i)=>`<div class="emoji" data-emoji-cell="${i}">${e}</div>`).join("");
-    return `<div class="emoji-grid" data-count="${items.length}" style="gap:${gap}">${cells}</div>`;
+  // Arrange the emojis in a book-like pattern of rows: each row is a "group",
+// so 6 looks like 3+3, 8 like 4+4, 10 like two rows of 5 (a ten-frame), 9 like
+// three rows of 3, etc. This builds the grouping/arrays intuition (5-group,
+// 3-group, 2-group) that kids reuse later.
+  function emojiGroups(n){
+    const table={
+      1:[1],2:[2],3:[3],4:[2,2],5:[5],
+      6:[3,3],7:[5,2],8:[4,4],9:[3,3,3],10:[5,5],
+      11:[5,3,3],12:[4,4,4],13:[5,4,4],14:[5,5,4],15:[5,5,5],
+      16:[4,4,4,4],17:[5,4,4,4],18:[5,5,4,4],19:[5,5,5,4],20:[5,5,5,5]
+    };
+    if(table[n]) return table[n];
+    const rows=[]; let rem=n;
+    while(rem>5){ rows.push(5); rem-=5; }
+    if(rem) rows.push(rem);
+    return rows;
   }
 
-  // Smart packing: pick the column count that gives the largest glyph that
-  // still fits. Adapts to wide/tall cards and small/large counts, so emojis
-  // are always as big as possible, never overlapping and never tiny.
+  function emojiGridHtml(){
+    const items = emojiItems(state.target);
+    const groups = emojiGroups(items.length);
+    const gap=`clamp(5px,1vw,14px)`;
+    const rows=[];
+    let idx=0;
+    for(const g of groups){
+      const cells = items.slice(idx, idx+g).map(e=>`<div class="emoji">${e}</div>`).join("");
+      rows.push(`<div class="emoji-row" data-count="${g}">${cells}</div>`);
+      idx += g;
+    }
+    return `<div class="emoji-grid" data-count="${items.length}" style="gap:${gap}">${rows.join("")}</div>`;
+  }
+
+  // Fit the grouped rows: every emoji gets the same size so the whole little
+  // "book page" of groups fits the card, as big as possible without overlap.
   function fitEmojiGrid(root){
     if(!root)return;
+    const rows=[...root.querySelectorAll(".emoji-row")];
+    if(!rows.length)return;
     const cells=root.querySelectorAll(".emoji");
     if(!cells.length)return;
-    const count=cells.length;
-
-    root.style.gridTemplateColumns="";
-    root.style.gridTemplateRows="";
 
     const rect=root.getBoundingClientRect();
-    const gapX=parseFloat(getComputedStyle(root).columnGap)||8;
-    const gapY=parseFloat(getComputedStyle(root).rowGap)||8;
+    const gap=parseFloat(getComputedStyle(root).gap)||8;
     const W=Math.max(1,rect.width), H=Math.max(1,rect.height);
 
-    let best={cols:1,min:0};
-    for(let cols=1; cols<=count; cols++){
-      const rows=Math.ceil(count/cols);
-      const cellW=(W-gapX*(cols-1))/cols;
-      const cellH=(H-gapY*(rows-1))/rows;
-      const m=Math.min(cellW,cellH);
-      if(m>best.min) best={cols,min:m};
-    }
+    const itemsPerRow=Math.max(...rows.map(r=>r.querySelectorAll(".emoji").length));
+    const rowCount=rows.length;
 
-    const cols=best.cols, rows=Math.ceil(count/cols);
-    root.style.gridTemplateColumns=`repeat(${cols},minmax(0,1fr))`;
-    root.style.gridTemplateRows=`repeat(${rows},minmax(0,1fr))`;
-
-    const cellW=(W-gapX*(cols-1))/cols;
-    const cellH=(H-gapY*(rows-1))/rows;
-    let size=Math.floor(Math.min(cellW,cellH)*0.8);
-    size=Math.max(22,Math.min(size,260));
-    cells.forEach(c=>{ c.style.fontSize=size+"px"; });
+    const cellW=(W-gap*(itemsPerRow-1))/itemsPerRow;
+    const cellH=(H-gap*(rowCount-1))/rowCount;
+    const size=Math.max(22, Math.min(Math.floor(Math.min(cellW,cellH)*0.82), 260));
+    root.style.setProperty("--emojisz", size+"px");
+    root.style.setProperty("--emojif", Math.floor(size*0.9)+"px");
   }
 
   function fitAllEmoji(){
@@ -356,7 +370,7 @@
     state.answered=false; state.stars=0;
     roundText.textContent=`Round ${state.round}`;
     statusStars.textContent="☆☆☆";
-    statusMsg.textContent=state.mode==="many" ? "Count the pictures, then tap the matching number." : "Trace the number, then press Finish.";
+    statusMsg.textContent=state.mode==="many" ? `Count the ${state.target === state.lesson ? "pictures" : "pictures"}, then tap ${state.lesson}.` : "Trace the number, then press Finish.";
     if(state.mode==="many") renderMany(); else renderWrite();
   }
 
@@ -365,7 +379,7 @@
     game.innerHTML=`
       <div class="many-layout">
         <section class="card emoji-card many-emoji-card" id="manyEmojiCard">
-          <div class="caption">How many?</div>
+          <div class="caption" id="manyCaption">Count ${state.target}</div>
           <div class="emoji-tap-hint">👆 Tap emoji to hear the number</div>
           ${emojiGridHtml()}
         </section>
@@ -437,7 +451,7 @@
       <div class="write-layout">
         <div class="prompt-row">
           <section class="card emoji-card" id="writeEmojiCard">
-            <div class="caption">Count these</div>${emojis}
+            <div class="caption">Count ${state.target}</div>${emojis}
           </section>
           <section class="target-preview card">
             <div class="target-label">Trace this number</div><div class="target-number">${state.target}</div>
@@ -612,7 +626,17 @@
   nextShortEl.addEventListener("click",nextRound);
   window.addEventListener("resize",fitAllEmoji);
 
-  makeTarget(); render();
+  function populateLessons(){
+    lesson.innerHTML="";
+    for(let i=1;i<=20;i++){
+      const o=document.createElement("option");
+      o.value=i; o.textContent=i;
+      if(i===state.lesson) o.selected=true;
+      lesson.appendChild(o);
+    }
+  }
+
+  populateLessons(); makeTarget(); render();
 })();
 </script>
 </body>
