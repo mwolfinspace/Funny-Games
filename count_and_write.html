@@ -134,6 +134,16 @@
   .live-read.warn{background:#fff0dc;border-color:#e8c46a;color:#8a5a00}
   .live-read.busy{background:#f0f0f0;border-color:#ccc;color:#777}
   .stars{font-size:23px;letter-spacing:1px;white-space:nowrap}
+   .fly-star{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
+     transform:translate(-50%,-50%) scale(1.15);opacity:1;
+     transition:transform .85s cubic-bezier(.2,.7,.3,1), opacity .85s ease-in;
+     font-size:clamp(48px,10vw,100px);letter-spacing:4px;color:#ffd23f;
+     text-shadow:0 4px 14px rgba(0,0,0,.4)}
+   .stars.filled span{display:inline-block;animation:starfill .55s cubic-bezier(.2,.8,.4,1.4) forwards}
+   .stars.filled span:nth-child(2){animation-delay:.12s}
+   .stars.filled span:nth-child(3){animation-delay:.24s}
+   @keyframes starfill{from{transform:scale(.35);opacity:.2;filter:brightness(.3)}
+     to{transform:scale(1);opacity:1;filter:brightness(1)}}
   .overlay{position:fixed;inset:0;background:rgba(61,45,26,.48);display:grid;place-items:center;padding:18px;z-index:20}
   .result{width:min(500px,100%);background:#fffaf0;border:3px solid var(--line);border-radius:27px;padding:24px;text-align:center;box-shadow:0 15px 40px #0004}
   .result h2{font-size:34px;margin:0 0 3px}
@@ -975,7 +985,7 @@ function emojiGroups(n){
     const conf=clamp(ev.confidence,0,1);
     const quality=clamp(.62*conf + .22*ink + .16 - pathPenalty,0,1);
     const stars=quality>=.70?3:quality>=.45?2:1;
-    state.stars=stars;state.answered=true;statusStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
+    state.stars=stars;state.answered=true;
     state.points+=stars*10;
     statusMsg.textContent=stars===3?"Beautiful writing! 🌟":stars===2?"Nice job! Let's shape it smoothly next time.":"Good try! Let's practice this number again.";
     sfxCorrect();
@@ -983,10 +993,37 @@ function emojiGroups(n){
   }
 
   function showResult(stars,quality,method){
-    bigStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
+    // No popup: the kid should keep looking at their drawn number. Earned stars
+    // appear mid-canvas, then fly into the empty top-right star slot and fill it
+    // dim → full, so the slot always shows exactly how many stars were earned.
     const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
-    resultScore.textContent=`Score ${Math.round(quality*100)}% · ${state.target} was the number · ${engineLabel} check`;
-    resultOverlay.classList.remove("hidden");
+    statusMsg.textContent=`${statusMsg.textContent} · ${Math.round(quality*100)}% · ${engineLabel} check`;
+    const board=document.querySelector("#board");
+    const fly=document.createElement("div");
+    fly.className="fly-star";
+    fly.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
+    document.body.appendChild(fly);
+    const src=board.getBoundingClientRect();
+    fly.style.left=`${src.left+src.width/2}px`;
+    fly.style.top=`${src.top+src.height/2}px`;
+    const dst=statusStars.getBoundingClientRect();
+    const dx=dst.left+dst.width/2-(src.left+src.width/2);
+    const dy=dst.top+dst.height/2-(src.top+src.height/2);
+    const cleanup=setTimeout(()=>fly.remove(),1600);
+    requestAnimationFrame(()=>{
+      fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
+      fly.style.opacity=".15";
+    });
+    fly.addEventListener("transitionend",()=>{
+      clearTimeout(cleanup);fly.remove();
+    },{once:true});
+    const land=()=>{
+      statusStars.textContent="☆☆☆";
+      statusStars.classList.remove("filled");void statusStars.offsetWidth;
+      statusStars.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
+      statusStars.classList.add("filled");
+    };
+    setTimeout(land,850);
     // Write mode: honor the Auto toggle too — count down then auto-advance.
     if(state.auto && !state.countdownTimer){
       let left=5;
