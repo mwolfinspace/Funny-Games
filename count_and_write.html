@@ -18,7 +18,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--round)}
-  body{-webkit-user-select:none;user-select:none}
+  body{-webkit-user-select:none;user-select:none;touch-action:none;-webkit-text-size-adjust:100%}
   button,select{font:inherit}
   button{border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .app{height:100%;height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0}
@@ -104,7 +104,8 @@
     box-shadow:0 6px 0 #dfd1bc;touch-action:manipulation
   }
   .num-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #dfd1bc}
-  .num-btn.good{box-shadow:0 4px 0 rgba(0,0,0,.12)}
+  .num-btn.good{box-shadow:0 4px 0 rgba(0,0,0,.12);background:#e8f6e6!important;border-color:#7ecb7e!important;color:#1e6b1e!important;transform:translateY(-2px) scale(1.04);z-index:1}
+  .num-btn.off{opacity:.3;filter:grayscale(.9);pointer-events:none}
   .num-btn.bad{animation:shake .28s;background:#ffe9e6!important;border-color:#e38a81!important}
   @keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
   .write-layout{display:grid;grid-template-rows:minmax(0,44%) minmax(0,56%);gap:9px;height:100%;min-height:0}
@@ -153,6 +154,8 @@
   .status-pill{background:#f3eadb;border-radius:12px;padding:6px 9px;font-size:12px;font-weight:900;white-space:nowrap}
   button.status-pill{border:2px solid var(--line);background:#fff;min-height:34px}
   button.status-pill:hover{background:#fff3c4}
+  .status-pill.fs-btn{position:fixed;right:14px;bottom:90px;z-index:50;width:44px;height:44px;font-size:20px;border-radius:14px;background:#fff8d6;border:2px solid var(--line);box-shadow:0 4px 0 #d9cec0;display:flex;align-items:center;justify-content:center}
+  .status-pill.fs-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #d9cec0}
   .countdown{background:#fff3bf;border:2px solid #ead58a;min-width:86px;text-align:center}
   .countdown.big{font-size:17px;background:#ffe9a3;animation:pulse 1s infinite}
   @keyframes pulse{50%{transform:scale(1.08)}}
@@ -277,6 +280,7 @@
     <div class="stars-block"><div class="stars" id="statusStars">☆☆☆</div><div class="stars-score hidden" id="starsScore"></div></div>
     <span class="status-pill live-read hidden" id="liveRead"></span>
     <button class="status-pill hidden" id="nextRoundShort">Next ➜</button>
+    <button class="status-pill fs-btn" id="fsBtn" title="Full screen">⛶</button>
   </footer>
 </div>
 
@@ -743,6 +747,10 @@ function fitScatter(root){
       statusStars.innerHTML=`<span class="filledstar">★</span>`.repeat(earned)+`<span class="dim">★</span>`.repeat(3-earned);
       statusStars.classList.remove("filled");void statusStars.offsetWidth;
       statusStars.classList.add("filled");
+      // Highlight the right answer, dim the wrong ones so the kid can study
+      // where the real number sits.
+      btn.classList.add("good");
+      game.querySelectorAll(".num-btn").forEach(x=>{ if(x!==btn) x.classList.add("off"); });
       playGood(btn);
       celebrateCorrect(startAutoNext);
     }else{
@@ -760,31 +768,16 @@ function fitScatter(root){
   }
 
   // After a correct answer: if Auto is off, stay and let the kid study the
-  // answer. If Auto is on, run a 5-second countdown in the status bar, then
-  // start the next puzzle.
+  // answer. If Auto is on, start the next puzzle right away (countdown 0).
   function startAutoNext(){
     nextShortEl.classList.add("hidden");
+    clearCountdown();
     if(!state.auto){
       statusMsg.textContent="Correct! 🎉 Study the answer. Tap Next when ready.";
       nextShortEl.classList.remove("hidden");
       return;
     }
-    statusMsg.textContent=`Next puzzle in 5…`;
-    let left=5;
-    countdownEl.textContent=left;
-    countdownEl.classList.remove("hidden");
-    countdownEl.classList.add("big");
-    sfxTick();
-    state.countdownTimer=setInterval(()=>{
-      left--;
-      if(left<=0){
-        clearCountdown();
-        nextRound();
-      }else{
-        countdownEl.textContent=left;
-        sfxTick();
-      }
-    },1000);
+    nextRound();
   }
 
   function renderWrite(){
@@ -1461,18 +1454,7 @@ function fitScatter(root){
       nextShortEl.classList.remove("hidden");
       return;
     }
-    let left=5;
-    countdownEl.textContent=left;
-    countdownEl.classList.remove("hidden");
-    state.countdownTimer=setInterval(()=>{
-      left--;
-      if(left<=0){
-        clearCountdown();
-        nextRound();
-      }else{
-        countdownEl.textContent=left;
-      }
-    },1000);
+    nextRound();
   }
   // Simple canvas confetti burst — a quick color shower for a perfect 3-star.
   function confetti(){
@@ -1579,7 +1561,7 @@ function fitScatter(root){
     state.auto=!state.auto;
     autoSwitch.classList.toggle("on",state.auto);
     if(state.auto){ nextShortEl.classList.add("hidden"); }
-    statusMsg.textContent = state.auto ? "Auto on: next puzzle starts after the countdown." : "Auto off: stay on the puzzle to study the answer.";
+    statusMsg.textContent = state.auto ? "Auto on: next puzzle starts right away." : "Auto off: stay on the puzzle to study the answer.";
     saveSettings();
   });
   const oldSwitch=document.querySelector("#oldToggle .switch");
@@ -1592,10 +1574,35 @@ function fitScatter(root){
   document.querySelector("#minus").addEventListener("click",()=>{state.choices=clamp(state.choices-1,1,8);limitVal.textContent=`${state.choices} choice${state.choices===1?"":"s"}`;render();saveSettings()});
   document.querySelector("#plus").addEventListener("click",()=>{state.choices=clamp(state.choices+1,1,8);limitVal.textContent=`${state.choices} choices`;render();saveSettings()});
   document.querySelector("#newGame").addEventListener("click",()=>{state.round=1;makeTarget();render()});
-  document.querySelector("#newGame").addEventListener("click",()=>{state.round=1;makeTarget();render()});
   document.querySelector("#nextRound").addEventListener("click",nextRound);
   nextShortEl.addEventListener("click",nextRound);
   window.addEventListener("resize",fitAllEmoji);
+
+  // ---- Fullscreen (auto-fit the screen; nothing gets cut off) ----
+  // Browser pinch-zoom is blocked so drawing never gets interrupted by an
+  // accidental two-finger zoom. Instead the teacher uses this button.
+  const fsBtn=document.querySelector("#fsBtn");
+  function syncFsBtn(){
+    fsBtn.textContent = document.fullscreenElement ? "✕" : "⛶";
+    fsBtn.title = document.fullscreenElement ? "Exit full screen" : "Full screen";
+  }
+  for(const ev of ["gesturestart","gesturechange","gestureend"]) {
+    document.addEventListener(ev,e=>e.preventDefault());
+  }
+  document.addEventListener("touchmove",e=>{
+    if(e.touches.length>1) e.preventDefault();
+  },{passive:false});
+  fsBtn.addEventListener("click",async()=>{
+    try{
+      if(document.fullscreenElement){ await document.exitFullscreen(); }
+      else{ const r=document.documentElement; await (r.requestFullscreen||r.webkitRequestFullscreen||r.msRequestFullscreen)(); }
+    }catch(e){}
+    syncFsBtn();
+    // Re-fit every layout piece so fullscreen doesn't leave anything clipped.
+    requestAnimationFrame(()=>{ setupCanvas(); fitAllEmoji(); alignGuideToGrid(); });
+  });
+  document.addEventListener("fullscreenchange",()=>{ syncFsBtn(); setTimeout(()=>{ setupCanvas(); fitAllEmoji(); alignGuideToGrid(); },60); });
+  syncFsBtn();
 
   function populateLessons(){
     lesson.innerHTML="";
