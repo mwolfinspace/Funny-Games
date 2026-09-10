@@ -109,6 +109,7 @@
   @keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
   .write-layout{display:grid;grid-template-rows:minmax(0,44%) minmax(0,56%);gap:9px;height:100%;min-height:0}
   .prompt-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:9px;min-height:0}
+  .prompt-row.single{grid-template-columns:minmax(0,1fr)}
   .prompt-row .emoji-card{min-height:0;display:flex;align-items:center;justify-content:center}
   .target-preview{
     display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;
@@ -711,12 +712,9 @@ function fitScatter(root){
   function renderWrite(){
     const isCount=state.mode==="writeCount";
     const caption=isCount
-      ? `<div class="count-q">How many <span class="big-emoji">${state.targetEmoji}</span>?</div>`
+      ? `<div class="count-q">How many <span class="big-emoji">${emojiName(state.targetEmoji)}</span>?</div>`
       : `<div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>`;
     const emojis=isCount?emojiScatterHtml():emojiGridHtml({compact:true});
-    const preview=isCount
-      ? `<div class="target-label">How many <span class="target-name">${emojiName(state.targetEmoji)}</span>?</div><div class="target-q-emoji">${state.targetEmoji}</div>`
-      : `<div class="target-label">Write this number</div><div class="target-number">${state.target}</div>`;
     const digits=String(state.target).length;
     const guideSize=Math.min(window.innerHeight*0.45, Math.min(window.innerWidth*0.40,400)/digits*0.92);
     const guide=isCount
@@ -725,13 +723,13 @@ function fitScatter(root){
          <div class="guide-copy">Write the number anywhere on the board ✏️</div>`;
     game.innerHTML=`
       <div class="write-layout">
-        <div class="prompt-row">
-          <section class="card emoji-card" id="writeEmojiCard">
+        <div class="prompt-row ${isCount?"single":""}">
+          <section class="card emoji-card ${isCount?"big-emoji-card":""}" id="writeEmojiCard">
             ${caption}${emojis}
           </section>
-          <section class="target-preview card">
-            ${preview}
-          </section>
+          ${isCount?"":`<section class="target-preview card">
+            <div class="target-label">Write this number</div><div class="target-number">${state.target}</div>
+          </section>`}
         </div>
         <section class="board-wrap" id="board">
           ${guide}
