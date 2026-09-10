@@ -409,7 +409,7 @@ function emojiGroups(n){
     state.answered=false; state.stars=0;
     roundText.textContent=`Round ${state.round}`;
     statusStars.textContent="☆☆☆";
-    statusMsg.textContent=state.mode==="many" ? `Count the ${state.target === state.lesson ? "pictures" : "pictures"}, then tap ${state.lesson}.` : "Trace the number, then press Finish.";
+    statusMsg.textContent=state.mode==="many" ? `Count the ${state.target === state.lesson ? "pictures" : "pictures"}, then tap ${state.lesson}.` : "Write the number anywhere on the board, then Finish.";
     if(state.mode==="many") renderMany(); else renderWrite();
   }
 
@@ -486,6 +486,8 @@ function emojiGroups(n){
 
   function renderWrite(){
     const emojis=emojiGridHtml();
+    const digits=String(state.target).length;
+    const guideSize=Math.min(window.innerHeight*0.45, Math.min(window.innerWidth*0.40,400)/digits*0.92);
     game.innerHTML=`
       <div class="write-layout">
         <div class="prompt-row">
@@ -493,12 +495,12 @@ function emojiGroups(n){
             <div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>${emojis}
           </section>
           <section class="target-preview card">
-            <div class="target-label">Trace this number</div><div class="target-number">${state.target}</div>
+            <div class="target-label">Write this number</div><div class="target-number">${state.target}</div>
           </section>
         </div>
         <section class="board-wrap" id="board">
-          <div class="board-guide"><div class="guide-number">${state.target}</div></div>
-          <div class="guide-copy">Draw over the light number with a smooth, thick line ✏️</div>
+          <div class="board-guide"><div class="guide-number" style="font-size:${guideSize}px">${state.target}</div></div>
+          <div class="guide-copy">Write the number anywhere on the board ✏️</div>
           <canvas id="drawCanvas"></canvas>
           <button class="finish" id="finish">Finish ✓</button>
           <button class="clear-btn" id="clearBtn" title="Clear the board">↺ Clear</button>
@@ -517,7 +519,7 @@ function emojiGroups(n){
     document.querySelector("#clearBtn").addEventListener("click",()=>{
       if(state.answered)return;
       strokes=[]; current=null; redrawAll();
-      statusMsg.textContent="Start fresh — trace the number again.";
+      statusMsg.textContent="Start fresh — write the number again.";
       statusStars.textContent="☆☆☆";
     });
     fitAllEmoji();
@@ -657,38 +659,66 @@ function emojiGroups(n){
   }
 
   // ---- Local digit matcher (failsafe, runs without a server) ----------
-  // Rasterizes the strokes into a 56x56 density grid and the guide glyph into
-  // the same grid, then checks the ink against digit templates so a wrong
-  // number (a drawn 2 when 1 is asked) can never get full marks.
-  function glyphToRaster(n){
-    const S=56;
-    const c=document.createElement("canvas"); c.width=S; c.height=S;
-    const g=c.getContext("2d");
-    g.fillStyle="#fff"; g.fillRect(0,0,S,S);
-    g.fillStyle="#000";
-    const fam=getComputedStyle(document.querySelector(".guide-number")).fontFamily || 'Arial, sans-serif';
-    g.font=`900 ${S}px ${fam}`;
-    g.textAlign="center"; g.textBaseline="middle";
-    g.fillText(String(n), S/2, S/2);
-    const d=g.getImageData(0,0,S,S).data;
-    const grid=[];
-    for(let y=0;y<S;y++){
-      const row=[];
-      for(let x=0;x<S;x++){
-        row.push(d[(y*S+x)*4+3]>128?1:0);
+  // The kid may write anywhere on the board, at any size, so both the strokes
+  // and the reference glyph are cropped to their ink bounding box and rescaled
+  // to the same grid (position + scale invariant). Works for 1, 2 and 3 digit
+  // numbers like 11, 20, 100, 456 — compare the whole written number string.
+  const MATCH_GRID=56;
+  function rasterFromCanvas(src){
+    const w=src.width,h=src.height,d=src.getContext("2d").getImageData(0,0,w,h).data;
+    let minX=1e9,minY=1e9,maxX=-1,maxY=-1;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        if(d[(y*w+x)*4+3]>128){
+          if(x<minX)minX=x; if(x>maxX)maxX=x;
+          if(y<minY)minY=y; if(y>maxY)maxY=y;
+        }
       }
+    }
+    if(maxX<0) return null;
+    const bw=maxX-minX+1,bh=maxY-minY+1;
+    const px=Math.max(1,Math.round(bw*0.03)),py=Math.max(1,Math.round(bh*0.03));
+    const x0=Math.max(0,minX-px),y0=Math.max(0,minY-py);
+    const x1=Math.min(w-1,maxX+px),y1=Math.min(h-1,maxY+py);
+    const cw=x1-x0+1,ch=y1-y0+1;
+    const scale=Math.min(MATCH_GRID/cw,MATCH_GRID/ch);
+    const dw=Math.round(cw*scale),dh=Math.round(ch*scale);
+    const ox=Math.floor((MATCH_GRID-dw)/2),oy=Math.floor((MATCH_GRID-dh)/2);
+    const c=document.createElement("canvas"); c.width=MATCH_GRID; c.height=MATCH_GRID;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,MATCH_GRID,MATCH_GRID);
+    g.drawImage(src,x0,y0,cw,ch,ox,oy,dw,dh);
+    const dd=g.getImageData(0,0,MATCH_GRID,MATCH_GRID).data;
+    const grid=[];
+    for(let y=0;y<MATCH_GRID;y++){
+      const row=[];
+      for(let x=0;x<MATCH_GRID;x++) row.push(dd[(y*MATCH_GRID+x)*4+3]>128?1:0);
       grid.push(row);
     }
     return grid;
   }
 
-  function strokesToRaster(){
-    const S=56;
-    const c=document.createElement("canvas"); c.width=S; c.height=S;
+  // Renders the target number string as one reference glyph.
+  function glyphCanvas(n){
+    const digits=String(n).length;
+    const W=Math.max(220,digits*220), H=240;
+    const c=document.createElement("canvas"); c.width=W; c.height=H;
     const g=c.getContext("2d");
-    g.fillStyle="#fff"; g.fillRect(0,0,S,S);
+    g.fillStyle="#fff"; g.fillRect(0,0,W,H);
+    g.fillStyle="#000";
+    const fam=getComputedStyle(document.querySelector(".guide-number")).fontFamily || 'Arial, sans-serif';
+    g.font=`900 ${Math.round(H*0.9)}px ${fam}`;
+    g.textAlign="center"; g.textBaseline="middle";
+    g.fillText(String(n), W/2, H/2);
+    return c;
+  }
+
+  function strokesCanvas(width){
     const w=canvas.clientWidth,h=canvas.clientHeight;
-    g.scale(S/w,S/h);
+    const c=document.createElement("canvas"); c.width=width; c.height=Math.max(1,Math.round(width*h/w));
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height);
+    g.scale(c.width/w,c.height/h);
     g.lineCap="round"; g.lineJoin="round";
     g.lineWidth=Math.max(9,Math.min(21,w*.021));
     g.strokeStyle="#000";
@@ -698,17 +728,11 @@ function emojiGroups(n){
       for(let i=1;i<s.length;i++) g.lineTo(s[i].x,s[i].y);
       g.stroke();
     }
-    const d=g.getImageData(0,0,S,S).data;
-    const grid=[];
-    for(let y=0;y<S;y++){
-      const row=[];
-      for(let x=0;x<S;x++){
-        row.push(d[(y*S+x)*4+3]>128?1:0);
-      }
-      grid.push(row);
-    }
-    return grid;
+    return c;
   }
+
+  function glyphToRaster(n){ return rasterFromCanvas(glyphCanvas(n)); }
+  function strokesToRaster(){ return rasterFromCanvas(strokesCanvas(280)); }
 
   // IoU of two binary grids.
   function rasterIoU(a,b){
@@ -722,15 +746,28 @@ function emojiGroups(n){
     return uni? inter/uni : 0;
   }
 
-  // Local failsafe digit check: score the ink against 0..20 glyphs,
+  // Candidate reference numbers: single digits, the teen/round two-digit
+  // numbers, and three-digit worlds so a 4, 11, 20, 100, 456 impossible-mix
+  // gets caught. Compares whole-number strings ("456"), not per-digit.
+  function digitCandidateSet(){
+    const set=new Set([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]);
+    const t=state.target;
+    for(let d=-3; d<=3; d++) if(t+d>=0) set.add(t+d);
+    for(const base of [10,20,30,40,50,60,70,80,90]) set.add(base);
+    for(const base of [100,110,200,300,400,500,600,700,800,900]) set.add(base);
+    set.add(101); set.add(111); set.add(999);
+    return [...set];
+  }
+
+  // Local failsafe digit check: score the ink against candidate glyphs,
   // best match must be the target to be correct.
   function localDigitVerify(){
     if(!strokes.length) return {correct:false, guessed:-1, confidence:0};
     const ink=strokesToRaster();
-    const targetGrid=glyphToRaster(state.target);
-    const targetScore=rasterIoU(ink,targetGrid);
+    if(!ink) return {correct:false, guessed:-1, confidence:0};
+    const targetScore=rasterIoU(ink,glyphToRaster(state.target));
     let bestScore=0, bestN=-1;
-    for(let n=0;n<=20;n++){
+    for(const n of digitCandidateSet()){
       if(n===state.target) continue;
       const s=rasterIoU(ink,glyphToRaster(n));
       if(s>bestScore){ bestScore=s; bestN=n; }
@@ -765,8 +802,8 @@ function emojiGroups(n){
     statusStars.textContent="☆☆☆";
     const board=document.querySelector("#board");
     statusMsg.textContent = guess===state.target
-      ? `Hmm, I couldn't read that. Trace the ${state.target} again slowly!`
-      : `That looks like ${guess}. Trace the ${state.target} and try again!`;
+      ? `Hmm, I couldn't read that. Write the ${state.target} again slowly!`
+      : `That looks like ${guess}. Write the ${state.target} and try again!`;
     if(board){ board.classList.remove("shake"); void board.offsetWidth; board.classList.add("shake"); }
     sfxWrong();
   }
@@ -788,13 +825,15 @@ function emojiGroups(n){
     }
 
     // Correct digit → grade penmanship, boosted by recognition confidence.
-    const [ink,coverage,overflow,pathPenalty]=analyzeDrawing();
+    // The kid may write anywhere on the board, so don't reward the guide
+    // corridor — just shape similarity (=confidence) + ink + tidiness.
+    const [ink,,,pathPenalty]=analyzeDrawing();
     const conf=clamp(ev.confidence,0,1);
-    const quality=clamp(.5*conf + .12*coverage + .10*ink + .12*(1-overflow) + .16 - pathPenalty,0,1);
+    const quality=clamp(.62*conf + .22*ink + .16 - pathPenalty,0,1);
     const stars=quality>=.70?3:quality>=.45?2:1;
     state.stars=stars;state.answered=true;statusStars.textContent="★".repeat(stars)+"☆".repeat(3-stars);
     state.points+=stars*10;
-    statusMsg.textContent=stars===3?"Beautiful number! 🌟":stars===2?"Nice job! Try staying closer to the guide.":"Good try! Let's practice this number again.";
+    statusMsg.textContent=stars===3?"Beautiful writing! 🌟":stars===2?"Nice job! Let's shape it smoothly next time.":"Good try! Let's practice this number again.";
     sfxCorrect();
     showResult(stars,quality,ev.method);
   }
