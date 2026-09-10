@@ -120,7 +120,7 @@
   .board-wrap{position:relative;min-height:0;background:#fff8c9;border:3px solid #e8d979;border-radius:24px;box-shadow:var(--shadow);overflow:hidden}
   #drawCanvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
   .board-guide{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;overflow:hidden}
-  .guide-number{position:absolute;left:0;right:0;text-align:center;font-weight:900;color:#665736;opacity:.13;line-height:.9}
+  .guide-number{position:absolute;left:10%;right:10%;text-align:center;font-weight:900;color:#665736;opacity:.13;line-height:.9;display:flex;align-items:center;justify-content:center}
   .guide-copy{position:absolute;top:7px;left:10px;font-size:11px;font-weight:900;color:#887b48;background:#fffbe3dd;padding:4px 7px;border-radius:9px}
   .live-board{position:absolute;top:7px;right:10px;z-index:3;font-size:12px;font-weight:900;
     padding:4px 9px;border-radius:10px;border:2px solid var(--line);background:#fff;
@@ -139,7 +139,7 @@
   .grid-btn{position:absolute;left:118px;bottom:11px;min-width:88px;height:48px;border-radius:16px;background:#fff2ea;color:#b0563a;font-weight:900;font-size:15px;border:2px solid #e9cfbb;box-shadow:0 4px 0 #e3c3ab;z-index:2;touch-action:manipulation}
   .grid-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #e3c3ab}
   .grid-btn.on{background:#e3f6e3;color:#1e6b1e;border-color:#7ecb7e}
-  .grid-overlay{position:absolute;left:14px;right:62px;top:12px;bottom:12px;z-index:1;pointer-events:none;opacity:.9}
+  .grid-overlay{position:absolute;left:14px;right:62px;z-index:1;pointer-events:none;opacity:.9}
   .grid-overlay .gline{position:absolute;left:0;right:0;border-top:2px dashed #d8c98f}
   .grid-overlay .gline.base{border-top:3px solid #7a6a3a}
   .grid-overlay .glabel{position:absolute;right:-52px;transform:translateY(-50%);font-size:11px;font-weight:900;color:#b3a467;line-height:1;white-space:nowrap}
@@ -640,34 +640,41 @@ function fitScatter(root){
     if(state.mode==="many" || state.mode==="count") renderPick(); else renderWrite();
   }
 
-  // Notebook-style writing grid (office class 1): 6 horizontal rows, no
-  // vertical lines. Top→bottom labels 5,4,3,2,1,0 — the "1" line is the bold
-  // baseline where digits sit, "0" is the extra bottom line. Lines are evenly
-  // spread with breathing room above/below; rendered on top of the drawing so
-  // the kid can keep their number inside the rows.
+  // Notebook-style writing grid: lines derived from the guide number itself.
+  // Line 5 = top of the number, line 1 = bottom of the number (bold baseline),
+  // lines 2-4 = evenly divide the space between. No line 0.
   function gridLinesHtml(){
-    const tops=[["5",8],["4",24.4],["3",40.8],["2",57.2],["1",73.6],["0",90]];
-    return tops.map(([n,p])=>`<div class="gline ${n==="1"?"base":""}" style="top:${p}%;margin-top:-1px">
+    const lines=[["5",0],["4",25],["3",50],["2",75],["1",100]];
+    return lines.map(([n,p])=>`<div class="gline ${n==="1"?"base":""}" data-pct="${p}">
       <span class="glabel">${n}</span></div>`).join("");
   }
-  // Size the dim guide number so its feet sit exactly on line 1 (bold baseline)
-  // and its top reaches line 5 — same height for 1, 2 or 3 digit numbers.
-  // Multi-digit numbers just squeeze narrower horizontally.
+  // The dim guide number is the ROOT. We size it to fill the board, measure its
+  // actual rendered bounds with getBoundingClientRect, then snap the grid lines
+  // to those exact pixels — so line 5 = top of the number, line 1 = bottom,
+  // always pixel-perfect regardless of zoom or font metrics.
   function alignGuideToGrid(){
     const board=document.querySelector("#board");
     const g=document.querySelector(".guide-number");
-    if(!board||!g)return;
+    const overlay=document.querySelector("#gridOverlay");
+    if(!board||!g) return;
+    // 1) Size the number to fill ~78% of the board height (with breathing room).
     const bh=board.clientHeight;
-    const gridTop=12, gridBot=12, gridH=bh-gridTop-gridBot;
-    const line5=gridTop+gridH*0.08;
-    const line1=gridTop+gridH*0.736;
-    const numH=line1-line5;
-    g.style.top=line5+"px";
-    g.style.height=numH+"px";
-    g.style.fontSize=Math.round(numH/0.9)+"px";
-    g.style.display="flex";
-    g.style.alignItems="flex-end";
-    g.style.justifyContent="center";
+    g.style.fontSize=Math.round(bh*0.78/0.9)+"px";
+    // 2) After the browser lays out the number, measure its actual bounds.
+    const br=board.getBoundingClientRect();
+    const gr=g.getBoundingClientRect();
+    const numTop=gr.top-br.top;
+    const numBot=gr.bottom-br.top;
+    const numH=numBot-numTop;
+    if(numH<=0) return;
+    // 3) Snap the grid overlay to exactly those bounds.
+    if(overlay){
+      overlay.style.top=numTop+"px";
+      overlay.style.height=numH+"px";
+      overlay.querySelectorAll(".gline").forEach(el=>{
+        el.style.top=el.dataset.pct+"%";
+      });
+    }
   }
   function renderPick(){
     const choices=choiceNumbers();
@@ -792,7 +799,7 @@ function fitScatter(root){
     window.addEventListener("resize",setupCanvas);
     window.removeEventListener("resize",fitAllEmoji);
     window.addEventListener("resize",fitAllEmoji);
-    window.addEventListener("resize",alignGuideToGrid);
+    window.addEventListener("resize",()=>requestAnimationFrame(alignGuideToGrid));
     bindDrawing();
     game.querySelector("#writeEmojiCard").addEventListener("click",()=>speakNumber(state.target),{passive:true});
     document.querySelector("#finish").addEventListener("click",scoreDrawing);
@@ -814,7 +821,7 @@ function fitScatter(root){
       saveSettings();
     });
     fitAllEmoji();
-    setTimeout(()=>{ fitAllEmoji(); alignGuideToGrid(); },0);
+    setTimeout(()=>{ fitAllEmoji(); requestAnimationFrame(alignGuideToGrid); },0);
   }
 
   function setupCanvas(){
