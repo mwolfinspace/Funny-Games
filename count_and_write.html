@@ -848,6 +848,9 @@ function emojiGroups(n){
     let n=0; for(const s of strokes) n+=s.length;
     return strokes.length + ":" + n;
   }
+  // Real amount of ink drawn (a single continuous stroke may be 1 stroke
+  // with many points — e.g. writing "5" in one line without lifting).
+  function inkPoints(){ let n=0; for(const s of strokes) n+=s.length; return n; }
   function liveQuality(ev){
     if(ev.number !== state.target) return null;
     const [ink,,,pathPenalty]=analyzeDrawing();
@@ -856,7 +859,7 @@ function emojiGroups(n){
   }
   function renderLivePill(result){
     if(!liveRead) return;
-    if(!result || result.number < 0 || strokes.length<2){ liveRead.classList.add("hidden"); return; }
+    if(!result || result.number < 0 || inkPoints()<2){ liveRead.classList.add("hidden"); return; }
     liveRead.classList.remove("hidden");
     liveRead.classList.remove("ok","warn","busy");
     const q=liveQuality(result);
@@ -884,7 +887,7 @@ function emojiGroups(n){
   }
   function scheduleLive(){
     if(state.answered || state.mode!=="write"){ return; }
-    if(strokes.length<2){ lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); } return; }
+    if(inkPoints()<2){ lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); } return; }
     clearTimeout(liveTimer);
     liveTimer=setTimeout(()=>{ liveRun=runLiveCheck(); }, 500);
   }
@@ -909,7 +912,7 @@ function emojiGroups(n){
 
   async function scoreDrawing(){
     if(state.answered)return;
-    if(strokes.length<2){
+    if(inkPoints()<2){
       statusMsg.textContent="Draw the number first ✏️";
       return;
     }
