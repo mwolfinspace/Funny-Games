@@ -1038,16 +1038,16 @@ function emojiGroups(n){
     showResult(stars,quality,ev.method);
   }
 
-  function showResult(stars,quality,method){
+  async function showResult(stars,quality,method){
     // No popup: the kid should keep looking at their drawn number. Earned stars
-    // appear mid-canvas, then fly into the empty top-right star slot and fill it
-    // dim → full, so the slot always shows exactly how many stars were earned.
-    // The percent score pops in beneath the slot, and three stars get confetti.
+    // appear mid-canvas, pulse there, then fly into the top-right star slot and
+    // fill it dim → full. Every stage waits for the previous one — stars first,
+    // then slot fill, then SFX → voice → countdown — so the flow is linear and
+    // nothing overlaps. The percent score pops in with the stars; 3 stars confetti.
     const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
     statusMsg.textContent=`${statusMsg.textContent} · ${Math.round(quality*100)}% · ${engineLabel} check`;
-    starsScore.textContent=`${Math.round(quality*100)}%`;
-    starsScore.classList.remove("hidden");
-    if(stars===3) confetti();
+
+    // 1) Earned stars appear large in the middle of the canvas.
     const board=document.querySelector("#board");
     const fly=document.createElement("div");
     fly.className="fly-star";
@@ -1059,47 +1059,46 @@ function emojiGroups(n){
     const dst=statusStars.getBoundingClientRect();
     const dx=dst.left+dst.width/2-(src.left+src.width/2);
     const dy=dst.top+dst.height/2-(src.top+src.height/2);
-    // Hold the earned stars large in the middle of the canvas for a moment,
-    // pulsing, so the kid really sees how many they got — then fly to the slot.
     fly.classList.add("hold");
-    const flyStart=()=>{
-      fly.classList.remove("hold");
-      fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
-      fly.style.opacity=".15";
-    };
-    const FLY_AT=2100, FLY_MS=850, MARGIN=350;
-    const cleanup=setTimeout(()=>fly.remove(),FLY_AT+FLY_MS+MARGIN);
-    const flyTimer=setTimeout(flyStart,FLY_AT);
-    fly.addEventListener("transitionend",()=>{
-      clearTimeout(cleanup);clearTimeout(flyTimer);fly.remove();
-    },{once:true});
-    const land=()=>{
-      statusStars.textContent="☆☆☆";
-      statusStars.classList.remove("filled");void statusStars.offsetWidth;
-      statusStars.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
-      statusStars.classList.add("filled");
-    };
-    setTimeout(land,FLY_AT+FLY_MS);
-    // Write mode: honor the Auto toggle too — SFX → voice → count down then
-    // auto-advance, strictly in sequence so nothing overlaps.
-    celebrateCorrect(()=>{
-      if(!state.auto){
-        nextShortEl.classList.remove("hidden");
-        return;
+
+    // 2) Hold at center (kid sees the stars), then fly to the slot. Confetti
+    // starts with the flight so the whole celebration is one timeline.
+    const FLY_AT=2100, FLY_MS=850;
+    await sleep(FLY_AT);
+    if(stars===3) confetti();
+    fly.classList.remove("hold");
+    fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
+    fly.style.opacity=".15";
+    await sleep(FLY_MS);
+    fly.remove();
+
+    // 3) Fill the star slot dim → full with exactly the earned stars, and the
+    // percent score pops in beneath the slot at the same moment.
+    statusStars.textContent="☆☆☆";
+    statusStars.classList.remove("filled");void statusStars.offsetWidth;
+    statusStars.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
+    statusStars.classList.add("filled");
+    starsScore.textContent=`${Math.round(quality*100)}%`;
+    starsScore.classList.remove("hidden");
+
+    // 4) Linear audio: SFX → number spoken → then countdown / Next.
+    await celebrateCorrect(()=>{});
+    if(!state.auto){
+      nextShortEl.classList.remove("hidden");
+      return;
+    }
+    let left=5;
+    countdownEl.textContent=left;
+    countdownEl.classList.remove("hidden");
+    state.countdownTimer=setInterval(()=>{
+      left--;
+      if(left<=0){
+        clearCountdown();
+        nextRound();
+      }else{
+        countdownEl.textContent=left;
       }
-      let left=5;
-      countdownEl.textContent=left;
-      countdownEl.classList.remove("hidden");
-      state.countdownTimer=setInterval(()=>{
-        left--;
-        if(left<=0){
-          clearCountdown();
-          nextRound();
-        }else{
-          countdownEl.textContent=left;
-        }
-      },1000);
-    });
+    },1000);
   }
   // Simple canvas confetti burst — a quick color shower for a perfect 3-star.
   function confetti(){
