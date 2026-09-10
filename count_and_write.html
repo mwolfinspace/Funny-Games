@@ -80,6 +80,15 @@
     font-family:var(--emoji-font);
     font-variant-emoji:emoji; font-synthesis:none;
   }
+  .emoji-scatter{position:relative;width:100%;flex:1 1 auto;min-height:0;margin-top:clamp(20px,4vh,36px);overflow:hidden}
+  .scatter-emoji{position:absolute;top:0;left:0;line-height:1;
+    font-family:var(--emoji-font);font-variant-emoji:emoji;font-synthesis:none;
+    transform:translate(-50%,-50%);opacity:0}
+  .count-q{position:absolute;top:12px;left:0;right:0;z-index:2;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;
+    font-size:clamp(16px,3.4vw,26px);font-weight:900;color:#392f29;white-space:nowrap}
+  .count-q .big-emoji{font-size:1.4em;line-height:1}
+  .target-q-emoji{font-size:clamp(42px,7vw,92px);line-height:1;color:#4a3b31}
   .many-layout{display:grid;grid-template-rows:minmax(0,1.618fr) minmax(0,1fr);gap:9px;height:100%;min-height:0}
   .count-card{
     display:flex;gap:16px;justify-content:center;align-items:stretch;
@@ -219,7 +228,9 @@
     <div class="brand">🌟 Count & Write</div>
     <div class="seg" id="modeSeg">
       <button data-mode="many" class="active">Many</button>
+      <button data-mode="count">Count</button>
       <button data-mode="write">Write Many</button>
+      <button data-mode="writeCount">Write Count</button>
     </div>
     <label class="control">Lesson
       <select id="lesson"></select>
@@ -260,7 +271,7 @@
 (() => {
 
   const EMOJIS = ["🍎","🍌","🍓","🍊","🍐","🍉","🥕","🌽","🍪","⭐","🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵","🚗","🚲","⚽","🎈","🧸","🌈","☀️"];
-  const state = {mode:"many", same:true, colorful:false, auto:false, old:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, wrongs:0, points:0, countdownTimer:null};
+  const state = {mode:"many", same:true, colorful:false, auto:false, old:false, lesson:2, choices:4, target:2, round:1, correct:0, answered:false, stars:0, wrongs:0, points:0, countdownTimer:null, targetEmoji:"", countMix:[]};
 
   // Server OCR endpoint. The strong/steady gitea server runs the OCR; if the
   // endpoint is unreachable (e.g. GitHub Pages hosting) or the request fails,
@@ -359,6 +370,26 @@
     // Focus on the current lesson's number. When the "Old numbers" extra
     // toggle is on, previously learned numbers (1..lesson) also join in.
     state.target = state.old ? rand(1, state.lesson) : state.lesson;
+    if(state.mode==="count" || state.mode==="writeCount") buildCountMix();
+  }
+
+  // Count modes show a MIX of emojis scattered around the card — some are the
+  // target emoji, the rest are "noise" of other kinds. The kid must count how
+  // many of the TARGET emoji are in the mix, so the correct number is still
+  // state.target. Sizes vary big/small (small is still big enough to see).
+  function buildCountMix(){
+    const pick=()=>EMOJIS[rand(0,EMOJIS.length-1)];
+    state.targetEmoji=pick();
+    const mix=[];
+    for(let i=0;i<state.target;i++) mix.push({e:state.targetEmoji,s:1});
+    const noiseN=Math.min(5,Math.max(2,Math.round(state.target/2)));
+    for(let i=0;i<noiseN;i++){
+      let e;
+      do{ e=pick(); }while(e===state.targetEmoji);
+      mix.push({e,s:1});
+    }
+    shuffle(mix).forEach(m=>{ m.s=rand(state.target<=8?0.62:0.5, 1.35); });
+    state.countMix=mix;
   }
 
   function choiceNumbers(){
@@ -474,6 +505,38 @@ function emojiGroups(n){
 
   function fitAllEmoji(){
     document.querySelectorAll(".emoji-grid").forEach(fitEmojiGrid);
+    document.querySelectorAll(".emoji-scatter").forEach(fitScatter);
+  }
+
+  // Scattered emoji (count modes): each emoji gets a random spot across the
+  // whole card and a size multiplier, big and small mixed — but the smallest
+  // one is still easily visible. Positions are randomized each render.
+  function emojiScatterHtml(){
+    const items=state.countMix.map(m=>`
+      <span class="scatter-emoji" data-s="${m.s.toFixed(2)}">${m.e}</span>`).join("");
+    return `<div class="emoji-scatter">${items}</div>`;
+  }
+
+  // Size the scatter so the biggest emoji fills nicely without overflowing the
+  // card, and smaller ones stay readable. Positions are random over the card.
+  function fitScatter(root){
+    if(!root)return;
+    const items=[...root.querySelectorAll(".scatter-emoji")];
+    if(!items.length)return;
+    const rect=root.getBoundingClientRect();
+    const W=Math.max(1,rect.width), H=Math.max(1,rect.height);
+    const n=Math.max(1,items.length);
+    const base=clamp(Math.floor(Math.min(W*.22, H*.24)), 26, 110);
+    items.forEach(el=>{
+      const s=+el.dataset.s||1;
+      const px=Math.round(base*s);
+      const size=clamp(px, 22, Math.floor(Math.min(W*.3,H*.3)));
+      el.style.fontSize=size+"px";
+      const m=size/2+4;
+      el.style.left=`${(m+Math.random()*(W-2*m))}px`;
+      el.style.top=`${(m+Math.random()*(H-2*m))}px`;
+      el.style.opacity="1";
+    });
   }
 
   function render(){
@@ -482,29 +545,37 @@ function emojiGroups(n){
     roundText.textContent=`Round ${state.round}`;
     statusStars.textContent="☆☆☆";
     starsScore.classList.add("hidden");
-    if(state.mode==="many"){
+    if(state.mode==="many" || state.mode==="count"){
       state.wrongs=0;
       statusStars.textContent="★★★";
     }
-    statusMsg.textContent=state.mode==="many" ? `Count the ${state.target === state.lesson ? "pictures" : "pictures"}, then tap ${state.lesson}.` : "Write the number anywhere on the board, then Finish.";
-    if(state.mode==="many") renderMany(); else renderWrite();
+    statusMsg.textContent =
+      state.mode==="many" ? `Count the ${state.target === state.lesson ? "pictures" : "pictures"}, then tap ${state.lesson}.` :
+      state.mode==="count" ? `How many ${state.targetEmoji}? Tap the matching number.` :
+      state.mode==="write" ? "Write the number anywhere on the board, then Finish." :
+                             `How many ${state.targetEmoji}? Write the number, then Finish.`;
+    if(state.mode==="many" || state.mode==="count") renderPick(); else renderWrite();
   }
 
-  function renderMany(){
+  function renderPick(){
     const choices=choiceNumbers();
+    const isCount=state.mode==="count";
+    const countQ=isCount?`<div class="count-q">How many <span class="big-emoji">${state.targetEmoji}</span>?</div>`:"";
+    const caption=isCount?"":`<div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>`;
+    const hint=isCount?"":`<div class="emoji-tap-hint">👆 Tap emoji to hear the number</div>`;
+    const body=isCount?emojiScatterHtml():emojiGridHtml();
     game.innerHTML=`
       <div class="many-layout">
-        <section class="card emoji-card many-emoji-card" id="manyEmojiCard">
-          <div class="caption" id="manyCaption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>
-          <div class="emoji-tap-hint">👆 Tap emoji to hear the number</div>
-          ${emojiGridHtml()}
+        <section class="card emoji-card many-emoji-card" id="pickEmojiCard">
+          ${caption}${countQ}${hint}
+          ${body}
         </section>
         <section class="card count-card">
           ${choices.map(n=>`<button class="num-btn ${state.colorful?'color-on color-'+n:''}" data-answer="${n}">${n}</button>`).join("")}
         </section>
       </div>
     `;
-    const card=game.querySelector("#manyEmojiCard");
+    const card=game.querySelector("#pickEmojiCard");
     card.addEventListener("click",()=>speakNumber(state.target),{passive:true});
     game.querySelectorAll(".num-btn").forEach(b=>b.addEventListener("click",()=>answerMany(+b.dataset.answer,b)));
     fitAllEmoji();
@@ -573,22 +644,32 @@ function emojiGroups(n){
   }
 
   function renderWrite(){
-    const emojis=emojiGridHtml({compact:true});
+    const isCount=state.mode==="writeCount";
+    const caption=isCount
+      ? `<div class="count-q">How many <span class="big-emoji">${state.targetEmoji}</span>?</div>`
+      : `<div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>`;
+    const emojis=isCount?emojiScatterHtml():emojiGridHtml({compact:true});
+    const preview=isCount
+      ? `<div class="target-label">How many ${state.targetEmoji}?</div><div class="target-q-emoji">${state.targetEmoji}</div>`
+      : `<div class="target-label">Write this number</div><div class="target-number">${state.target}</div>`;
     const digits=String(state.target).length;
     const guideSize=Math.min(window.innerHeight*0.45, Math.min(window.innerWidth*0.40,400)/digits*0.92);
+    const guide=isCount
+      ? `<div class="guide-copy">Write how many ${state.targetEmoji} you see ✏️</div>`
+      : `<div class="board-guide"><div class="guide-number" style="font-size:${guideSize}px">${state.target}</div></div>
+         <div class="guide-copy">Write the number anywhere on the board ✏️</div>`;
     game.innerHTML=`
       <div class="write-layout">
         <div class="prompt-row">
           <section class="card emoji-card" id="writeEmojiCard">
-            <div class="caption">Count ${state.target}${state.old && state.target!==state.lesson ? " (review)" : ""}</div>${emojis}
+            ${caption}${emojis}
           </section>
           <section class="target-preview card">
-            <div class="target-label">Write this number</div><div class="target-number">${state.target}</div>
+            ${preview}
           </section>
         </div>
         <section class="board-wrap" id="board">
-          <div class="board-guide"><div class="guide-number" style="font-size:${guideSize}px">${state.target}</div></div>
-          <div class="guide-copy">Write the number anywhere on the board ✏️</div>
+          ${guide}
           <canvas id="drawCanvas"></canvas>
           <button class="finish" id="finish">Finish ✓</button>
           <button class="clear-btn" id="clearBtn" title="Clear the board">↺ Clear</button>
@@ -980,7 +1061,7 @@ function emojiGroups(n){
     renderLivePill(result);
   }
   function scheduleLive(){
-    if(state.answered || state.mode!=="write"){ return; }
+    if(state.answered || (state.mode!=="write" && state.mode!=="writeCount")){ return; }
     if(inkPoints()===0){ lastEval=null; if(liveRead){ liveRead.classList.add("hidden"); } return; }
     clearTimeout(liveTimer);
     liveTimer=setTimeout(()=>{ liveRun=runLiveCheck(); }, 500);
