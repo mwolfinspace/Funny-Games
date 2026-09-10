@@ -144,6 +144,9 @@
      transition:transform .85s cubic-bezier(.2,.7,.3,1), opacity .85s ease-in;
      font-size:clamp(48px,10vw,100px);letter-spacing:4px;color:#ffd23f;
      text-shadow:0 4px 14px rgba(0,0,0,.4)}
+   .fly-star.hold{animation:starhold 1.4s ease-in-out infinite}
+   @keyframes starhold{0%,100%{transform:translate(-50%,-50%) scale(1.15);filter:brightness(1)}
+     50%{transform:translate(-50%,-50%) scale(1.02);filter:brightness(1.15)}}
    .stars.filled span{display:inline-block;animation:starfill .55s cubic-bezier(.2,.8,.4,1.4) forwards}
    .stars.filled span:nth-child(2){animation-delay:.12s}
    .stars.filled span:nth-child(3){animation-delay:.24s}
@@ -1021,13 +1024,19 @@ function emojiGroups(n){
     const dst=statusStars.getBoundingClientRect();
     const dx=dst.left+dst.width/2-(src.left+src.width/2);
     const dy=dst.top+dst.height/2-(src.top+src.height/2);
-    const cleanup=setTimeout(()=>fly.remove(),1600);
-    requestAnimationFrame(()=>{
+    // Hold the earned stars large in the middle of the canvas for a moment,
+    // pulsing, so the kid really sees how many they got — then fly to the slot.
+    fly.classList.add("hold");
+    const flyStart=()=>{
+      fly.classList.remove("hold");
       fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
       fly.style.opacity=".15";
-    });
+    };
+    const FLY_AT=2100, FLY_MS=850, MARGIN=350;
+    const cleanup=setTimeout(()=>fly.remove(),FLY_AT+FLY_MS+MARGIN);
+    const flyTimer=setTimeout(flyStart,FLY_AT);
     fly.addEventListener("transitionend",()=>{
-      clearTimeout(cleanup);fly.remove();
+      clearTimeout(cleanup);clearTimeout(flyTimer);fly.remove();
     },{once:true});
     const land=()=>{
       statusStars.textContent="☆☆☆";
@@ -1035,7 +1044,7 @@ function emojiGroups(n){
       statusStars.innerHTML="★".repeat(stars)+"☆".repeat(3-stars);
       statusStars.classList.add("filled");
     };
-    setTimeout(land,850);
+    setTimeout(land,FLY_AT+FLY_MS);
     // Write mode: honor the Auto toggle too — count down then auto-advance.
     if(state.auto && !state.countdownTimer){
       let left=5;
