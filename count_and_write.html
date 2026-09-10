@@ -557,23 +557,50 @@ function emojiGroups(n){
 
   // Size the scatter so the biggest emoji fills nicely without overflowing the
   // card, and smaller ones stay readable. Positions are random over the card.
-  function fitScatter(root){
+  // Size and place the scatter so emojis never cover each other up. Sizes vary,
+// but every emoji stays fully visible: positions are packed to avoid overlap,
+// and z-index makes smaller emojis paint ON TOP of bigger ones as a safety net
+// (otherwise a big emoji could hide a small one and the kid would count wrong).
+function fitScatter(root){
     if(!root)return;
     const items=[...root.querySelectorAll(".scatter-emoji")];
     if(!items.length)return;
     const rect=root.getBoundingClientRect();
     const W=Math.max(1,rect.width), H=Math.max(1,rect.height);
     const n=Math.max(1,items.length);
-    const base=clamp(Math.floor(Math.min(W*.22, H*.24)), 26, 110);
+    let sumS2=0;
+    items.forEach(el=>{ const s=+el.dataset.s||1; sumS2+=s*s; });
+    const base=Math.max(20, Math.min(Math.floor(Math.sqrt(W*H*0.5/sumS2)), Math.floor(Math.min(W,H)*0.28)));
+    const placed=[];
     items.forEach(el=>{
       const s=+el.dataset.s||1;
-      const px=Math.round(base*s);
-      const size=clamp(px, 22, Math.floor(Math.min(W*.3,H*.3)));
+      const size=Math.max(20, Math.round(base*s));
       el.style.fontSize=size+"px";
-      const m=size/2+4;
-      el.style.left=`${(m+Math.random()*(W-2*m))}px`;
-      el.style.top=`${(m+Math.random()*(H-2*m))}px`;
       el.style.opacity="1";
+      // smaller emoji always paint on top, so nothing can ever be hidden
+      el.style.zIndex=String(1000-size);
+      const rad=size/2+3;
+      let done=false;
+      for(let t=0; t<60 && !done; t++){
+        const x=rad+Math.random()*Math.max(1,W-2*rad);
+        const y=rad+Math.random()*Math.max(1,H-2*rad);
+        let ok=true;
+        for(const p of placed){
+          const dx=x-p.x, dy=y-p.y;
+          const minD=rad+p.r+3;
+          if(dx*dx+dy*dy < minD*minD){ ok=false; break; }
+        }
+        if(ok){
+          el.style.left=x+"px";
+          el.style.top=y+"px";
+          placed.push({x,y,r:rad});
+          done=true;
+        }
+      }
+      if(!done){
+        el.style.left=(rad+Math.random()*Math.max(1,W-2*rad))+"px";
+        el.style.top=(rad+Math.random()*Math.max(1,H-2*rad))+"px";
+      }
     });
   }
 
