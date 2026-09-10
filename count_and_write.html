@@ -286,19 +286,37 @@
   function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
   function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
 
-  // Friendly kid voice: says the number out loud.
+  // Friendly kid voice: says the number out loud. Resolves when the utterance
+  // finishes (or errors / times out) so celebrations can run strictly in
+  // sequence: SFX first, then the voice, only then the countdown.
   function speak(text){
-    try{
-      if(!("speechSynthesis" in window)) return;
-      speechSynthesis.cancel();
-      const u=new SpeechSynthesisUtterance(String(text));
-      u.lang="en-US"; u.rate=0.85; u.pitch=1.1;
-      speechSynthesis.speak(u);
-    }catch(e){}
+    return new Promise(resolve=>{
+      try{
+        if(!("speechSynthesis" in window)){ resolve(); return; }
+        speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance(String(text));
+        u.lang="en-US"; u.rate=0.85; u.pitch=1.1;
+        const done=()=>{ clearTimeout(timer); resolve(); };
+        const timer=setTimeout(done,4500);
+        u.onend=done; u.onerror=done;
+        speechSynthesis.speak(u);
+      }catch(e){ resolve(); }
+    });
   }
   function speakNumber(n){
     const words=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
-    speak(words[n]||n);
+    return speak(words[n]||n);
+  }
+
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+  // Linear celebration: correct SFX → finished tone → voice says the number →
+  // then the caller proceeds (countdown / Next). Nothing overlaps, so the kid
+  // isn't flooded with sounds and speech at once.
+  async function celebrateCorrect(onDone){
+    sfxCorrect();
+    await sleep(700);
+    await speakNumber(state.target);
+    onDone();
   }
 
   // Simple fun web-audio SFX (no files needed).
@@ -510,9 +528,8 @@ function emojiGroups(n){
       statusStars.innerHTML=`<span class="filledstar">★</span>`.repeat(earned)+`<span class="dim">★</span>`.repeat(3-earned);
       statusStars.classList.remove("filled");void statusStars.offsetWidth;
       statusStars.classList.add("filled");
-      playGood(btn,earned);
-      startAutoNext();
-      speakNumber(state.target);
+      playGood(btn);
+      celebrateCorrect(startAutoNext);
     }else{
       state.wrongs++;
       btn.classList.add("bad");
@@ -523,9 +540,8 @@ function emojiGroups(n){
     }
   }
 
-  function playGood(btn,stars){
+  function playGood(btn){
     btn.classList.add("good");
-    sfxCorrect();
   }
 
   // After a correct answer: if Auto is off, stay and let the kid study the
@@ -1019,7 +1035,6 @@ function emojiGroups(n){
     state.stars=stars;state.answered=true;
     state.points+=stars*10;
     statusMsg.textContent=stars===3?"Beautiful writing! 🌟":stars===2?"Nice job! Let's shape it smoothly next time.":"Good try! Let's practice this number again.";
-    sfxCorrect();
     showResult(stars,quality,ev.method);
   }
 
@@ -1065,8 +1080,13 @@ function emojiGroups(n){
       statusStars.classList.add("filled");
     };
     setTimeout(land,FLY_AT+FLY_MS);
-    // Write mode: honor the Auto toggle too — count down then auto-advance.
-    if(state.auto && !state.countdownTimer){
+    // Write mode: honor the Auto toggle too — SFX → voice → count down then
+    // auto-advance, strictly in sequence so nothing overlaps.
+    celebrateCorrect(()=>{
+      if(!state.auto){
+        nextShortEl.classList.remove("hidden");
+        return;
+      }
       let left=5;
       countdownEl.textContent=left;
       countdownEl.classList.remove("hidden");
@@ -1079,7 +1099,7 @@ function emojiGroups(n){
           countdownEl.textContent=left;
         }
       },1000);
-    }
+    });
   }
   // Simple canvas confetti burst — a quick color shower for a perfect 3-star.
   function confetti(){
