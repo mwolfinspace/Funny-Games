@@ -295,8 +295,9 @@
         // ===== Level definitions =====
         // A level only sets HOW MANY UNIQUE symbols the loop uses.
         // The loop itself can be any primitive pattern over those symbols
-        // (e.g. aabcc, abcd, aabbccd) shown EXACTLY twice in the question,
-        // so two loops always fit within 12 cells (max loop length = 6).
+        // (e.g. aabcc, abcd, aabbccd) always shown in a 16-cell row,
+        // so at least two full loops of up to 8 cells fit, or more than
+        // two shorter loops with a partial loop extended at the end.
         const LEVEL_UNIQUE = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 };
 
         let level = 1;
@@ -345,12 +346,14 @@
         }
 
         // Build a primitive loop pattern using exactly `u` distinct symbols.
-        // Loop length L is in [max(2, u), 6] so two loops always fit in 12
-        // cells. Supports patterns like 'aabcc', 'abcd', 'aabbcc', etc.
+        // Loop length L is in [max(2, u), 8] so two loops always fit in the
+        // fixed 16-cell line (2 full loops of 8, or more short loops plus a
+        // partial loop that extends the pattern). Supports patterns like
+        // 'aabcc', 'abcd', 'aabbcc', 'abcdef' etc.
         function genLoopPattern(u) {
             const letters = 'ABCDEFGH';
             const minL = Math.max(2, u);
-            const maxL = 6;
+            const maxL = 8;
             for (let attempt = 0; attempt < 300; attempt++) {
                 const L = minL + Math.floor(Math.random() * (maxL - minL + 1));
                 let seq = '';
@@ -360,7 +363,7 @@
             }
             // Fallback: a clean full cycle of all u symbols.
             let s = '';
-            for (let i = 0; i < Math.min(6, u + 1); i++) s += letters[i % u];
+            for (let i = 0; i < Math.min(8, u + 1); i++) s += letters[i % u];
             return isPrimitive(s) ? s : s.slice(0, u);
         }
 
@@ -375,13 +378,19 @@
             const symbols = pickDistinct(category, u);
             const loop = pattern.split('').map(ch => symbols[ch.charCodeAt(0) - 65]);
 
-            // Base sequence = the loop repeated enough whole times so the
-            // visible total is MORE than 8 cells. Short loops (2-4 cells)
-            // repeat extra times; long loops stay at 2 repeats.
-            let reps = 2;
-            while (reps * loopLen <= 8) reps++;
+            // Base sequence: always 16 cells. Whole loops are placed as many
+            // times as fit; a partial slice of the loop extends the end to
+            // reach exactly 16. This guarantees at least 2 full loops for
+            // loopLen ≤ 8, and for shorter loops shows more repetitions
+            // (e.g. loopLen 4 → four full loops, loopLen 6 → two full loops
+            // plus a partial 4-cell extension, loopLen 3 → five full loops
+            // plus one extra cell).
+            const TARGET_LEN = 16;
+            const whole = Math.floor(TARGET_LEN / loopLen);
+            const rem = TARGET_LEN - whole * loopLen;
             const baseSeq = [];
-            for (let i = 0; i < reps; i++) baseSeq.push(...loop);
+            for (let i = 0; i < whole; i++) baseSeq.push(...loop);
+            if (rem > 0) baseSeq.push(...loop.slice(0, rem));
             const baseLen = baseSeq.length;
 
             // Choose holes.
