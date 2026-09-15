@@ -1634,9 +1634,14 @@ function fitScatter(root){
   }
   // Simple canvas confetti burst — a quick color shower for a perfect 3-star.
   // On slow/old hardware (few cores, low memory) far fewer pieces so the TV
-  // never stutters; everything else gets a full shower.
+  // never stutters. A global cap also limits how many showers can be on screen
+  // at once — in Auto mode back-to-back 3-stars otherwise stack several full
+  // canvases and lag low-end devices.
+  let confettiCount=0;
   function confetti(){
     const slow = (navigator.hardwareConcurrency||8)<=4 || (navigator.deviceMemory||8)<=4;
+    if(confettiCount>= (slow?1:2)) return;   // never pile up showers
+    confettiCount++;
     const cv=document.createElement("canvas");
     cv.className="confetti";
     cv.width=innerWidth;cv.height=innerHeight;
@@ -1667,7 +1672,7 @@ function fitScatter(root){
         ctx.fillStyle=p.c;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();
       }
       if(alive) requestAnimationFrame(tick);
-      else cv.remove();
+      else { cv.remove(); confettiCount--; }
     })();
   }
   function nextRound(){
