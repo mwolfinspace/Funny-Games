@@ -165,12 +165,12 @@
      animation:scorepop .4s cubic-bezier(.2,.8,.4,1.4) both}
    @keyframes scorepop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
    .confetti{position:fixed;inset:0;z-index:70;pointer-events:none}
-   .fly-star{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
-     transform:translate(-50%,-50%) scale(1.15);opacity:1;
-     transition:transform .85s cubic-bezier(.2,.7,.3,1), opacity .85s ease-in;
-     font-size:clamp(48px,10vw,100px);letter-spacing:4px;color:#ffd23f;
-     text-shadow:0 4px 14px rgba(0,0,0,.4)}
-   .fly-star.hold{animation:starhold 1.4s ease-in-out infinite}
+.fly-star{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
+      transform:translate(-50%,-50%) scale(1.15);opacity:1;
+      transition:transform .76s cubic-bezier(.2,.7,.3,1), opacity .76s ease-in;
+      font-size:clamp(48px,10vw,100px);letter-spacing:4px;color:#ffd23f;
+      text-shadow:0 4px 14px rgba(0,0,0,.4)}
+   .fly-star.hold{animation:starhold .5s ease-in-out infinite}
    @keyframes starhold{0%,100%{transform:translate(-50%,-50%) scale(1.15);filter:brightness(1)}
      50%{transform:translate(-50%,-50%) scale(1.02);filter:brightness(1.15)}}
 .stars.filled span{display:inline-block;animation:starfill .55s cubic-bezier(.2,.8,.4,1.4) forwards}
@@ -393,6 +393,7 @@
   // isn't flooded with sounds and speech at once.
   async function celebrateCorrect(onDone){
     sfxCorrect();
+    if(state.auto){ onDone(); return; }   // auto = lightning-fast next puzzle
     await sleep(700);
     await speakNumber(state.target);
     onDone();
@@ -1556,74 +1557,77 @@ function fitScatter(root){
 
   async function showResult(stars,quality,method,secs){
     // No popup: the kid should keep looking at their drawn number. Earned stars
-    // fly into the top-right star slot ONE AT A TIME — each star appears at the
-    // center briefly, then flies bright into its own slot where it fills; the
-    // next star stays back until the previous one has landed. Short center
-    // hold, no all-at-once flight. The percent score pops in with the last
-    // star; 3 stars confetti.
+    // pop at the center one after another with a SHORT stagger, then fly to the
+    // top-right slot — stars overlap, so the next one starts popping while the
+    // previous is still flying and none of them waits for the others to land.
+    // The percent score pops in once the last star lands; 3 stars confetti.
     const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
     statusMsg.textContent=`${statusMsg.textContent} · ${Math.round(quality*100)}% · ${secs}s · ${engineLabel} check`;
 
-    // 1) Fly the earned stars to the slot one by one.
+    // 1) Pop + fly the earned stars to the slot, overlapping.
     const board=document.querySelector("#board");
     const src=board.getBoundingClientRect();
     const sx=src.left+src.width/2, sy=src.top+src.height/2;
     statusStars.innerHTML="<span class=\"slot\">☆</span>".repeat(3);
     void statusStars.offsetWidth;
     const slots=[...statusStars.children];
-    const HOLD_AT=650, FLY_MS=850, GAP=160;
+    const HOLD_AT=420, FLY_MS=760, STAG=180;
+    const jobs=[];
     for(let i=0;i<stars;i++){
-      const fly=document.createElement("div");
-      fly.className="fly-star";
-      fly.textContent="★";
-      document.body.appendChild(fly);
-      fly.style.left=`${sx}px`;
-      fly.style.top=`${sy}px`;
-      fly.classList.add("hold");
-      await sleep(HOLD_AT);
-      if(i===0){
-        sfxCorrect();
-        if(stars===3) confetti();
-      }
-      fly.classList.remove("hold");
-      const dst=slots[i].getBoundingClientRect();
-      const dx=dst.left+dst.width/2-sx, dy=dst.top+dst.height/2-sy;
-      fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
-      await sleep(FLY_MS);
-      fly.remove();
-      const slot=slots[i];
-      slot.textContent="★";
-      slot.classList.add("got");
-      void slot.offsetWidth;
-      if(i<stars-1) await sleep(GAP);
+      jobs.push((async()=>{
+        await sleep(i*STAG);                       // stagger the pops
+        const fly=document.createElement("div");
+        fly.className="fly-star";
+        fly.textContent="★";
+        document.body.appendChild(fly);
+        fly.style.left=`${sx}px`;
+        fly.style.top=`${sy}px`;
+        fly.classList.add("hold");
+        await sleep(HOLD_AT);
+        if(i===0){
+          sfxCorrect();
+          if(stars===3) confetti();
+        }
+        fly.classList.remove("hold");
+        const dst=slots[i].getBoundingClientRect();
+        const dx=dst.left+dst.width/2-sx, dy=dst.top+dst.height/2-sy;
+        fly.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`;
+        await sleep(FLY_MS);
+        fly.remove();
+        slots[i].textContent="★";
+        slots[i].classList.add("got");
+        void slots[i].offsetWidth;
+      })());
     }
+    await Promise.all(jobs);
     starsScore.textContent=`${Math.round(quality*100)}%`;
     starsScore.classList.remove("hidden");
 
-    // 4) Voice says the number once the star animation has finished.
+    // 4) Auto mode jumps to the next puzzle immediately (lightning fast);
+    // manual mode voices the number and shows the Next button.
+    if(state.auto){ nextRound(); return; }
     await speakNumber(state.target);
-    if(!state.auto){
-      nextShortEl.classList.remove("hidden");
-      return;
-    }
-    nextRound();
+    nextShortEl.classList.remove("hidden");
   }
   // Simple canvas confetti burst — a quick color shower for a perfect 3-star.
+  // On slow/old hardware (few cores, low memory) far fewer pieces so the TV
+  // never stutters; everything else gets a full shower.
   function confetti(){
+    const slow = (navigator.hardwareConcurrency||8)<=4 || (navigator.deviceMemory||8)<=4;
     const cv=document.createElement("canvas");
     cv.className="confetti";
     cv.width=innerWidth;cv.height=innerHeight;
     document.body.appendChild(cv);
     const ctx=cv.getContext("2d");
     const colors=["#ffd23f","#ff6b6b","#4ecdc4","#e8468f","#2e6de0","#6fbf5f","#f47c1f"];
-    const P=[]; const N=120;
+    const P=[]; const N=slow?36:120;
     for(let i=0;i<N;i++){
       P.push({
         x:Math.random()*cv.width,
         y:-20-Math.random()*cv.height*0.5,
-        w:5+Math.random()*6,h:8+Math.random()*8,
-        vy:2+Math.random()*3.5,vx:-1.2+Math.random()*2.4,
-        rot:Math.random()*Math.PI,vr:-.25+Math.random()*.5,
+        w:slow?4+Math.random()*4:5+Math.random()*6,h:slow?6+Math.random()*5:8+Math.random()*8,
+        vy:slow?1.6+Math.random()*2.4:2+Math.random()*3.5,vx:slow?-1+Math.random()*2: -1.2+Math.random()*2.4,
+        rot:Math.random()*Math.PI,vr:slow?-.15+Math.random()*.3:-.25+Math.random()*.5,
         c:colors[i%colors.length]
       });
     }
