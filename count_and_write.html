@@ -1013,8 +1013,41 @@ function fitScatter(root){
     const scale=Math.min(1, 480/Math.max(w,h));
     return strokesCanvas(Math.max(1,Math.round(Math.max(w,h)*scale)));
   }
+  // OCR-specific render: CROP tightly around the written ink, then upscale
+  // to a fixed height. A kid may draw the number small or huge anywhere on
+  // the board — the reader must still see the SHAPE, not a shrunken sliver
+  // of the whole board (that's what made Tesseract read 3/5/8 as 0/1 when
+  // the strokes were tiny in the full-board image). Size is judged only by
+  // the star score (grid fit), never by the reader.
+  function strokesImageCrop(){
+    if(!strokes.length) return strokesImage();
+    let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    for(const s of strokes) for(const p of s){
+      if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+      if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    }
+    const pad=Math.max(14,(maxX-minX)*0.22);
+    const bw=Math.max(1,maxX-minX+pad*2), bh=Math.max(1,maxY-minY+pad*2);
+    const targetH=224;                          // fixed pen-height for OCR
+    const c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(bw/bh*targetH)); c.height=targetH;
+    const g=c.getContext("2d");
+    g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height);
+    g.scale(c.width/bw,c.height/bh);
+    g.translate(pad-minX,pad-minY);
+    g.lineCap="round"; g.lineJoin="round";
+    g.lineWidth=Math.max(5,Math.min(13,bh/14));
+    g.strokeStyle="#000";
+    for(const s of strokes){
+      if(s.length<2)continue;
+      g.beginPath(); g.moveTo(s[0].x,s[0].y);
+      for(let i=1;i<s.length;i++) g.lineTo(s[i].x,s[i].y);
+      g.stroke();
+    }
+    return c;
+  }
   // Renders the strokes to a clean white PNG data URL (for the server OCR).
-  function strokesToImageDataUrl(){ return strokesImage().toDataURL("image/png"); }
+  function strokesToImageDataUrl(){ return strokesImageCrop().toDataURL("image/png"); }
 
   async function serverOcrHealth(){
     if(ocrHealthy!==null) return ocrHealthy;
@@ -1091,7 +1124,7 @@ function fitScatter(root){
       if(!T) return null;
       if(!ocrWorker) ocrWorker = await withTimeout(T.createWorker("eng"),30000);
       await withTimeout(ocrWorker.setParameters({ tessedit_char_whitelist:"0123456789" }),10000);
-      const { data } = await withTimeout(ocrWorker.recognize(strokesImage()),20000);
+      const { data } = await withTimeout(ocrWorker.recognize(strokesImageCrop()),20000);
       const digits=String(data.text||"").replace(/[^0-9]/g,"");
       if(!digits) return null;
       const n=parseInt(digits,10);
