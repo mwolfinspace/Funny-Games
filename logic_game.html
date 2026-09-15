@@ -62,6 +62,7 @@
         .hud-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #01579b; }
         .hud-btn.new { background-color: #43a047; box-shadow: 0 3px 0 #2e7d32; }
         .hud-btn.mute { background-color: #757575; box-shadow: 0 3px 0 #424242; }
+        .hud-btn.fs-btn { background-color: #00838f; box-shadow: 0 3px 0 #006064; width: 38px; padding: 0; font-size: 1.15rem; }
 
         .level-cluster {
             display: flex;
@@ -254,6 +255,7 @@
                 <span class="level-label-tag hole-tag">#</span>
             </div>
             <button class="hud-btn new" onclick="newGame()">↻ <span>New</span></button>
+            <button class="hud-btn fs-btn" id="fsBtn" title="Full screen">⛶</button>
         </div>
     </div>
 
@@ -635,6 +637,35 @@
             __resizeTimer = setTimeout(layoutCells, 120);
         });
         window.addEventListener('orientationchange', () => setTimeout(layoutCells, 200));
+
+        // ===== Full screen (TV / touch devices) =====
+        // Vendor-prefixed API so it works on smart-TV, Android and iOS browsers;
+        // the layout is re-fit after entering/exiting so nothing gets clipped.
+        const fsBtnEl = document.getElementById('fsBtn');
+        const docF = document, deF = document.documentElement;
+        const vendorFS = (() => {
+            const req = deF.requestFullscreen || deF.webkitRequestFullscreen || deF.mozRequestFullScreen || deF.msRequestFullscreen || null;
+            const ex  = docF.exitFullscreen || docF.webkitExitFullscreen || docF.mozCancelFullScreen || docF.msExitFullscreen || null;
+            const el  = docF.fullscreenElement || docF.webkitFullscreenElement || docF.mozFullScreenElement || docF.msFullscreenElement || null;
+            return { req, ex, el };
+        })();
+        function isFs() { return vendorFS.el ? !!vendorFS.el() : !!document.fullscreenElement; }
+        function syncFsBtn() {
+            fsBtnEl.textContent = isFs() ? '✕' : '⛶';
+            fsBtnEl.title = isFs() ? 'Exit full screen' : 'Full screen';
+        }
+        fsBtnEl.addEventListener('click', async () => {
+            try {
+                if (isFs()) { if (vendorFS.ex) await vendorFS.ex(); }
+                else if (vendorFS.req) await vendorFS.req.call(deF);
+            } catch (e) {}
+            syncFsBtn();
+            requestAnimationFrame(layoutCells);
+        });
+        for (const ev of ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange']) {
+            document.addEventListener(ev, () => { syncFsBtn(); setTimeout(layoutCells, 60); });
+        }
+        syncFsBtn();
 
         // Initialize the first level of the game
         loadRound();
