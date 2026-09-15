@@ -1556,13 +1556,15 @@ function fitScatter(root){
   }
 
   async function showResult(stars,quality,method,secs){
-    // No popup: the kid should keep looking at their drawn number. Earned stars
-    // pop at the center one after another with a SHORT stagger, then fly to the
-    // top-right slot — stars overlap, so the next one starts popping while the
-    // previous is still flying and none of them waits for the others to land.
-    // The percent score pops in once the last star lands; 3 stars confetti.
+    // No popup: the kid should keep looking at their drawn number. The percent
+    // score pops in IMMEDIATELY (as soon as Finish is pressed), while the
+    // earned stars pop at the center one after another with a SHORT stagger
+    // and fly to the top-right slot — stars overlap, so the next one starts
+    // popping while the previous is still flying. 3 stars confetti.
     const engineLabel = method==="client" ? "in-browser" : method==="server" ? "server" : "local";
     statusMsg.textContent=`${statusMsg.textContent} · ${Math.round(quality*100)}% · ${secs}s · ${engineLabel} check`;
+    starsScore.textContent=`${Math.round(quality*100)}%`;
+    starsScore.classList.remove("hidden");
 
     // 1) Pop + fly the earned stars to the slot, overlapping.
     const board=document.querySelector("#board");
@@ -1601,9 +1603,9 @@ function fitScatter(root){
     }
     await Promise.all(jobs);
 
-    // 4) Percent shows right after the stars finish. Auto mode has already
-    // started the next puzzle (render hides the score), so we set the percent
-    // AFTER nextRound — the kid still sees it during the new puzzle.
+    // 4) Auto mode has already started the next puzzle (render hides the
+    // score), so re-set the percent AFTER nextRound — the kid still sees it
+    // during the new puzzle.
     if(state.auto) nextRound();
     starsScore.textContent=`${Math.round(quality*100)}%`;
     starsScore.classList.remove("hidden");
