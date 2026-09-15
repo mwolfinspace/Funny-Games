@@ -1401,15 +1401,19 @@ function fitScatter(root){
     // alongside. A small extra stroke can make OCR flip "3" -> "0"/"1", but
     // the overall SHAPE still clearly matches the target — in that case the
     // shape wins so one added line doesn't wrongly fail a correct drawing.
+    // OCR guesses are only trusted when their confidence beats the local
+    // shape score; otherwise the (more reliable for kid handwriting) local
+    // matcher decides.
     const c = await clientOcrRecognize();
     const v = localDigitVerify();
     if(c && Number.isInteger(c.number)){
       if(c.number === state.target){
         return {method:"client", number:c.number, confidence:Math.max(c.confidence, v.confidence||0)};
       }
-      // OCR disagrees — accept only if the shape still clearly IS the target.
-      if(v.correct){
-        return {method:"client", number:state.target, confidence:Math.max(0.2, v.confidence||0)};
+      // OCR disagrees — accept only if the shape still clearly IS the target,
+      // or if the local shape score is more confident than the OCR guess.
+      if(v.correct || (v.confidence||0) > (c.confidence||0)){
+        return {method:"local", number: v.correct ? state.target : v.guessed, confidence:v.confidence};
       }
       return {method:"client", number:c.number, confidence:c.confidence};
     }
