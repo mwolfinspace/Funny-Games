@@ -911,6 +911,7 @@ function fitScatter(root){
         saveSettings();
       });
     }
+    updateFinishLabel();
     fitAllEmoji();
     setTimeout(()=>{ fitAllEmoji(); requestAnimationFrame(alignGuideToGrid); },0);
   }
@@ -1054,19 +1055,32 @@ function fitScatter(root){
   // Warms up the OCR stack in the background the moment the teacher switches
   // into a write mode, so the kid's first "Finish" scores without a long wait.
   // Loads Tesseract.js + creates the reusable worker early; also pings the
-  // server endpoint once so the health flag is already known.
+  // server endpoint once so the health flag is already known. While the
+  // reading engine is still loading, the Finish button shows "Checking…" so
+  // a slow TV/tablet gives feedback instead of sitting on a dead-looking
+  // "Finish".
   let ocrPreloaded=false;
+  let readEngineLoading=false;
+  function updateFinishLabel(){
+    const f=document.querySelector("#finish");
+    if(!f) return;
+    f.textContent = (readEngineLoading || f.disabled) ? "Checking…" : "Finish ✓";
+  }
   function preloadOcr(){
     if(ocrPreloaded) return;
     ocrPreloaded=true;
+    readEngineLoading=true;
+    updateFinishLabel();
     serverOcrHealth();
     loadTesseract().then(T=>{
       if(T && !ocrWorker){
         withTimeout(T.createWorker("eng"),60000)
-          .then(w=>{ ocrWorker=w; })
-          .catch(()=>{ ocrPreloaded=false; });
+          .then(w=>{ ocrWorker=w; readEngineLoading=false; updateFinishLabel(); })
+          .catch(()=>{ ocrPreloaded=false; readEngineLoading=false; updateFinishLabel(); });
+      } else {
+        readEngineLoading=false; updateFinishLabel();
       }
-    }).catch(()=>{});
+    }).catch(()=>{ readEngineLoading=false; updateFinishLabel(); });
   }
 
   // Recognizes the drawn number entirely on-device. Returns
@@ -1526,7 +1540,7 @@ function fitScatter(root){
     const f=document.querySelector("#finish");
     if(!f)return;
     f.disabled=busy;
-    f.textContent=busy ? "Checking…" : "Finish ✓";
+    f.textContent = busy || readEngineLoading ? "Checking…" : "Finish ✓";
   }
 
   function rejectDrawing(guess){
