@@ -191,17 +191,28 @@ used by `pattern_ultimate` — keep it running only if another page still calls 
 ### How updates flow (this repo's workflow)
 1. Any change/update is committed and pushed to **gitea** (`git push origin main`).
 2. The `minigames.xedryk.top` host auto-pulls the repo and serves the static
-   files (games + `minigames-client.js`) immediately — no extra step.
+   files (games + `minigames-client.js`) — the pages update right away.
 3. The API part is the same pattern as the other self-hosted Node services
    (`library-server.js`, `lan-signaling-server.js`): the host runs
    `backend/server.js` and its `/api/*` gateway routes `/api/mg/*` to it.
    This route lives in the host's gateway config (not in the repo) — add it
    once and push-through forever after.
 
-The Hub client always calls **same-origin** `/api/mg` (`location.origin + "/api/mg"`),
-so it works unchanged whether the page is served by `minigames.xedryk.top` or a
-future domain. Until `/api/mg` responds on that origin the game auto-degrades to
-`external` mode and hides the Hub buttons (`libraryServerReachable()` is false).
+### Cache caveat (Cloudflare, 4h TTL)
+`minigames-client.js` is served with `Cache-Control: max-age=14400`, so
+Cloudflare can keep serving a stale copy for up to 4 hours after a push. The `<script src="minigames-client.js?v=N">` tag in `pattern_ultimate.html` uses a
+cache-busting query — **bump `?v=` whenever `minigames-client.js` changes**
+(pages themselves are not edge-cached, so the bump propagates on the next pull).
+Or purge: Cloudflare dashboard → Caching → Purge everything. Verify what is
+actually served with:
+```bash
+curl -sI https://minigames.xedryk.top/minigames-client.js  # look for cf-cache-status
+```
+
+The Hub client calls **same-origin** `/api/mg` on a hub host, and the remote Hub
+URL from any static deploy (see §1). Until `/api/mg` responds on that origin the
+game auto-degrades to `external` mode and hides the Hub buttons
+(`libraryServerReachable()` is false).
 
 ### Prereqs on the host
 - Node.js ≥ 18 (tested on 22). `node --version`.
