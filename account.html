@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Minigames Hub — Account</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      margin: 0; padding: 24px 12px; background: #eef2f7; color: #1e293b;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; min-height: 100vh;
+    }
+    .card {
+      max-width: 520px; margin: 0 auto; background: #fff; border-radius: 20px;
+      padding: 28px 28px 30px; box-shadow: 0 8px 30px rgba(30,41,59,.08);
+    }
+    .top {
+      background: linear-gradient(135deg,#4f7cff,#7c5cff); border-radius: 14px 14px 0 0;
+      padding: 20px 24px; color: #fff; font-size: 20px; font-weight: 700; margin: -28px -28px 22px;
+    }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    p.msg { line-height: 1.6; margin: 0 0 14px; color: #444; }
+    .codebox {
+      padding: 14px 18px; background: #f6f8fc; border: 1px dashed #c7d2fe;
+      border-radius: 12px; font-family: Consolas, Menlo, monospace; font-size: 20px;
+      font-weight: 700; letter-spacing: 4px; color: #3b5bdb; text-align: center;
+      margin: 6px 0 16px; word-break: break-all;
+    }
+    label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; color: #475569; }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 11px 12px; border: 1px solid #d7e0ec; border-radius: 10px;
+      font-size: 15px; background: #fbfdff;
+    }
+    button {
+      display: inline-block; background: #4f7cff; color: #fff; border: 0; cursor: pointer;
+      font-weight: 600; font-size: 15px; padding: 12px 22px; border-radius: 12px; margin-top: 16px;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    a.back { display: inline-block; margin-top: 14px; color: #4f7cff; text-decoration: none; font-weight: 600; }
+    .ok { color: #1a7f37; font-weight: 700; }
+    .err { color: #b42318; font-weight: 600; line-height: 1.5; }
+    .hidden { display: none; }
+    .hint { font-size: 12px; color: #94a3b8; margin-top: 18px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">🎮 Minigames Hub</div>
+
+    <!-- verify -->
+    <section id="verify" class="hidden">
+      <h1>Verify your email</h1>
+      <p class="msg" id="vIntro">Confirming your email for <b id="vEmail"></b>…</p>
+      <div id="vDone" class="hidden">
+        <p class="msg ok" id="vDoneMsg"></p>
+        <a class="back" href="index.html">→ Go to the games</a>
+      </div>
+      <div id="vForm" class="hidden">
+        <p class="msg err" id="vErr"></p>
+        <p class="msg">Paste the code from the email below:</p>
+        <div class="codebox" id="vCode"></div>
+        <label for="vCodeIn">Verify code</label>
+        <input id="vCodeIn" type="text" autocomplete="one-time-code" inputmode="text">
+        <label for="vCodeEmail">Email</label>
+        <input id="vCodeEmail" type="text">
+        <button id="vBtn">Verify</button>
+        <p class="hint">Code is valid for 30 minutes. Didn't get one? Use “Forgot password” on the game's login screen — that email also contains a working verification code.</p>
+      </div>
+    </section>
+
+    <!-- reset -->
+    <section id="reset" class="hidden">
+      <h1>Set a new password</h1>
+      <p class="msg" id="rIntro">For <b id="rEmail"></b>. Choose a strong new password (at least 8 characters).</p>
+      <div id="rDone" class="hidden">
+        <p class="msg ok">Password changed. You can now log in with the new password.</p>
+        <a class="back" href="index.html">→ Go to the games</a>
+      </div>
+      <div id="rForm" class="hidden">
+        <p class="msg err" id="rErr"></p>
+        <div class="codebox" id="rCode"></div>
+        <label for="rPw">New password</label>
+        <input id="rPw" type="password" autocomplete="new-password">
+        <label for="rPw2">Repeat password</label>
+        <input id="rPw2" type="password" autocomplete="new-password">
+        <button id="rBtn">Change password</button>
+      </div>
+    </section>
+
+    <!-- generic landing -->
+    <section id="generic" class="hidden">
+      <h1>Account</h1>
+      <p class="msg">Open an account link from an email, or head to the games to sign up, log in, or reset a forgotten password.</p>
+      <a class="back" href="index.html">→ Go to the games</a>
+    </section>
+
+    <p class="hint">Requests are made directly to the Minigames Hub; this page loads no third-party resources.</p>
+  </div>
+
+  <script src="minigames-client.js"></script>
+  <script>
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var action = q.get("action");
+    var email = (q.get("email") || "").trim();
+    var code = (q.get("code") || "").trim().toUpperCase();
+    var $ = function (id) { return document.getElementById(id); };
+    var show = function (id) { ["verify", "reset", "generic"].forEach(function (s) { $(s).classList.toggle("hidden", s !== id); }); };
+
+    function setBusy(b, btn, txt) {
+      btn.disabled = b; if (txt) btn.textContent = txt;
+    }
+    function setErr(container, el, msg) {
+      if (msg) el.textContent = msg; container.classList.remove("hidden");
+      else container.classList.add("hidden");
+    }
+
+    if (action === "verify") {
+      show("verify");
+      $("vEmail").textContent = email;
+      if (email && code) {
+        setBusy(true, $("vBtn"), "Verifying…");
+        MG.account.verify(email, code).then(function (d) {
+          setBusy(false, $("vBtn"), "Verify");
+          $("vDoneMsg").textContent = email + " is now verified — your account is ready.";
+          $("vDone").classList.remove("hidden");
+        }).catch(function (e) {
+          setBusy(false, $("vBtn"), "Verify");
+          setErr($("vForm"), $("vErr"), (e && e.message) || "Verification failed.");
+          $("vForm").classList.remove("hidden");
+          $("vCode").textContent = code;
+          $("vCodeEmail").value = email;
+        });
+      } else {
+        $("vCode").textContent = "(no code)";
+        $("vCodeEmail").value = email || "";
+        $("vForm").classList.remove("hidden");
+      }
+      $("vBtn").onclick = function () {
+        var em = ($("vCodeEmail").value || "").trim();
+        var cd = ($("vCodeIn").value || "").trim().toUpperCase();
+        if (!em || !cd) { setErr($("vForm"), $("vErr"), "Please enter both email and code."); return; }
+        setErr($("vForm"), $("vErr"), null);
+        setBusy(true, $("vBtn"), "Verifying…");
+        MG.account.verify(em, cd).then(function () {
+          $("vDoneMsg").textContent = em + " is now verified — your account is ready.";
+          $("vForm").classList.add("hidden");
+          $("vDone").classList.remove("hidden");
+        }).catch(function (e) {
+          setBusy(false, $("vBtn"), "Verify");
+          setErr($("vForm"), $("vErr"), (e && e.message) || "Verification failed.");
+        });
+      };
+    } else if (action === "reset") {
+      show("reset");
+      $("rEmail").textContent = email;
+      $("rCode").textContent = code;
+      if (!email || !code) {
+        show("generic");
+        return;
+      }
+      $("rBtn").onclick = function () {
+        var pw = $("rPw").value;
+        var pw2 = $("rPw2").value;
+        if (pw.length < 8) { setErr($("rForm"), $("rErr"), "Password must be at least 8 characters."); return; }
+        if (pw !== pw2) { setErr($("rForm"), $("rErr"), "Passwords do not match."); return; }
+        setErr($("rForm"), $("rErr"), null);
+        setBusy(true, $("rBtn"), "Saving…");
+        MG.account.reset(email, code, pw).then(function () {
+          $("rForm").classList.add("hidden");
+          $("rDone").classList.remove("hidden");
+        }).catch(function (e) {
+          setBusy(false, $("rBtn"), "Change password");
+          setErr($("rForm"), $("rErr"), (e && e.message) || "Reset failed.");
+        });
+      };
+    } else {
+      show("generic");
+    }
+  })();
+  </script>
+</body>
+</html>

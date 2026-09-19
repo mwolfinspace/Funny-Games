@@ -65,6 +65,26 @@ const signupLimiter = new auth.RateLimiter(60_000, 5);
 const resetLimiter = new auth.RateLimiter(60_000, 3);
 const apiLimiter = new auth.RateLimiter(1000, 240);
 
+// ── outbound mail sentinel ──────────────────────────────────────────────────
+// Hard cap on emails per rolling hour. Per-IP limits can be dodged by rotating
+// IPs, so this is the backstop that stops the shared gmail account from being
+// used as a spam cannon (signup/reset sends are the only outbound mail paths).
+const MAIL_WINDOW_MS = 60 * 60 * 1000;
+const MAIL_PER_WINDOW = 30;
+let mailWindowStart = Date.now();
+let mailSentInWindow = 0;
+
+function canSendMail() {
+  const now = Date.now();
+  if (now - mailWindowStart >= MAIL_WINDOW_MS) {
+    mailWindowStart = now;
+    mailSentInWindow = 0;
+  }
+  if (mailSentInWindow >= MAIL_PER_WINDOW) return false;
+  mailSentInWindow++;
+  return true;
+}
+
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 const CODE_TTL_MS = 30 * 60 * 1000; // email codes valid 30 min
 
@@ -97,7 +117,9 @@ function getUserByToken(token) {
 }
 
 function validCode(u, code) {
-  return !!u.codeHash && u.codeHash === auth.digestToken(String(code).toUpperCase()) && Date.now() < Date.parse(u.codeExpiresAt);
+  if (!u || !u.codeHash || !code) return false;
+  const want = auth.digestToken(String(code).trim().toUpperCase());
+  return timingSafeEq(u.codeHash, want) && Date.now() < Date.parse(u.codeExpiresAt);
 }
 
 // ── JSON helpers ────────────────────────────────────────────────────────────
@@ -110,6 +132,9 @@ function json(res, code, obj) {
     "Access-Control-Allow-Methods": "GET, POST, DELETE, PUT, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
   });
   res.end(body);
 }
@@ -140,8 +165,14 @@ function readBody(req, limit = 1_000_000) {
 }
 
 function clientIp(req) {
-  const fwd = (req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-  return fwd || req.socket.remoteAddress || "unknown";
+  // nginx appends the real client IP as the LAST X-Forwarded-For entry; the
+  // leftmost entries are client-supplied and can be spoofed to rotate past
+  // per-IP rate limits, so only the rightmost value is trusted.
+  const parts = (req.headers["x-forwarded-for"] || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : req.socket.remoteAddress || "unknown";
 }
 
 /** A session token may arrive via Authorization: Bearer, ?token=, or body. */
@@ -398,6 +429,10 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { ok: false, error: "Password must be at least 8 characters." });
       if (users.find((u) => u.email === email))
         return json(res, 409, { ok: false, error: "An account with that email already exists." });
+      if (!canSendMail()) {
+        await logAudit({ actor: "system", action: "system.mail_limit_hit", detail: "signup" });
+        return json(res, 429, { ok: false, error: "Too many verification emails were sent recently. Try again later." });
+      }
 
       const code = auth.newCode();
       const user = {
@@ -482,6 +517,11 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/mg/auth/reset-request" && req.method === "POST") {
       if (resetLimiter.hit(ip, "reset")) {
         json(res, 429, { ok: false, error: "Too many reset requests. Try again in a minute." });
+        return;
+      }
+      if (!canSendMail()) {
+        await logAudit({ action: "system.mail_limit_hit", detail: "reset-request" });
+        json(res, 429, { ok: false, error: "Too many reset emails were sent recently. Try again later." });
         return;
       }
       const body = await readBody(req);

@@ -410,6 +410,19 @@ curl -s -X POST -H "X-MG-Owner-Key: $KEY" -H 'Content-Type: application/json' \
 - Saves/stats/medals endpoints require a valid non-expired session.
 - `MG_SIGNING_SECRET` leakage weakens the envelope only; the token checks on
   state changes remain the actual account boundary.
+- Outbound email is capped at 30/hour globally (in-memory sentinel) — the
+  backstop against IP-rotating abuse of the shared Gmail account. Over-limit
+  signups/reset-requests get `429` and an audit entry (`system.mail_limit_hit`).
+- `X-Forwarded-For` uses the **rightmost** entry (nginx appends the real client;
+  leftmost entries are client-supplied and spoofable). Changing this would let
+  attackers rotate past the per-IP rate limits.
+- API responses set `Content-Security-Policy: default-src 'none'`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`; nginx adds
+  `Referrer-Policy: no-referrer` + `nosniff` to static pages so email codes in
+  the `account.html?...code=…` URL never leak through the Referer header.
+- The email CTA lands on `account.html` (in the repo root, served on both the
+  hub host and the GitHub copy); it verifies/resets via `minigames-client.js`
+  and loads no third-party resources.
 
 ## 11. Future / notes
 - The JSON store is intentionally swappable for Postgres by keeping the
