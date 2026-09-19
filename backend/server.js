@@ -357,18 +357,14 @@ function sendCodeEmail(user, { action, code, to }) {
     to: to || user.email,
     subject,
     heading: isReset ? "Reset your password" : "Confirm your email",
-    summary:
-      "We received a request on the Minigames Hub. Use the code below to continue — it expires in 30 minutes.",
+    summary: "We received a request on the Minigames Hub. Enter the code below at minigames.xedryk.top when prompted — it expires in 30 minutes.",
     lines: [
       `Hello${user.nickname ? " " + user.nickname : ""}!`,
       isReset
-        ? "Tap below (or enter the code) to choose a new password for your account."
-        : "Tap below (or enter the code) to finish creating your account.",
+        ? "Go to the game site, choose “Forgot password”, and enter this code to set a new password."
+        : "Go to the game site, sign in with your password, and enter this code where it asks for a verification code.",
     ],
     cta: code,
-    ctaUrl: isReset
-      ? `${PUBLIC_URL}/account.html?action=reset&email=${encodeURIComponent(user.email)}&code=${code}`
-      : `${PUBLIC_URL}/account.html?action=verify&email=${encodeURIComponent(user.email)}&code=${code}`,
     footer: "The Minigames Hub — minigames.xedryk.top",
   });
 }

@@ -420,9 +420,11 @@ curl -s -X POST -H "X-MG-Owner-Key: $KEY" -H 'Content-Type: application/json' \
   `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`; nginx adds
   `Referrer-Policy: no-referrer` + `nosniff` to static pages so email codes in
   the `account.html?...code=…` URL never leak through the Referer header.
-- The email CTA lands on `account.html` (in the repo root, served on both the
-  hub host and the GitHub copy); it verifies/resets via `minigames-client.js`
-  and loads no third-party resources.
+- Emails deliver the code only — deliberately no clickable button URL, so there
+  is never any ambiguity between the hub host (minigames.xedryk.top) and the
+  GitHub Pages copy (mwolfinspace.github.io). The code is entered in the game's
+  own login modal (verify / reset steps). `account.html` (served on both hosts)
+  remains as a manual code-entry fallback and loads no third-party resources.
 
 ## 11. Future / notes
 - The JSON store is intentionally swappable for Postgres by keeping the
