@@ -145,7 +145,7 @@ await MG.init();
 // account UI
 MG.account.signup(email, pw, nick);   => { ok }
 MG.account.verify(email, code);       => { user }
-MG.account.login(email, pw);          => { token }  (stored in sessionStorage)
+MG.account.login(email, pw);          => { token }  (kept in localStorage w/ 90-day expiry)
 MG.account.logout();
 MG.account.me();                      => { user }
 MG.account.forgot(email);
@@ -178,8 +178,9 @@ library system at the Hub:
   with no account library yet it falls back to the bundled `pattern_user_puzzle.json`
   (read-only baseline).
 - **Password** = the Hub account: the old `#libPassModal` is now a login / signup /
-  verify / reset form (`ensureHubAuth`). Success keeps the token in sessionStorage
-  (persists across reloads in the same tab).
+  verify / reset form (`ensureHubAuth`). Success keeps the token in localStorage
+  for the server's full session lifetime (90 days), so the login survives tab
+  closes and browser restarts like a normal "keep me signed in".
 - **Add / Remove / Commit**: `saveCurrentToLibrary` (💾), `executeDeletePuzzle` (❌)
   and `syncLibraryToServer` (🚀 or 3× click on the seed) all mutate `globalLibrary`
   locally and persist through `saveLibraryToHub` → `MG.save.put`. Anonymous visitors

@@ -6753,11 +6753,11 @@ window.saveUndo = function () {
               libAuthEmail = email;
               try {
                 const d = await libAuthLogin(email, pw);
-                if (d.user && d.user.verified) return true;
-                // unverified -> resend a code via the reset flow and verify
-                await MG.account.forgot(email);
-                libAuthMode = "verify";
-                renderLibAuthForm();
+                // Correct password means signed in. Email verification is only
+                // informational (a badge) and never blocks the library — it must
+                // NOT silently flip into a "we emailed you a code" screen.
+                if (d.user) return true;
+                libAuthSetStatus("Login returned no user.", "#dc2626");
                 return false;
               } catch (e) {
                 libAuthSetStatus(e.message || "Login failed.", "#dc2626");

@@ -47,6 +47,7 @@
   }
   const API_BASE = pickApiBase();
   const SES = "mg_session_token";
+  const SEY = "mg_session_expiry";
   const DEV = "mg_device_id";
 
   MG.isGitea = GITEA_HOSTS.has(global.location ? global.location.host : "");
@@ -76,14 +77,39 @@
     return id;
   }
 
+  // Session token is stored in localStorage (survives tab close / browser
+  // restart) so the login persists for the full server-side session length
+  // (90 days), like a normal website's "keep me signed in". The expiry is
+  // kept alongside so stale tokens are dropped instead of throwing 401s.
   function getToken() {
+    try {
+      const exp = global.localStorage.getItem(SEY);
+      if (exp && Date.now() >= Date.parse(exp)) {
+        removeSession();
+        return "";
+      }
+      return global.localStorage.getItem(SES) || "";
+    } catch {}
     try { return global.sessionStorage.getItem(SES) || ""; } catch { return ""; }
   }
-  function setToken(t) {
+  function setToken(t, expiresAt) {
     try {
-      if (t) global.sessionStorage.setItem(SES, t);
-      else global.sessionStorage.removeItem(SES);
-    } catch {}
+      if (t) global.localStorage.setItem(SES, t);
+      else global.localStorage.removeItem(SES);
+      if (expiresAt) global.localStorage.setItem(SEY, expiresAt);
+      else global.localStorage.removeItem(SEY);
+    } catch {
+      // localStorage unavailable → fall back to sessionStorage
+      try {
+        if (t) global.sessionStorage.setItem(SES, t);
+        else global.sessionStorage.removeItem(SES);
+      } catch {}
+    }
+  }
+  function removeSession() {
+    try { global.localStorage.removeItem(SES); } catch {}
+    try { global.localStorage.removeItem(SEY); } catch {}
+    try { global.sessionStorage.removeItem(SES); } catch {}
   }
 
   // ── capabilities ─────────────────────────────────────────────────────────
@@ -129,13 +155,13 @@
   account.me = () => http("GET", `/auth/me?token=${encodeURIComponent(getToken())}`);
   account.login = async (email, password, device) => {
     const d = await http("POST", "/auth/login", { email, password, device: device || getDeviceId() });
-    setToken(d.token);
+    setToken(d.token, d.expiresAt);
     live.connect();
     return d;
   };
   account.logout = async () => {
     try { await http("POST", "/auth/logout", { token: getToken() }); } catch {}
-    setToken("");
+    removeSession();
     live.close();
   };
   account.signup = (email, password, nickname) =>
