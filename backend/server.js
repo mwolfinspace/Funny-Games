@@ -659,7 +659,7 @@ const server = http.createServer(async (req, res) => {
         if (codeLimiter.hit(ip, "codes") || codeLimiter.hit(u.id, "codes"))
           return json(res, 429, { ok: false, error: "Too many codes. Try again in a minute." });
         const game = String(body.game || "").replace(/[^a-z0-9_\-]/gi, "").slice(0, 48);
-        const seed = String(body.seed == null ? "" : body.seed).slice(0, 4000);
+        const seed = String(body.seed == null ? "" : body.seed).slice(0, 8000);
         if (!game) return json(res, 400, { ok: false, error: "Game id required." });
         if (!seed) return json(res, 400, { ok: false, error: "Seed required." });
         const key = game + "|" + seed;

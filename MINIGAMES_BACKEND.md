@@ -267,6 +267,19 @@ anytime.
 - Client: `MG.codes.mint(game, seed)` → `{ code }`, `MG.codes.open(code)` →
   `{ seed }`. Chess resolves 7-char codes in `loadSeed()` before any other seed
   parsing, and mints codes automatically (throttled ≥2.5 s, cached per seed).
+  Chess clock times are stored at **minute granularity** (`floor(s/60)*60`), so
+  a "time code" only re-mints on a move or a whole-minute boundary — stable
+  enough to copy mid-game instead of churning every second.
+- **Pattern (shape game)**: same flow with `game: "pattern"`. Loading is
+  **fully public** — any student pastes the 7-char code (seed input, floating
+  box, or a `?seed=CODE` share URL) and `resolveSeedRef()` swaps it for the real
+  seed via the public lookup, no account needed. Minting follows a
+  **failsafe**: the short code only shows (toolbar chip, quick-copy, 🔗 share
+  URL) while the hub is connected **and** the mint for the current seed
+  succeeded; the moment it fails/off-lines the chip drops back to `—` and the
+  long seed id stays the shareable one. Mint still requires a login (spam
+  guard); seeds are stored as plain text, so cost is negligible. Seed length
+  cap is 8000 chars.
 
 ## 7. Deploying (auto-deploy on the minigames host)
 

@@ -2054,6 +2054,7 @@
           this._codeCache = {};
           this._codeMintAt = 0;
           this._codeSeq = 0;
+          this._lastRefreshedSeed = null;
           this.gameCode = null;
           this._bind();
           this._initTheme();
@@ -2994,11 +2995,14 @@
             aiSideFixed: this.aiSideFixed || "b",
             rotation: this.rotation || 0,
             clockBase: this.clockBase || 600,
+            // Clock times are stored at minute granularity so the seed (and
+            // its short game code) only change on move / whole-minute
+            // boundaries — stay stable enough to copy mid-game.
             wTime: Number.isFinite(this.wTime)
-              ? this.wTime
+              ? Math.floor(this.wTime / 60) * 60
               : this.clockBase || 600,
             bTime: Number.isFinite(this.bTime)
-              ? this.bTime
+              ? Math.floor(this.bTime / 60) * 60
               : this.clockBase || 600,
             clockOn: !!this.clockOn,
             baseSeed: this.baseSeed || this.seed || "",
@@ -3044,6 +3048,8 @@
           if (this.demo) return;
           const seed = this._encodeSeedData();
           if (!seed) return;
+          if (seed === this._lastRefreshedSeed) return; // nothing changed
+          this._lastRefreshedSeed = seed;
           this.seed = seed;
           const seedIn = document.getElementById("seedIn");
           if (seedIn) seedIn.value = seed;

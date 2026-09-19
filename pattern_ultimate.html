@@ -495,6 +495,29 @@
         background: rgba(0, 120, 212, 0.15);
         color: #0078d4;
       }
+      .pat-code-chip {
+        font-family: "JetBrains Mono", Consolas, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        padding: 3px 9px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(0, 0, 0, 0.18);
+        color: rgba(255, 255, 255, 0.92);
+        cursor: pointer;
+        user-select: text;
+        white-space: nowrap;
+        transition: background 0.15s ease;
+      }
+      .pat-code-chip:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .pat-code-chip.offline {
+        color: rgba(255, 255, 255, 0.38);
+        font-style: italic;
+        cursor: default;
+      }
       /* Theme indicator for seed input */
       #seedInput[data-theme="none"] {
         border-left: 4px solid #9e9e9e;
@@ -1524,6 +1547,12 @@
         <button id="urlBtn" class="tb-btn sp-btn" title="Copy shareable URL">
           🔗
         </button>
+        <span
+          id="patCodeChip"
+          class="pat-code-chip"
+          title="Super-short game code (synced with hub)"
+          >—</span
+        >
       </div>
     </div>
 
@@ -2718,6 +2747,68 @@
       }
 
       let currentSeedCode = "";
+
+      // Super-short code syncing (hub-backed, behaves like chess game codes)
+      let patternCodesArmed = false;
+      let patternCodeCache = {};
+      let patternCodeMintAt = 0;
+      let patternCodeSeq = 0;
+
+      function currentPatternCode() {
+        return currentSeedCode && patternCodeCache[currentSeedCode]
+          ? patternCodeCache[currentSeedCode]
+          : null;
+      }
+
+      function applyPatternCode(code) {
+        const chip = document.getElementById("patCodeChip");
+        if (!chip) return;
+        if (code) {
+          chip.textContent = code;
+          chip.classList.remove("offline");
+          chip.title = "Super-short game code (synced with hub) — click to copy";
+        }
+      }
+
+      function syncPatternCode() {
+        const chip = document.getElementById("patCodeChip");
+        if (!patternCodesArmed || !currentSeedCode) {
+          if (chip) {
+            chip.textContent = "—";
+            chip.classList.add("offline");
+          }
+          return;
+        }
+        const seed = currentSeedCode;
+        const cached = patternCodeCache[seed];
+        if (cached) {
+          applyPatternCode(cached);
+          return;
+        }
+        const now = Date.now();
+        if (now < patternCodeMintAt) return; // stay under the hub rate limit
+        patternCodeMintAt = now + 2500;
+        const seq = ++patternCodeSeq;
+        Promise.resolve()
+          .then(() => MG.codes.mint("pattern", seed))
+          .then((r) => {
+            if (seq !== patternCodeSeq) return;
+            if (r && r.code) {
+              patternCodeCache[seed] = r.code;
+              applyPatternCode(r.code);
+            }
+          })
+          .catch(() => {
+            if (seq !== patternCodeSeq) return;
+            // Mint failed (offline drift, token invalid…) → failsafe: keep the
+            // long seed; chip falls back to offline look.
+            patternCodeCache[seed] = null;
+            if (chip) {
+              chip.textContent = "—";
+              chip.classList.add("offline");
+            }
+          });
+      }
       let isCustomPuzzle = false; // true when loaded from library/import
       let customPuzzleIndex = -1; // library index when loaded from library
       function updateSeedDisplay() {
@@ -2924,6 +3015,23 @@
         } catch (e) {
           console.warn("Pre-parse failed:", e);
         }
+      }
+
+      // Resolve a super-short shared code (7-char) to its stored seed via the
+      // public hub lookup — no account needed to load. Any other input is
+      // returned unchanged (long seed / #library ref / plain text).
+      async function resolveSeedRef(input) {
+        const clean = String(input || "").trim();
+        if (!/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{7}$/.test(clean)) return clean;
+        try {
+          if (typeof MG !== "undefined" && MG && MG.codes && MG.codes.open) {
+            const r = await MG.codes.open(clean);
+            if (r && r.seed) return r.seed;
+          }
+        } catch (e) {
+          console.warn("Code lookup failed:", e);
+        }
+        return clean;
       }
 
       function loadSeed(input, appendMode = false) {
@@ -3283,7 +3391,7 @@
         });
 
         // Enter to load
-        seedInput.addEventListener("keydown", (e) => {
+        seedInput.addEventListener("keydown", async (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
             const val = seedInput.value.trim();
@@ -3294,7 +3402,8 @@
               return;
             }
 
-            if (loadSeed(val)) {
+            const resolved = await resolveSeedRef(val);
+            if (loadSeed(resolved)) {
               toast("Seed loaded!");
             } else {
               toast("Invalid seed - restoring current");
@@ -3313,10 +3422,12 @@
           }
         });
 
-        // Quick copy button
+        // Quick copy button — prefers the super-short synced code
         if (quickCopyBtn) {
           quickCopyBtn.addEventListener("click", () => {
-            const text = seedInput.dataset.copyValue || seedInput.value;
+            const short = currentPatternCode();
+            const text =
+              short || seedInput.dataset.copyValue || seedInput.value;
             if (!text || text === "(empty)") {
               toast("Nothing to copy");
               return;
@@ -3362,12 +3473,31 @@
 
             const url = new URL(window.location.href);
             url.searchParams.delete("lib");
-            url.searchParams.set("seed", currentSeedCode);
+            url.searchParams.set("seed", currentPatternCode() || currentSeedCode);
 
             navigator.clipboard.writeText(url.toString()).then(() => {
               toast("Share URL copied!");
               SFX.play("copy");
             });
+          });
+        }
+
+        // Click the short-code chip to copy it
+        const patChip = document.getElementById("patCodeChip");
+        if (patChip) {
+          patChip.addEventListener("click", () => {
+            const code = currentPatternCode();
+            if (!code) {
+              toast("Short code unavailable — hub not synced");
+              return;
+            }
+            navigator.clipboard
+              .writeText(code)
+              .then(() => {
+                toast(`Code ${code} copied`);
+                SFX.play("copy");
+              })
+              .catch(() => {});
           });
         }
       }
@@ -3403,7 +3533,7 @@
         document.getElementById("floatingSeedBox").classList.remove("show");
       }
 
-      function submitFloatingSeed() {
+      async function submitFloatingSeed() {
         const val = document.getElementById("fsbInput").value.trim();
         if (!val) {
           hideFloatingSeed();
@@ -3442,7 +3572,8 @@
           }
         }
 
-        const processedVal = processSeedInput(val);
+        const resolvedVal = await resolveSeedRef(val);
+        const processedVal = processSeedInput(resolvedVal);
         if (!processedVal) {
           hideFloatingSeed();
           return;
@@ -5884,9 +6015,10 @@ The game should only read data.words from words.json.
 
         if (pSeed) {
           // Puzzle mode - load as shadow target
-          setTimeout(() => {
+          setTimeout(async () => {
+            const resolved = await resolveSeedRef(pSeed);
             window.isPuzzleLoading = true;
-            const success = loadSeed(pSeed, false);
+            const success = loadSeed(resolved, false);
             window.isPuzzleLoading = false;
 
             if (success) {
@@ -5900,8 +6032,9 @@ The game should only read data.words from words.json.
             }
           }, 300);
         } else if (seed) {
-          setTimeout(() => {
-            if (loadSeed(seed)) {
+          setTimeout(async () => {
+            const resolved = await resolveSeedRef(seed);
+            if (loadSeed(resolved)) {
               toast("Seed loaded");
               const url = new URL(window.location);
               url.searchParams.delete("seed");
@@ -6220,10 +6353,17 @@ window.saveUndo = function () {
         try {
           const cap = await MG.init();
           serverLibraryActive = cap.mode === "gitea" && cap.features.length > 0;
+          patternCodesArmed =
+            serverLibraryActive &&
+            !!(MG.account && MG.account.token()) &&
+            !!MG.codes &&
+            cap.features.indexOf("codes") !== -1;
         } catch (e) {
           serverLibraryActive = false;
+          patternCodesArmed = false;
         }
         if (typeof updateLibDisplay === "function") updateLibDisplay();
+        if (typeof syncPatternCode === "function") syncPatternCode();
         return serverLibraryActive;
       }
 
@@ -7018,6 +7158,12 @@ window.saveUndo = function () {
       function updateSeedDisplay_safe() {
         if (!_orig_updateSeedDisplay) return;
         _orig_updateSeedDisplay();
+
+        try {
+          if (typeof syncPatternCode === "function") syncPatternCode();
+        } catch (e) {
+          console.warn("syncPatternCode error:", e);
+        }
 
         try {
           const seedInput = document.getElementById("seedInput");
