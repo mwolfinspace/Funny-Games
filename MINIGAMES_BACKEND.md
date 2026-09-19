@@ -157,6 +157,30 @@ const mine = await MG.medals.mine();
 If `MG.ready("saves")` is false, the UX should simply not render Hub buttons —
 the game keeps its current offline/localStorage flow untouched.
 
+### pattern_ultimate integration (done)
+
+`pattern_ultimate.html` now includes `minigames-client.js` and repoints its whole
+library system at the Hub:
+
+- **Library storage** = a per-account save blob: `MG.save.put("pattern", "library", globalLibrary)`.
+- **Open loading** (`initGlobalLibrary`): on Gitea it reads `MG.save.get("pattern","library")`;
+  with no account library yet it falls back to the bundled `pattern_user_puzzle.json`
+  (read-only baseline), exactly like GitHub/localhost.
+- **Password** = the Hub account: the old `#libPassModal` is now a login / signup /
+  verify / reset form (`ensureHubAuth`). Success keeps the token in sessionStorage
+  (persists across reloads in the same tab).
+- **Add / Remove / Commit**: `saveCurrentToLibrary` (💾), `executeDeletePuzzle` (❌)
+  and `syncLibraryToServer` (🚀 or 3× click on the seed) all mutate `globalLibrary`
+  locally and persist through `saveLibraryToHub` → `MG.save.put`. Anonymous visitors
+  can browse but every mutation prompts for the account first.
+- GitHub/local stays untouched: `libraryServerReachable()` is only true after the
+  signed capabilities envelope reports `gitea` mode, so the GitHub pages copy still
+  reads `pattern_user_puzzle.json` (local, read-only) and hides the Hub save/commit
+  buttons.
+
+The standalone `library-server.js` (old `/api/library` password API) is no longer
+used by `pattern_ultimate` — keep it running only if another page still calls it.
+
 ## 7. Deploying on Gitea (deep setup guide)
 
 ### Prereqs on the host

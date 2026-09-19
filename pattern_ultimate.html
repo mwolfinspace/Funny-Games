@@ -1590,25 +1590,27 @@
       <div
         class="acrylic"
         style="
-          width: 320px;
+          width: 360px;
           padding: 24px;
           border-radius: 24px;
           text-align: center;
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          background: rgba(255, 255, 255, 0.9);
+          gap: 14px;
+          background: rgba(255, 255, 255, 0.94);
         "
       >
-        <h3 style="color: #333; margin: 0; font-size: 20px">🔒 Library Lock</h3>
-        <p style="color: #555; margin: 0; font-size: 15px; line-height: 1.4">
-          Enter the admin password to modify the server library.
+        <h3 id="libAccTitle" style="color: #333; margin: 0; font-size: 20px">
+          🔓 Hub Account
+        </h3>
+        <p id="libAccSub" style="color: #555; margin: 0; font-size: 14px; line-height: 1.4">
+          Log in to edit the server library (add, remove, commit).
         </p>
         <input
-          id="libPassInput"
-          type="password"
-          placeholder="Password"
-          autocomplete="off"
+          id="libAccEmail"
+          type="email"
+          placeholder="Email"
+          autocomplete="email"
           spellcheck="false"
           style="
             padding: 12px 14px;
@@ -1617,9 +1619,68 @@
             font-size: 16px;
             outline: none;
             text-align: center;
-            letter-spacing: 2px;
           "
         />
+        <input
+          id="libAccPass"
+          type="password"
+          placeholder="Password (8+ characters)"
+          autocomplete="current-password"
+          spellcheck="false"
+          style="
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 2px solid #e0e6ef;
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 1px;
+          "
+        />
+        <input
+          id="libAccCode"
+          type="text"
+          placeholder="Verification code (from your email)"
+          autocomplete="one-time-code"
+          spellcheck="false"
+          style="
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 2px solid #e0e6ef;
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 3px;
+          "
+        />
+        <input
+          id="libAccNewPass"
+          type="password"
+          placeholder="New password (8+ characters)"
+          autocomplete="new-password"
+          spellcheck="false"
+          style="
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 2px solid #e0e6ef;
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 1px;
+          "
+        />
+        <p
+          id="libAccStatus"
+          style="
+            margin: 0;
+            font-size: 13px;
+            min-height: 18px;
+            color: #7c3aed;
+            line-height: 1.4;
+          "
+        ></p>
         <div
           style="
             display: flex;
@@ -1660,14 +1721,39 @@
               box-shadow: 0 4px 12px rgba(77, 137, 255, 0.3);
             "
           >
-            Unlock 🔓
+            Continue
           </button>
+        </div>
+        <div
+          style="
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #6b79a8;
+          "
+        >
+          <a
+            id="libAccToggle"
+            href="javascript:void(0)"
+            style="color: #4d89ff; text-decoration: none; font-weight: 600"
+            >Need an account? Sign up</a
+          >
+          <span>·</span>
+          <a
+            id="libAccForgot"
+            href="javascript:void(0)"
+            style="color: #6b79a8; text-decoration: none"
+            >Forgot password?</a
+          >
         </div>
       </div>
     </div>
 
     <div id="toast"></div>
 
+    <script src="minigames-client.js"></script>
     <script>
       // ═══════════════════════════════════════════════════════
       // SOUND EFFECTS ENGINE (PATCHED)
@@ -6019,76 +6105,231 @@ window.saveUndo = function () {
       let seedClickTimer = null;
 
       // ──────────────────────────────────────────────────────────
-      // SERVER-BACKED LIBRARY (Gitea only)
-      // The Gitea server auths the password server-side (never in
-      // client code) and owns pattern_user_puzzle.json on disk, so
-      // library edits need no git commits and no local file access.
+      // HUB-BACKED LIBRARY (Gitea only)
+      // The Minigames Hub backend (minigames-client.js → /api/mg)
+      // owns the per-account library: accounts with email+password,
+      // verification codes, per-device saves. On Gitea the library is
+      // this account's cloud library; on GitHub/Localhost it is the
+      // bundled pattern_user_puzzle.json, read-only.
       // ──────────────────────────────────────────────────────────
       const IS_GITEA_HOST =
         /(^|\.)minigames\.xedryk\.top$/i.test(location.hostname) ||
         /(^|\.)gitea\.xedryk\.top$/i.test(location.hostname);
-      const LIB_API_BASE = "https://gitea.xedryk.top/api/library";
-      let libAuthToken = null; // per-session; memory-only, gone on F5
+      let serverLibraryActive = false; // true after MG.init() confirms gitea mode
+      let hubUser = null; // current logged-in account (cached)
 
       function libraryServerReachable() {
-        return IS_GITEA_HOST && typeof fetch === "function";
+        return serverLibraryActive;
+      }
+
+      // Ask the Hub client for its capabilities once; flips the edit gate.
+      async function ensureHubReady() {
+        if (typeof MG === "undefined" || !MG || !MG.init) {
+          serverLibraryActive = false;
+          if (typeof updateLibDisplay === "function") updateLibDisplay();
+          return false;
+        }
+        try {
+          const cap = await MG.init();
+          serverLibraryActive = cap.mode === "gitea" && cap.features.length > 0;
+        } catch (e) {
+          serverLibraryActive = false;
+        }
+        if (typeof updateLibDisplay === "function") updateLibDisplay();
+        return serverLibraryActive;
       }
 
       function openLibPass() {
-        const modal = document.getElementById("libPassModal");
-        const input = document.getElementById("libPassInput");
-        modal.style.display = "flex";
-        input.value = "";
-        setTimeout(() => input.focus(), 50);
+        libAuthMode = "login";
+        renderLibAuthForm();
+        document.getElementById("libPassModal").style.display = "flex";
+        const email = document.getElementById("libAccEmail");
+        if (email) setTimeout(() => email.focus(), 50);
       }
 
       function closeLibPass() {
         document.getElementById("libPassModal").style.display = "none";
       }
 
-      // Ask the user for the admin password once per session.
-      // Returns true only when the server confirms it.
-      async function ensureLibAuth() {
-        if (libAuthToken) return true;
+      // ── account modal helper ─────────────────────────────────────
+      let libAuthMode = "login"; // login | signup | verify | reset
+      let libAuthEmail = "";
+      let libAuthPass = "";
+
+      function libAuthSetStatus(msg, color) {
+        const s = document.getElementById("libAccStatus");
+        if (s) {
+          s.textContent = msg || "";
+          s.style.color = color || "#7c3aed";
+        }
+      }
+
+      function renderLibAuthForm() {
+        const title = document.getElementById("libAccTitle");
+        const sub = document.getElementById("libAccSub");
+        const emailEl = document.getElementById("libAccEmail");
+        const passEl = document.getElementById("libAccPass");
+        const codeEl = document.getElementById("libAccCode");
+        const newPassEl = document.getElementById("libAccNewPass");
+        const toggle = document.getElementById("libAccToggle");
+        const forgot = document.getElementById("libAccForgot");
+        const okBtn = document.getElementById("passOkBtn");
+
+        if (libAuthMode === "login") {
+          title.textContent = "🔓 Sign in";
+          sub.textContent = "Log in to edit the server library (add, remove, commit).";
+          emailEl.style.display = "block";
+          passEl.style.display = "block";
+          codeEl.style.display = "none";
+          newPassEl.style.display = "none";
+          toggle.style.display = "";
+          toggle.textContent = "Need an account? Sign up";
+          forgot.style.display = "";
+          okBtn.textContent = "Log in";
+        } else if (libAuthMode === "signup") {
+          title.textContent = "✨ Create account";
+          sub.textContent = "A verification code will be emailed to you.";
+          emailEl.style.display = "block";
+          passEl.style.display = "block";
+          codeEl.style.display = "none";
+          newPassEl.style.display = "none";
+          toggle.style.display = "";
+          toggle.textContent = "Already have an account? Log in";
+          forgot.style.display = "none";
+          okBtn.textContent = "Sign up";
+        } else if (libAuthMode === "verify") {
+          title.textContent = "🔐 Verify email";
+          sub.textContent = "Enter the code we emailed to " + libAuthEmail + ".";
+          emailEl.style.display = "none";
+          passEl.style.display = "none";
+          codeEl.style.display = "block";
+          newPassEl.style.display = "none";
+          toggle.style.display = "none";
+          forgot.style.display = "none";
+          okBtn.textContent = "Verify";
+          setTimeout(() => codeEl.focus(), 50);
+        } else if (libAuthMode === "reset") {
+          title.textContent = "🔑 Reset password";
+          sub.textContent = "We emailed a code to " + libAuthEmail + ". Set a new password below.";
+          emailEl.style.display = "none";
+          passEl.style.display = "none";
+          codeEl.style.display = "block";
+          newPassEl.style.display = "block";
+          toggle.style.display = "none";
+          forgot.style.display = "none";
+          okBtn.textContent = "Reset & Log in";
+        }
+        libAuthSetStatus("");
+      }
+
+      // Log in with the current modal email/password (used after signup/reset/verify).
+      async function libAuthLogin(email, password) {
+        const d = await MG.account.login(email, password);
+        hubUser = d.user || null;
+        return d;
+      }
+
+      // Ask the user to log in/sign up once. Resolves true only on success.
+      async function ensureHubAuth() {
+        if (!libraryServerReachable()) return false;
+        if (hubUser) return true;
+        if (MG.account.token()) {
+          try {
+            const me = await MG.account.me();
+            if (me.ok && me.user) {
+              hubUser = me.user;
+              return true;
+            }
+          } catch (e) {
+            /* token stale -> fall through to the modal */
+          }
+          try { MG.account.logout(); } catch (e) {}
+        }
 
         openLibPass();
-        const input = document.getElementById("libPassInput");
-        const okBtn = document.getElementById("passOkBtn");
         const modal = document.getElementById("libPassModal");
+        const okBtn = document.getElementById("passOkBtn");
+        const toggle = document.getElementById("libAccToggle");
+        const forgot = document.getElementById("libAccForgot");
         let resolving = false;
 
         const submit = async () => {
           if (resolving) return;
-          const pw = input.value;
-          if (!pw) {
-            toast("Enter a password.");
-            return;
-          }
           resolving = true;
           okBtn.disabled = true;
           try {
-            const res = await fetch(`${LIB_API_BASE}/unlock`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ password: pw }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data.token) {
-              libAuthToken = data.token;
-              modal.style.display = "none";
-              resolving = false;
-              return true;
+            const emailEl = document.getElementById("libAccEmail");
+            const passEl = document.getElementById("libAccPass");
+            const codeEl = document.getElementById("libAccCode");
+            const newPassEl = document.getElementById("libAccNewPass");
+            if (libAuthMode === "login") {
+              const email = (emailEl.value || "").trim();
+              const pw = passEl.value;
+              if (!email || !pw) { libAuthSetStatus("Enter your email and password.", "#dc2626"); return; }
+              libAuthEmail = email;
+              try {
+                const d = await libAuthLogin(email, pw);
+                if (d.user && d.user.verified) return true;
+                // unverified -> resend a code via the reset flow and verify
+                await MG.account.forgot(email);
+                libAuthMode = "verify";
+                renderLibAuthForm();
+                return false;
+              } catch (e) {
+                libAuthSetStatus(e.message || "Login failed.", "#dc2626");
+                passEl.value = "";
+                passEl.focus();
+                return false;
+              }
+            } else if (libAuthMode === "signup") {
+              const email = (emailEl.value || "").trim();
+              const pw = passEl.value;
+              if (!email || !pw) { libAuthSetStatus("Enter your email and a password (8+ characters).", "#dc2626"); return; }
+              libAuthEmail = email;
+              libAuthPass = pw;
+              try {
+                await MG.account.signup(email, pw);
+                libAuthMode = "verify";
+                renderLibAuthForm();
+                return false;
+              } catch (e) {
+                libAuthSetStatus(e.message || "Sign up failed.", "#dc2626");
+                return false;
+              }
+            } else if (libAuthMode === "verify") {
+              const code = (codeEl.value || "").trim();
+              if (!code) { libAuthSetStatus("Enter the code from your email.", "#dc2626"); return; }
+              try {
+                await MG.account.verify(libAuthEmail, code);
+                const d = await libAuthLogin(libAuthEmail, libAuthPass);
+                hubUser = d.user || null;
+                return true;
+              } catch (e) {
+                libAuthSetStatus(e.message || "Invalid code.", "#dc2626");
+                codeEl.value = "";
+                codeEl.focus();
+                return false;
+              }
+            } else if (libAuthMode === "reset") {
+              const code = (codeEl.value || "").trim();
+              const np = newPassEl.value;
+              if (!code || !np) { libAuthSetStatus("Enter the code and a new password.", "#dc2626"); return; }
+              try {
+                await MG.account.reset(libAuthEmail, code, np);
+                const d = await libAuthLogin(libAuthEmail, np);
+                hubUser = d.user || null;
+                return true;
+              } catch (e) {
+                libAuthSetStatus(e.message || "Reset failed.", "#dc2626");
+                newPassEl.value = "";
+                codeEl.value = "";
+                return false;
+              }
             }
-            // wrong password: keep the modal open so they can retry
-            toast(data.error || "Wrong password.");
-            input.value = "";
-            input.focus();
-            resolving = false;
             return false;
-          } catch (e) {
-            toast("Server unreachable.");
+          } finally {
             resolving = false;
-            return false;
+            okBtn.disabled = false;
           }
         };
 
@@ -6099,30 +6340,70 @@ window.saveUndo = function () {
             done = true;
             modal.style.display = "none";
             okBtn.disabled = false;
+            if (val) {
+              toast("Signed in as " + (hubUser ? hubUser.email : "") + " 🙂");
+              // Reload the account's own library now that we are authenticated.
+              initGlobalLibrary();
+              updateLibDisplay();
+            }
             resolve(val);
           };
           okBtn.onclick = async () => {
             const ok = await submit();
-            if (ok) finish(true);
+            if (ok === true) finish(true);
           };
-          const cancelBtn = document.querySelector(
-            "#libPassModal .pass-cancel",
-          );
-          if (cancelBtn) {
-            cancelBtn.onclick = () => {
-              closeLibPass();
-              finish(false);
-            };
-          }
-          input.onkeydown = (e) => {
+          const cancelBtn = document.querySelector("#libPassModal .pass-cancel");
+          if (cancelBtn) cancelBtn.onclick = () => finish(false);
+          toggle.onclick = () => {
+            libAuthMode = libAuthMode === "login" ? "signup" : "login";
+            renderLibAuthForm();
+          };
+          forgot.onclick = async () => {
+            const emailEl = document.getElementById("libAccEmail");
+            const email = (emailEl.value || "").trim();
+            if (!email) { libAuthSetStatus("Enter your email first.", "#dc2626"); return; }
+            libAuthEmail = email;
+            try {
+              await MG.account.forgot(email);
+              libAuthMode = "reset";
+              renderLibAuthForm();
+            } catch (e) {
+              libAuthSetStatus(e.message || "Reset request failed.", "#dc2626");
+            }
+          };
+          const keydown = (e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               submit().then((ok) => {
-                if (ok) finish(true);
+                if (ok === true) finish(true);
               });
             }
+            if (e.key === "Escape") finish(false);
           };
+          [document.getElementById("libAccEmail"),
+           document.getElementById("libAccPass"),
+           document.getElementById("libAccCode"),
+           document.getElementById("libAccNewPass")]
+            .forEach((el) => {
+              if (el) el.onkeydown = keydown;
+            });
         });
+      }
+
+      // Push the current globalLibrary to the account's cloud library.
+      async function saveLibraryToHub(msg) {
+        if (!libraryServerReachable()) return false;
+        const authed = await ensureHubAuth();
+        if (!authed) return false;
+        try {
+          await MG.save.put("pattern", "library", globalLibrary);
+          toast(msg || "Library updated.");
+          updateLibDisplay();
+          return true;
+        } catch (e) {
+          toast((e && e.message) || "Server unreachable.");
+          return false;
+        }
       }
 
       async function syncLibraryToServer() {
@@ -6130,60 +6411,36 @@ window.saveUndo = function () {
           toast("Server library only available on the Gitea host.");
           return;
         }
-        const authed = await ensureLibAuth();
+        const authed = await ensureHubAuth();
         if (!authed) return;
-        try {
-          const res = await fetch(`${LIB_API_BASE}/sync`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: libAuthToken,
-              library: globalLibrary,
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            toast(data.error || "Sync failed.");
-            if (res.status === 401) libAuthToken = null;
-            return;
-          }
-          if (Array.isArray(data.library)) globalLibrary = data.library;
-          toast(`Committed ${globalLibrary.length} puzzles to server.`);
-          updateLibDisplay();
-        } catch (e) {
-          toast("Server unreachable.");
-        }
+        if (!Array.isArray(globalLibrary)) globalLibrary = globalLibrary || [];
+        await saveLibraryToHub(
+          `Committed ${globalLibrary.length} puzzles to your account library.`,
+        );
       }
 
       /**
-       * 1. Startup: Load the existing library from the server (GitHub/Localhost)
-       *    On the Gitea host the library is fetched from the server API so the
-       *    server-owned copy is the single source of truth.
+       * 1. Startup: Load the library.
+       *    On the Gitea host, the account's cloud library is the source of
+       *    truth; without a save yet it falls back to the bundled file.
        */
       async function initGlobalLibrary() {
         try {
+          await ensureHubReady();
           if (libraryServerReachable()) {
             try {
-              const res = await fetch(
-                `${LIB_API_BASE}?t=${Date.now()}`,
-                { cache: "no-store" },
-              );
-              if (res.ok) {
-                const data = await res.json();
-                globalLibrary = Array.isArray(data)
-                  ? data
-                  : Array.isArray(data.library)
-                    ? data.library
-                    : [];
+              const data = await MG.save.get("pattern", "library").catch(() => null);
+              if (Array.isArray(data)) {
+                globalLibrary = data;
                 updateLibDisplay();
                 console.log(
-                  `Library loaded (server): ${globalLibrary.length} puzzles.`,
+                  `Library loaded (hub): ${globalLibrary.length} puzzles.`,
                 );
                 return;
               }
-              console.warn("Server library fetch failed:", res.status);
+              console.log("No hub library yet — using bundled default.");
             } catch (e) {
-              console.warn("Server library unreachable:", e);
+              console.warn("Hub library unreachable:", e);
             }
           }
           const response = await fetch(
@@ -6244,9 +6501,6 @@ window.saveUndo = function () {
       const seedDisplay = document.getElementById("seedCode");
       if (seedDisplay) {
         seedDisplay.style.cursor = "pointer";
-        seedDisplay.title = libraryServerReachable()
-          ? "Click 3 times to commit library to the server"
-          : "Click 3 times to sync to your local JSON file";
 
         seedDisplay.addEventListener("click", async (e) => {
           seedClickCount++;
@@ -6388,14 +6642,21 @@ window.saveUndo = function () {
         const seedSaveBtn = document.getElementById("seedSaveBtn");
         const commitLibBtn = document.getElementById("commitLibBtn");
         const isServer = libraryServerReachable();
+        const seedDisplay = document.getElementById("seedCode");
 
         if (libCountNum) {
           libCountNum.textContent = globalLibrary.length;
         }
 
+        if (seedDisplay) {
+          seedDisplay.title = isServer
+            ? "Click 3 times to commit your library to the Hub"
+            : "Click 3 times to sync to your local JSON file";
+        }
+
         if (fileReady) {
           if (isServer) {
-            // Server owns the library on the Gitea host; no local file needed.
+            // Hub owns the library on the Gitea host; no local file needed.
             fileReady.style.display = "none";
           } else if (devFileHandle) {
             fileReady.style.display = "inline-flex";
@@ -6750,47 +7011,21 @@ window.saveUndo = function () {
         puzzleToDeleteIndex = -1;
       }
 
-      async function serverLibraryAction(action, extra = {}) {
-        if (!libraryServerReachable()) return null;
-        const authed = await ensureLibAuth();
-        if (!authed) return null;
-        try {
-          const res = await fetch(`${LIB_API_BASE}/${action}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: libAuthToken, ...extra }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            if (res.status === 401) libAuthToken = null;
-            toast(data.error || `${action} failed.`);
-            return null;
-          }
-          return data;
-        } catch (e) {
-          toast("Server unreachable.");
-          return null;
-        }
-      }
-
       async function executeDeletePuzzle() {
         if (libraryServerReachable()) {
           if (!(puzzleToDeleteIndex > -1 && puzzleToDeleteIndex < globalLibrary.length)) {
             closeDeleteConfirm();
             return;
           }
-          const data = await serverLibraryAction("delete", {
-            index: puzzleToDeleteIndex,
-          });
-          closeDeleteConfirm();
-          if (data && Array.isArray(data.library)) {
-            globalLibrary = data.library;
-            toast("Puzzle removed from library.");
-            const libCountEl = document.getElementById("libCountNum");
-            if (libCountEl) libCountEl.textContent = globalLibrary.length;
-            updateLibDisplay();
-            openLibraryModal();
+          const authed = await ensureHubAuth();
+          if (!authed) {
+            closeDeleteConfirm();
+            return;
           }
+          globalLibrary.splice(puzzleToDeleteIndex, 1);
+          closeDeleteConfirm();
+          const ok = await saveLibraryToHub("Puzzle removed from library.");
+          if (ok) openLibraryModal();
           return;
         }
         if (
@@ -6829,20 +7064,14 @@ window.saveUndo = function () {
         }
 
         if (libraryServerReachable()) {
+          const authed = await ensureHubAuth();
+          if (!authed) return;
           if (globalLibrary.includes(currentSeed)) {
             toast("Puzzle already in library!");
             return;
           }
-          const data = await serverLibraryAction("save", {
-            seed: currentSeed,
-          });
-          if (data && Array.isArray(data.library)) {
-            globalLibrary = data.library;
-            const libCountEl = document.getElementById("libCountNum");
-            if (libCountEl) libCountEl.textContent = globalLibrary.length;
-            updateLibDisplay();
-            toast("Puzzle saved to library!", "library");
-          }
+          globalLibrary.push(currentSeed);
+          await saveLibraryToHub("Puzzle saved to library!");
           return;
         }
 
