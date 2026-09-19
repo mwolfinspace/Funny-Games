@@ -24,6 +24,7 @@ const { collection, ensureDir } = require("./collections");
 const auth = require("./auth");
 const mail = require("./mail");
 const ws = require("./ws");
+const { Engine } = require("./engine");
 const { MEDALS, evaluateMedals, aggregate } = require("./medals");
 
 ensureDir();
@@ -65,6 +66,12 @@ const loginLimiter = new auth.RateLimiter(60_000, 10);
 const signupLimiter = new auth.RateLimiter(60_000, 5);
 const resetLimiter = new auth.RateLimiter(60_000, 3);
 const apiLimiter = new auth.RateLimiter(1000, 240);
+// Server-side Stockfish is CPU-bound work — a per-user + per-IP budget stops
+// the engine from becoming a free compute farm for spammers.
+const chessLimiter = new auth.RateLimiter(60_000, 30);
+
+// Stockfish engine process, shared by every chess client, spawned lazily.
+const chessEngine = new Engine();
 
 // ── outbound mail sentinel ──────────────────────────────────────────────────
 // Hard cap on emails per rolling hour. Per-IP limits can be dodged by rotating
@@ -191,7 +198,7 @@ function buildCapabilities(origin, host) {
   const isSameSite = hostname === new URL(PUBLIC_URL).hostname;
   const isGitea = origin ? ALLOWED_ORIGINS.has(origin) : isSameSite;
   const features = isGitea
-    ? ["accounts", "verify", "reset", "saves", "stats", "medals", "library", "sync"]
+    ? ["accounts", "verify", "reset", "saves", "stats", "medals", "library", "sync", "chess"]
     : [];
   const payload = `${isGitea ? "gitea" : "guest"}|${features.join(":")}`;
   const envelope = {
@@ -569,6 +576,38 @@ const server = http.createServer(async (req, res) => {
     ) {
       const body = await readBody(req);
       const u = getUserByToken(getToken(req, q, body));
+
+      // ── server-side chess AI (engine runs on the Hub, not the client) ────
+      if (p === "/api/mg/chess/move" && req.method === "POST") {
+        if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
+        if (chessLimiter.hit(ip, "chess") || chessLimiter.hit(u.id, "chess"))
+          return json(res, 429, { ok: false, error: "Too many engine requests. Try again in a minute." });
+        const fen = String(body.fen || "").slice(0, 400);
+        if (
+          !/^[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+\/[pnbrqkPNBRQK1-8]+ [wb] (-|[KQkq]{1,4}) (-|[a-h][36]) \d+ \d+$/.test(fen)
+        )
+          return json(res, 400, { ok: false, error: "Invalid FEN." });
+        const level = Math.max(1, Math.min(4, Number(body.level) || 1));
+        const movetime = Math.max(100, Math.min(3000, Number(body.movetime) || 0));
+        try {
+          await chessEngine.ensureReady();
+          const r = await chessEngine.move({ fen, level, movetime });
+          await logAudit({
+            actor: u.id,
+            action: "chess.move",
+            userId: u.id,
+            detail: `level ${level}`,
+          });
+          return json(res, 200, { ok: true, ...r, level, movetime });
+        } catch (e) {
+          console.warn("[mg] chess engine:", e.message);
+          return json(res, 503, { ok: false, error: "Engine unavailable, try again." });
+        }
+      }
+      if (p === "/api/mg/chess/ping" && req.method === "GET") {
+        if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
+        return json(res, 200, { ok: true, engine: chessEngine.ready || false, version: chessEngine.version || null });
+      }
 
       // ── owner-only admin: signed audit trail, snapshots, revert ─────────
       if (p.startsWith("/api/mg/admin/")) {

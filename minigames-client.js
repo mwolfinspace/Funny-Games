@@ -12,6 +12,8 @@
 //   MG.save.*                  -> per-account, per-device game saves
 //   MG.stats.*                 -> play / win / score / playtime events
 //   MG.medals.*                -> catalog + own medals
+//   MG.chess.*                 -> server-side chess AI (move + ping)
+//   MG.live.*                  -> real-time WebSocket push channel
 //
 // Security model:
 //  - GitHub Pages is passive static hosting; every dynamic feature runs on OUR
@@ -172,6 +174,15 @@
   const medals = MG.medals;
   medals.catalog = () => http("GET", "/medals/catalog");
   medals.mine = () => http("GET", `/medals/mine?token=${encodeURIComponent(getToken())}`);
+
+  // ── server-side chess AI ─────────────────────────────────────────────────
+  // The game sends its FEN + level and the Hub runs Stockfish here and sends
+  // the best move back — the client device does no heavy computation. The
+  // bundled local engine remains an offline failsafe. Requires a login.
+  const chess = (MG.chess = {});
+  chess.move = (opts) =>
+    http("POST", "/chess/move", Object.assign({ token: getToken() }, opts));
+  chess.ping = () => http("GET", `/chess/ping?token=${encodeURIComponent(getToken())}`);
 
   // ── live (WebSocket) ──────────────────────────────────────────────────────
   // Real-time push channel to the Hub (/api/mg/ws, token-authenticated).

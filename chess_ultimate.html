@@ -1745,6 +1745,7 @@
       </div>
     </div>
 
+    <script src="./minigames-client.js"></script>
     <script>
       "use strict";
       const STORE_KEY = "chess_ultimate_state_v1";
@@ -1979,6 +1980,11 @@
           this.sfReady = false;
           this.sfBusy = false;
           this._sfResolve = null;
+          this._serverChess = false;
+          this._serverChessSet = false;
+          this._serverChessFails = 0;
+          this._serverChessRetryAt = 0;
+          this._serverChessSeq = 0;
           this._bind();
           this._initTheme();
           this._initCheckmate();
@@ -2209,6 +2215,7 @@
           }
           this._fitBoard();
           setTimeout(() => this._fitBoard(), 80);
+          this._setupServerChess();
         }
         _initTheme() {
           let t = "light";
@@ -2453,6 +2460,90 @@
           }, 200);
         }
         // AI strength configuration
+        // ── server-side AI (the Hub computes the move) ───────────────────────
+        // The heavy engine runs on the server; the client just sends its FEN +
+        // level and gets the best UCI move back over REST in milliseconds — so
+        // even a weak, slow device plays fast and strong. The bundled local
+        // Stockfish and minimax stay as a failsafe: if the server is down, the
+        // net is unstable, or nobody is logged in, the game degrades gracefully
+        // to on-device thinking and never stalls or makes a nonsense move.
+        _setupServerChess() {
+          if (typeof MG === "undefined") return;
+          Promise.race([
+            Promise.resolve().then(() => MG.init && MG.init()),
+            new Promise((r) => setTimeout(r, 3000)),
+          ])
+            .then(() => {
+              this._serverChess = !!(
+                MG.isGitea &&
+                MG.has("chess") &&
+                MG.account &&
+                MG.account.token()
+              );
+              if (this._serverChess) {
+                console.log("[chess] server AI armed (local Stockfish = failsafe)");
+              } else {
+                console.log("[chess] server AI off — using local engine");
+              }
+            })
+            .catch(() => {
+              this._serverChess = false;
+            });
+        }
+
+        // Ask the Hub for the best move. Returns UCI or null on timeout/error.
+        // On failure it backs off exponentially (so a flaky connection doesn't
+        // hammer the server) and the caller falls through to the local engine.
+        async serverChessMove(fen, level, moveTime) {
+          if (!this._serverChess) return null;
+          if (Date.now() < this._serverChessRetryAt) return null;
+          const seq = ++this._serverChessSeq;
+          const budget = Math.max(2400, moveTime + 2000);
+          const onTime = new Promise((r) => setTimeout(() => r(null), budget));
+          try {
+            const uci = await Promise.race([
+              onTime,
+              MG.chess
+                .move({ fen, level, movetime: moveTime })
+                .then((r) => (r && r.move ? String(r.move) : null)),
+            ]);
+            if (uci === null || seq !== this._serverChessSeq) return null;
+            this._serverChessFails = 0;
+            return uci;
+          } catch (e) {
+            this._serverChessFails++;
+            const back = Math.min(
+              1000 * Math.pow(2, Math.min(this._serverChessFails, 5)),
+              15000,
+            );
+            this._serverChessRetryAt = Date.now() + back;
+            return null;
+          }
+        }
+
+        // Full move pipeline: server engine -> bundled local Stockfish ->
+        // minimax, so a weak or offline client never blocks the game.
+        async _engineMove(fen, level, moveTime) {
+          const serverUci = await this.serverChessMove(fen, level, moveTime);
+          if (serverUci) return serverUci;
+          if (this.sfWorker && this.sfReady && !this.sfBusy) {
+            this.sfBusy = true;
+            this.configureEngine(level);
+            try {
+              const uci = await new Promise((res) => {
+                this._sfResolve = res;
+                this._sfSend(`position fen ${fen}`);
+                this._sfSend(`go movetime ${Math.max(300, moveTime || 200 + level * 200)}`);
+              });
+              return uci || null;
+            } finally {
+              this.sfBusy = false;
+              this._sfResolve = null;
+            }
+          }
+          return null;
+        }
+
         getAIConfig(level) {
           const AI_LEVELS = {
             1: {
@@ -3960,39 +4051,20 @@
             if (!this.demo && !(this.mode === "ai" && side === this.aiSide()))
               return;
 
-            // AI thinking safety lock
-            if (this.sfBusy) {
-              // If Stockfish is busy, use fallback minimax
-              const move = this.findBestMove(
-                side,
-                Math.min(1 + this.aiLevel, 4),
-              );
-              if (move) this.playMove(move);
+            // AI move pipeline: server engine first (fast + strongest), then the
+            // bundled local Stockfish, then pure minimax as a final failsafe.
+            const fen = this.toFEN();
+            const moveTime = this.demo
+              ? this._demoDelay()
+              : Math.max(300, 200 + this.aiLevel * 200);
+            const uci = await this._engineMove(fen, this.aiLevel, moveTime);
+            const mv = this._uciToMove(uci);
+            if (mv) {
+              this.playMove(mv);
               return;
             }
 
-            if (this.sfWorker && this.sfReady) {
-              this.sfBusy = true;
-              const fen = this.toFEN();
-              const moveTime = this.demo
-                ? this._demoDelay()
-                : Math.max(300, 200 + this.aiLevel * 200);
-              // Configure engine strength before each request
-              this.configureEngine(this.aiLevel);
-              const uci = await new Promise((res) => {
-                this._sfResolve = res;
-                this._sfSend(`position fen ${fen}`);
-                this._sfSend(`go movetime ${moveTime}`);
-              });
-              const mv = this._uciToMove(uci);
-              if (mv) {
-                this.playMove(mv);
-                return;
-              }
-              this.sfBusy = false;
-            }
-
-            // Fallback to minimax if Stockfish fails
+            // Fallback to minimax if no engine produced a legal move
             const move = this.findBestMove(side, Math.min(1 + this.aiLevel, 4));
             if (move) this.playMove(move);
           }, wait);
