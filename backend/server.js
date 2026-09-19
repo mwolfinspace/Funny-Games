@@ -200,7 +200,8 @@ function isOwner(u, ownerKey) {
 }
 
 async function logAudit(entry) {
-  const prev = eventLog[eventLog.length - 1];
+  const all = eventLog.all();
+  const prev = all.length ? all[all.length - 1] : null;
   const seq = prev ? prev.seq + 1 : 1;
   const ts = nowIso();
   const payload = [seq, ts, prev ? prev.hash : "", entry.action, entry.dataHash || ""].join("|");
@@ -224,10 +225,11 @@ async function logAudit(entry) {
 }
 
 function auditVerify() {
+  const all = eventLog.all();
   let firstBad = null;
-  for (let i = 0; i < eventLog.length; i++) {
-    const e = eventLog[i];
-    const chainOk = i === 0 ? e.prevHash === null : e.prevHash === eventLog[i - 1].hash;
+  for (let i = 0; i < all.length; i++) {
+    const e = all[i];
+    const chainOk = i === 0 ? e.prevHash === null : e.prevHash === all[i - 1].hash;
     const payload = [e.seq, String(e.ts), String(e.prevHash || ""), String(e.action), String(e.dataHash || "")].join("|");
     const sigOk = e.sig === auth.sign(SIGNING_SECRET, payload);
     const hashOk = e.hash === SHA256(payload + "|" + e.sig);
@@ -236,7 +238,7 @@ function auditVerify() {
       break;
     }
   }
-  return { valid: firstBad === null, count: eventLog.length, firstBad };
+  return { valid: firstBad === null, count: all.length, firstBad };
 }
 
 /** Commit a versioned snapshot of a save; keeps the newest 10 per save identity. */
@@ -541,7 +543,7 @@ const server = http.createServer(async (req, res) => {
           entries = entries.slice(Math.max(0, entries.length - limit));
           return json(res, 200, {
             ok: true,
-            total: eventLog.length,
+            total: eventLog.all().length,
             verify: q.get("verify") === "1" ? auditVerify() : null,
             entries,
           });
@@ -549,13 +551,13 @@ const server = http.createServer(async (req, res) => {
         if (p === "/api/mg/admin/users" && req.method === "GET") {
           return json(res, 200, {
             ok: true,
-            users: users.map((x) => ({
+            users: users.all().map((x) => ({
               id: x.id,
               email: x.email,
               nickname: x.nickname || "",
               verified: !!x.verified,
               createdAt: x.createdAt,
-              medalCount: medals.filter((m) => m.userId === x.id).length,
+              medalCount: medals.all().filter((m) => m.userId === x.id).length,
             })),
           });
         }
