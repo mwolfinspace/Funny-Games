@@ -1,8 +1,7 @@
 // Minigames Hub backend — account manager, device sessions, stats & medals.
-// Servers all games hosted on minigames.xedryk.top. The GitHub pages version
-// never talks to this API (features are hidden client-side unless the signed
-// capabilities envelope verifies successfully, and capability signing is only
-// issued for the known Gitea origin).
+// Serves all games hosted on minigames.xedryk.top. Same-origin requests from
+// the hub host and cross-origin requests from the GitHub Pages copy both get
+// full capabilities; other origins get an external (featureless) envelope.
 //
 // Zero dependencies — run: node backend/server.js
 //
@@ -142,8 +141,12 @@ function getToken(req, q, body) {
 }
 
 // ── capabilities envelope ───────────────────────────────────────────────────
-function buildCapabilities(origin) {
-  const isGitea = !!origin && ALLOWED_ORIGINS.has(origin);
+function buildCapabilities(origin, host) {
+  // Browsers omit the Origin header on same-origin requests, so a request whose
+  // Host is the hub's own public site is implicitly first party.
+  const hostname = (host || "").toLowerCase().split(":")[0];
+  const isSameSite = hostname === new URL(PUBLIC_URL).hostname;
+  const isGitea = origin ? ALLOWED_ORIGINS.has(origin) : isSameSite;
   const features = isGitea
     ? ["accounts", "verify", "reset", "saves", "stats", "medals", "library", "sync"]
     : [];
@@ -273,13 +276,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === "/api/mg/capabilities" && req.method === "GET") {
-      json(res, 200, buildCapabilities(origin));
+      json(res, 200, buildCapabilities(origin, req.headers.host));
       return;
     }
 
     if (p === "/api/mg/mm/verify" && req.method === "POST") {
       const body = await readBody(req);
-      json(res, 200, { ok: verifyEnvelopeSig(body.features, body.issuedAt, body.sig), mode: buildCapabilities(origin).mode });
+      json(res, 200, { ok: verifyEnvelopeSig(body.features, body.issuedAt, body.sig), mode: buildCapabilities(origin, req.headers.host).mode });
       return;
     }
 
