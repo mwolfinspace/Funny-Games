@@ -205,31 +205,37 @@ future domain. Until `/api/mg` responds on that origin the game auto-degrades to
 - PM2: `npm i -g pm2` (or systemd — see "Alternative").
 
 ### Step 1 — files
-Put the repo on the host, or at least:
+The auto-deploy already places the whole repo on the host. The minimal set the
+backend needs:
 ```
-backend/server.js  backend/collections.js  backend/store.js
-backend/auth.js    backend/mail.js         backend/medals.js
+backend/server.js  backend/env.js          backend/collections.js
+backend/store.js   backend/auth.js         backend/mail.js
+backend/medals.js  backend/ecosystem.config.js  backend/install.sh
 minigames-client.js
-backend/env.example (rename to .env or export vars)
 ```
 
 ### Step 2 — env
+Copy `backend/env.example` → `backend/.env` and fill it in. `backend/env.js`
+loads it automatically on boot (only fills keys that aren’t already set), so
+both bare `node backend/server.js` and PM2 read the same file:
+
 ```bash
-export PORT=8907
-export MG_DATA_DIR=/srv/minigames/data
-export MG_PUBLIC_URL=https://minigames.xedryk.top
-export MG_SIGNING_SECRET="$(openssl rand -hex 32)"
-export SMTP_HOST=...  SMTP_PORT=...  SMTP_USER=...  SMTP_PASS=...  SMTP_FROM=...
+cp backend/env.example backend/.env
+# PORT=8907, MG_DATA_DIR=/srv/minigames/data,
+# MG_PUBLIC_URL=https://minigames.xedryk.top,
+# MG_SIGNING_SECRET=<random — install.sh generates one>  SMTP_*
 ```
 `SMTP_SECURE=true` only for implicit-TLS port 465; the client auto-negotiates
 STARTTLS on 587/25.
 
 ### Step 3 — run under PM2
+The whole flow is scripted and idempotent — run once on the host:
+
 ```bash
-pm2 start backend/ecosystem.config.js
-pm2 save
-pm2 startup            # follow the printed command
-pm2 logs minigames-hub # watch for `[mg] Minigames Hub backend listening on :8907`
+bash backend/install.sh
+# writes backend/.env, creates the data dir, pm2 start + save
+pm2 startup         # follow the printed command (boot persistence)
+pm2 logs minigames-hub   # watch for `Minigames Hub backend listening on :8907`
 ```
 
 ### Step 4 — route `/api/mg` on the host gateway

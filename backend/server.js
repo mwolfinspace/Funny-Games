@@ -16,6 +16,8 @@
 
 "use strict";
 
+require("./env"); // load backend/.env first (only fills missing keys)
+
 const http = require("http");
 const { URL } = require("url");
 const { collection, ensureDir } = require("./collections");
