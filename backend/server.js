@@ -234,8 +234,8 @@ function sendCodeEmail(user, { action, code, to }) {
     ],
     cta: code,
     ctaUrl: isReset
-      ? `${PUBLIC_URL}account.html?action=reset&email=${encodeURIComponent(user.email)}&code=${code}`
-      : `${PUBLIC_URL}account.html?action=verify&email=${encodeURIComponent(user.email)}&code=${code}`,
+      ? `${PUBLIC_URL}/account.html?action=reset&email=${encodeURIComponent(user.email)}&code=${code}`
+      : `${PUBLIC_URL}/account.html?action=verify&email=${encodeURIComponent(user.email)}&code=${code}`,
     footer: "The Minigames Hub — minigames.xedryk.top",
   });
 }
