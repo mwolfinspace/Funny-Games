@@ -325,6 +325,57 @@
         background: rgba(220, 50, 50, 0.1);
         color: #d13438;
       }
+      #colorBucketBtn.active {
+        background: rgba(34, 197, 94, 0.22);
+        box-shadow: inset 0 0 0 1.5px rgba(34, 197, 94, 0.55);
+      }
+      .color-picker {
+        position: fixed;
+        bottom: 152px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 210;
+        padding: 10px;
+        border-radius: 14px;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 7px;
+        width: max-content;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+      }
+      .color-picker.hidden {
+        display: none;
+      }
+      .color-swatch {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        border: 2px solid rgba(0, 0, 0, 0.18);
+        cursor: pointer;
+        transition:
+          transform 0.1s,
+          box-shadow 0.1s;
+        box-sizing: border-box;
+      }
+      .color-swatch:hover {
+        transform: scale(1.12);
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35) inset;
+      }
+      .color-swatch.custom {
+        background: conic-gradient(
+          #ef4444,
+          #facc15,
+          #22c55e,
+          #38bdf8,
+          #a855f7,
+          #ec4899,
+          #ef4444
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+      }
 
       /* ── Status Bar ── */
       #statusBar {
@@ -1387,6 +1438,15 @@
       <div class="ab-sep"></div>
       <button
         class="ab-btn"
+        id="colorBucketBtn"
+        onclick="toggleColorPicker()"
+        title="Color — paint the selected shapes"
+      >
+        🪣
+      </button>
+      <div class="ab-sep"></div>
+      <button
+        class="ab-btn"
         onclick="rotateGroupBy(-30)"
         title="Rotate Left 30° — ["
       >
@@ -1422,6 +1482,16 @@
         🧽
       </button>
     </div>
+
+    <!-- Fill-color palette popup (opens above the action bar) -->
+    <div id="colorPicker" class="acrylic color-picker hidden"></div>
+    <input
+      id="customColorInput"
+      type="color"
+      value="#e91e63"
+      style="display: none"
+      tabindex="-1"
+    />
 
     <div id="hint">
       Drag shapes • Scroll zoom • Right-drag pan<br />Q/E view rotation • [ ]
@@ -2434,14 +2504,85 @@
           },
         },
       ];
-      const COLORS_DARK = {
-        triangle: "#28A847",
-        square: "#D97218",
-        hexagon: "#E6B900",
-        trapezoid: "#C51A2D",
-        rhombus: "#1E479A",
-        narrow_rhombus: "#7A522A",
+const COLORS_DARK = {
+        triangle: "#1e293b",
+        square: "#334155",
+        hexagon: "#334155",
+        trapezoid: "#475569",
+        rhombus: "#1e293b",
+        narrow_rhombus: "#475569",
       };
+
+      // ── Fill-color palette (20 kid/classroom classics + custom picker) ──
+      // Index order is the seed contract: index → preset code in v9/v10 seeds.
+      const COLOR_PRESETS = [
+        "#ef4444", // red
+        "#f97316", // orange
+        "#facc15", // yellow
+        "#22c55e", // green
+        "#a3e635", // light green
+        "#38bdf8", // light blue
+        "#3b82f6", // blue
+        "#1d4ed8", // indigo
+        "#a855f7", // purple
+        "#ec4899", // pink
+        "#e91e63", // magenta
+        "#92400e", // brown
+        "#14b8a6", // teal
+        "#06b6d4", // cyan
+        "#15803d", // dark green
+        "#b91c1c", // dark red
+        "#eab308", // gold
+        "#0f172a", // ink
+        "#6b7280", // gray
+        "#ffffff", // white
+      ];
+
+      // Encode a shape color into a seed tag: "P<i>" for a palette preset
+      // (1 char index), "C<rrggbb>" for a custom color (longer seed, as
+      // designed). Missing/theme colors produce "" so old 5-field tokens
+      // still decode fine.
+      function colorToSeedTag(color) {
+        const c = String(color || "");
+        const idx = COLOR_PRESETS.indexOf(c.toLowerCase());
+        if (idx !== -1) return "P" + toB81(idx);
+        const hex = c.replace("#", "").toLowerCase();
+        return /^[0-9a-f]{6}$/.test(hex) ? "C" + hex : "";
+      }
+      function seedTagToColor(tag) {
+        if (!tag) return null;
+        if (tag[0] === "P") {
+          const idx = fromB81(tag.slice(1));
+          return COLOR_PRESETS[idx] || null;
+        }
+        if (tag[0] === "C") {
+          const hex = tag.slice(1).toLowerCase();
+          return /^[0-9a-f]{6}$/.test(hex) ? "#" + hex : null;
+        }
+        return null;
+      }
+      // Darken a #rrggbb color by [0..1] → used for adaptive shape outlines.
+      function shadeColor(hex, amt) {
+        const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ""));
+        if (!m) return hex;
+        const n = parseInt(m[1], 16);
+        let r = (n >> 16) & 255,
+          g = (n >> 8) & 255,
+          b = n & 255;
+        if (amt < 0) {
+          r = Math.round(r * (1 + amt));
+          g = Math.round(g * (1 + amt));
+          b = Math.round(b * (1 + amt));
+        } else {
+          r = Math.round(r * (1 - amt));
+          g = Math.round(g * (1 - amt));
+          b = Math.round(b * (1 - amt));
+        }
+        return (
+          "#" +
+          ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)
+        );
+      }
 
       let themeIndex = Number(localStorage.getItem("patternTheme")) || 0;
       if (themeIndex >= THEMES.length) themeIndex = 0;
@@ -2471,6 +2612,8 @@
       let undoStack = [],
         redoStack = [];
       let clipboard = [];
+      // Last color applied via the bucket — new shapes inherit it.
+      let lastFillColor = null;
       let SNAP_ENABLED = true;
 
       let sel = new Set();
@@ -4516,6 +4659,98 @@
         } else bar.classList.add("hidden");
       }
 
+      // ══════════════════════════════════════════════════════════
+      // FILL-COLOR PICKER
+      // ══════════════════════════════════════════════════════════
+      let colorPickerBuilt = false;
+      let colorPickerOpen = false;
+
+      function _cpOutside(e) {
+        const pop = document.getElementById("colorPicker");
+        const btn = document.getElementById("colorBucketBtn");
+        if (pop.contains(e.target) || btn.contains(e.target)) return;
+        hideColorPicker();
+      }
+      function _cpKey(e) {
+        if (e.key === "Escape") hideColorPicker();
+      }
+
+      function buildColorPicker() {
+        if (colorPickerBuilt) return;
+        colorPickerBuilt = true;
+        const pop = document.getElementById("colorPicker");
+        pop.innerHTML = "";
+        COLOR_PRESETS.forEach((hex, i) => {
+          const sw = document.createElement("button");
+          sw.type = "button";
+          sw.className = "color-swatch";
+          sw.style.background = hex;
+          sw.title = hex;
+          sw.dataset.index = i;
+          sw.addEventListener("click", () => applyColorToSelection(hex));
+          pop.appendChild(sw);
+        });
+        // Cell #21: custom color → native RGB picker
+        const custom = document.createElement("button");
+        custom.type = "button";
+        custom.className = "color-swatch custom";
+        custom.title = "Custom color…";
+        custom.textContent = "🎨";
+        custom.addEventListener("click", () => {
+          document.getElementById("customColorInput").click();
+        });
+        pop.appendChild(custom);
+
+        const customInput = document.getElementById("customColorInput");
+        customInput.addEventListener("change", () => {
+          applyColorToSelection(customInput.value);
+        });
+        customInput.addEventListener("input", () => {
+          applyColorToSelection(customInput.value);
+        });
+      }
+
+      function toggleColorPicker() {
+        if (colorPickerOpen) hideColorPicker();
+        else showColorPicker();
+      }
+
+      function showColorPicker() {
+        buildColorPicker();
+        colorPickerOpen = true;
+        document.getElementById("colorPicker").classList.remove("hidden");
+        document.getElementById("colorBucketBtn").classList.add("active");
+        document.addEventListener("pointerdown", _cpOutside, true);
+        document.addEventListener("keydown", _cpKey);
+      }
+
+      function hideColorPicker() {
+        colorPickerOpen = false;
+        document.getElementById("colorPicker").classList.add("hidden");
+        document.getElementById("colorBucketBtn").classList.remove("active");
+        document.removeEventListener("pointerdown", _cpOutside, true);
+        document.removeEventListener("keydown", _cpKey);
+      }
+
+      // Paint the selected shapes. Undo once per interaction, then keep the
+      // popup open so the user can test colors back-to-back (graphic-app UX).
+      function applyColorToSelection(hex) {
+        if (!sel.size) return;
+        const target = String(hex || "").toLowerCase();
+        if (!/^#[0-9a-f]{6}$/.test(target)) return;
+        saveUndo();
+        board.shapes.forEach((s) => {
+          if (sel.has(s.id)) s.color = target;
+        });
+        lastFillColor = target;
+        buildVtxGrid();
+        render();
+        updateSeedDisplay();
+        updateActionBar();
+        saveGameState();
+        if (typeof SFX !== "undefined") SFX.play("move");
+      }
+
       // ════════════════════════════════════════════════════���═���═══
       // SHAPE PALETTE
       // ══════════════════════════════════════════════════════════
@@ -4605,6 +4840,7 @@
           x: w.x,
           y: w.y,
           rotation: 0,
+          color: lastFillColor || undefined,
         };
         board.shapes.push(sh);
         sel.clear();
@@ -4794,7 +5030,7 @@
         ctx.shadowBlur = 7 / camera.zoom;
         ctx.shadowOffsetY = 2.5 / camera.zoom;
         path();
-        ctx.fillStyle = getShapeColor(sh.type);
+        ctx.fillStyle = sh.color || getShapeColor(sh.type);
         ctx.fill();
         ctx.restore();
 
@@ -4818,7 +5054,10 @@
         }
         ctx.strokeStyle = isSel
           ? "#0078d4"
-          : COLORS_DARK[sh.type] || "rgba(0,0,0,0.25)";
+          : sh.color &&
+              (sh.color[0] === "#" && /^#[0-9a-f]{6}$/i.test(sh.color))
+            ? shadeColor(sh.color, 0.45)
+            : COLORS_DARK[sh.type] || "rgba(0,0,0,0.25)";
         ctx.lineWidth = (isSel ? 2.6 : 1.4) / camera.zoom;
         ctx.lineJoin = "round";
         ctx.stroke();
@@ -5604,10 +5843,12 @@
       // integer world-frame offset from its group anchor.  No rotation transform needed.
       //
       // Token format (~ = group separator, | = field separator – neither in B81_CHARS):
-      //   A|typeIdx|b81x|b81y|rotSlot      ← absolute world anchor (one per island)
-      //   S|typeIdx|b81dx|b81dy|rotSlot    ← world delta from current island's anchor
+      //   A|typeIdx|b81x|b81y|rotSlot[|color]      ← absolute world anchor (one per island)
+      //   S|typeIdx|b81dx|b81dy|rotSlot[|color]    ← world delta from current island's anchor
       //
       // rotSlot = absolute rotation / 15  (0–23, stored as plain decimal digit)
+      // color   = optional per-shape fill: "P<toB81(paletteIdx)>" or "C<rrggbb>"
+      //           (see colorToSeedTag) — omitted for theme-colored shapes
 
       // ═══════════════════════════════════════════════════════════
       // Seed Generation Helper Functions (Root Selection + Quantization)
@@ -5712,8 +5953,9 @@
           const rx = Math.round(rootShape.x);
           const ry = Math.round(rootShape.y);
           const rSlot = ((Math.round(rootShape.rotation / 15) % 24) + 24) % 24;
+          const rColor = colorToSeedTag(rootShape.color);
           parts.push(
-            `A|${TYPE_INDEX[rootShape.type] || 0}|${toB81(rx)}|${toB81(ry)}|${rSlot}`,
+            `A|${TYPE_INDEX[rootShape.type] || 0}|${toB81(rx)}|${toB81(ry)}|${rSlot}${rColor ? "|" + rColor : ""}`,
           );
           visited.add(rootShape.id);
 
@@ -5729,8 +5971,9 @@
               const dx = Math.round(other.x - rootShape.x);
               const dy = Math.round(other.y - rootShape.y);
               const slot = ((Math.round(other.rotation / 15) % 24) + 24) % 24;
+              const oColor = colorToSeedTag(other.color);
               parts.push(
-                `S|${TYPE_INDEX[other.type] || 0}|${toB81(dx)}|${toB81(dy)}|${slot}`,
+                `S|${TYPE_INDEX[other.type] || 0}|${toB81(dx)}|${toB81(dy)}|${slot}${oColor ? "|" + oColor : ""}`,
               );
               visited.add(other.id);
               queue.push(other);
@@ -5773,7 +6016,7 @@
                 x: anchorX,
                 y: anchorY,
                 rotation,
-                color: getShapeColor(type),
+                color: seedTagToColor(p[5]) || getShapeColor(type),
               });
             } else if (p[0] === "S") {
               // Shape as world-delta from current anchor — no trig, perfectly lossless
@@ -5787,7 +6030,7 @@
                 x,
                 y,
                 rotation,
-                color: getShapeColor(type),
+                color: seedTagToColor(p[5]) || getShapeColor(type),
               });
             } else if (p[0] === "R" && p.length >= 6) {
               // Legacy V9-BFS token (from earlier broken version) — decode via parent index
@@ -5864,8 +6107,9 @@
         const rx = quantizeCoord(rootShape.x * 1000);
         const ry = quantizeCoord(rootShape.y * 1000);
         const rSlot = ((Math.round(rootShape.rotation / 15) % 24) + 24) % 24;
+        const rColor = colorToSeedTag(rootShape.color);
         parts.push(
-          `A|${TYPE_INDEX[rootShape.type] || 0}|${toB81(rx)}|${toB81(ry)}|${rSlot}`,
+          `A|${TYPE_INDEX[rootShape.type] || 0}|${toB81(rx)}|${toB81(ry)}|${rSlot}${rColor ? "|" + rColor : ""}`,
         );
         visited.add(rootShape.id);
 
@@ -5879,8 +6123,9 @@
             const dx = quantizeCoord((other.x - rootShape.x) * 1000);
             const dy = quantizeCoord((other.y - rootShape.y) * 1000);
             const slot = ((Math.round(other.rotation / 15) % 24) + 24) % 24;
+            const oColor = colorToSeedTag(other.color);
             parts.push(
-              `S|${TYPE_INDEX[other.type] || 0}|${toB81(dx)}|${toB81(dy)}|${slot}`,
+              `S|${TYPE_INDEX[other.type] || 0}|${toB81(dx)}|${toB81(dy)}|${slot}${oColor ? "|" + oColor : ""}`,
             );
             visited.add(other.id);
             queue.push(other);
@@ -5921,7 +6166,7 @@
                 x: anchorX,
                 y: anchorY,
                 rotation,
-                color: getShapeColor(type),
+                color: seedTagToColor(p[5]) || getShapeColor(type),
               });
             } else if (p[0] === "S") {
               const type = INDEX_TYPE[parseInt(p[1])] || "triangle";
@@ -5934,7 +6179,7 @@
                 x,
                 y,
                 rotation,
-                color: getShapeColor(type),
+                color: seedTagToColor(p[5]) || getShapeColor(type),
               });
             }
           }
@@ -7029,6 +7274,7 @@ window.saveUndo = function () {
                 x: parseFloat(s.x),
                 y: parseFloat(s.y),
                 rotation: parseFloat(s.rot) || 0,
+                color: s.color || getShapeColor(s.type || "triangle"),
               }));
             }
             return shapes;
@@ -7090,6 +7336,7 @@ window.saveUndo = function () {
               x: x,
               y: y,
               rotation: rotation,
+              color: seedTagToColor(p[5]) || getShapeColor(type),
             });
           }
 
@@ -7238,6 +7485,13 @@ window.saveUndo = function () {
         shapes.forEach((sh) => {
           const vs = worldVerts(sh);
           if (!vs.length) return;
+
+          // Per-shape fill color (falls back to theme shadow for uncolored)
+          const fill = sh.color || shadowColor;
+          ctx.fillStyle = fill;
+          ctx.strokeStyle = fill;
+          ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
 
           ctx.beginPath();
           ctx.moveTo(vs[0].x, vs[0].y);
@@ -7540,6 +7794,7 @@ window.saveUndo = function () {
                   x: parseFloat(s.x),
                   y: parseFloat(s.y),
                   rotation: parseFloat(s.rot) || 0,
+                  color: s.color || getShapeColor(type),
                 };
               });
 
@@ -7621,6 +7876,7 @@ window.saveUndo = function () {
                   x: x,
                   y: y,
                   rotation: rotation,
+                  color: seedTagToColor(p[5]) || getShapeColor(type),
                 });
               }
 
