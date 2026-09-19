@@ -821,6 +821,63 @@
         order: 1;
         font-variant-numeric: tabular-nums;
       }
+      .lib-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 9;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        border-radius: 50%;
+        background: rgba(255, 213, 107, 0.35);
+        box-shadow: 0 2px 8px rgba(255, 180, 60, 0.28);
+      }
+      .lib-badge-main {
+        width: auto;
+        height: auto;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 9px;
+        background: rgba(0, 120, 212, 0.12);
+        color: #0078d4;
+        box-shadow: none;
+      }
+      .lib-userbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        color: #556;
+        flex-wrap: wrap;
+        padding: 0 4px;
+      }
+      .lib-userbar .u {
+        flex: 1;
+        min-width: 0;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      #libLoginBtn {
+        border: none;
+        background: linear-gradient(135deg, #7c3aed, #4f8ef7);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+        white-space: nowrap;
+      }
+      #libLoginBtn:hover {
+        filter: brightness(1.08);
+      }
       .lib-empty {
         grid-column: 1 / -1;
         text-align: center;
@@ -1486,6 +1543,16 @@
             "
           >
             ❌
+          </button>
+        </div>
+        <div class="lib-userbar">
+          <span id="libUserState">Loading…</span>
+          <button
+            id="libLoginBtn"
+            onclick="libSignIn()"
+            title="Sign in to save your own custom shapes next to the main gallery"
+          >
+            👤 Sign in
           </button>
         </div>
         <div id="libGrid" class="lib-grid"></div>
@@ -6102,7 +6169,10 @@ window.saveUndo = function () {
       // INTEGRATED USER LIBRARY & FILE SYNC SYSTEM
       // ══════════════════════════════════════════════════════════
 
-      let globalLibrary = []; // Loaded from pattern_user_puzzle.json
+      let globalLibrary = []; // Merged gallery shown in the UI
+      let mainLibrary = []; // Owner's default gallery (repo pattern_user_puzzle.json)
+      let userLibrary = []; // Signed-in account's own shapes (hub "lib_user")
+      let userSignedIn = false; // true when the account's custom shapes are merged in
       let devFileHandle = null;
       let seedClickCount = 0;
       let seedClickTimer = null;
@@ -6126,6 +6196,11 @@ window.saveUndo = function () {
       // device id), so every tab/device of the same account sees the same
       // gallery — and a lightweight poll makes edits appear live everywhere.
       const LIB_DEVICE = "account-library";
+      // Per-account custom shapes live in this hub key; the owner's main
+      // gallery stays in the repo JSON file, so students merge their own on
+      // top without touching anyone else's.
+      const LIB_KEY_USER = "lib_user";
+      const LIB_KEY_LEGACY = "library";
       let libSyncTimer = null;
       let libSyncInFlight = false;
       let liveWakeTimer = 0;
@@ -6158,6 +6233,17 @@ window.saveUndo = function () {
         document.getElementById("libPassModal").style.display = "flex";
         const email = document.getElementById("libAccEmail");
         if (email) setTimeout(() => email.focus(), 50);
+      }
+
+      // Sign-in entry point used by the library modal header button. Reuses the
+      // account flow from ensureHubAuth, then reloads the user's custom shapes.
+      async function libSignIn() {
+        const ok = await ensureHubAuth();
+        if (ok) {
+          await initGlobalLibrary();
+          updateLibDisplay();
+          refreshLibraryGrid();
+        }
       }
 
       function closeLibPass() {
@@ -6356,8 +6442,9 @@ window.saveUndo = function () {
             if (val) {
               toast("Signed in as " + (hubUser ? hubUser.email : "") + " 🙂");
               // Reload the account's own library now that we are authenticated.
-              initGlobalLibrary();
+              await initGlobalLibrary();
               updateLibDisplay();
+              refreshLibraryGrid();
             }
             resolve(val);
           };
@@ -6403,13 +6490,14 @@ window.saveUndo = function () {
         });
       }
 
-      // Push the current globalLibrary to the account's cloud library.
+      // Push the CURRENT account's custom shapes to its hub library.
       async function saveLibraryToHub(msg) {
         if (!libraryServerReachable()) return false;
         const authed = await ensureHubAuth();
         if (!authed) return false;
         try {
-          await MG.save.put("pattern", "library", globalLibrary, LIB_DEVICE);
+          await MG.save.put("pattern", LIB_KEY_USER, userLibrary, LIB_DEVICE);
+          userSignedIn = true;
           toast(msg || "Library updated.");
           updateLibDisplay();
           return true;
@@ -6426,73 +6514,80 @@ window.saveUndo = function () {
         }
         const authed = await ensureHubAuth();
         if (!authed) return;
-        if (!Array.isArray(globalLibrary)) globalLibrary = globalLibrary || [];
         await saveLibraryToHub(
-          `Committed ${globalLibrary.length} puzzles to your account library.`,
+          `Committed ${userLibrary.length} custom shape(s) to your account.`,
         );
+      }
+
+      // globalLibrary is always main gallery + the signed-in account's own.
+      function mergeLibraries() {
+        globalLibrary = userSignedIn
+          ? [...mainLibrary, ...(Array.isArray(userLibrary) ? userLibrary : [])]
+          : [...mainLibrary];
       }
 
       /**
        * 1. Startup: Load the library.
-       *    On the Gitea host, the account's cloud library is the source of
-       *    truth; without a save yet it falls back to the bundled file.
+       *    The owner's default gallery is the bundled pattern_user_puzzle.json
+       *    (read-only to players). When an account is signed in, its own custom
+       *    shapes are loaded from the hub "lib_user" slot and merged on top.
        */
       async function initGlobalLibrary() {
         try {
           await ensureHubReady();
-          if (libraryServerReachable()) {
-            try {
-              let data = await MG.save.get("pattern", "library", LIB_DEVICE).catch(() => null);
-              if (Array.isArray(data)) {
-                globalLibrary = data;
-                updateLibDisplay();
-                console.log(
-                  `Library loaded (hub): ${globalLibrary.length} puzzles.`,
-                );
-                startLibraryLiveSync();
-                startLibraryLive();
-                return;
-              }
-              // Legacy: a per-device copy saved before the account-scoped key.
-              data = await MG.save.get("pattern", "library").catch(() => null);
-              if (Array.isArray(data)) {
-                globalLibrary = data;
-                updateLibDisplay();
-                await MG.save
-                  .put("pattern", "library", globalLibrary, LIB_DEVICE)
-                  .catch(() => {});
-                console.log(
-                  `Library migrated from legacy device save: ${globalLibrary.length} puzzles.`,
-                );
-                startLibraryLiveSync();
-                startLibraryLive();
-                return;
-              }
-              console.log("No hub library yet — using bundled default.");
-            } catch (e) {
-              console.warn("Hub library unreachable:", e);
-            }
-          }
-          const response = await fetch(
-            `pattern_user_puzzle.json?t=${Date.now()}`,
-            {
-              cache: "no-store",
-              headers: { "Cache-Control": "no-cache" },
-            },
-          );
-          if (response.ok) {
-            globalLibrary = await response.json();
-            console.log(
-              `Library loaded: ${globalLibrary.length} puzzles found.`,
+          try {
+            const response = await fetch(
+              `pattern_user_puzzle.json?t=${Date.now()}`,
+              {
+                cache: "no-store",
+                headers: { "Cache-Control": "no-cache" },
+              },
             );
-          } else {
-            console.warn("Puzzle library fetch failed:", response.status);
-            globalLibrary = [];
+            mainLibrary = response.ok ? await response.json() : [];
+            if (!Array.isArray(mainLibrary)) mainLibrary = [];
+          } catch (e) {
+            console.warn("No pattern_user_puzzle.json found on server.");
+            mainLibrary = [];
+          }
+          if (libraryServerReachable()) {
+            userSignedIn = !!(MG.account && MG.account.token());
+            userLibrary = [];
+            if (userSignedIn) {
+              let data = await MG.save
+                .get("pattern", LIB_KEY_USER, LIB_DEVICE)
+                .catch(() => null);
+              if (!Array.isArray(data)) {
+                // One-time migration from the old shared "library" slot.
+                const legacy = await MG.save
+                  .get("pattern", LIB_KEY_LEGACY, LIB_DEVICE)
+                  .catch(() => null);
+                if (Array.isArray(legacy) && legacy.length) {
+                  data = legacy;
+                  await MG.save
+                    .put("pattern", LIB_KEY_USER, data, LIB_DEVICE)
+                    .catch(() => {});
+                }
+              }
+              userLibrary = Array.isArray(data) ? data : [];
+              startLibraryLiveSync();
+              startLibraryLive();
+            }
+          } else if (devFileHandle) {
+            // Local-author workflow: the linked JSON file IS the gallery.
+            userSignedIn = false;
+            try {
+              const file = await devFileHandle.getFile();
+              const text = await file.text();
+              const local = JSON.parse(text);
+              if (Array.isArray(local)) mainLibrary = local;
+            } catch (e) {}
           }
         } catch (e) {
-          console.warn("No pattern_user_puzzle.json found on server.");
-          globalLibrary = [];
+          mainLibrary = [];
+          userLibrary = [];
+          userSignedIn = false;
         }
+        mergeLibraries();
         updateLibDisplay();
       }
 
@@ -6504,7 +6599,7 @@ window.saveUndo = function () {
         if (!MG.live) return;
         MG.live.on(function (ev) {
           if (!ev || ev.type !== "save:updated") return;
-          if (ev.game === "pattern" && ev.key === "library") {
+          if (ev.game === "pattern" && ev.key === LIB_KEY_USER) {
             clearTimeout(liveWakeTimer);
             liveWakeTimer = setTimeout(syncLibraryFromHub, 100);
           }
@@ -6527,22 +6622,25 @@ window.saveUndo = function () {
 
       async function syncLibraryFromHub() {
         if (libSyncInFlight) return;
-        if (!libraryServerReachable() || !(MG.account && MG.account.token())) return;
+        if (!libraryServerReachable() || !(MG.account && MG.account.token()))
+          return;
         libSyncInFlight = true;
         try {
           let meta = null;
           try {
-            meta = await MG.save.meta("pattern", "library", LIB_DEVICE);
+            meta = await MG.save.meta("pattern", LIB_KEY_USER, LIB_DEVICE);
           } catch {}
           const rev = meta ? meta.revision || 0 : -1;
           if (rev === lastLibRevision) return;
           lastLibRevision = rev;
-          const data = await MG.save.get("pattern", "library", LIB_DEVICE);
+          const data = await MG.save.get("pattern", LIB_KEY_USER, LIB_DEVICE);
           if (
             Array.isArray(data) &&
-            JSON.stringify(data) !== JSON.stringify(globalLibrary)
+            JSON.stringify(data) !== JSON.stringify(userLibrary)
           ) {
-            globalLibrary = data;
+            userLibrary = data;
+            userSignedIn = true;
+            mergeLibraries();
             updateLibDisplay();
             refreshLibraryGrid();
             toast("Library updated.", "library");
@@ -7009,6 +7107,22 @@ window.saveUndo = function () {
         const grid = document.getElementById("libGrid");
         grid.innerHTML = "";
 
+        const stateEl = document.getElementById("libUserState");
+        const loginBtn = document.getElementById("libLoginBtn");
+        if (stateEl) {
+          if (libraryServerReachable()) {
+            stateEl.textContent = userSignedIn
+              ? `👤${hubUser ? " " + hubUser.email : ""} — custom shapes: ${Array.isArray(userLibrary) ? userLibrary.length : 0}`
+              : "Main gallery is shared — sign in to save your own custom shapes.";
+          } else {
+            stateEl.textContent = `Gallery: ${mainLibrary.length} puzzles`;
+          }
+        }
+        if (loginBtn) {
+          loginBtn.style.display =
+            libraryServerReachable() && !userSignedIn ? "" : "none";
+        }
+
         if (!globalLibrary || globalLibrary.length === 0) {
           grid.innerHTML = '<div class="lib-empty">📚 Library is Empty</div>';
         } else {
@@ -7043,8 +7157,29 @@ window.saveUndo = function () {
                 clearFirst: true,
               });
 
-            // Delete button (only if user can modify the library)
-            if (libraryServerReachable() || devFileHandle) {
+            // Custom shapes (the signed-in account's own) carry a star badge.
+            if (libraryServerReachable()) {
+              const badge = document.createElement("div");
+              if (idx >= mainLibrary.length) {
+                badge.className = "lib-badge";
+                badge.textContent = "✨";
+                badge.title = "Your custom shape";
+              } else {
+                badge.className = "lib-badge lib-badge-main";
+                badge.textContent = "MAIN";
+                badge.title = "Main gallery (owner's puzzle)";
+              }
+              item.appendChild(badge);
+            }
+
+            // Delete button (only the signed-in account's own shapes on the
+            // server; any item for the local dev-file workflow).
+            const isUserItem =
+              !libraryServerReachable() || idx >= mainLibrary.length;
+            if (
+              (libraryServerReachable() && isUserItem) ||
+              devFileHandle
+            ) {
               const delBtn = document.createElement("button");
               delBtn.className = "lib-item-delete";
               delBtn.textContent = "❌";
@@ -7112,7 +7247,14 @@ window.saveUndo = function () {
 
       async function executeDeletePuzzle() {
         if (libraryServerReachable()) {
-          if (!(puzzleToDeleteIndex > -1 && puzzleToDeleteIndex < globalLibrary.length)) {
+          const isUserItem = puzzleToDeleteIndex >= mainLibrary.length;
+          if (!isUserItem) {
+            toast("The main gallery is the owner's file — it's read-only here.");
+            closeDeleteConfirm();
+            return;
+          }
+          const userIdx = puzzleToDeleteIndex - mainLibrary.length;
+          if (!(userIdx > -1 && userIdx < userLibrary.length)) {
             closeDeleteConfirm();
             return;
           }
@@ -7121,9 +7263,10 @@ window.saveUndo = function () {
             closeDeleteConfirm();
             return;
           }
-          globalLibrary.splice(puzzleToDeleteIndex, 1);
+          userLibrary.splice(userIdx, 1);
+          mergeLibraries();
           closeDeleteConfirm();
-          const ok = await saveLibraryToHub("Puzzle removed from library.");
+          const ok = await saveLibraryToHub("Puzzle removed from your library.");
           if (ok) openLibraryModal();
           return;
         }
@@ -7165,13 +7308,18 @@ window.saveUndo = function () {
         if (libraryServerReachable()) {
           const authed = await ensureHubAuth();
           if (!authed) return;
-          if (globalLibrary.includes(currentSeed)) {
+          if (
+            mainLibrary.includes(currentSeed) ||
+            userLibrary.includes(currentSeed)
+          ) {
             toast("Puzzle already in library!");
             return;
           }
-          globalLibrary.push(currentSeed);
-          await saveLibraryToHub("Puzzle saved to library!");
-          refreshLibraryGrid();
+          userLibrary.push(currentSeed);
+          userSignedIn = true;
+          mergeLibraries();
+          const ok = await saveLibraryToHub("Puzzle saved to your library!");
+          if (ok) refreshLibraryGrid();
           return;
         }
 

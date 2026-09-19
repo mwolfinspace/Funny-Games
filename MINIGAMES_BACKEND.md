@@ -26,8 +26,8 @@ The browser automatically sends an `Origin` header. The backend decides:
 
 | Origin                                        | mode      | features offered                 |
 | --------------------------------------------- | --------- | -------------------------------- |
-| `https://minigames.xedryk.top`                | `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync, chess |
-| `https://mwolfinspace.github.io` (GitHub copy)| `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync, chess |
+| `https://minigames.xedryk.top`                | `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync, chess, codes |
+| `https://mwolfinspace.github.io` (GitHub copy)| `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync, chess, codes |
 | any other Origin present                      | `external`| none                             |
 
 **Same-origin note:** browsers omit the `Origin` header on same-origin GETs, so
@@ -238,6 +238,35 @@ returns. Guests / non-`gitea` origins keep using the local engine untouched.
   and the client keeps playing with the local fallback.
 - Debian hub image carries Stockfish in `/usr/games/stockfish`; no repo binary,
   reproducible via `backend/Dockerfile.hub` (see §7).
+
+### Short game codes (seed tickets)
+
+Any game can tuck its long recovery seed on the Hub and get a **super-short,
+cross-game unique code** back — like a ticket that redeems to the original seed.
+This is the pattern chess uses: a full-state seed (`S2-…`, base64url of
+mode/level/clocks/turn/history) is minted to codes that stay up to date as the
+game progresses (a "time code"), so a student can re-open the exact same setup
+anytime.
+
+| Endpoint | Method | Auth | Rate | Body / Query | Returns |
+| --- | --- | --- | --- | --- | --- |
+| `/api/mg/codes` | POST | login | 20/min per IP+user | `{ game, seed }` | `{ ok, code, game }` |
+| `/api/mg/codes/lookup` | GET | public | — | `?code=` | `{ ok, code, game, seed }` |
+
+- Codes are 7 chars from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (31 letters, no
+  I/L/O/0/1) — easy to read aloud, ∼27.5B distinct values, well under 8.
+- **Idempotent**: minting the same `game|seed` twice returns the existing code
+  and never duplicates — codes are stable "time codes" that only change when the
+  game state does. The reserved code index is rebuilt from `seed_codes.json` at
+  boot, so a restarted hub still resolves old codes.
+- Mint requires a session + rate budget; **lookup is public** (anyone holding a
+  code may spend it — good for sharing a puzzle to a classroom).
+- Stored in the `seed_codes` collection (`backend-data/seed_codes.json`), backed
+  up with the rest of the data; mints are signed to the audit log with the
+  `SHA-256` of the seed (full seed never logged).
+- Client: `MG.codes.mint(game, seed)` → `{ code }`, `MG.codes.open(code)` →
+  `{ seed }`. Chess resolves 7-char codes in `loadSeed()` before any other seed
+  parsing, and mints codes automatically (throttled ≥2.5 s, cached per seed).
 
 ## 7. Deploying (auto-deploy on the minigames host)
 

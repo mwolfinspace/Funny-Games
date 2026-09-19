@@ -61,6 +61,10 @@ const gameStats = collection("game_stats");
 const medals = collection("medals");
 const eventLog = collection("event_log");
 const saveSnapshots = collection("save_snapshots");
+// Short game-code "tickets": each maps a super-short unique code (≤8 chars) to
+// a game's (possibly very long) seed string. One shared collection across ALL
+// games so codes never collide. File is backed up with the rest of the data.
+const seedCodes = collection("seed_codes");
 
 const loginLimiter = new auth.RateLimiter(60_000, 10);
 const signupLimiter = new auth.RateLimiter(60_000, 5);
@@ -69,6 +73,32 @@ const apiLimiter = new auth.RateLimiter(1000, 240);
 // Server-side Stockfish is CPU-bound work — a per-user + per-IP budget stops
 // the engine from becoming a free compute farm for spammers.
 const chessLimiter = new auth.RateLimiter(60_000, 30);
+// Code minting is cheap but stored — a shared budget (per IP + per user) stops
+// the table from being flooded with junk codes.
+const codeLimiter = new auth.RateLimiter(60_000, 20);
+
+// ── short game codes ─────────────────────────────────────────────────────────
+// Alphabet deliberately omits I,L,O,0,1 so codes are easy to read aloud/type.
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // 31 chars
+const CODE_LEN = 7; // 31^7 ≈ 27.5 billion distinct codes, well under 8 chars
+const CODE_RE = new RegExp("^[" + CODE_ALPHABET + "]{7}$");
+let codeIndex = new Map(); // code  -> { code, game, seed, createdBy, createdAt }
+let seedIndex = new Map(); // `${game}|${seed}` -> code
+function rebuildCodeIndex() {
+  codeIndex = new Map();
+  seedIndex = new Map();
+  for (const r of seedCodes.all()) {
+    codeIndex.set(r.code, r);
+    seedIndex.set(r.game + "|" + r.seed, r.code);
+  }
+}
+function generateCode() {
+  const buf = crypto.randomBytes(CODE_LEN);
+  let s = "";
+  for (let i = 0; i < CODE_LEN; i++) s += CODE_ALPHABET[buf[i] % CODE_ALPHABET.length];
+  return s;
+}
+rebuildCodeIndex();
 
 // Stockfish engine process, shared by every chess client, spawned lazily.
 const chessEngine = new Engine();
@@ -198,7 +228,7 @@ function buildCapabilities(origin, host) {
   const isSameSite = hostname === new URL(PUBLIC_URL).hostname;
   const isGitea = origin ? ALLOWED_ORIGINS.has(origin) : isSameSite;
   const features = isGitea
-    ? ["accounts", "verify", "reset", "saves", "stats", "medals", "library", "sync", "chess"]
+    ? ["accounts", "verify", "reset", "saves", "stats", "medals", "library", "sync", "chess", "codes"]
     : [];
   const payload = `${isGitea ? "gitea" : "guest"}|${features.join(":")}`;
   const envelope = {
@@ -569,6 +599,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── game-code lookup (public: "library ticket" → original long seed) ──
+    // Anyone holding a code may spend it; minting (POST /api/mg/codes) is what
+    // requires a login + rate budget. Codes are cross-game unique.
+    if (p === "/api/mg/codes/lookup" && req.method === "GET") {
+      const code = String(q.get("code") || "").toUpperCase();
+      if (!CODE_RE.test(code))
+        return json(res, 400, { ok: false, error: "Invalid game code." });
+      const row = codeIndex.get(code);
+      if (!row) return json(res, 404, { ok: false, error: "Unknown game code." });
+      return json(res, 200, { ok: true, code: row.code, game: row.game, seed: row.seed });
+    }
+
     // ── authed endpoints (token in body/query/Authorization) ─────────────
     if (
       p.startsWith("/api/mg/") &&
@@ -607,6 +649,38 @@ const server = http.createServer(async (req, res) => {
       if (p === "/api/mg/chess/ping" && req.method === "GET") {
         if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
         return json(res, 200, { ok: true, engine: chessEngine.ready || false, version: chessEngine.version || null });
+      }
+
+      // ── game-code mint ("ticket" a long seed under a super-short code) ──
+      // Idempotent: same game + seed always yields the same code. Codes are
+      // unique across ALL games (shared collection, one to many cross-game).
+      if (p === "/api/mg/codes" && req.method === "POST") {
+        if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
+        if (codeLimiter.hit(ip, "codes") || codeLimiter.hit(u.id, "codes"))
+          return json(res, 429, { ok: false, error: "Too many codes. Try again in a minute." });
+        const game = String(body.game || "").replace(/[^a-z0-9_\-]/gi, "").slice(0, 48);
+        const seed = String(body.seed == null ? "" : body.seed).slice(0, 4000);
+        if (!game) return json(res, 400, { ok: false, error: "Game id required." });
+        if (!seed) return json(res, 400, { ok: false, error: "Seed required." });
+        const key = game + "|" + seed;
+        let code = seedIndex.get(key);
+        if (!code) {
+          let tries = 0;
+          do { code = generateCode(); tries++; } while (codeIndex.has(code) && tries < 10);
+          const row = { code, game, seed, createdBy: u.id, createdAt: nowIso() };
+          await seedCodes.update((rows) => rows.push(row));
+          codeIndex.set(code, row);
+          seedIndex.set(key, code);
+          await logAudit({
+            actor: u.id,
+            action: "codes.mint",
+            userId: u.id,
+            game,
+            dataHash: SHA256(seed),
+            detail: `code=${code}`,
+          });
+        }
+        return json(res, 200, { ok: true, code, game });
       }
 
       // ── owner-only admin: signed audit trail, snapshots, revert ─────────

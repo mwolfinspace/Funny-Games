@@ -214,6 +214,37 @@
         border: none;
         box-shadow: 0 4px 16px rgba(79, 142, 247, 0.38);
       }
+      .sb-mini {
+        height: 26px;
+        padding: 0 9px;
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.88);
+        border-radius: 9px;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition:
+          background 0.12s,
+          transform 0.1s;
+      }
+      .sb-mini:hover {
+        background: rgba(255, 255, 255, 0.96);
+        transform: translateY(-1px);
+      }
+      .sb-mini:active {
+        transform: scale(0.93);
+      }
+      #codeBtn {
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: #fff;
+        border: none;
+      }
 
       #seedBox {
         display: flex;
@@ -1046,6 +1077,34 @@
         border-color: rgba(138, 184, 248, 0.25);
         background: rgba(138, 184, 248, 0.08);
       }
+      #sbCode {
+        font-family: "DM Mono", monospace;
+        font-size: 11px;
+        color: #ffd56b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 3px 8px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+      }
+      #sbCode:hover {
+        color: #ffe9a8;
+        border-color: rgba(255, 213, 107, 0.3);
+        background: rgba(255, 213, 107, 0.08);
+      }
+      .arrow-hint {
+        stroke: #ffd56b;
+        stroke-dasharray: 0.9 0.7;
+      }
+      .arrow-hint-head {
+        fill: #ffd56b;
+      }
 
       #toast {
         position: fixed;
@@ -1610,11 +1669,12 @@
         <input
           type="text"
           id="seedIn"
-          placeholder="Seed ID…"
+          placeholder="Seed ID or game code…"
           spellcheck="false"
           autocomplete="off"
         />
         <button id="seedGo">📥 Load</button>
+        <button id="codeBtn2">⚡ Code</button>
       </div>
     </div>
 
@@ -1702,10 +1762,14 @@
         <span class="l">AI Elo</span><span class="v" id="sbElo">—</span>
       </div>
       <div class="sbi"><span class="l">Seed</span></div>
-      <span id="sbMsg"></span>
+      <div class="sbi"><span class="l">Code</span></div>
+      <span id="sbCode" title="Click to copy game code">—</span>
       <div id="sbSeed" title="Click to copy Seed ID">
         <span id="sbSeedTxt">—</span>
       </div>
+      <button class="sb-mini" id="codeBtn" title="Make a super-short game code for this position (sign in first)">⚡ Code</button>
+      <button class="sb-mini" id="seedLoadBtn" title="Load from Seed ID or game code">📥</button>
+      <span id="sbMsg"></span>
     </div>
 
     <div id="toast"></div>
@@ -1985,6 +2049,12 @@
           this._serverChessFails = 0;
           this._serverChessRetryAt = 0;
           this._serverChessSeq = 0;
+          this._codesArmed = false;
+          this._codesLoginNeeded = false;
+          this._codeCache = {};
+          this._codeMintAt = 0;
+          this._codeSeq = 0;
+          this.gameCode = null;
           this._bind();
           this._initTheme();
           this._initCheckmate();
@@ -2045,6 +2115,36 @@
             window.location.href = "index.html";
           });
           $("sbSeed").addEventListener("click", () => this.copySeed());
+          $("sbCode").addEventListener("click", () => {
+            SFX.ui();
+            this.copyCode();
+          });
+          $("codeBtn").addEventListener("click", () => {
+            SFX.ui();
+            this._makeGameCode();
+          });
+          $("codeBtn2").addEventListener("click", () => {
+            SFX.ui();
+            this._makeGameCode();
+          });
+          $("seedLoadBtn").addEventListener("click", () => {
+            SFX.ui();
+            const box = $("seedBox");
+            const show = box.style.display === "none";
+            box.style.display = show ? "flex" : "none";
+            if (show) $("seedIn").focus();
+          });
+          $("seedGo").addEventListener("click", () => {
+            SFX.ui();
+            const val = $("seedIn").value;
+            if (val) this.loadSeed(val);
+          });
+          $("seedIn").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              const val = $("seedIn").value;
+              if (val) this.loadSeed(val);
+            }
+          });
           $("hintBtn").addEventListener("click", () => {
             SFX.ui();
             this._stopDemo();
@@ -2216,6 +2316,7 @@
           this._fitBoard();
           setTimeout(() => this._fitBoard(), 80);
           this._setupServerChess();
+          this._setupCodes();
         }
         _initTheme() {
           let t = "light";
@@ -2754,7 +2855,15 @@
           if (over.winner === "White") this._setWinnerHighlight("w");
           else if (over.winner === "Black") this._setWinnerHighlight("b");
           else this._setWinnerHighlight(null);
-          if (this.checkmateOn) {
+          if (over.reason === "resign") {
+            this.setMsg(`${over.winner} wins`);
+            this._showWin(
+              "Victory",
+              `${over.winner} wins!`,
+              over.resigned ? `${over.resigned} resigned.` : "Resignation.",
+              true,
+            );
+          } else if (this.checkmateOn) {
             if (over.reason === "checkmate") {
               this.setMsg("Checkmate");
               this._showWin(
@@ -2862,26 +2971,86 @@
           return atob(b64);
         }
 
-        _encodeSeedData(fen) {
-          return STATE_SEED_PREFIX + fen.replace(/ /g, "_");
+        _encodeSeedData() {
+          const st = this._seedState();
+          const raw =
+            "2;" +
+            [st.mode, st.aiLevel, st.sideChoice, st.aiSideFixed, st.rotation || 0].join(",") +
+            ";" +
+            [st.clockBase, Math.round(st.wTime), Math.round(st.bTime), st.clockOn ? 1 : 0].join(",") +
+            ";" +
+            (st.baseSeed || "") +
+            ";" +
+            st.moves.join(".");
+          const payload = encodeURIComponent(raw);
+          return "S2-" + this._b64UrlEncode(payload);
         }
 
+        _seedState() {
+          return {
+            mode: this.mode || "pvp",
+            aiLevel: this.aiLevel || 1,
+            sideChoice: this.sideChoice || "w",
+            aiSideFixed: this.aiSideFixed || "b",
+            rotation: this.rotation || 0,
+            clockBase: this.clockBase || 600,
+            wTime: Number.isFinite(this.wTime)
+              ? this.wTime
+              : this.clockBase || 600,
+            bTime: Number.isFinite(this.bTime)
+              ? this.bTime
+              : this.clockBase || 600,
+            clockOn: !!this.clockOn,
+            baseSeed: this.baseSeed || this.seed || "",
+            moves: (this.history || []).map((h) => h.last).filter(Boolean),
+          };
+        }
+
+        // FEN- → string FEN (legacy position-only), S2- → full game state,
+        // anything else → null.
         _decodeSeedData(seed) {
           if (!seed || !seed.startsWith(STATE_SEED_PREFIX)) return null;
-          return seed.slice(STATE_SEED_PREFIX.length).replace(/_/g, " ");
+          if (seed.startsWith("FEN-")) {
+            return seed.slice(4).replace(/_/g, " ");
+          }
+          if (seed.startsWith("S2-")) {
+            try {
+              const payload = decodeURIComponent(this._b64UrlDecode(seed.slice(3)));
+              const parts = payload.split(";");
+              if (parts.length < 5) return null;
+              const [m, l, s, a, r] = parts[1].split(",");
+              const [cb, wt, bt, on] = parts[2].split(",");
+              return {
+                mode: m || "pvp",
+                aiLevel: parseInt(l, 10) || 1,
+                sideChoice: s || "w",
+                aiSideFixed: a || "",
+                rotation: parseInt(r, 10) || 0,
+                clockBase: parseInt(cb, 10) || 600,
+                wTime: parseInt(wt, 10),
+                bTime: parseInt(bt, 10),
+                clockOn: on === "1",
+                baseSeed: parts[3] || "",
+                moves: parts[4] ? parts[4].split(".").filter(Boolean) : [],
+              };
+            } catch (e) {
+              return null;
+            }
+          }
+          return null;
         }
 
         _refreshSeed() {
           if (this.demo) return;
-          const fen = this.toFEN();
-          const seed = this._encodeSeedData(fen);
+          const seed = this._encodeSeedData();
           if (!seed) return;
           this.seed = seed;
           const seedIn = document.getElementById("seedIn");
           if (seedIn) seedIn.value = seed;
           const sbSeed = document.getElementById("sbSeedTxt");
           if (sbSeed) sbSeed.textContent = seed;
-          this._setUrlSeed(seed);
+          this._setUrlSeed(this.gameCode || seed);
+          this._syncGameCode();
         }
 
         _save() {
@@ -3114,6 +3283,9 @@
           this.setClock(this.clockBase / 60);
           this.baseSeed = seedOverride || this._makeSeed();
           this.seed = this.baseSeed;
+          this.gameCode = null;
+          const _cc = document.getElementById("sbCode");
+          if (_cc) _cc.textContent = "—";
           const seedPart = this.baseSeed.split("-")[2] || this.baseSeed;
           const seedNum = parseInt(seedPart, 36);
           this.prng = mulberry32(
@@ -3145,17 +3317,49 @@
           // URL seed is updated via _save/_refreshSeed for live state sharing
         }
 
-        loadSeed(seed, fromUrl = false) {
+        async loadSeed(seed, fromUrl = false) {
           if (!seed) return;
 
           this._stopDemo();
 
-          const fen = this._decodeSeedData(seed);
+          let input = String(seed).trim();
+
+          // A 7-character hub game code resolves to the long saved seed.
+          if (/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{7}$/.test(input)) {
+            let resolved = null;
+            try {
+              if (typeof MG !== "undefined" && MG.codes && MG.codes.open) {
+                const r = await MG.codes.open(input);
+                if (r && r.seed) resolved = r.seed;
+              }
+            } catch (e) {}
+            if (!resolved) {
+              this.toast("Unknown game code");
+              return;
+            }
+            input = resolved;
+          }
+
+          // Full-state seed: move history, clocks, turn, captures, mode.
+          if (/^S2-/i.test(input)) {
+            const st = this._decodeSeedData(input);
+            if (st && Array.isArray(st.moves)) {
+              this._restoreFromSeedData(st, input);
+              this.renderBoard();
+              this.syncUI();
+              this.toast("Game restored from Seed");
+              if (!fromUrl) this._setUrlSeed(this.seed);
+              this._save();
+              return;
+            }
+          }
+
+          const fen = this._decodeSeedData(input);
 
           if (!fen) {
             // Try localStorage restore if not a valid seed
             const saved = this._loadSaved();
-            if (saved && saved.seed === seed) {
+            if (saved && saved.seed === input) {
               this._restore(saved);
               this.renderBoard();
               this.syncUI();
@@ -3163,7 +3367,7 @@
               return;
             }
             // Try applying seed mode for non-FEN seeds (e.g., "ABC-xyz")
-            this._applySeedMode(seed);
+            this._applySeedMode(input);
             this.toast("Invalid Seed ID");
             return;
           }
@@ -4727,6 +4931,7 @@
             if (this.turn === "w") this.wTime--;
             else this.bTime--;
             this.updateClocks();
+            this._refreshSeed();
             if (this.wTime <= 0 || this.bTime <= 0) {
               this.clockOn = false;
               this.setMsg("Time");
@@ -4775,16 +4980,217 @@
           }
         }
 
-        hint() {
+        async hint() {
+          if (this.gameOver) return;
           const moves = this.allMoves(this.turn);
           if (!moves.length) return;
-          const mv = moves[Math.floor(Math.random() * moves.length)];
-          this.toast(`Try ${this.toAlg(mv)}`);
+          const fen = this.toFEN();
+          const level = Math.max(1, Math.min(4, this.aiLevel || 1));
+          let uci = null;
+          let note = "";
+          const info = await this.serverChessHint(fen, level, 1200);
+          if (info && info.move) {
+            uci = info.move;
+            note = `depth ${info.depth || "?"}`;
+            if (info.mate) note += ` mate in ${info.mate}`;
+            else if (info.scoreCp != null)
+              note += ` ${info.scoreCp >= 0 ? "+" : ""}${Math.round(info.scoreCp / 100)}`;
+          }
+          if (!uci) uci = await this._engineMove(fen, level, 1000);
+          if (uci) {
+            const mv = this._uciToMove(uci);
+            if (mv) {
+              this._drawHintArrow(mv);
+              this.toast("💡 Best: " + this.toAlg(mv) + (note ? ` (${note})` : ""));
+              return;
+            }
+          }
+          const fallback = this.findBestMove(
+            this.turn,
+            Math.min(1 + this.aiLevel, 3),
+          );
+          if (fallback) this.toast(`💡 Try ${this.toAlg(fallback)}`);
         }
+
+        async serverChessHint(fen, level, moveTime) {
+          if (!this._serverChess) return null;
+          const budget = Math.max(2400, moveTime + 2000);
+          const onTime = new Promise((r) => setTimeout(() => r(null), budget));
+          try {
+            const info = await Promise.race([
+              onTime,
+              MG.chess
+                .move({ fen, level, movetime: moveTime, hint: true })
+                .then((r) => r || null),
+            ]);
+            if (!info || !info.move) return null;
+            this._serverChessFails = 0;
+            return info;
+          } catch (e) {
+            this._serverChessFails++;
+            return null;
+          }
+        }
+
+        _drawHintArrow(mv) {
+          const svg = document.getElementById("arrowLayer");
+          if (!svg || !mv) return;
+          svg.innerHTML = "";
+          svg.classList.remove("off");
+          const sq =
+            parseFloat(
+              getComputedStyle(document.documentElement).getPropertyValue("--sq"),
+            ) || 64;
+          const size = sq * 8;
+          svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+          const [fr, fc] = mv.from,
+            [tr, tc] = mv.to;
+          const fx = (fc + 0.5) * sq,
+            fy = (fr + 0.5) * sq;
+          const tx = (tc + 0.5) * sq,
+            ty = (tr + 0.5) * sq;
+          const angle = Math.atan2(ty - fy, tx - fx);
+          const headLen = sq * 0.32,
+            headW = sq * 0.18;
+          const lx = tx - Math.cos(angle) * headLen * 0.6;
+          const ly = ty - Math.sin(angle) * headLen * 0.6;
+          const line = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line",
+          );
+          line.setAttribute("x1", fx);
+          line.setAttribute("y1", fy);
+          line.setAttribute("x2", lx);
+          line.setAttribute("y2", ly);
+          line.setAttribute("class", "arrow-line arrow-hint");
+          const p1x = tx,
+            p1y = ty;
+          const p2x = tx - Math.cos(angle) * headLen + Math.sin(angle) * headW;
+          const p2y = ty - Math.sin(angle) * headLen - Math.cos(angle) * headW;
+          const p3x = tx - Math.cos(angle) * headLen - Math.sin(angle) * headW;
+          const p3y = ty - Math.sin(angle) * headLen + Math.cos(angle) * headW;
+          const head = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "polygon",
+          );
+          head.setAttribute(
+            "points",
+            `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}`,
+          );
+          head.setAttribute("class", "arrow-head arrow-hint-head");
+          svg.appendChild(line);
+          svg.appendChild(head);
+        }
+
         resign() {
-          this.setMsg("Resigned");
+          if (this.gameOver) return;
           this.clockOn = false;
-          this._save();
+          const resigned = this.turn === "w" ? "White" : "Black";
+          const winner = resigned === "White" ? "Black" : "White";
+          this._handleGameOver({
+            over: true,
+            reason: "resign",
+            winner,
+            resigned,
+          });
+        }
+
+        _setupCodes() {
+          if (typeof MG === "undefined") return;
+          Promise.race([
+            Promise.resolve().then(() => MG.init && MG.init()),
+            new Promise((r) => setTimeout(r, 3000)),
+          ])
+            .then(() => {
+              const signedIn = !!(MG.account && MG.account.token());
+              this._codesArmed = !!(MG.isGitea && MG.has("codes") && signedIn);
+              this._codesLoginNeeded = !!(
+                MG.isGitea &&
+                MG.has("codes") &&
+                !signedIn
+              );
+              if (this._codesArmed) this._syncGameCode();
+            })
+            .catch(() => {
+              this._codesArmed = false;
+            });
+        }
+
+        _applyGameCode(code) {
+          if (!code) return;
+          this.gameCode = code;
+          const el = document.getElementById("sbCode");
+          if (el) el.textContent = code;
+          this._setUrlSeed(code);
+        }
+
+        _syncGameCode() {
+          if (!this._codesArmed || !this.seed) return;
+          const seed = this.seed;
+          const cached = this._codeCache[seed];
+          if (cached) {
+            this._applyGameCode(cached);
+            return;
+          }
+          const now = Date.now();
+          if (now < this._codeMintAt) return; // stay under the server rate limit
+          this._codeMintAt = now + 2500;
+          const seq = ++this._codeSeq;
+          Promise.resolve()
+            .then(() => MG.codes.mint("chess", seed))
+            .then((r) => {
+              if (seq !== this._codeSeq) return;
+              if (r && r.code) {
+                this._codeCache[seed] = r.code;
+                this._applyGameCode(r.code);
+              }
+            })
+            .catch(() => {});
+        }
+
+        async _makeGameCode() {
+          if (!this.seed) return;
+          if (!this._codesArmed) {
+            if (this._codesLoginNeeded) {
+              this.toast("Sign in on the hub to create game codes");
+              try {
+                window.open("account.html#codes", "_blank");
+              } catch (e) {}
+            } else {
+              this.toast("Hub not reachable — game codes unavailable");
+            }
+            return;
+          }
+          const seed = this.seed;
+          try {
+            const r = await MG.codes.mint("chess", seed);
+            if (r && r.code) {
+              this._codeCache[seed] = r.code;
+              this._applyGameCode(r.code);
+              await this._copyText(r.code);
+              this.toast(`Game code ${r.code} copied — resume this game anywhere`);
+            }
+          } catch (e) {
+            this.toast((e && e.message) || "Code mint failed");
+          }
+        }
+
+        copyCode() {
+          const chip = document.getElementById("sbCode");
+          const c = this.gameCode || (chip ? chip.textContent.trim() : "");
+          if (!c || c === "—") {
+            this.toast("No game code yet");
+            return;
+          }
+          this._copyText(c);
+          this.toast("Game code copied");
+        }
+
+        _copyText(t) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(t).catch(() => {});
+          }
+          return Promise.resolve();
         }
 
         _fitBoard() {
@@ -4968,7 +5374,20 @@
           this.clockOn = !!st.clockOn;
           this.updateClocks();
 
-          this.seed = seedString || this._encodeSeedData(st) || this.seed;
+          this.seed = seedString || this._encodeSeedData() || this.seed;
+          this.gameCode = null;
+          const _codeChip = document.getElementById("sbCode");
+          if (_codeChip) _codeChip.textContent = "—";
+          if (st.baseSeed) {
+            this.baseSeed = st.baseSeed;
+            const seedPart = String(st.baseSeed).split("-")[2] || st.baseSeed;
+            const seedNum = parseInt(seedPart, 36);
+            this.prng = mulberry32(
+              Number.isFinite(seedNum)
+                ? seedNum
+                : Math.floor(Math.random() * 1e9),
+            );
+          }
           const modeBtn = document.querySelector(
             `#modeG .cb[data-mode="${this.mode}"]`,
           );

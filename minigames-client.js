@@ -184,6 +184,19 @@
     http("POST", "/chess/move", Object.assign({ token: getToken() }, opts));
   chess.ping = () => http("GET", `/chess/ping?token=${encodeURIComponent(getToken())}`);
 
+  // ── short game codes ("library tickets") ───────────────────────────────────
+  // Games with long seeds (chess FEN, shape seed strings, …) store the seed
+  // ONCE on the Hub and get back a super-short unique code (≤8 chars, unambig-
+  // uous alphabet). Anyone holding the code can swap it for the original seed:
+  //   const { code } = await MG.codes.mint("chess", "FEN-abc…");    // login req.
+  //   const { seed } = await MG.codes.open("ABC2345");              // public
+  // The code is like a ticket into the server library — never read without it.
+  const codes = (MG.codes = {});
+  codes.mint = (game, seed) =>
+    http("POST", "/codes", { token: getToken(), game, seed });
+  codes.open = (code) =>
+    http("GET", `/codes/lookup?code=${encodeURIComponent(String(code).trim())}`);
+
   // ── live (WebSocket) ──────────────────────────────────────────────────────
   // Real-time push channel to the Hub (/api/mg/ws, token-authenticated).
   // Games subscribe with MG.live.on(fn); the Hub pushes e.g.
