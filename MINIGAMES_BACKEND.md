@@ -28,7 +28,14 @@ The browser automatically sends an `Origin` header. The backend decides:
 | --------------------------------------------- | --------- | -------------------------------- |
 | `https://minigames.xedryk.top`                | `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync |
 | `https://mwolfinspace.github.io` (GitHub copy)| `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync |
-| any other / no Origin                         | `external`| none                             |
+| any other Origin present                      | `external`| none                             |
+
+**Same-origin note:** browsers omit the `Origin` header on same-origin GETs, so
+requests with **no** `Origin` whose `Host` is the hub's own public site (the
+`minigames.xedryk.top` copy) are treated as first party and get `gitea`. A
+present `Origin` always wins the table above, so foreign origins stay
+`external`. This is what made the hub host show save/delete/libraries while the
+GitHub copy already worked.
 
 More static deploys can be allowed with `MG_ALLOWED_ORIGINS` (comma separated).
 
