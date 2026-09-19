@@ -128,11 +128,13 @@
   account.login = async (email, password, device) => {
     const d = await http("POST", "/auth/login", { email, password, device: device || getDeviceId() });
     setToken(d.token);
+    live.connect();
     return d;
   };
   account.logout = async () => {
     try { await http("POST", "/auth/logout", { token: getToken() }); } catch {}
     setToken("");
+    live.close();
   };
   account.signup = (email, password, nickname) =>
     http("POST", "/auth/signup", { email, password, nickname });
@@ -171,6 +173,88 @@
   medals.catalog = () => http("GET", "/medals/catalog");
   medals.mine = () => http("GET", `/medals/mine?token=${encodeURIComponent(getToken())}`);
 
+  // ── live (WebSocket) ──────────────────────────────────────────────────────
+  // Real-time push channel to the Hub (/api/mg/ws, token-authenticated).
+  // Games subscribe with MG.live.on(fn); the Hub pushes e.g.
+  // {type:"save:updated", game, key, device, revision} the instant a save
+  // lands, so other tabs/devices update in milliseconds — no polling needed.
+  // Future fast games can also send commands up the socket: MG.live.send(obj).
+  let _liveSocket = null;
+  let _liveRetry = 0;
+  let _liveTimer = 0;
+  let _liveHandlers = [];
+  const live = (MG.live = {
+    connected: false,
+    url() {
+      return API_BASE.replace(/^http/, "ws") + "/ws?token=" + encodeURIComponent(getToken());
+    },
+    on(fn) {
+      if (typeof fn === "function" && !_liveHandlers.includes(fn)) _liveHandlers.push(fn);
+    },
+    off(fn) {
+      _liveHandlers = _liveHandlers.filter((h) => h !== fn);
+    },
+    send(obj) {
+      if (_liveSocket && _liveSocket.readyState === 1) {
+        _liveSocket.send(typeof obj === "string" ? obj : JSON.stringify(obj));
+      }
+    },
+    connect() {
+      if (typeof global.WebSocket === "undefined") return;
+      const token = getToken();
+      if (!token) return;
+      if (_liveSocket && (_liveSocket.readyState === 0 || _liveSocket.readyState === 1)) return;
+      try {
+        const ws = new global.WebSocket(this.url());
+        _liveSocket = ws;
+        ws.onopen = () => {
+          live.connected = true;
+          _liveRetry = 0;
+        };
+        ws.onmessage = (ev) => {
+          let d = null;
+          try {
+            d = JSON.parse(ev.data);
+          } catch {}
+          if (!d) return;
+          for (const h of _liveHandlers) {
+            try {
+              h(d);
+            } catch {}
+          }
+        };
+        ws.onclose = () => {
+          live.connected = false;
+          _liveSocket = null;
+          const delay = Math.min(1000 * Math.pow(2, _liveRetry++), 15000);
+          _liveTimer = setTimeout(() => {
+            if (getToken()) live.connect();
+          }, delay);
+        };
+        ws.onerror = () => {
+          try {
+            ws.close();
+          } catch {}
+        };
+      } catch {}
+    },
+    close() {
+      if (_liveTimer) clearTimeout(_liveTimer);
+      _liveTimer = 0;
+      if (_liveSocket) {
+        try {
+          _liveSocket.onclose = null;
+          _liveSocket.onmessage = null;
+          _liveSocket.close();
+        } catch {}
+        _liveSocket = null;
+      }
+      live.connected = false;
+    },
+  });
+  // Restored session: bring the live channel up right away.
+  if (getToken()) setTimeout(() => { if (getToken()) live.connect(); }, 500);
+
   // ── dev/diagnostic ───────────────────────────────────────────────────────
   MG._diag = () => ({
     host: global.location.host,
@@ -179,6 +263,7 @@
     features: MG.features.slice(),
     deviceId: getDeviceId(),
     hasToken: !!getToken(),
+    liveConnected: live.connected,
   });
 
   global.MG = MG;

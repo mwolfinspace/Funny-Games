@@ -6128,6 +6128,7 @@ window.saveUndo = function () {
       const LIB_DEVICE = "account-library";
       let libSyncTimer = null;
       let libSyncInFlight = false;
+      let liveWakeTimer = 0;
       let lastLibRevision = -1;
 
       function libraryServerReachable() {
@@ -6449,6 +6450,7 @@ window.saveUndo = function () {
                   `Library loaded (hub): ${globalLibrary.length} puzzles.`,
                 );
                 startLibraryLiveSync();
+                startLibraryLive();
                 return;
               }
               // Legacy: a per-device copy saved before the account-scoped key.
@@ -6463,6 +6465,7 @@ window.saveUndo = function () {
                   `Library migrated from legacy device save: ${globalLibrary.length} puzzles.`,
                 );
                 startLibraryLiveSync();
+                startLibraryLive();
                 return;
               }
               console.log("No hub library yet — using bundled default.");
@@ -6493,35 +6496,56 @@ window.saveUndo = function () {
         updateLibDisplay();
       }
 
-      // Live sync: poll a lightweight revision for the account library; when it
-      // moves (another tab/device saved), re-fetch and re-render the gallery.
+      // Live sync: the Hub pushes {type:"save:updated"} over WebSocket the
+      // instant a save lands; we just re-fetch the account library and
+      // re-render. A slow poll remains only as a fallback for clients with no
+      // socket (WS connected -> poll ticks are skipped).
+      function startLibraryLive() {
+        if (!MG.live) return;
+        MG.live.on(function (ev) {
+          if (!ev || ev.type !== "save:updated") return;
+          if (ev.game === "pattern" && ev.key === "library") {
+            clearTimeout(liveWakeTimer);
+            liveWakeTimer = setTimeout(syncLibraryFromHub, 100);
+          }
+        });
+        if (libraryServerReachable() && MG.account.token()) MG.live.connect();
+      }
+
       function startLibraryLiveSync() {
         if (libSyncTimer || !libraryServerReachable()) return;
-        libSyncTimer = setInterval(pollLibraryLiveSync, 5000);
+        libSyncTimer = setInterval(pollLibraryLiveSync, 8000);
         pollLibraryLiveSync();
       }
 
       async function pollLibraryLiveSync() {
         if (libSyncInFlight) return;
-        if (!libraryServerReachable() || !(MG.account && MG.account.token())) {
-          return;
-        }
+        if (!libraryServerReachable() || !(MG.account && MG.account.token())) return;
+        if (MG.live && MG.live.connected) return; // socket is the fast path
+        await syncLibraryFromHub();
+      }
+
+      async function syncLibraryFromHub() {
+        if (libSyncInFlight) return;
+        if (!libraryServerReachable() || !(MG.account && MG.account.token())) return;
         libSyncInFlight = true;
         try {
-          const meta = await MG.save.meta("pattern", "library", LIB_DEVICE);
-          const rev = meta.revision || 0;
-          if (rev !== lastLibRevision) {
-            lastLibRevision = rev;
-            const data = await MG.save.get("pattern", "library", LIB_DEVICE);
-            if (
-              Array.isArray(data) &&
-              JSON.stringify(data) !== JSON.stringify(globalLibrary)
-            ) {
-              globalLibrary = data;
-              updateLibDisplay();
-              refreshLibraryGrid();
-              toast("Library updated.", "library");
-            }
+          let meta = null;
+          try {
+            meta = await MG.save.meta("pattern", "library", LIB_DEVICE);
+          } catch {}
+          const rev = meta ? meta.revision || 0 : -1;
+          if (rev === lastLibRevision) return;
+          lastLibRevision = rev;
+          const data = await MG.save.get("pattern", "library", LIB_DEVICE);
+          if (
+            Array.isArray(data) &&
+            JSON.stringify(data) !== JSON.stringify(globalLibrary)
+          ) {
+            globalLibrary = data;
+            updateLibDisplay();
+            refreshLibraryGrid();
+            toast("Library updated.", "library");
           }
         } catch (e) {
           // auth lost / hub busy — silently retry next tick

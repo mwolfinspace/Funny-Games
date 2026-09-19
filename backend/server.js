@@ -23,6 +23,7 @@ const { URL } = require("url");
 const { collection, ensureDir } = require("./collections");
 const auth = require("./auth");
 const mail = require("./mail");
+const ws = require("./ws");
 const { MEDALS, evaluateMedals, aggregate } = require("./medals");
 
 ensureDir();
@@ -371,6 +372,8 @@ function sendCodeEmail(user, { action, code, to }) {
 
 // ── router ──────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
+  // warm keep-alive so hot REST calls (message-only stats pings) reuse sockets
+  server.keepAliveTimeout = 65_000;
   const origin = req.headers.origin || "";
   const ip = clientIp(req);
 
@@ -623,11 +626,17 @@ const server = http.createServer(async (req, res) => {
           const snap = saveSnapshots.find((s) => s.id === body.snapshotId);
           if (!snap) return json(res, 404, { ok: false, error: "No such snapshot." });
           const data = snap.data ?? null;
+          let revertRevision = 1;
           await deviceSaves.update((rows) => {
             const idx = rows.findIndex((r) => r.userId === snap.userId && r.game === snap.game && r.key === snap.key && r.device === snap.device);
-            if (idx >= 0) rows[idx] = { ...rows[idx], data, updatedAt: nowIso() };
-            else rows.push({ userId: snap.userId, game: snap.game, key: snap.key, device: snap.device || "web", data, updatedAt: nowIso() });
+            if (idx >= 0) {
+              rows[idx] = { ...rows[idx], data, updatedAt: nowIso() };
+              revertRevision = rows[idx].revision || 0;
+            } else {
+              rows.push({ userId: snap.userId, game: snap.game, key: snap.key, device: snap.device || "web", data, updatedAt: nowIso(), revision: 1 });
+            }
           });
+          ws.pushToUser(snap.userId, { type: "save:updated", game: snap.game, key: snap.key, device: snap.device || "web", revision: revertRevision, ts: nowIso(), actor: "admin.revert" });
           await logAudit({
             actor: u ? u.id : null,
             action: "admin.revert",
@@ -668,13 +677,16 @@ const server = http.createServer(async (req, res) => {
         if (!game) return json(res, 400, { ok: false, error: "Game id required." });
         const data = body.data == null ? null : body.data;
         const device = String(body.device || "").slice(0, 64) || "web";
+        let pushedRevision = 1;
         await deviceSaves.update((rows) => {
           const idx = rows.findIndex((r) => r.userId === u.id && r.game === game && r.key === key && r.device === device);
           const revision = idx >= 0 ? (rows[idx].revision || 0) + 1 : 1;
+          pushedRevision = revision;
           const updatedAt = nowIso();
           if (idx >= 0) rows[idx] = { ...rows[idx], data, updatedAt, revision };
           else rows.push({ userId: u.id, game, key, device, data, updatedAt, revision });
         });
+        ws.pushToUser(u.id, { type: "save:updated", game, key, device, revision: pushedRevision, ts: nowIso() });
         const snapId = await commitSnapshot(u.id, game, key, device, data, u.id);
         await logAudit({
           actor: u.id,
@@ -766,6 +778,47 @@ const server = http.createServer(async (req, res) => {
       error: e.message || "Server error",
     });
   }
+});
+
+// ── real-time push (WebSocket at /api/mg/ws) ────────────────────────────────
+// Live sockets are bound to an account token (same auth as the REST API) and
+// registered per user in ws.js. On save/revert we push {type:"save:updated",
+// game, key, device, revision} to every socket of that account so other
+// tabs/devices re-sync instantly instead of polling.
+server.on("upgrade", (req, socket, head) => {
+  let url;
+  try {
+    url = new URL(req.url || "/", "http://localhost");
+  } catch {
+    socket.destroy();
+    return;
+  }
+  if (url.pathname !== "/api/mg/ws") {
+    socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  const u = getUserByToken(url.searchParams.get("token") || "");
+  if (!u) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  const origin = req.headers.origin || "";
+  const host = (req.headers.host || "").toLowerCase();
+  const sameSite = host.split(":")[0] === new URL(PUBLIC_URL).hostname;
+  if (!(sameSite || ALLOWED_ORIGINS.has(origin))) {
+    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  const conn = ws.handleUpgrade(req, socket, head);
+  if (!conn) return;
+  ws.register(conn, u.id);
+  conn.sendText(
+    JSON.stringify({ type: "hello", userId: u.id, online: ws.onlineCount(u.id) }),
+  );
+  console.log(`[mg] ws · ${u.email} connected (${ws.onlineCount(u.id)} sockets)`);
 });
 
 server.listen(PORT, () => {
