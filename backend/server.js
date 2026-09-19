@@ -18,6 +18,7 @@
 require("./env"); // load backend/.env first (only fills missing keys)
 
 const http = require("http");
+const crypto = require("crypto");
 const { URL } = require("url");
 const { collection, ensureDir } = require("./collections");
 const auth = require("./auth");
@@ -40,6 +41,15 @@ const EXTRA_ORIGINS = (process.env.MG_ALLOWED_ORIGINS || "")
   .map((s) => s.trim())
   .filter(Boolean);
 const ALLOWED_ORIGINS = new Set([GITEA_ORIGIN, GITHUB_ORIGIN, ...EXTRA_ORIGINS]);
+const OWNER_EMAILS = new Set(
+  (process.env.MG_OWNER_EMAIL || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+const SHA256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
+// Owner API key (no account needed): sha256(MG_SIGNING_SECRET + ":owner")
+const OWNER_KEY = SHA256(SIGNING_SECRET + ":owner");
 
 // ── collections ─────────────────────────────────────────────────────────────
 const users = collection("users");
@@ -48,6 +58,7 @@ const deviceSaves = collection("device_saves");
 const gameStats = collection("game_stats");
 const medals = collection("medals");
 const eventLog = collection("event_log");
+const saveSnapshots = collection("save_snapshots");
 
 const loginLimiter = new auth.RateLimiter(60_000, 10);
 const signupLimiter = new auth.RateLimiter(60_000, 5);
@@ -167,6 +178,92 @@ function verifyEnvelopeSig(features, issuedAt, sig) {
   const payload = `${mode}|${(features || []).join(":")}`;
   const expected = auth.sign(SIGNING_SECRET, payload + "|" + issuedAt);
   return expected === sig;
+}
+
+// ── signed audit journal + save snapshots ───────────────────────────────────
+// Append-only, hash-chained, HMAC-signed record of every state change. Each
+// entry signs (seq|ts|prevHash|action|dataHash) and stores its own sha256, so
+// any tamper with an older entry breaks the chain and every later signature.
+function stableJson(v) {
+  return v == null ? "null" : JSON.stringify(v);
+}
+
+function timingSafeEq(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
+function isOwner(u, ownerKey) {
+  if (u && OWNER_EMAILS.has(u.email)) return true;
+  return typeof ownerKey === "string" && ownerKey.length === 64 && timingSafeEq(ownerKey, OWNER_KEY);
+}
+
+async function logAudit(entry) {
+  const prev = eventLog[eventLog.length - 1];
+  const seq = prev ? prev.seq + 1 : 1;
+  const ts = nowIso();
+  const payload = [seq, ts, prev ? prev.hash : "", entry.action, entry.dataHash || ""].join("|");
+  const sig = auth.sign(SIGNING_SECRET, payload);
+  const row = {
+    seq,
+    ts,
+    prevHash: prev ? prev.hash : null,
+    actor: entry.actor || null,
+    action: entry.action,
+    userId: entry.userId || null,
+    game: entry.game || null,
+    key: entry.key || null,
+    dataHash: entry.dataHash || null,
+    detail: entry.detail || null,
+    sig,
+    hash: SHA256(payload + "|" + sig),
+  };
+  await eventLog.update((rows) => rows.push(row));
+  return row;
+}
+
+function auditVerify() {
+  let firstBad = null;
+  for (let i = 0; i < eventLog.length; i++) {
+    const e = eventLog[i];
+    const chainOk = i === 0 ? e.prevHash === null : e.prevHash === eventLog[i - 1].hash;
+    const payload = [e.seq, String(e.ts), String(e.prevHash || ""), String(e.action), String(e.dataHash || "")].join("|");
+    const sigOk = e.sig === auth.sign(SIGNING_SECRET, payload);
+    const hashOk = e.hash === SHA256(payload + "|" + e.sig);
+    if (!(chainOk && sigOk && hashOk)) {
+      firstBad = i;
+      break;
+    }
+  }
+  return { valid: firstBad === null, count: eventLog.length, firstBad };
+}
+
+/** Commit a versioned snapshot of a save; keeps the newest 10 per save identity. */
+async function commitSnapshot(userId, game, key, device, data, actor) {
+  const snap = {
+    id: uid("sn_"),
+    ts: nowIso(),
+    userId,
+    game,
+    key,
+    device,
+    dataHash: SHA256(stableJson(data)),
+    data,
+    actor,
+  };
+  await saveSnapshots.update((rows) => {
+    rows.push(snap);
+    const same = rows.filter((r) => r.userId === userId && r.game === game && r.key === key && r.device === device);
+    if (same.length > 10) {
+      same.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+      for (const old of same.slice(0, same.length - 10)) {
+        const i = rows.indexOf(old);
+        if (i >= 0) rows.splice(i, 1);
+      }
+    }
+  });
+  return snap.id;
 }
 
 // ── stats helpers ───────────────────────────────────────────────────────────
@@ -313,6 +410,7 @@ const server = http.createServer(async (req, res) => {
       };
       await users.update((rows) => rows.push(user));
       await sendCodeEmail(user, { action: "verify", code }).catch(() => {});
+      await logAudit({ actor: "system", action: "signup", userId: user.id, detail: user.email });
       json(res, 201, { ok: true, userId: user.id });
       return;
     }
@@ -329,6 +427,7 @@ const server = http.createServer(async (req, res) => {
         t.codeExpiresAt = "";
       });
       await refreshMedals(u.id);
+      await logAudit({ actor: u.id, action: "verify", userId: u.id });
       json(res, 200, { ok: true, user: publicUser(u) });
       return;
     }
@@ -355,20 +454,25 @@ const server = http.createServer(async (req, res) => {
           expiresAt,
         });
       });
+      await logAudit({ actor: u.id, action: "login", userId: u.id, detail: (body.device || "web").slice(0, 64) });
       json(res, 200, { ok: true, token, expiresAt, user: publicUser(u) });
       return;
     }
 
     if (p === "/api/mg/auth/logout" && req.method === "POST") {
       const body = await readBody(req);
+      let who = null;
       if (body.token) {
         const digest = auth.digestToken(body.token);
+        const victim = sessions.find((s) => s.tokenDigest === digest);
+        if (victim) who = victim.userId;
         await sessions.update((rows) => {
           for (let i = rows.length - 1; i >= 0; i--) {
             if (rows[i].tokenDigest === digest) rows.splice(i, 1);
           }
         });
       }
+      await logAudit({ action: "logout", userId: who });
       json(res, 200, { ok: true });
       return;
     }
@@ -389,6 +493,7 @@ const server = http.createServer(async (req, res) => {
         t.codeExpiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
       });
       await sendCodeEmail(u, { action: "reset", code }).catch(() => {});
+      await logAudit({ action: "reset.request", userId: u.id });
       json(res, 200, { ok: true });
       return;
     }
@@ -406,6 +511,7 @@ const server = http.createServer(async (req, res) => {
         t.codeHash = "";
         t.codeExpiresAt = "";
       });
+      await logAudit({ actor: u.id, action: "reset.password", userId: u.id });
       json(res, 200, { ok: true });
       return;
     }
@@ -422,6 +528,82 @@ const server = http.createServer(async (req, res) => {
     ) {
       const body = await readBody(req);
       const u = getUserByToken(getToken(req, q, body));
+
+      // ── owner-only admin: signed audit trail, snapshots, revert ─────────
+      if (p.startsWith("/api/mg/admin/")) {
+        if (!isOwner(u, q.get("owner") || req.headers["x-mg-owner-key"] || "")) {
+          return json(res, 403, { ok: false, error: "Owner only." });
+        }
+        if (p === "/api/mg/admin/audit" && req.method === "GET") {
+          const after = Number(q.get("after") || 0);
+          const limit = Math.min(Number(q.get("limit") || 200), 500);
+          let entries = eventLog.filter((e) => e.seq > after);
+          entries = entries.slice(Math.max(0, entries.length - limit));
+          return json(res, 200, {
+            ok: true,
+            total: eventLog.length,
+            verify: q.get("verify") === "1" ? auditVerify() : null,
+            entries,
+          });
+        }
+        if (p === "/api/mg/admin/users" && req.method === "GET") {
+          return json(res, 200, {
+            ok: true,
+            users: users.map((x) => ({
+              id: x.id,
+              email: x.email,
+              nickname: x.nickname || "",
+              verified: !!x.verified,
+              createdAt: x.createdAt,
+              medalCount: medals.filter((m) => m.userId === x.id).length,
+            })),
+          });
+        }
+        if (p === "/api/mg/admin/snapshots" && req.method === "GET") {
+          const filtUser = String(q.get("userId") || "");
+          const filtGame = String(q.get("game") || "");
+          const filtKey = String(q.get("key") || "");
+          const rows = saveSnapshots
+            .filter((s) => (!filtUser || s.userId === filtUser) && (!filtGame || s.game === filtGame) && (!filtKey || s.key === filtKey))
+            .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+          return json(res, 200, {
+            ok: true,
+            snapshots: rows.map((s) => ({
+              id: s.id,
+              ts: s.ts,
+              userId: s.userId,
+              game: s.game,
+              key: s.key,
+              device: s.device,
+              dataHash: s.dataHash,
+              size: JSON.stringify(s.data ?? null).length,
+              actor: s.actor,
+            })),
+          });
+        }
+        if (p === "/api/mg/admin/revert" && req.method === "POST") {
+          const snap = saveSnapshots.find((s) => s.id === body.snapshotId);
+          if (!snap) return json(res, 404, { ok: false, error: "No such snapshot." });
+          const data = snap.data ?? null;
+          await deviceSaves.update((rows) => {
+            const idx = rows.findIndex((r) => r.userId === snap.userId && r.game === snap.game && r.key === snap.key && r.device === snap.device);
+            if (idx >= 0) rows[idx] = { ...rows[idx], data, updatedAt: nowIso() };
+            else rows.push({ userId: snap.userId, game: snap.game, key: snap.key, device: snap.device || "web", data, updatedAt: nowIso() });
+          });
+          await logAudit({
+            actor: u ? u.id : null,
+            action: "admin.revert",
+            userId: snap.userId,
+            game: snap.game,
+            key: snap.key,
+            dataHash: snap.dataHash,
+            detail: `restored ${snap.id}`,
+          });
+          return json(res, 200, { ok: true, restored: snap.id, restoredTs: snap.ts });
+        }
+        return json(res, 404, { ok: false, error: "Unknown admin endpoint." });
+      }
+
       if (p === "/api/mg/auth/me") {
         if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
         return json(res, 200, { ok: true, user: publicUser(u) });
@@ -436,6 +618,7 @@ const server = http.createServer(async (req, res) => {
           const t = rows.find((x) => x.id === u.id);
           t.passwordHash = auth.hashPassword(body.newPassword);
         });
+        await logAudit({ actor: u.id, action: "change.password", userId: u.id });
         return json(res, 200, { ok: true });
       }
 
@@ -451,6 +634,16 @@ const server = http.createServer(async (req, res) => {
           const idx = rows.findIndex((r) => r.userId === u.id && r.game === game && r.key === key && r.device === device);
           if (idx >= 0) rows[idx] = { ...rows[idx], data, updatedAt: nowIso() };
           else rows.push({ userId: u.id, game, key, device, data, updatedAt: nowIso() });
+        });
+        const snapId = await commitSnapshot(u.id, game, key, device, data, u.id);
+        await logAudit({
+          actor: u.id,
+          action: "save",
+          userId: u.id,
+          game,
+          key,
+          dataHash: SHA256(stableJson(data)),
+          detail: `snapshot=${snapId}`,
         });
         json(res, 200, { ok: true });
         return;

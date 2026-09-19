@@ -341,12 +341,68 @@ WantedBy=multi-user.target
 | `device_saves.json` | user+device+game+key → data blob |
 | `game_stats.json` | per user+game: plays, wins, playtimeMs, totals, best, play days |
 | `medals.json` | awarded medals (id + timestamp) |
-| `event_log.json` | reserved — verdict: events can be trivially spoofed by a tampered client; used only for optional admin analytics later |
+| `event_log.json` | append-only, hash-chained, HMAC-signed audit journal of every state change (see §9) |
+| `save_snapshots.json` | versioned snapshots of every committed save (keeps newest 10 per user+game+key+device) |
 | `outbox/` | `.eml` fallback emails when SMTP is not configured |
 
 Back up with a simple cron: `rsync -a /srv/minigames/data /backup/minigames-data/`
 
-## 9. Security notes
+## 9. Signed audit trail & revert (owner admin)
+
+Every state change (signup, verify, login, logout, reset-request/reset-password,
+change-password, save, admin reverts) appends a **signed entry** to the audit
+journal instead of trusting a client-supplied event:
+
+```json
+{ "seq": 42, "ts": "2026-09-19T…Z", "prevHash": "<sha256 of prev entry>",
+  "actor": "u_…", "action": "save", "userId": "u_…", "game": "pattern",
+  "key": "library", "dataHash": "<sha256 of the committed payload>",
+  "detail": "snapshot=sn_…",
+  "sig": "<HMAC-SHA256(MG_SIGNING_SECRET, seq|ts|prevHash|action|dataHash)>",
+  "hash": "<sha256 of sig payload + sig>" }
+```
+
+Entries are chained (`prevHash`) and individually signed with
+`MG_SIGNING_SECRET`, so editing or deleting an older entry breaks every later
+link and signature — an agent or the owner can verify the whole journal with
+`?verify=1` and get `{ valid: true, count }` (or the index of the first bad
+entry). High-frequency telemetry (stat events, medal awards) is intentionally
+*not* in the chain — it lives in `game_stats.json`.
+
+Each `PUT /api/mg/save` also commits a **snapshot** of the new value to
+`save_snapshots.json` (newest 10 kept per user+game+key+device). Deleting a
+puzzle/library entry is just such a save, so any version can be inspected and
+restored.
+
+### Owner auth
+
+Admin endpoints are gated to the site owner either way:
+
+- session token of a logged-in account whose email is in `MG_OWNER_EMAIL`, or
+- `sha256(MG_SIGNING_SECRET + ":owner")` sent as `?owner=` or the
+  `X-MG-Owner-Key` header (no account needed — handy for scripts/agents).
+
+### Endpoints (all under `/api/mg/admin/`)
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /audit?after=<seq>&limit=<1-500>&verify=1` | tail of the signed journal; `verify=1` recomputes every sig + chain link |
+| `GET /users` | account list (id, email, nickname, verified, createdAt, medalCount) |
+| `GET /snapshots?userId=&game=&key=` | versioned save history (ts, dataHash, byte size, actor) |
+| `POST /revert` `{"snapshotId":"sn_…"}` | restore that save version to the user's current save, then append an `admin.revert` audit entry |
+
+Example:
+
+```bash
+KEY=$(printf '%s' "$MG_SIGNING_SECRET:owner" | sha256sum | cut -d' ' -f1)
+curl -s -H "X-MG-Owner-Key: $KEY" \
+     'https://minigames.xedryk.top/api/mg/admin/audit?verify=1&limit=5'
+curl -s -H "X-MG-Owner-Key: $KEY" 'https://minigames.xedryk.top/api/mg/admin/snapshots'
+curl -s -X POST -H "X-MG-Owner-Key: $KEY" -H 'Content-Type: application/json' \
+     -d '{"snapshotId":"sn_…"}' 'https://minigames.xedryk.top/api/mg/admin/revert'
+```
+
+## 10. Security notes
 - Passwords: scrypt, per-user salt, constant-time verify. Never logged.
 - Live session tokens never stored — only SHA-256 digests (DB leak ≠ usable tokens).
 - Auth + password/reset actions: per-IP rate limiting.
@@ -355,7 +411,7 @@ Back up with a simple cron: `rsync -a /srv/minigames/data /backup/minigames-data
 - `MG_SIGNING_SECRET` leakage weakens the envelope only; the token checks on
   state changes remain the actual account boundary.
 
-## 10. Future / notes
+## 11. Future / notes
 - The JSON store is intentionally swappable for Postgres by keeping the
   collection interface (`find/filter/update/all`).
 - GitHub deploy policy: existing pages are untouched; new games ship with
