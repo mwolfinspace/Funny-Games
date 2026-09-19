@@ -2069,6 +2069,7 @@
           this._serverChessFails = 0;
           this._serverChessRetryAt = 0;
           this._serverChessSeq = 0;
+          this._lastAIEngine = "local";
           this._codesArmed = false;
           this._codesLoginNeeded = false;
           this._codeCache = {};
@@ -2604,8 +2605,10 @@
               );
               if (this._serverChess) {
                 console.log("[chess] server AI armed (local Stockfish = failsafe)");
+                this._lastAIEngine = "server";
               } else {
                 console.log("[chess] server AI off — using local engine");
+                this._lastAIEngine = "local";
               }
             })
             .catch(() => {
@@ -2647,7 +2650,10 @@
         // minimax, so a weak or offline client never blocks the game.
         async _engineMove(fen, level, moveTime) {
           const serverUci = await this.serverChessMove(fen, level, moveTime);
-          if (serverUci) return serverUci;
+          if (serverUci) {
+            this._lastAIEngine = "server";
+            return serverUci;
+          }
           if (this.sfWorker && this.sfReady && !this.sfBusy) {
             this.sfBusy = true;
             this.configureEngine(level);
@@ -2657,6 +2663,7 @@
                 this._sfSend(`position fen ${fen}`);
                 this._sfSend(`go movetime ${Math.max(300, moveTime || 200 + level * 200)}`);
               });
+              if (uci) this._lastAIEngine = "local";
               return uci || null;
             } finally {
               this.sfBusy = false;
@@ -4427,7 +4434,9 @@
           }
           document.getElementById("sbTurn").textContent = turnLabel;
           document.getElementById("sbMode").textContent =
-            this.mode === "ai" ? `AI (L${this.aiLevel})` : "2P";
+            this.mode === "ai"
+              ? `AI${this.aiLevel}-${this._lastAIEngine === "server" ? "Server" : "Local"}`
+              : "2P";
           const seedLabel =
             this.demo && this.demoType !== "ai"
               ? `Classic: ${this.demoSource || "loading"}`
@@ -4439,8 +4448,10 @@
           if (aiLevelBtn) {
             const eloRanges = ["<2400", "2401-2500", "2501-2600", ">2600"];
             const levelIndex = this.aiLevel - 1;
-            aiLevelBtn.textContent = `🤖 AI: ${this.aiLevel}`;
-            aiLevelBtn.title = `AI Level ${this.aiLevel} (ELO ${eloRanges[levelIndex]})`;
+            const engLabel =
+              this._lastAIEngine === "server" ? "Server" : "Local";
+            aiLevelBtn.textContent = `🤖 AI${this.aiLevel}-${engLabel}`;
+            aiLevelBtn.title = `AI${this.aiLevel} (${engLabel}) — ELO ${eloRanges[levelIndex]}`;
           }
           // Update Elo display in status bar
           const eloEl = document.getElementById("sbElo");
@@ -5129,13 +5140,9 @@
             new Promise((r) => setTimeout(r, 3000)),
           ])
             .then(() => {
-              const signedIn = !!(MG.account && MG.account.token());
-              this._codesArmed = !!(MG.isGitea && MG.has("codes") && signedIn);
-              this._codesLoginNeeded = !!(
-                MG.isGitea &&
-                MG.has("codes") &&
-                !signedIn
-              );
+              // Game codes are public — no login needed to arm or mint.
+              this._codesArmed = !!(MG.isGitea && MG.has("codes"));
+              this._codesLoginNeeded = false;
               if (this._codesArmed) this._syncGameCode();
             })
             .catch(() => {

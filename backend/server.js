@@ -75,7 +75,7 @@ const apiLimiter = new auth.RateLimiter(1000, 240);
 const chessLimiter = new auth.RateLimiter(60_000, 30);
 // Code minting is cheap but stored — a shared budget (per IP + per user) stops
 // the table from being flooded with junk codes.
-const codeLimiter = new auth.RateLimiter(60_000, 20);
+const codeLimiter = new auth.RateLimiter(60_000, 60);
 
 // ── short game codes ─────────────────────────────────────────────────────────
 // Alphabet deliberately omits I,L,O,0,1 so codes are easy to read aloud/type.
@@ -654,12 +654,13 @@ const server = http.createServer(async (req, res) => {
       // ── game-code mint ("ticket" a long seed under a super-short code) ──
       // Idempotent: same game + seed always yields the same code. Codes are
       // unique across ALL games (shared collection, one to many cross-game).
+      // PUBLIC like lookup: you don't need an account to mint or spend one —
+      // only the per-IP budget protects against flooding.
       if (p === "/api/mg/codes" && req.method === "POST") {
-        if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
-        if (codeLimiter.hit(ip, "codes") || codeLimiter.hit(u.id, "codes"))
+        if (codeLimiter.hit(ip, "codes") || (u && codeLimiter.hit(u.id, "codes")))
           return json(res, 429, { ok: false, error: "Too many codes. Try again in a minute." });
         const game = String(body.game || "").replace(/[^a-z0-9_\-]/gi, "").slice(0, 48);
-        const seed = String(body.seed == null ? "" : body.seed).slice(0, 8000);
+        const seed = String(body.seed == null ? "" : body.seed).slice(0, 200000);
         if (!game) return json(res, 400, { ok: false, error: "Game id required." });
         if (!seed) return json(res, 400, { ok: false, error: "Seed required." });
         const key = game + "|" + seed;
@@ -667,14 +668,14 @@ const server = http.createServer(async (req, res) => {
         if (!code) {
           let tries = 0;
           do { code = generateCode(); tries++; } while (codeIndex.has(code) && tries < 10);
-          const row = { code, game, seed, createdBy: u.id, createdAt: nowIso() };
+          const row = { code, game, seed, createdBy: u ? u.id : null, createdAt: nowIso() };
           await seedCodes.update((rows) => rows.push(row));
           codeIndex.set(code, row);
           seedIndex.set(key, code);
           await logAudit({
-            actor: u.id,
+            actor: u ? u.id : "anon",
             action: "codes.mint",
-            userId: u.id,
+            userId: u ? u.id : null,
             game,
             dataHash: SHA256(seed),
             detail: `code=${code}`,
