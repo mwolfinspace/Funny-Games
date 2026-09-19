@@ -1,4 +1,5 @@
-// PM2 process definition for the Minigames Hub backend on gitea.xedryk.top.
+// PM2 process definition for the Minigames Hub backend on the minigames host.
+// The host gateway routes /api/mg/* to this process (PORT below).
 // Usage:
 //   pm2 start backend/ecosystem.config.js
 //   pm2 save && pm2 startup

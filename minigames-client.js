@@ -25,7 +25,12 @@
   const MG = { _init: null, features: [], mode: "external", account: {}, save: {}, stats: {}, medals: {} };
 
   const GITEA_HOSTS = new Set(["minigames.xedryk.top", "gitea.xedryk.top"]);
-  const API_BASE = "https://gitea.xedryk.top/api/mg";
+  // Same-origin when served from minigames.xedryk.top: the custom API server
+  // on that host already owns /api/* (e.g. /api/library, /api/ocr) and will
+  // also own /api/mg (the Minigames Hub backend). Using location.origin keeps
+  // it correct even if the domain ever changes.
+  const API_BASE =
+    (global.location ? global.location.origin : "") + "/api/mg";
   const SES = "mg_session_token";
   const DEV = "mg_device_id";
 

@@ -181,7 +181,22 @@ library system at the Hub:
 The standalone `library-server.js` (old `/api/library` password API) is no longer
 used by `pattern_ultimate` — keep it running only if another page still calls it.
 
-## 7. Deploying on Gitea (deep setup guide)
+## 7. Deploying (auto-deploy on the minigames host)
+
+### How updates flow (this repo's workflow)
+1. Any change/update is committed and pushed to **gitea** (`git push origin main`).
+2. The `minigames.xedryk.top` host auto-pulls the repo and serves the static
+   files (games + `minigames-client.js`) immediately — no extra step.
+3. The API part is the same pattern as the other self-hosted Node services
+   (`library-server.js`, `lan-signaling-server.js`): the host runs
+   `backend/server.js` and its `/api/*` gateway routes `/api/mg/*` to it.
+   This route lives in the host's gateway config (not in the repo) — add it
+   once and push-through forever after.
+
+The Hub client always calls **same-origin** `/api/mg` (`location.origin + "/api/mg"`),
+so it works unchanged whether the page is served by `minigames.xedryk.top` or a
+future domain. Until `/api/mg` responds on that origin the game auto-degrades to
+`external` mode and hides the Hub buttons (`libraryServerReachable()` is false).
 
 ### Prereqs on the host
 - Node.js ≥ 18 (tested on 22). `node --version`.
@@ -217,10 +232,11 @@ pm2 startup            # follow the printed command
 pm2 logs minigames-hub # watch for `[mg] Minigames Hub backend listening on :8907`
 ```
 
-### Step 4 — reverse proxy (nginx)
-The games already use `https://gitea.xedryk.top/api/...`, so proxy `/api/mg/`
-to the backend (the custom library server keeps its own `/api/library` route —
-run it as a separate PM2 app, see `library-server.js`):
+### Step 4 — route `/api/mg` on the host gateway
+The host's existing `/api/*` gateway (the one already serving `/api/ocr` etc.
+and the “Xedryk Server Status” catch-all) must add one route: everything under
+`/api/mg/` → the Hub backend on `127.0.0.1:8907`. Give this snippet to your
+gateway (nginx, Caddy, or Cloudflare Worker whichever hosts the site):
 
 ```nginx
 location /api/mg/ {
@@ -231,26 +247,39 @@ location /api/mg/ {
     proxy_set_header Origin $http_origin;        # keep the real Origin!
 }
 ```
-**Critical:** pass the browser’s `Origin` through untouched, and do **not** set a
-blanket `Access-Control-Allow-Origin: *` on the `/api/` location — the origin
-gate depends on it. The backend already replies with CORS headers (`*`) for
-reads but the **token flow verbs (POST/PUT/DELETE) against the Hub are only
-honoured for allowed origins**. Fetching with `credentials` isn’t needed; the
-token rides in the JSON body / `Authorization` header.
+**Critical:** pass the browser’s `Origin` through untouched, and do **not** let a
+blanket `Access-Control-Allow-Origin: *` or a catch-all `/api` redirect swallow
+this location — the origin gate depends on it. The backend already replies with
+CORS headers (`*`) for reads but the **token flow verbs (POST/PUT/DELETE)
+against the Hub are only honoured for allowed origins**. Fetching with
+`credentials` isn’t needed; the token rides in the JSON body / `Authorization`
+header.
 
 ### Step 5 — firewall
-Bind PM2 to your private interface (127.0.0.1) if you only need the proxy, or
-keep it bound publicly behind HTTPS. `PORT` changes the bind port only.
+Bind the backend to your private interface (127.0.0.1) if the gateway proxies
+locally, or keep it bound publicly behind HTTPS. `PORT` changes the bind only.
 
 ### Step 6 — verify
 ```bash
-curl -s https://gitea.xedryk.top/api/mg/health                    # { ok: true }
+curl -s https://minigames.xedryk.top/api/mg/health                  # { ok: true }
 curl -s -H "Origin: https://minigames.xedryk.top" \
-     https://gitea.xedryk.top/api/mg/capabilities                 # mode "gitea" + features
+     https://minigames.xedryk.top/api/mg/capabilities               # mode "gitea" + features
 curl -s -H "Origin: https://user.github.io" \
-     https://gitea.xedryk.top/api/mg/capabilities                 # mode "external", []
-curl -s https://gitea.xedryk.top/api/mg/medals/catalog            # public catalog
+     https://minigames.xedryk.top/api/mg/capabilities               # mode "external", []
+curl -s https://minigames.xedryk.top/api/mg/medals/catalog          # public catalog
 ```
+When `health` returns `{ ok: true }` the page flips to Hub mode and the 💾 /
+🚀 buttons appear on `pattern_ultimate` automatically (no browser cache worry —
+`MG.init()` runs on every load).
+
+### Email note for the first real account
+Until SMTP is set, `SMTP_HOST` stays empty and verify/reset emails are written
+as `.eml` files into `<MG_DATA_DIR>/outbox/`. To create the first account
+(before SMTP), sign up in the game's account modal, then open
+`/srv/minigames/data/outbox/*.eml` on the host and type the code from it — the
+account is then verified and usable forever. This is also why “only one account /
+no self-serve signup” appears right after wiring-up: self-serve signups unlock
+the instant SMTP is configured.
 
 ### Alternative: systemd unit
 ```ini
