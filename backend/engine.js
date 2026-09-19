@@ -192,6 +192,11 @@ class Engine {
       }
       return;
     }
+    if (line === "uciok") {
+      // engine handshake: uci -> (uciok) -> isready -> readyok
+      if (this._boot) this._send("isready");
+      return;
+    }
     if (line === "readyok" && this._boot) {
       const b = this._boot;
       this._boot = null;
