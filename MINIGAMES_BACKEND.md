@@ -26,8 +26,8 @@ The browser automatically sends an `Origin` header. The backend decides:
 
 | Origin                                        | mode      | features offered                 |
 | --------------------------------------------- | --------- | -------------------------------- |
-| `https://minigames.xedryk.top`                | `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync |
-| `https://mwolfinspace.github.io` (GitHub copy)| `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync |
+| `https://minigames.xedryk.top`                | `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync, chess |
+| `https://mwolfinspace.github.io` (GitHub copy)| `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync, chess |
 | any other Origin present                      | `external`| none                             |
 
 **Same-origin note:** browsers omit the `Origin` header on same-origin GETs, so
@@ -193,17 +193,62 @@ library system at the Hub:
 The standalone `library-server.js` (old `/api/library` password API) is no longer
 used by `pattern_ultimate` — keep it running only if another page still calls it.
 
+### Real-time library sync (WebSocket, `/api/mg/ws`)
+
+Per-account library saves sync across devices **instantly** over a zero-dep
+WebSocket channel on the hub:
+
+- `MG.live.connect()` after login → authed handshake on `/api/mg/ws`; the client
+  subscribes and receives `{type:"save:updated", game, key, device, revision}`
+  pushes whenever a linked device commits a save (or an admin revert fires).
+- `pattern_ultimate` runs **socket-first** (`startLibraryLive`):
+  - message arrives → `syncLibraryFromHub()` pulls the fresh library and merges;
+  - the old 5 s `?meta=1` revision poll stays as a fallback that only ticks when
+    the socket is **not** connected, so offline/unstable networks still converge.
+- The socket auto-reconnects with backoff (1 s → 2 s → 4 s … capped ≈ 60 s) and
+  closes cleanly on logout. Guests get no socket; the poll stays off too.
+
+### Server-side chess AI (Stockfish on the Hub)
+
+`chess_ultimate.html` no longer needs strong compute in the browser. When a
+logged-in player faces the AI on a `gitea` origin, the game sends the FEN (plus
+`level` and desired `movetime`) to the Hub, which runs a real **Stockfish 15.1**
+(UCI) on the server and returns `bestmove` — ~0.5–1 s, strength 2300–2750 Elo
+(no `wasm.js` engine download, no thread starvation on small phones). The old
+in-browser Stockfish + minimax remains as a **failsafe**: offline, blocked,
+rate-limited, or engine-down ⇒ automatic local fallback, then an exponential
+backoff (cap ≈ 15 s) with re-probes so the server path re-arms when the network
+returns. Guests / non-`gitea` origins keep using the local engine untouched.
+
+| Endpoint | Method | Body / Query |
+| --- | --- | --- |
+| `/api/mg/chess/move` | POST | `{ token, fen, level?, movetime? }` → `{ ok, move, depth, scoreCp, mate?, pv[], engine, level, movetime }` |
+| `/api/mg/chess/ping` | GET | `?token=` → `{ ok, engine, version }` (ready flag + Stockfish version) |
+
+- `level` 1–4 ⇐ elo 2300 / 2450 / 2550 / 2750 (UCI_LimitStrength + Contempt);
+  clamped otherwise. `movetime` 100–3000 ms (client uses
+  `200+level*200`, ≥300 ms or the current demo delay).
+- The FEN is strictly validated (8 ranks, valid turn, castling, en-passant,
+  half/full move) and `level`/`movetime` are clamped before ever reaching the
+  engine — garbage in ⇒ `400`, no engine work done.
+- Requires a valid session (`401`) and is **rate limited 30 req/min per IP and
+  per user** (`429`) so the shared engine can't be hammered into a lobby.
+- A single Stockfish process is reused (serialized queue); it auto-restarts on
+  crash/hang and, if even the boot handshake fails, the endpoint answers `503`
+  and the client keeps playing with the local fallback.
+- Debian hub image carries Stockfish in `/usr/games/stockfish`; no repo binary,
+  reproducible via `backend/Dockerfile.hub` (see §7).
+
 ## 7. Deploying (auto-deploy on the minigames host)
 
 ### How updates flow (this repo's workflow)
-1. Any change/update is committed and pushed to **gitea** (`git push origin main`).
-2. The `minigames.xedryk.top` host auto-pulls the repo and serves the static
-   files (games + `minigames-client.js`) — the pages update right away.
-3. The API part is the same pattern as the other self-hosted Node services
-   (`library-server.js`, `lan-signaling-server.js`): the host runs
-   `backend/server.js` and its `/api/*` gateway routes `/api/mg/*` to it.
-   This route lives in the host's gateway config (not in the repo) — add it
-   once and push-through forever after.
+1. Any change/commit is pushed to **gitea** (`git push origin main`).
+2. The host's webhook runs `deploy-minigames.sh`: `git reset --hard origin/main`
+   → `rsync ./ → /mnt/data/www/minigames` (hub's `/repo`) → **if**
+   `backend/server.js` or `backend/Dockerfile.hub` changed, it rebuilds the hub
+   image (`docker build -f backend/Dockerfile.hub -t minigames-hub:local`) and
+   recreates the container → `git push github main`.
+3. The static files (games + `minigames-client.js`) update immediately.
 
 ### Cache caveat (Cloudflare, 4h TTL)
 `minigames-client.js` is served with `Cache-Control: max-age=14400`, so
@@ -233,9 +278,17 @@ backend needs:
 ```
 backend/server.js  backend/env.js          backend/collections.js
 backend/store.js   backend/auth.js         backend/mail.js
-backend/medals.js  backend/ecosystem.config.js  backend/install.sh
+backend/medals.js  backend/engine.js       backend/Dockerfile.hub
+backend/ecosystem.config.js  backend/install.sh
 minigames-client.js
 ```
+
+The hub runs as a **Docker container** (`minigames-hub`, image built from
+`backend/Dockerfile.hub` — `node:20-bookworm-slim` + the `stockfish` apt
+package). The whole repo is bind-mounted read-only at `/repo` so a push is
+instantly live; only engine/backend rebuilds recreate the container. That means
+**deploys never download Stockfish into the browser** — the engine binary is a
+base-image layer, rebuilt on host only when the Dockerfile/`server.js` changes.
 
 ### Step 2 — env
 Copy `backend/env.example` → `backend/.env` and fill it in. `backend/env.js`
