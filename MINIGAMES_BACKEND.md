@@ -1,22 +1,22 @@
 # Minigames Hub — backend & account system
 
 Zero-dependency Node backend that powers accounts, medals, statistics, playtime
-and per-device game saves for every game on **minigames.xedryk.top**. The GitHub
-Pages deployment (`github.io`) is deliberately **locked out** — it can never
-reach these endpoints, so players on GitHub keep the plain offline experience
-while Gitea players get the full Hub.
+and per-device game saves for every game on **minigames.xedryk.top**. GitHub
+Pages (static hosting) can't do server-side work, so the **GitHub copy simply
+calls the Hub back on our own server** — the page is passive, every dynamic
+feature (accounts, saves, medals) runs here either way.
 
 ```
-GitHub pages (external)           ┌──────────── minigames.xedryk.top ────────────┐
-┌────────────────────┐   no API   │  games (static)  ── scripts ──┐            │
-│ pattern_ultimate…  │ ─────────┼▶ │                              ▼            │
-│ (featureless)      │            │                   minigames-client.js       │
-└────────────────────┘            │                      │  /api/mg/*           │
-                                  │                      ▼                      │
-                                  │        Minigames Hub backend  (PM2)        │
-                                  │        backend/server.js  :8907             │
-                                  │        └── backend-data/ (JSON stores)      │
-                                  └─────────────────────────────────────────────┘
+GitHub pages (external)            ┌──────────── minigames.xedryk.top ────────────┐
+┌───────────────────┐   /api/mg    │  games (static)  ── scripts ──┐            │
+│ pattern_ultimate… │ ───────────▶ │  (incl. GitHub copy)          ▼            │
+│ (remote Hub UI)   │              │                   minigames-client.js       │
+└───────────────────┘              │                      │  /api/mg/*           │
+                                   │                      ▼                      │
+                                   │        Minigames Hub backend  (PM2)        │
+                                   │        backend/server.js  :8907             │
+                                   │        └── backend-data/ (JSON stores)      │
+                                   └─────────────────────────────────────────────┘
 ```
 
 ## 1. Host gating (how "full" vs "basic" is decided)
@@ -27,16 +27,19 @@ The browser automatically sends an `Origin` header. The backend decides:
 | Origin                                        | mode      | features offered                 |
 | --------------------------------------------- | --------- | -------------------------------- |
 | `https://minigames.xedryk.top`                | `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync |
-| any other / no Origin (GitHub)                | `external`| none                             |
+| `https://mwolfinspace.github.io` (GitHub copy)| `gitea`   | accounts, verify, reset, saves, stats, medals, library, sync |
+| any other / no Origin                         | `external`| none                             |
 
-Extra origins can be allowed with `MG_ALLOWED_ORIGINS` (comma separated).
+More static deploys can be allowed with `MG_ALLOWED_ORIGINS` (comma separated).
 
 The envelope is HMAC-signed with `MG_SIGNING_SECRET`. The client asks the server
 to confirm the signature (`POST /api/mg/mm/verify`), so a modified client that
-hardcodes `"gitea"` gets rejected. **This is defense-in-depth, not the boundary**:
-every state-changing endpoint independently requires a valid session token, and
-the **server-side origin gate on the token flow is the real security**. Treat the
-envelope as a feature switch, never as a privilege proof.
+hardcodes `"gitea"` gets rejected. **Be clear about what this is:** the origin
+gate is a *feature switch*, not a security boundary — an `Origin` header is
+trivially spoofable from non-browser clients. Real protection is the session
+token on every state change, password + email verification at signup, and
+per-IP rate limiting. That is true no matter which origin the copy is served
+from.
 
 ## 2. Feature flags for games
 
@@ -163,9 +166,10 @@ the game keeps its current offline/localStorage flow untouched.
 library system at the Hub:
 
 - **Library storage** = a per-account save blob: `MG.save.put("pattern", "library", globalLibrary)`.
-- **Open loading** (`initGlobalLibrary`): on Gitea it reads `MG.save.get("pattern","library")`;
+- **Open loading** (`initGlobalLibrary`): on Hub mode (minigames host **or**
+  the GitHub Pages copy) it reads `MG.save.get("pattern","library")`;
   with no account library yet it falls back to the bundled `pattern_user_puzzle.json`
-  (read-only baseline), exactly like GitHub/localhost.
+  (read-only baseline).
 - **Password** = the Hub account: the old `#libPassModal` is now a login / signup /
   verify / reset form (`ensureHubAuth`). Success keeps the token in sessionStorage
   (persists across reloads in the same tab).
@@ -173,10 +177,11 @@ library system at the Hub:
   and `syncLibraryToServer` (🚀 or 3× click on the seed) all mutate `globalLibrary`
   locally and persist through `saveLibraryToHub` → `MG.save.put`. Anonymous visitors
   can browse but every mutation prompts for the account first.
-- GitHub/local stays untouched: `libraryServerReachable()` is only true after the
-  signed capabilities envelope reports `gitea` mode, so the GitHub pages copy still
-  reads `pattern_user_puzzle.json` (local, read-only) and hides the Hub save/commit
-  buttons.
+- Anywhere it runs, Hub mode is decided by the server-confirmed capabilities
+  envelope (`libraryServerReachable()` ⇐ `cap.mode === "gitea"`). The GitHub copy
+  calls the remote Hub and shows the save/commit buttons just like the minigames
+  copy — same accounts, same saves. If the Hub is unreachable every copy silently
+  degrades to local read-only mode.
 
 The standalone `library-server.js` (old `/api/library` password API) is no longer
 used by `pattern_ultimate` — keep it running only if another page still calls it.
@@ -270,6 +275,8 @@ locally, or keep it bound publicly behind HTTPS. `PORT` changes the bind only.
 curl -s https://minigames.xedryk.top/api/mg/health                  # { ok: true }
 curl -s -H "Origin: https://minigames.xedryk.top" \
      https://minigames.xedryk.top/api/mg/capabilities               # mode "gitea" + features
+curl -s -H "Origin: https://mwolfinspace.github.io" \
+     https://minigames.xedryk.top/api/mg/capabilities               # mode "gitea" + features (GitHub copy)
 curl -s -H "Origin: https://user.github.io" \
      https://minigames.xedryk.top/api/mg/capabilities               # mode "external", []
 curl -s https://minigames.xedryk.top/api/mg/medals/catalog          # public catalog
@@ -327,13 +334,14 @@ Back up with a simple cron: `rsync -a /srv/minigames/data /backup/minigames-data
 - Auth + password/reset actions: per-IP rate limiting.
 - Reset-request never discloses whether an account exists.
 - Saves/stats/medals endpoints require a valid non-expired session.
-- `MG_SIGNING_SECRET` leakage weakens the envelope only; origin gate + token
-  requirement remain the actual account boundary.
+- `MG_SIGNING_SECRET` leakage weakens the envelope only; the token checks on
+  state changes remain the actual account boundary.
 
 ## 10. Future / notes
 - The JSON store is intentionally swappable for Postgres by keeping the
   collection interface (`find/filter/update/all`).
 - GitHub deploy policy: existing pages are untouched; new games ship with
-  `minigames-client.js` included so the **same html runs full-featured on Gitea
-  and basic on GitHub** with zero branching for offline flows.
+  `minigames-client.js` included so the **same html runs full-featured everywhere**
+  — on the minigames host, on the GitHub copy (which calls the Hub remotely), and
+  "basic/offline" only when the Hub is unreachable. Zero branching in game code.
 - Live/deploy keys are managed on the Gitea host (they are **not** committed).

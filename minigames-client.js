@@ -1,10 +1,12 @@
-// Minigames Hub — client library for games hosted on minigames.xedryk.top.
+// Minigames Hub — client library for games hosted on minigames.xedryk.top
+// (also works from any static deploy, e.g. the GitHub Pages copy, which
+// connects straight back to the Hub on our own server).
 // Include BEFORE the game's own script:
 //   <script src="minigames-client.js"></script>
 //
 // Features exposed as an async-ready global `MG`:
 //   await MG.init()            -> resolves capabilities (host + features)
-//   MG.isGitea                 -> true only on the real Gitea host
+//   MG.isGitea                 -> true once the server confirms gitea mode
 //   MG.has("accounts") etc.    -> feature gate helper
 //   MG.account.*               -> signup / verify / login / logout / reset / me
 //   MG.save.*                  -> per-account, per-device game saves
@@ -12,12 +14,14 @@
 //   MG.medals.*                -> catalog + own medals
 //
 // Security model:
-//  - The GitHub pages deploy must never talk to the API. The server only signs
-//    the capabilities envelope when the Origin is an allowed Gitea origin and
-//    rejects state-changing requests from other origins, so even a modified
-//    client cannot open real features on GitHub.
-//  - The HMAC signature is verified against the server (`/api/mg/mm/verify`):
-//    the client recomputes nothing itself, the server confirms the envelope.
+//  - GitHub Pages is passive static hosting; every dynamic feature runs on OUR
+//    server, and the GitHub copy simply calls it. The server only signs the
+//    capabilities envelope for known origins (minigames host + GitHub pages +
+//    MG_ALLOWED_ORIGINS), and the envelope is what unlocks the UI — it is a
+//    convenience gate, NOT a security boundary (an Origin header is spoofable).
+//  - Real account protection is password + email verification + the session
+//    token; state-changing API calls require that token. Per-IP rate limits
+//    dampen abuse.
 
 "use strict";
 
@@ -25,12 +29,21 @@
   const MG = { _init: null, features: [], mode: "external", account: {}, save: {}, stats: {}, medals: {} };
 
   const GITEA_HOSTS = new Set(["minigames.xedryk.top", "gitea.xedryk.top"]);
-  // Same-origin when served from minigames.xedryk.top: the custom API server
-  // on that host already owns /api/* (e.g. /api/library, /api/ocr) and will
-  // also own /api/mg (the Minigames Hub backend). Using location.origin keeps
-  // it correct even if the domain ever changes.
-  const API_BASE =
-    (global.location ? global.location.origin : "") + "/api/mg";
+  // The Hub lives on OUR server, not on whatever host serves the page. On a
+  // hub host we call it same-origin (`/api/mg`); on any static deployment
+  // (e.g. the GitHub Pages copy) we call the remote Hub URL directly — the
+  // page is passive but every dynamic feature (accounts, saves, medals) runs
+  // on our server anyway, so the GitHub copy simply talks to it.
+  const REMOTE_HUB = "https://minigames.xedryk.top/api/mg";
+
+  function pickApiBase() {
+    if (!global.location) return REMOTE_HUB;
+    const qHub = new URLSearchParams(global.location.search).get("hub");
+    if (qHub) return qHub.replace(/\/+$/, "") + "/api/mg";
+    if (GITEA_HOSTS.has(global.location.host)) return global.location.origin + "/api/mg";
+    return REMOTE_HUB;
+  }
+  const API_BASE = pickApiBase();
   const SES = "mg_session_token";
   const DEV = "mg_device_id";
 
@@ -78,6 +91,7 @@
       try {
         const cap = await http("GET", "/capabilities");
         this.mode = cap.mode || (this.isGitea ? "gitea" : "external");
+        this.isGitea = this.mode === "gitea"; // server-confirmed, not host-name guess
         this.features = Array.isArray(cap.features) ? cap.features : [];
         this.issuedAt = cap.issuedAt;
         if (opts && opts.verify !== false) {

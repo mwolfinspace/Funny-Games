@@ -32,11 +32,15 @@ const PUBLIC_URL = process.env.MG_PUBLIC_URL || "https://minigames.xedryk.top";
 const SIGNING_SECRET =
   process.env.MG_SIGNING_SECRET || "dev-signing-secret-change-me";
 const GITEA_ORIGIN = "https://minigames.xedryk.top";
+// The GitHub Pages copy (mwolfinspace.github.io) also talks to the Hub — it is
+// passive static hosting, so all dynamic features run here. Add any further
+// static deploys via MG_ALLOWED_ORIGINS.
+const GITHUB_ORIGIN = "https://mwolfinspace.github.io";
 const EXTRA_ORIGINS = (process.env.MG_ALLOWED_ORIGINS || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-const ALLOWED_ORIGINS = new Set([GITEA_ORIGIN, ...EXTRA_ORIGINS]);
+const ALLOWED_ORIGINS = new Set([GITEA_ORIGIN, GITHUB_ORIGIN, ...EXTRA_ORIGINS]);
 
 // ── collections ─────────────────────────────────────────────────────────────
 const users = collection("users");
