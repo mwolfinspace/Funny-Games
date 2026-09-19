@@ -1411,6 +1411,15 @@
           📁
         </button>
         <button
+          id="commitLibBtn"
+          class="tb-btn"
+          style="display: none"
+          onclick="syncLibraryToServer()"
+          title="Commit library changes to server"
+        >
+          🚀
+        </button>
+        <button
           id="checkLibBtn"
           class="tb-btn"
           title="Refresh puzzle library"
@@ -1445,6 +1454,15 @@
         />
         <button id="quickCopyBtn" class="tb-btn sp-btn" title="Copy seed">
           📋
+        </button>
+        <button
+          id="seedSaveBtn"
+          class="tb-btn sp-btn"
+          style="display: none"
+          onclick="saveCurrentToLibrary()"
+          title="Save puzzle to Library"
+        >
+          💾
         </button>
         <button id="urlBtn" class="tb-btn sp-btn" title="Copy shareable URL">
           🔗
@@ -1548,6 +1566,101 @@
             "
           >
             Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="libPassModal"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 10001;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(8px);
+      "
+    >
+      <div
+        class="acrylic"
+        style="
+          width: 320px;
+          padding: 24px;
+          border-radius: 24px;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          background: rgba(255, 255, 255, 0.9);
+        "
+      >
+        <h3 style="color: #333; margin: 0; font-size: 20px">🔒 Library Lock</h3>
+        <p style="color: #555; margin: 0; font-size: 15px; line-height: 1.4">
+          Enter the admin password to modify the server library.
+        </p>
+        <input
+          id="libPassInput"
+          type="password"
+          placeholder="Password"
+          autocomplete="off"
+          spellcheck="false"
+          style="
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 2px solid #e0e6ef;
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 2px;
+          "
+        />
+        <div
+          style="
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 4px;
+          "
+        >
+          <button
+            class="pass-cancel"
+            onclick="closeLibPass()"
+            style="
+              padding: 12px 20px;
+              border-radius: 14px;
+              border: none;
+              background: #eef2f7;
+              color: #333;
+              cursor: pointer;
+              font-weight: 600;
+              flex: 1;
+              transition: 0.2s;
+            "
+          >
+            Cancel
+          </button>
+          <button
+            id="passOkBtn"
+            style="
+              padding: 12px 20px;
+              border-radius: 14px;
+              border: none;
+              background: #4d89ff;
+              color: white;
+              cursor: pointer;
+              font-weight: 600;
+              flex: 1;
+              transition: 0.2s;
+              box-shadow: 0 4px 12px rgba(77, 137, 255, 0.3);
+            "
+          >
+            Unlock 🔓
           </button>
         </div>
       </div>
@@ -5905,12 +6018,174 @@ window.saveUndo = function () {
       let seedClickCount = 0;
       let seedClickTimer = null;
 
+      // ──────────────────────────────────────────────────────────
+      // SERVER-BACKED LIBRARY (Gitea only)
+      // The Gitea server auths the password server-side (never in
+      // client code) and owns pattern_user_puzzle.json on disk, so
+      // library edits need no git commits and no local file access.
+      // ──────────────────────────────────────────────────────────
+      const IS_GITEA_HOST =
+        /(^|\.)minigames\.xedryk\.top$/i.test(location.hostname) ||
+        /(^|\.)gitea\.xedryk\.top$/i.test(location.hostname);
+      const LIB_API_BASE = "https://gitea.xedryk.top/api/library";
+      let libAuthToken = null; // per-session; memory-only, gone on F5
+
+      function libraryServerReachable() {
+        return IS_GITEA_HOST && typeof fetch === "function";
+      }
+
+      function openLibPass() {
+        const modal = document.getElementById("libPassModal");
+        const input = document.getElementById("libPassInput");
+        modal.style.display = "flex";
+        input.value = "";
+        setTimeout(() => input.focus(), 50);
+      }
+
+      function closeLibPass() {
+        document.getElementById("libPassModal").style.display = "none";
+      }
+
+      // Ask the user for the admin password once per session.
+      // Returns true only when the server confirms it.
+      async function ensureLibAuth() {
+        if (libAuthToken) return true;
+
+        openLibPass();
+        const input = document.getElementById("libPassInput");
+        const okBtn = document.getElementById("passOkBtn");
+        const modal = document.getElementById("libPassModal");
+        let resolving = false;
+
+        const submit = async () => {
+          if (resolving) return;
+          const pw = input.value;
+          if (!pw) {
+            toast("Enter a password.");
+            return;
+          }
+          resolving = true;
+          okBtn.disabled = true;
+          try {
+            const res = await fetch(`${LIB_API_BASE}/unlock`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ password: pw }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.token) {
+              libAuthToken = data.token;
+              modal.style.display = "none";
+              resolving = false;
+              return true;
+            }
+            // wrong password: keep the modal open so they can retry
+            toast(data.error || "Wrong password.");
+            input.value = "";
+            input.focus();
+            resolving = false;
+            return false;
+          } catch (e) {
+            toast("Server unreachable.");
+            resolving = false;
+            return false;
+          }
+        };
+
+        return await new Promise((resolve) => {
+          let done = false;
+          const finish = async (val) => {
+            if (done) return;
+            done = true;
+            modal.style.display = "none";
+            okBtn.disabled = false;
+            resolve(val);
+          };
+          okBtn.onclick = async () => {
+            const ok = await submit();
+            if (ok) finish(true);
+          };
+          const cancelBtn = document.querySelector(
+            "#libPassModal .pass-cancel",
+          );
+          if (cancelBtn) {
+            cancelBtn.onclick = () => {
+              closeLibPass();
+              finish(false);
+            };
+          }
+          input.onkeydown = (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit().then((ok) => {
+                if (ok) finish(true);
+              });
+            }
+          };
+        });
+      }
+
+      async function syncLibraryToServer() {
+        if (!libraryServerReachable()) {
+          toast("Server library only available on the Gitea host.");
+          return;
+        }
+        const authed = await ensureLibAuth();
+        if (!authed) return;
+        try {
+          const res = await fetch(`${LIB_API_BASE}/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: libAuthToken,
+              library: globalLibrary,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Sync failed.");
+            if (res.status === 401) libAuthToken = null;
+            return;
+          }
+          if (Array.isArray(data.library)) globalLibrary = data.library;
+          toast(`Committed ${globalLibrary.length} puzzles to server.`);
+          updateLibDisplay();
+        } catch (e) {
+          toast("Server unreachable.");
+        }
+      }
+
       /**
        * 1. Startup: Load the existing library from the server (GitHub/Localhost)
-       *    Always fetches fresh to ensure newest version
+       *    On the Gitea host the library is fetched from the server API so the
+       *    server-owned copy is the single source of truth.
        */
       async function initGlobalLibrary() {
         try {
+          if (libraryServerReachable()) {
+            try {
+              const res = await fetch(
+                `${LIB_API_BASE}?t=${Date.now()}`,
+                { cache: "no-store" },
+              );
+              if (res.ok) {
+                const data = await res.json();
+                globalLibrary = Array.isArray(data)
+                  ? data
+                  : Array.isArray(data.library)
+                    ? data.library
+                    : [];
+                updateLibDisplay();
+                console.log(
+                  `Library loaded (server): ${globalLibrary.length} puzzles.`,
+                );
+                return;
+              }
+              console.warn("Server library fetch failed:", res.status);
+            } catch (e) {
+              console.warn("Server library unreachable:", e);
+            }
+          }
           const response = await fetch(
             `pattern_user_puzzle.json?t=${Date.now()}`,
             {
@@ -5969,7 +6244,9 @@ window.saveUndo = function () {
       const seedDisplay = document.getElementById("seedCode");
       if (seedDisplay) {
         seedDisplay.style.cursor = "pointer";
-        seedDisplay.title = "Click 3 times to sync to your local JSON file";
+        seedDisplay.title = libraryServerReachable()
+          ? "Click 3 times to commit library to the server"
+          : "Click 3 times to sync to your local JSON file";
 
         seedDisplay.addEventListener("click", async (e) => {
           seedClickCount++;
@@ -5978,12 +6255,20 @@ window.saveUndo = function () {
           // Standard behavior: first click copies (handled by your existing onclick)
 
           if (seedClickCount === 2) {
-            toast("Click 1 more time to Save to JSON...");
+            toast(
+              libraryServerReachable()
+                ? "Click 1 more time to Commit to server..."
+                : "Click 1 more time to Save to JSON...",
+            );
           }
 
           if (seedClickCount >= 3) {
             seedClickCount = 0;
-            await syncToDevJson();
+            if (libraryServerReachable()) {
+              await syncLibraryToServer();
+            } else {
+              await syncToDevJson();
+            }
           }
 
           seedClickTimer = setTimeout(() => {
@@ -6100,23 +6385,41 @@ window.saveUndo = function () {
         const fileReady = document.getElementById("fileReady");
         const btnEl = document.getElementById("libCountBtn");
         const saveToLibBtn = document.getElementById("saveToLibBtn");
+        const seedSaveBtn = document.getElementById("seedSaveBtn");
+        const commitLibBtn = document.getElementById("commitLibBtn");
+        const isServer = libraryServerReachable();
 
         if (libCountNum) {
           libCountNum.textContent = globalLibrary.length;
         }
 
         if (fileReady) {
-          if (devFileHandle) {
+          if (isServer) {
+            // Server owns the library on the Gitea host; no local file needed.
+            fileReady.style.display = "none";
+          } else if (devFileHandle) {
+            fileReady.style.display = "inline-flex";
             fileReady.classList.add("linked");
             fileReady.textContent = "✅";
           } else {
+            fileReady.style.display = "inline-flex";
             fileReady.classList.remove("linked");
             fileReady.textContent = "📁";
           }
         }
 
+        // Local-file save button is only for the local dev-file workflow.
         if (saveToLibBtn) {
           saveToLibBtn.style.display = devFileHandle ? "inline-flex" : "none";
+        }
+
+        // Server save button (next to the copy button) + commit button.
+        if (seedSaveBtn) {
+          seedSaveBtn.style.display = isServer ? "inline-flex" : "none";
+        }
+
+        if (commitLibBtn) {
+          commitLibBtn.style.display = isServer ? "inline-flex" : "none";
         }
       }
 
@@ -6391,8 +6694,8 @@ window.saveUndo = function () {
                 clearFirst: true,
               });
 
-            // Delete button (only if user has linked the library file)
-            if (typeof devFileHandle !== "undefined" && devFileHandle) {
+            // Delete button (only if user can modify the library)
+            if (libraryServerReachable() || devFileHandle) {
               const delBtn = document.createElement("button");
               delBtn.className = "lib-item-delete";
               delBtn.textContent = "❌";
@@ -6447,7 +6750,49 @@ window.saveUndo = function () {
         puzzleToDeleteIndex = -1;
       }
 
+      async function serverLibraryAction(action, extra = {}) {
+        if (!libraryServerReachable()) return null;
+        const authed = await ensureLibAuth();
+        if (!authed) return null;
+        try {
+          const res = await fetch(`${LIB_API_BASE}/${action}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: libAuthToken, ...extra }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            if (res.status === 401) libAuthToken = null;
+            toast(data.error || `${action} failed.`);
+            return null;
+          }
+          return data;
+        } catch (e) {
+          toast("Server unreachable.");
+          return null;
+        }
+      }
+
       async function executeDeletePuzzle() {
+        if (libraryServerReachable()) {
+          if (!(puzzleToDeleteIndex > -1 && puzzleToDeleteIndex < globalLibrary.length)) {
+            closeDeleteConfirm();
+            return;
+          }
+          const data = await serverLibraryAction("delete", {
+            index: puzzleToDeleteIndex,
+          });
+          closeDeleteConfirm();
+          if (data && Array.isArray(data.library)) {
+            globalLibrary = data.library;
+            toast("Puzzle removed from library.");
+            const libCountEl = document.getElementById("libCountNum");
+            if (libCountEl) libCountEl.textContent = globalLibrary.length;
+            updateLibDisplay();
+            openLibraryModal();
+          }
+          return;
+        }
         if (
           puzzleToDeleteIndex > -1 &&
           puzzleToDeleteIndex < globalLibrary.length
@@ -6478,7 +6823,30 @@ window.saveUndo = function () {
       async function saveCurrentToLibrary() {
         const currentSeed = exportSeed() || "";
 
-        if (!devFileHandle || !currentSeed) {
+        if (!currentSeed) {
+          toast("No puzzle to save");
+          return;
+        }
+
+        if (libraryServerReachable()) {
+          if (globalLibrary.includes(currentSeed)) {
+            toast("Puzzle already in library!");
+            return;
+          }
+          const data = await serverLibraryAction("save", {
+            seed: currentSeed,
+          });
+          if (data && Array.isArray(data.library)) {
+            globalLibrary = data.library;
+            const libCountEl = document.getElementById("libCountNum");
+            if (libCountEl) libCountEl.textContent = globalLibrary.length;
+            updateLibDisplay();
+            toast("Puzzle saved to library!", "library");
+          }
+          return;
+        }
+
+        if (!devFileHandle) {
           toast("No puzzle to save");
           return;
         }
