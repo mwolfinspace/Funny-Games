@@ -152,6 +152,11 @@
     const d = await http("GET", `/save?token=${encodeURIComponent(getToken())}&game=${encodeURIComponent(game)}&key=${encodeURIComponent(key)}&device=${encodeURIComponent(device || getDeviceId())}`);
     return d.data;
   };
+  // Lightweight change signal (no payload): { ok, revision, updatedAt }.
+  // Poll this to detect a save made from another tab/device, then fetch the
+  // full value with save.get only when revision has moved.
+  save.meta = (game, key, device) =>
+    http("GET", `/save?meta=1&token=${encodeURIComponent(getToken())}&game=${encodeURIComponent(game)}&key=${encodeURIComponent(key)}&device=${encodeURIComponent(device || getDeviceId())}`);
   save.list = (game) =>
     http("GET", `/saves?token=${encodeURIComponent(getToken())}${game ? "&game=" + encodeURIComponent(game) : ""}`);
 

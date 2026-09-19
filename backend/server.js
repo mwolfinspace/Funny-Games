@@ -670,8 +670,10 @@ const server = http.createServer(async (req, res) => {
         const device = String(body.device || "").slice(0, 64) || "web";
         await deviceSaves.update((rows) => {
           const idx = rows.findIndex((r) => r.userId === u.id && r.game === game && r.key === key && r.device === device);
-          if (idx >= 0) rows[idx] = { ...rows[idx], data, updatedAt: nowIso() };
-          else rows.push({ userId: u.id, game, key, device, data, updatedAt: nowIso() });
+          const revision = idx >= 0 ? (rows[idx].revision || 0) + 1 : 1;
+          const updatedAt = nowIso();
+          if (idx >= 0) rows[idx] = { ...rows[idx], data, updatedAt, revision };
+          else rows.push({ userId: u.id, game, key, device, data, updatedAt, revision });
         });
         const snapId = await commitSnapshot(u.id, game, key, device, data, u.id);
         await logAudit({
@@ -693,6 +695,10 @@ const server = http.createServer(async (req, res) => {
         const key = String(q.get("key") || "default").slice(0, 64);
         const device = String(q.get("device") || "").slice(0, 64) || "web";
         const row = deviceSaves.find((r) => r.userId === u.id && r.game === game && r.key === key && r.device === device);
+        if (q.get("meta") === "1") {
+          json(res, 200, { ok: true, revision: row ? row.revision || 0 : 0, updatedAt: row ? row.updatedAt : null });
+          return;
+        }
         json(res, 200, { ok: true, data: row ? row.data : null, updatedAt: row ? row.updatedAt : null });
         return;
       }

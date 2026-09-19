@@ -6122,6 +6122,14 @@ window.saveUndo = function () {
       let serverLibraryActive = false; // true after MG.init() confirms gitea mode
       let hubUser = null; // current logged-in account (cached)
 
+      // The library lives in ONE shared, account-scoped save slot (reserved
+      // device id), so every tab/device of the same account sees the same
+      // gallery — and a lightweight poll makes edits appear live everywhere.
+      const LIB_DEVICE = "account-library";
+      let libSyncTimer = null;
+      let libSyncInFlight = false;
+      let lastLibRevision = -1;
+
       function libraryServerReachable() {
         return serverLibraryActive;
       }
@@ -6400,7 +6408,7 @@ window.saveUndo = function () {
         const authed = await ensureHubAuth();
         if (!authed) return false;
         try {
-          await MG.save.put("pattern", "library", globalLibrary);
+          await MG.save.put("pattern", "library", globalLibrary, LIB_DEVICE);
           toast(msg || "Library updated.");
           updateLibDisplay();
           return true;
@@ -6433,13 +6441,28 @@ window.saveUndo = function () {
           await ensureHubReady();
           if (libraryServerReachable()) {
             try {
-              const data = await MG.save.get("pattern", "library").catch(() => null);
+              let data = await MG.save.get("pattern", "library", LIB_DEVICE).catch(() => null);
               if (Array.isArray(data)) {
                 globalLibrary = data;
                 updateLibDisplay();
                 console.log(
                   `Library loaded (hub): ${globalLibrary.length} puzzles.`,
                 );
+                startLibraryLiveSync();
+                return;
+              }
+              // Legacy: a per-device copy saved before the account-scoped key.
+              data = await MG.save.get("pattern", "library").catch(() => null);
+              if (Array.isArray(data)) {
+                globalLibrary = data;
+                updateLibDisplay();
+                await MG.save
+                  .put("pattern", "library", globalLibrary, LIB_DEVICE)
+                  .catch(() => {});
+                console.log(
+                  `Library migrated from legacy device save: ${globalLibrary.length} puzzles.`,
+                );
+                startLibraryLiveSync();
                 return;
               }
               console.log("No hub library yet — using bundled default.");
@@ -6468,6 +6491,43 @@ window.saveUndo = function () {
           globalLibrary = [];
         }
         updateLibDisplay();
+      }
+
+      // Live sync: poll a lightweight revision for the account library; when it
+      // moves (another tab/device saved), re-fetch and re-render the gallery.
+      function startLibraryLiveSync() {
+        if (libSyncTimer || !libraryServerReachable()) return;
+        libSyncTimer = setInterval(pollLibraryLiveSync, 5000);
+        pollLibraryLiveSync();
+      }
+
+      async function pollLibraryLiveSync() {
+        if (libSyncInFlight) return;
+        if (!libraryServerReachable() || !(MG.account && MG.account.token())) {
+          return;
+        }
+        libSyncInFlight = true;
+        try {
+          const meta = await MG.save.meta("pattern", "library", LIB_DEVICE);
+          const rev = meta.revision || 0;
+          if (rev !== lastLibRevision) {
+            lastLibRevision = rev;
+            const data = await MG.save.get("pattern", "library", LIB_DEVICE);
+            if (
+              Array.isArray(data) &&
+              JSON.stringify(data) !== JSON.stringify(globalLibrary)
+            ) {
+              globalLibrary = data;
+              updateLibDisplay();
+              refreshLibraryGrid();
+              toast("Library updated.", "library");
+            }
+          }
+        } catch (e) {
+          // auth lost / hub busy — silently retry next tick
+        } finally {
+          libSyncInFlight = false;
+        }
       }
 
       async function pickDevFile() {
