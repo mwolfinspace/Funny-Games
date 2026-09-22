@@ -6588,15 +6588,28 @@ window.saveUndo = function () {
         return serverLibraryActive;
       }
 
-      // Ask the Hub client for its capabilities once; flips the edit gate.
-      async function ensureHubReady() {
+      let hubRecheckTimer = null;
+      function scheduleHubRecheck() {
+        clearTimeout(hubRecheckTimer);
+        hubRecheckTimer = setTimeout(() => ensureHubReady(true), 10000);
+      }
+
+      // Ask the Hub client for its capabilities; flips the edit gate. If the
+      // Hub is down (power off, reboot, deploy) MG.init's cached failure is
+      // bypassed via MG.refresh and we keep re-polling, so library saves AND
+      // short game codes re-arm the moment the host comes back — no reloading.
+      async function ensureHubReady(forceRefresh) {
         if (typeof MG === "undefined" || !MG || !MG.init) {
           serverLibraryActive = false;
+          patternCodesArmed = false;
           if (typeof updateLibDisplay === "function") updateLibDisplay();
+          scheduleHubRecheck();
           return false;
         }
         try {
-          const cap = await MG.init();
+          const cap = forceRefresh && MG.refresh
+            ? await MG.refresh()
+            : await MG.init();
           serverLibraryActive = cap.mode === "gitea" && cap.features.length > 0;
           // Game codes are public — arming just needs the hub + codes feature,
           // NOT a login. Anyone can mint a ticket for their current puzzle.
@@ -6610,6 +6623,7 @@ window.saveUndo = function () {
         }
         if (typeof updateLibDisplay === "function") updateLibDisplay();
         if (typeof syncPatternCode === "function") syncPatternCode();
+        if (!serverLibraryActive) scheduleHubRecheck();
         return serverLibraryActive;
       }
 

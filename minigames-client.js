@@ -139,6 +139,14 @@
     return this._init;
   };
 
+  // Re-fetch capabilities from scratch, bypassing the cached _init promise.
+  // Games poll this while the Hub is down (e.g. the host rebooting) so they
+  // re-arm server features the moment it comes back up — no page reload.
+  MG.refresh = function refresh() {
+    this._init = null;
+    return this.init();
+  };
+
   MG.has = function has(feature) {
     return this.features.includes(feature);
   };

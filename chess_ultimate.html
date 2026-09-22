@@ -2069,9 +2069,11 @@
           this._serverChessFails = 0;
           this._serverChessRetryAt = 0;
           this._serverChessSeq = 0;
+          this._serverChessRetryTimer = null;
           this._lastAIEngine = "local";
           this._codesArmed = false;
           this._codesLoginNeeded = false;
+          this._codesRetryTimer = null;
           this._codeCache = {};
           this._codeMintAt = 0;
           this._codeSeq = 0;
@@ -2592,27 +2594,56 @@
         // to on-device thinking and never stalls or makes a nonsense move.
         _setupServerChess() {
           if (typeof MG === "undefined") return;
+          this._serverChessRetryTimer = null;
+          this._serverChessRecheck();
+        }
+
+        // Keeps evaluating the server-AI gate. If the Hub is down (power off,
+        // reboot, deploy) MG.init's cached failure expires via MG.refresh and
+        // this keeps re-polling, so the AI switches back to the server engine
+        // the moment the host is reachable again — no page reload needed.
+        _serverChessRecheck() {
           Promise.race([
-            Promise.resolve().then(() => MG.init && MG.init()),
+            Promise.resolve().then(() =>
+              MG.refresh && MG.refresh ? MG.refresh() : MG.init(),
+            ),
             new Promise((r) => setTimeout(r, 3000)),
           ])
             .then(() => {
+              const prev = this._serverChess;
               this._serverChess = !!(
                 MG.isGitea &&
                 MG.has("chess") &&
                 MG.account &&
                 MG.account.token()
               );
-              if (this._serverChess) {
-                console.log("[chess] server AI armed (local Stockfish = failsafe)");
-                this._lastAIEngine = "server";
-              } else {
-                console.log("[chess] server AI off — using local engine");
-                this._lastAIEngine = "local";
+              if (this._serverChess !== prev) {
+                if (this._serverChess) {
+                  console.log("[chess] server AI armed (local Stockfish = failsafe)");
+                } else {
+                  console.log("[chess] server AI off — using local engine");
+                }
+                this._lastAIEngine = this._serverChess ? "server" : "local";
+                this.syncUI();
+                this._syncGameCode();
+              }
+              if (!this._serverChess) {
+                // Still offline / not armed — try again shortly. The server may
+                // come BACK after a reboot, so keep polling quietly.
+                clearTimeout(this._serverChessRetryTimer);
+                this._serverChessRetryTimer = setTimeout(
+                  () => this._serverChessRecheck(),
+                  10000,
+                );
               }
             })
             .catch(() => {
               this._serverChess = false;
+              clearTimeout(this._serverChessRetryTimer);
+              this._serverChessRetryTimer = setTimeout(
+                () => this._serverChessRecheck(),
+                10000,
+              );
             });
         }
 
@@ -5135,8 +5166,15 @@
 
         _setupCodes() {
           if (typeof MG === "undefined") return;
+          this._codesRetryTimer = null;
+          this._codesRecheck();
+        }
+
+        _codesRecheck() {
           Promise.race([
-            Promise.resolve().then(() => MG.init && MG.init()),
+            Promise.resolve().then(() =>
+              MG.refresh && MG.refresh ? MG.refresh() : MG.init(),
+            ),
             new Promise((r) => setTimeout(r, 3000)),
           ])
             .then(() => {
@@ -5144,9 +5182,21 @@
               this._codesArmed = !!(MG.isGitea && MG.has("codes"));
               this._codesLoginNeeded = false;
               if (this._codesArmed) this._syncGameCode();
+              else {
+                clearTimeout(this._codesRetryTimer);
+                this._codesRetryTimer = setTimeout(
+                  () => this._codesRecheck(),
+                  10000,
+                );
+              }
             })
             .catch(() => {
               this._codesArmed = false;
+              clearTimeout(this._codesRetryTimer);
+              this._codesRetryTimer = setTimeout(
+                () => this._codesRecheck(),
+                10000,
+              );
             });
         }
 
