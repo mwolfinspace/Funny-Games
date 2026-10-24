@@ -212,7 +212,7 @@
   // ── server-side chess AI ─────────────────────────────────────────────────
   // The game sends its FEN + level and the Hub runs Stockfish here and sends
   // the best move back — the client device does no heavy computation. The
-  // bundled local engine remains an offline failsafe. Requires a login.
+  // bundled local engine remains an offline failsafe. Public, per-IP limited.
   const chess = (MG.chess = {});
   chess.move = (opts) =>
     http("POST", "/chess/move", Object.assign({ token: getToken() }, opts));

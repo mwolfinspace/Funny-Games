@@ -212,14 +212,14 @@ WebSocket channel on the hub:
 ### Server-side chess AI (Stockfish on the Hub)
 
 `chess_ultimate.html` no longer needs strong compute in the browser. When a
-logged-in player faces the AI on a `gitea` origin, the game sends the FEN (plus
-`level` and desired `movetime`) to the Hub, which runs a real **Stockfish 15.1**
+player faces the AI on a `gitea` origin, the game sends the FEN (plus `level`
+and desired `movetime`) to the Hub, which runs a real **Stockfish 15.1**
 (UCI) on the server and returns `bestmove` — ~0.5–1 s, strength 2300–2750 Elo
 (no `wasm.js` engine download, no thread starvation on small phones). The old
 in-browser Stockfish + minimax remains as a **failsafe**: offline, blocked,
 rate-limited, or engine-down ⇒ automatic local fallback, then an exponential
 backoff (cap ≈ 15 s) with re-probes so the server path re-arms when the network
-returns. Guests / non-`gitea` origins keep using the local engine untouched.
+returns. Non-`gitea` origins keep using the local engine untouched.
 
 | Endpoint | Method | Body / Query |
 | --- | --- | --- |
@@ -232,8 +232,9 @@ returns. Guests / non-`gitea` origins keep using the local engine untouched.
 - The FEN is strictly validated (8 ranks, valid turn, castling, en-passant,
   half/full move) and `level`/`movetime` are clamped before ever reaching the
   engine — garbage in ⇒ `400`, no engine work done.
-- Requires a valid session (`401`) and is **rate limited 30 req/min per IP and
-  per user** (`429`) so the shared engine can't be hammered into a lobby.
+- PUBLIC like game codes: no account needed; the shared engine is protected by a
+  per-IP limit of **30 req/min** (`429`), plus an extra per-user limit when a
+  session token is sent, so it can't be hammered into a lobby.
 - A single Stockfish process is reused (serialized queue); it auto-restarts on
   crash/hang and, if even the boot handshake fails, the endpoint answers `503`
   and the client keeps playing with the local fallback.

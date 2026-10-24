@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Worm Switch Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --left-bg: #b1d355;
+            --right-bg: #fdba4d;
+
+            --worm-red: #e74c3c;
+            --worm-red-light: #ff8a7a;
+            --worm-red-dark: #9b2616;
+
+            --worm-orange: #f39c12;
+            --worm-orange-light: #ffc463;
+            --worm-orange-dark: #a86808;
+
+            --worm-yellow: #f1c40f;
+            --worm-yellow-light: #ffe066;
+            --worm-yellow-dark: #a8830a;
+
+            --worm-green: #2ecc71;
+            --worm-green-light: #6fefae;
+            --worm-green-dark: #1c8c4d;
+
+            --worm-blue: #3498db;
+            --worm-blue-light: #6cbef0;
+            --worm-blue-dark: #1f6fa8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ===== Main Layout (reuses original split layout) ===== */
+        #game-board {
+            display: flex;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.2vh 1vw;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #left-side { background-color: var(--left-bg); }
+        #right-side { background-color: var(--right-bg); }
+
+        .middle-separator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.2vh;
+            padding: 0.5vh 0.6vw;
+            background: rgba(0, 0, 0, 0.18);
+            border-left: 4px solid rgba(0, 0, 0, 0.3);
+            border-right: 4px solid rgba(0, 0, 0, 0.3);
+            z-index: 10;
+        }
+
+        .separator-btn {
+            height: clamp(2.5rem, 5.5vh, 3.6rem);
+            width: clamp(2.5rem, 5.5vh, 3.6rem);
+            font-size: clamp(1rem, 2.8vh, 1.7rem);
+            background: rgba(255, 255, 255, 0.32);
+            border: 2px solid rgba(255, 255, 255, 0.55);
+            cursor: pointer;
+            transition: transform 0.18s, background 0.18s, box-shadow 0.18s;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .separator-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .separator-btn:active { transform: scale(0.93); }
+
+        .separator-btn.active {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            box-shadow: 0 0 16px rgba(255, 215, 0, 0.85);
+            color: #4a2e00;
+            border-color: #fff7c2;
+        }
+
+        h1 {
+            font-size: clamp(1.2rem, 3vh, 2rem);
+            margin-bottom: 0.6vh;
+            text-align: center;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.35);
+        }
+
+        .mode-indicator {
+            background: rgba(0, 0, 0, 0.28);
+            color: white;
+            padding: 0.5vh 1.4vw;
+            border-radius: 8px;
+            font-size: clamp(0.8rem, 1.7vh, 1rem);
+            font-weight: bold;
+            margin-bottom: 0.6vh;
+        }
+
+        /* ===== History Area (left side, grows vertically) ===== */
+        .history-area {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            overflow: hidden;
+            padding: 0.5vh 0;
+            gap: 0.8vh;
+            min-height: 0;
+        }
+
+        .row {
+            flex: 1 1 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1vw;
+            min-height: 0;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.35s ease;
+        }
+
+        .row.win-row {
+            animation: winPulse 0.7s ease;
+        }
+
+        @keyframes winPulse {
+            0%   { transform: scale(1); filter: brightness(1); }
+            50%  { transform: scale(1.08); filter: brightness(1.35); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+        .row-num {
+            position: absolute;
+            left: 1vw;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: clamp(0.7rem, 1.4vh, 0.9rem);
+            color: rgba(255, 255, 255, 0.75);
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ===== Worm (single colored block, image or fallback) ===== */
+        .worm {
+            position: relative;
+            flex: 0 1 auto;
+            min-width: 0;
+            /* Width-first sizing so the worm ALWAYS keeps its 1.5:1 ratio
+               and never overflows horizontally.
+               width = min(
+                 21vh,                          -- max width when height-capped at 14vh
+                 10vw,                          -- approx half-screen / 5 worms
+                 (100% - 4*1vw) / 5             -- exact container-based max
+               )
+               Height comes from aspect-ratio. */
+            width: min(21vh, 10vw, calc((100% - 4 * 1vw) / 5));
+            height: auto;
+            aspect-ratio: 1.5 / 1;
+            max-height: 14vh;
+            cursor: pointer;
+            transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .worm:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.1);
+        }
+
+        .worm.selected,
+        .worm.selected-pair1 {
+            transform: translateY(-7px) scale(1.05);
+            filter: brightness(1.18) drop-shadow(0 0 12px gold);
+            z-index: 5;
+        }
+
+        .worm.selected-pair2 {
+            transform: translateY(-7px) scale(1.05);
+            filter: brightness(1.18) drop-shadow(0 0 12px #00e5ff);
+            z-index: 5;
+        }
+
+        .worm.locked {
+            cursor: default;
+            opacity: 0.88;
+        }
+        .worm.locked:hover {
+            transform: none;
+            filter: none;
+        }
+
+        .worm img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            -webkit-user-drag: none;
+            -webkit-user-select: none;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        /* ===== 3D Rectangle Block (fallback) =====
+           The .worm box itself is sized to maintain a 1.5:1 aspect ratio
+           (see .worm and .target-row .worm rules), so the block can simply
+           fill 100%/100% and it will inherit the correct proportions.
+           On the target (right) side, the worm uses width-first sizing
+           with min(18vh, (container - gaps) / 5) so it never overflows
+           horizontally while staying exactly 1.5:1. */
+        .worm-block {
+            width: 100%;
+            height: 100%;
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                inset 0 3px 6px rgba(255, 255, 255, 0.55),
+                inset 0 -6px 12px rgba(0, 0, 0, 0.4),
+                0 5px 12px rgba(0, 0, 0, 0.32);
+        }
+
+        .worm-block::before {
+            content: '';
+            position: absolute;
+            top: 8%;
+            left: 8%;
+            right: 8%;
+            height: 35%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent);
+            border-radius: 22px;
+            pointer-events: none;
+        }
+
+        /* segment lines like a worm body */
+        .worm-block::after {
+            content: '';
+            position: absolute;
+            top: 18%;
+            bottom: 18%;
+            left: 38%;
+            width: 3px;
+            background: rgba(0, 0, 0, 0.18);
+            border-radius: 3px;
+            box-shadow: 30% 0 0 rgba(0,0,0,0.18);
+            pointer-events: none;
+        }
+
+        .worm-block .label {
+            position: relative;
+            z-index: 2;
+            font-size: clamp(0.9rem, 2.6vh, 1.6rem);
+        }
+
+        .worm-red    .worm-block { background: linear-gradient(180deg, var(--worm-red-light)    0%, var(--worm-red)    50%, var(--worm-red-dark)); }
+        .worm-orange .worm-block { background: linear-gradient(180deg, var(--worm-orange-light) 0%, var(--worm-orange) 50%, var(--worm-orange-dark)); }
+        .worm-yellow .worm-block { background: linear-gradient(180deg, var(--worm-yellow-light) 0%, var(--worm-yellow) 50%, var(--worm-yellow-dark)); }
+        .worm-green  .worm-block { background: linear-gradient(180deg, var(--worm-green-light)  0%, var(--worm-green)  50%, var(--worm-green-dark)); }
+        .worm-blue   .worm-block { background: linear-gradient(180deg, var(--worm-blue-light)   0%, var(--worm-blue)   50%, var(--worm-blue-dark)); }
+
+        /* ===== Right side - Target + Rules ===== */
+        .target-area {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.6vh;
+            padding: 1vh 0;
+            min-height: 0;
+        }
+
+        .target-card {
+            background: rgba(255, 255, 255, 0.3);
+            border: 3px dashed rgba(255, 255, 255, 0.7);
+            border-radius: 16px;
+            padding: 1.6vh 1.6vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.8vh;
+            /* Horizontal-aware: never overflow the right side panel */
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .target-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.2vw;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .target-row .worm {
+            /* Width-first sizing so we never overflow horizontally.
+               width = min(natural-width 18vh (= 12vh * 1.5),
+                           container-based (100% - 4 gaps) / 5 worms).
+               height is derived from aspect-ratio so the block keeps
+               its 1.5:1 ratio at every breakpoint. */
+            width: min(18vh, calc((100% - 4 * 1.2vw) / 5));
+            height: auto;
+            max-height: 12vh;
+            aspect-ratio: 1.5 / 1;
+            flex: 0 1 auto;
+            cursor: default;
+        }
+
+        .target-row .worm:hover {
+            transform: none;
+            filter: none;
+        }
+
+        .target-code {
+            font-size: clamp(1rem, 2.5vh, 1.4rem);
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+            letter-spacing: 0.4em;
+            font-family: monospace;
+        }
+
+        .rules-box {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 12px;
+            padding: 1.4vh 1.4vw;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+            font-size: clamp(0.75rem, 1.5vh, 0.92rem);
+            max-width: 92%;
+            line-height: 1.4;
+        }
+
+        .rules-box h3 {
+            font-size: clamp(0.9rem, 1.8vh, 1.1rem);
+            margin-bottom: 0.8vh;
+            text-align: center;
+            color: #fff;
+        }
+
+        .rules-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules-box li {
+            margin: 0.5vh 0;
+        }
+
+        .rules-box b { color: #ffe066; }
+
+        /* ===== Hint text ===== */
+        .hint-text {
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.45);
+            font-size: clamp(0.78rem, 1.6vh, 0.98rem);
+            text-align: center;
+            padding: 0.4vh 1vw;
+            font-style: italic;
+            min-height: 3.6vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ===== Custom input ===== */
+        .custom-input-area {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5vh;
+            padding: 1vh;
+            background: rgba(0, 0, 0, 0.16);
+            border-radius: 12px;
+            margin-top: 0.4vh;
+        }
+
+        .custom-input-area label {
+            color: #fff;
+            font-weight: bold;
+            font-size: clamp(0.78rem, 1.6vh, 1rem);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.45);
+        }
+
+        .custom-input {
+            width: 75%;
+            max-width: 220px;
+            padding: 0.8vh 1vw;
+            font-size: clamp(1rem, 2.6vh, 1.6rem);
+            text-align: center;
+            font-weight: bold;
+            letter-spacing: 0.4em;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.92);
+            color: #333;
+            text-transform: uppercase;
+            font-family: monospace;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .custom-input:focus {
+            outline: none;
+            border-color: gold;
+            box-shadow: 0 0 12px gold;
+        }
+
+        /* ===== Win overlay ===== */
+        .win-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.45s;
+        }
+
+        .win-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .win-message {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: white;
+            padding: 3vh 4vw;
+            border-radius: 20px;
+            font-size: clamp(1.4rem, 4vh, 3rem);
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            transform: scale(0.5);
+            transition: transform 0.5s;
+            border: 4px solid #fff7c2;
+        }
+
+        .win-overlay.show .win-message {
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-board">
+        <!-- LEFT SIDE: history + custom input -->
+        <div id="left-side" class="side">
+            <h1>Current Position</h1>
+            <div class="mode-indicator" id="mode-indicator">Mode: Swap</div>
+            <div class="history-area" id="history-area"></div>
+            <div class="hint-text" id="hint-text">Click two worms to swap them</div>
+            <div class="custom-input-area">
+                <label for="custom-input">Custom Start Code (R O Y G B):</label>
+                <input type="text" id="custom-input" class="custom-input"
+                       placeholder="ROYGB" maxlength="5"
+                       value="ROYGB"
+                       autocomplete="off"
+                       spellcheck="false">
+            </div>
+        </div>
+
+        <!-- MIDDLE SEPARATOR -->
+        <div class="middle-separator">
+            <button class="separator-btn active" id="btn-mode-swap" title="Swap Mode">🔄</button>
+            <button class="separator-btn" id="btn-mode-pair" title="Pair Mode">👫</button>
+            <button class="separator-btn" id="btn-new-game" title="New Game">🎲</button>
+            <button class="separator-btn" id="btn-reset" title="Reset">♻️</button>
+        </div>
+
+        <!-- RIGHT SIDE: target + rules -->
+        <div id="right-side" class="side">
+            <h1>Target Order</h1>
+            <div class="target-area">
+                <div class="target-card">
+                    <div class="target-row" id="target-row"></div>
+                    <div class="target-code">R O Y G B</div>
+                </div>
+                <div class="hint-text">Red → Orange → Yellow → Green → Blue</div>
+                <div class="rules-box">
+                    <h3>How to Play</h3>
+                    <ul>
+                        <li>🎯 Match the left side order to the right side target.</li>
+                        <li>🔄 <b>Swap Mode</b>: Click any two worms to swap them.</li>
+                        <li>👫 <b>Pair Mode</b>: Pick 2 adjacent worms, then another 2 adjacent worms. The two pairs swap.</li>
+                        <li>📝 Edit the code box and press <b>Enter</b> to set a custom start.</li>
+                        <li>🎲 Click the dice for a random solvable puzzle.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="win-overlay" id="win-overlay">
+        <div class="win-message">🎉 You Solved It! 🎉</div>
+    </div>
+
+    <script>
+        // ====== Worm configuration ======
+        // TARGET = ROYGB  =  Red, Orange, Yellow, Green, Blue
+        const WORMS = [
+            { code: 'R', name: 'red',    label: 'Red'    },
+            { code: 'O', name: 'orange', label: 'Orange' },
+            { code: 'Y', name: 'yellow', label: 'Yellow' },
+            { code: 'G', name: 'green',  label: 'Green'  },
+            { code: 'B', name: 'blue',   label: 'Blue'   }
+        ];
+
+        const TARGET = ['R', 'O', 'Y', 'G', 'B'];
+
+        // ====== Game state ======
+        let gameMode = 'swap';          // 'swap' | 'pair'
+        let history = [];               // array of states (each is array of worm codes)
+        let swapSelection = [];         // swap mode: 0..2 indices
+        let pairSelection = [];         // pair mode: 0..4 indices
+        let imageStatus = {};           // code -> 'loading' | 'loaded' | 'failed'
+        let initialPuzzle = null;       // for Reset button
+
+        // ====== DOM ======
+        const historyArea   = document.getElementById('history-area');
+        const targetRow     = document.getElementById('target-row');
+        const customInput   = document.getElementById('custom-input');
+        const modeIndicator = document.getElementById('mode-indicator');
+        const hintText      = document.getElementById('hint-text');
+        const winOverlay    = document.getElementById('win-overlay');
+
+        // ====== Utilities ======
+        function arraysEqual(a, b) {
+            return a.length === b.length && a.every((v, i) => v === b[i]);
+        }
+
+        function preloadImages() {
+            WORMS.forEach(worm => {
+                imageStatus[worm.code] = 'loading';
+                const img = new Image();
+                img.onload = () => {
+                    imageStatus[worm.code] = 'loaded';
+                    render();
+                };
+                img.onerror = () => {
+                    imageStatus[worm.code] = 'failed';
+                    render();
+                };
+                img.src = `worm/${worm.name}.png`;
+            });
+        }
+
+        // ====== Worm creation ======
+        function createWorm(code, locked = false) {
+            const worm = WORMS.find(w => w.code === code);
+            if (!worm) return null;
+
+            const el = document.createElement('div');
+            el.className = `worm worm-${worm.name}`;
+            if (locked) el.classList.add('locked');
+            el.dataset.code = code;
+
+            if (imageStatus[code] === 'loaded') {
+                const img = document.createElement('img');
+                img.src = `worm/${worm.name}.png`;
+                img.alt = worm.label;
+                el.appendChild(img);
+            } else {
+                const block = document.createElement('div');
+                block.className = 'worm-block';
+                const label = document.createElement('span');
+                label.className = 'label';
+                label.textContent = worm.code;
+                block.appendChild(label);
+                el.appendChild(block);
+            }
+
+            return el;
+        }
+
+        function getSelectionClass(colIndex) {
+            if (gameMode === 'swap') {
+                return swapSelection.includes(colIndex) ? 'selected' : '';
+            }
+            // pair mode
+            if (pairSelection.length === 0) return '';
+            if (pairSelection.length <= 2) {
+                return pairSelection.includes(colIndex) ? 'selected-pair1' : '';
+            }
+            // pairSelection.length >= 3
+            if (pairSelection.slice(0, 2).includes(colIndex)) return 'selected-pair1';
+            if (pairSelection.slice(2).includes(colIndex))     return 'selected-pair2';
+            return '';
+        }
+
+        // ====== Render ======
+        function render() {
+            // History rows
+            historyArea.innerHTML = '';
+            const rowCount = history.length;
+
+            history.forEach((state, rowIndex) => {
+                const row = document.createElement('div');
+                row.className = 'row';
+                row.dataset.rowIndex = rowIndex;
+
+                const isLastRow = rowIndex === rowCount - 1;
+                const isWinRow   = isLastRow && arraysEqual(state, TARGET);
+                if (isWinRow) row.classList.add('win-row');
+
+                // row number badge
+                const numEl = document.createElement('div');
+                numEl.className = 'row-num';
+                numEl.textContent = `#${rowIndex + 1}`;
+                row.appendChild(numEl);
+
+                state.forEach((code, idx) => {
+                    const wormEl = createWorm(code, !isLastRow);
+                    if (isLastRow) {
+                        wormEl.addEventListener('click', () => handleWormClick(idx));
+                        const sel = getSelectionClass(idx);
+                        if (sel) wormEl.classList.add(sel);
+                    }
+                    row.appendChild(wormEl);
+                });
+
+                historyArea.appendChild(row);
+            });
+
+            // Target row
+            targetRow.innerHTML = '';
+            TARGET.forEach(code => {
+                const wormEl = createWorm(code, true);
+                targetRow.appendChild(wormEl);
+            });
+
+            // Update custom input if not focused
+            if (history.length > 0 && document.activeElement !== customInput) {
+                customInput.value = history[history.length - 1].join('');
+            }
+        }
+
+        // ====== Click handling ======
+        function handleWormClick(colIndex) {
+            if (gameMode === 'swap') handleSwapClick(colIndex);
+            else                      handlePairClick(colIndex);
+        }
+
+        function handleSwapClick(colIndex) {
+            if (swapSelection.length === 0) {
+                swapSelection = [colIndex];
+                hintText.textContent = 'Now click another worm to swap';
+            } else if (swapSelection.length === 1) {
+                if (swapSelection[0] === colIndex) {
+                    swapSelection = [];
+                    hintText.textContent = 'Click two worms to swap them';
+                } else {
+                    const newState = [...history[history.length - 1]];
+                    [newState[swapSelection[0]], newState[colIndex]] =
+                        [newState[colIndex], newState[swapSelection[0]]];
+                    swapSelection = [];
+                    history.push(newState);
+
+                    if (arraysEqual(newState, TARGET)) {
+                        hintText.textContent = '🎉 You solved it! Try another puzzle 🎲';
+                        celebrate();
+                    } else {
+                        hintText.textContent = 'Click two worms to swap them';
+                    }
+                }
+            }
+            render();
+        }
+
+        function handlePairClick(colIndex) {
+            if (pairSelection.length === 0) {
+                pairSelection = [colIndex];
+                hintText.textContent = 'Click an ADJACENT worm to complete pair 1';
+            } else if (pairSelection.length === 1) {
+                if (pairSelection[0] === colIndex) {
+                    pairSelection = [];
+                    hintText.textContent = 'Pick two adjacent worms as pair 1';
+                } else if (Math.abs(colIndex - pairSelection[0]) === 1) {
+                    pairSelection.push(colIndex);
+                    pairSelection.sort((a, b) => a - b);
+                    hintText.textContent = 'Now pick the first worm of pair 2';
+                } else {
+                    pairSelection = [colIndex];
+                    hintText.textContent = 'Must be adjacent! Pick an adjacent worm';
+                }
+            } else if (pairSelection.length === 2) {
+                if (pairSelection.includes(colIndex)) {
+                    pairSelection = [];
+                    hintText.textContent = 'Pick two adjacent worms as pair 1';
+                } else {
+                    pairSelection.push(colIndex);
+                    hintText.textContent = 'Click an ADJACENT worm to complete pair 2';
+                }
+            } else if (pairSelection.length === 3) {
+                const third = pairSelection[2];
+                if (pairSelection.slice(0, 2).includes(colIndex)) {
+                    // restart pair 2
+                    pairSelection = pairSelection.slice(0, 2);
+                    hintText.textContent = 'Pick the first worm of pair 2';
+                } else if (Math.abs(colIndex - third) === 1 && !pairSelection.includes(colIndex)) {
+                    pairSelection.push(colIndex);
+                    performPairSwap();
+                    pairSelection = [];
+
+                    const newState = history[history.length - 1];
+                    if (arraysEqual(newState, TARGET)) {
+                        hintText.textContent = '🎉 You solved it! Try another puzzle 🎲';
+                        celebrate();
+                    } else {
+                        hintText.textContent = 'Pick two adjacent worms as pair 1';
+                    }
+                } else {
+                    pairSelection = [];
+                    hintText.textContent = 'Invalid. Pick two adjacent worms as pair 1';
+                }
+            }
+            render();
+        }
+
+        function performPairSwap() {
+            const sortedIndices = [...pairSelection].sort((a, b) => a - b);
+            const [a, b, c, d] = sortedIndices;
+            const state = [...history[history.length - 1]];
+            const tempA = state[a];
+            const tempB = state[b];
+            state[a] = state[c];
+            state[b] = state[d];
+            state[c] = tempA;
+            state[d] = tempB;
+            history.push(state);
+        }
+
+        // ====== Celebrate ======
+        function celebrate() {
+            winOverlay.classList.add('show');
+            if (typeof confetti === 'function') {
+                setTimeout(() => confetti({ particleCount: 120, spread: 75, origin: { y: 0.6 } }), 100);
+                setTimeout(() => confetti({ particleCount:  90, spread: 110, origin: { y: 0.5, x: 0.25 } }), 450);
+                setTimeout(() => confetti({ particleCount:  90, spread: 110, origin: { y: 0.5, x: 0.75 } }), 750);
+                setTimeout(() => confetti({ particleCount:  70, spread: 130, origin: { y: 0.7 } }), 1050);
+                setTimeout(() => confetti({ particleCount:  60, spread: 160, origin: { y: 0.4 } }), 1350);
+            }
+            setTimeout(() => winOverlay.classList.remove('show'), 3500);
+        }
+
+        // ====== Random puzzle generation ======
+        // Returns true if the state can be solved in exactly ONE single-swap move
+        function solvableInOneSwap(state) {
+            for (let i = 0; i < state.length; i++) {
+                for (let j = i + 1; j < state.length; j++) {
+                    const s = [...state];
+                    [s[i], s[j]] = [s[j], s[i]];
+                    if (arraysEqual(s, TARGET)) return true;
+                }
+            }
+            return false;
+        }
+
+        // Returns true if the state can be solved in exactly ONE pair-swap move
+        function solvableInOnePairSwap(state) {
+            const pairs = [];
+            for (let j = 0; j < state.length - 1; j++) pairs.push([j, j + 1]);
+            for (let i = 0; i < pairs.length; i++) {
+                for (let j = i + 1; j < pairs.length; j++) {
+                    const p1 = pairs[i], p2 = pairs[j];
+                    // skip overlapping pairs
+                    if (p1[1] === p2[0] || p2[1] === p1[0]) continue;
+                    const s = [...state];
+                    const v1 = [s[p1[0]], s[p1[1]]];
+                    const v2 = [s[p2[0]], s[p2[1]]];
+                    s[p1[0]] = v2[0]; s[p1[1]] = v2[1];
+                    s[p2[0]] = v1[0]; s[p2[1]] = v1[1];
+                    if (arraysEqual(s, TARGET)) return true;
+                }
+            }
+            return false;
+        }
+
+        function generateRandomPuzzle(mode) {
+            let state = [...TARGET];
+            // Make sure puzzle needs >1 move
+            const moves = mode === 'swap'
+                ? 4 + Math.floor(Math.random() * 4)   // 4..7 single swaps
+                : 2 + Math.floor(Math.random() * 2);  // 2..3 pair swaps
+
+            for (let i = 0; i < moves; i++) {
+                if (mode === 'swap') {
+                    const a = Math.floor(Math.random() * state.length);
+                    let b;
+                    do { b = Math.floor(Math.random() * state.length); } while (b === a);
+                    [state[a], state[b]] = [state[b], state[a]];
+                } else {
+                    // Pair mode: pick 2 non-overlapping adjacent pairs and swap them
+                    const pairs = [];
+                    for (let j = 0; j < state.length - 1; j++) pairs.push([j, j + 1]);
+                    const p1 = pairs[Math.floor(Math.random() * pairs.length)];
+                    // Pick a p2 that does NOT overlap p1 (guaranteed valid)
+                    const validP2 = pairs.filter(p =>
+                        p[0] !== p1[0] && p[0] !== p1[1] &&
+                        p[1] !== p1[0] && p[1] !== p1[1]
+                    );
+                    if (validP2.length === 0) continue; // no valid p2, skip move
+                    const p2 = validP2[Math.floor(Math.random() * validP2.length)];
+
+                    const v1 = [state[p1[0]], state[p1[1]]];
+                    const v2 = [state[p2[0]], state[p2[1]]];
+                    state[p1[0]] = v2[0]; state[p1[1]] = v2[1];
+                    state[p2[0]] = v1[0]; state[p2[1]] = v1[1];
+                }
+            }
+
+            // Ensure puzzle is not already solved AND needs more than 1 move to solve
+            if (arraysEqual(state, TARGET)) return generateRandomPuzzle(mode);
+            if (mode === 'swap' && solvableInOneSwap(state))     return generateRandomPuzzle(mode);
+            if (mode === 'pair' && solvableInOnePairSwap(state)) return generateRandomPuzzle(mode);
+
+            history = [state];
+            initialPuzzle = [...state];
+            swapSelection = [];
+            pairSelection = [];
+            render();
+        }
+
+        // ====== Custom start ======
+        function setCustomStart(code) {
+            code = code.toUpperCase().trim();
+            if (code.length !== 5) {
+                flashHint('Need exactly 5 letters: R O Y G B');
+                return false;
+            }
+            const valid = ['R', 'O', 'Y', 'G', 'B'];
+            for (const c of code) {
+                if (!valid.includes(c)) {
+                    flashHint(`Invalid letter "${c}". Use only R O Y G B`);
+                    return false;
+                }
+            }
+            if (new Set(code.split('')).size !== 5) {
+                flashHint('Each letter must appear exactly once');
+                return false;
+            }
+
+            history = [code.split('')];
+            initialPuzzle = [...code.split('')];
+            swapSelection = [];
+            pairSelection = [];
+            render();
+            flashHint('Custom start loaded!');
+            return true;
+        }
+
+        let hintTimer = null;
+        function flashHint(msg) {
+            hintText.textContent = msg;
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(() => {
+                hintText.textContent = defaultHintForMode();
+            }, 2200);
+        }
+
+        function defaultHintForMode() {
+            return gameMode === 'swap'
+                ? 'Click two worms to swap them'
+                : 'Pick two adjacent worms as pair 1';
+        }
+
+        // ====== Event listeners ======
+        document.getElementById('btn-mode-swap').addEventListener('click', () => {
+            gameMode = 'swap';
+            document.getElementById('btn-mode-swap').classList.add('active');
+            document.getElementById('btn-mode-pair').classList.remove('active');
+            modeIndicator.textContent = 'Mode: Swap';
+            swapSelection = [];
+            pairSelection = [];
+            flashHint('Swap mode: click two worms to swap');
+            render();
+        });
+
+        document.getElementById('btn-mode-pair').addEventListener('click', () => {
+            gameMode = 'pair';
+            document.getElementById('btn-mode-pair').classList.add('active');
+            document.getElementById('btn-mode-swap').classList.remove('active');
+            modeIndicator.textContent = 'Mode: Pair Swap';
+            swapSelection = [];
+            pairSelection = [];
+            flashHint('Pair mode: pick 2 adjacent worms, then another 2');
+            render();
+        });
+
+        document.getElementById('btn-new-game').addEventListener('click', () => {
+            generateRandomPuzzle(gameMode);
+            flashHint('New puzzle generated!');
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            if (initialPuzzle) {
+                history = [[...initialPuzzle]];
+                swapSelection = [];
+                pairSelection = [];
+                render();
+                flashHint('Reset to start');
+            }
+        });
+
+        customInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (setCustomStart(customInput.value)) {
+                    customInput.blur();
+                }
+            }
+        });
+
+        customInput.addEventListener('focus', () => {
+            customInput.select();
+        });
+
+        // ====== Initialize ======
+        preloadImages();
+        generateRandomPuzzle('swap');
+    </script>
+</body>
+</html>

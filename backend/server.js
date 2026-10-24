@@ -620,9 +620,11 @@ const server = http.createServer(async (req, res) => {
       const u = getUserByToken(getToken(req, q, body));
 
       // ── server-side chess AI (engine runs on the Hub, not the client) ────
+      // PUBLIC like game codes: no account needed to use the shared Stockfish,
+      // only the per-IP budget protects against flooding. A logged-in user gets
+      // an extra per-user limit on top.
       if (p === "/api/mg/chess/move" && req.method === "POST") {
-        if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
-        if (chessLimiter.hit(ip, "chess") || chessLimiter.hit(u.id, "chess"))
+        if (chessLimiter.hit(ip, "chess") || (u && chessLimiter.hit(u.id, "chess")))
           return json(res, 429, { ok: false, error: "Too many engine requests. Try again in a minute." });
         const fen = String(body.fen || "").slice(0, 400);
         if (
@@ -635,9 +637,9 @@ const server = http.createServer(async (req, res) => {
           await chessEngine.ensureReady();
           const r = await chessEngine.move({ fen, level, movetime });
           await logAudit({
-            actor: u.id,
+            actor: u ? u.id : "anon",
             action: "chess.move",
-            userId: u.id,
+            userId: u ? u.id : null,
             detail: `level ${level}`,
           });
           return json(res, 200, { ok: true, ...r, level, movetime });
@@ -647,7 +649,6 @@ const server = http.createServer(async (req, res) => {
         }
       }
       if (p === "/api/mg/chess/ping" && req.method === "GET") {
-        if (!u) return json(res, 401, { ok: false, error: "Not logged in." });
         return json(res, 200, { ok: true, engine: chessEngine.ready || false, version: chessEngine.version || null });
       }
 

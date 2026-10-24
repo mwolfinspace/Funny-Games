@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sun Moon Star – Loop Puzzle</title>
+<style>
+:root{color-scheme:light;--bg1:#e6e9f7;--bg2:#fffaf0;--gold:#c8921a;--ink:#2a2140;--panel:#ffffffb3;--line:#2a214038;--bar:#ffffff99;--field:#ffffffe6;--slot:#2a214066;--err:#c0182d}
+:root{--ar:.617;--botH:clamp(190px,30vh,280px);--mch:clamp(34px,6vh,64px)}
+:root[data-theme="dark"]{color-scheme:dark;--bg1:#0d1233;--bg2:#2b1a55;--gold:#d9a93c;--ink:#f6eed9;--panel:#ffffff12;--line:#ffffff2e;--bar:#00000038;--field:#00000050;--slot:#ffffff48;--err:#ff9aa5}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100dvh;overflow:hidden;color:var(--ink);font:15px/1.35 "Trebuchet MS",system-ui,sans-serif;background:radial-gradient(ellipse at 15% 0,var(--bg2),var(--bg1) 70%)}
+button,input{font:inherit}
+button{color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 9px;cursor:pointer;touch-action:manipulation}
+button:hover{border-color:var(--gold)}
+button.on{background:var(--gold);color:#2a1d04;border-color:var(--gold);font-weight:700}
+input{width:48px;padding:5px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px}
+#top{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;background:var(--bar);border-bottom:1px solid var(--line)}
+.grp{display:inline-flex;gap:6px;align-items:center;padding:3px 8px;border:1px solid var(--line);border-radius:12px}
+#seed{width:104px;text-align:center;letter-spacing:.06em}
+#mid{display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0}
+#board{position:relative;min-height:0;overflow:hidden;display:grid;place-items:center}
+#grid{display:grid;justify-content:center;align-content:center}
+.cell{display:grid;grid-template-rows:var(--lh,24px) auto}
+.no{font-size:calc(var(--lh,24px)*.78);line-height:var(--lh,24px);font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+.no.nx{color:var(--gold)}
+.slot{border:2px dashed var(--slot);cursor:pointer}
+.slot.f{border:0}
+.slot.nx{border-color:var(--gold);box-shadow:0 0 14px #d9a93c99}
+.slot svg{display:block;width:100%;height:100%}
+#info{padding:6px 14px;text-align:center;min-height:38px}
+#msg{font-weight:700;font-size:17px}
+#msg.err{color:var(--err)}
+#bTheme{margin-left:auto}
+#bHome{color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;text-decoration:none;line-height:1.35}
+#bHome:hover{border-color:var(--gold)}
+#left{display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:8px;min-width:0;min-height:0;height:100%;overflow:hidden}
+.cnts{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:22px}
+.cnts span{white-space:nowrap}
+.tot{font-size:14px;opacity:.75}
+.goal{font-size:12px;opacity:.85;max-width:62ch;margin-top:2px}
+#hHead{display:grid;grid-auto-flow:column;justify-content:start;align-items:center}
+#hints{margin:0;padding:0;list-style:none;overflow:auto;min-height:0;font-size:15px;display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:4px 12px;align-content:start}
+#hints li{white-space:nowrap}
+.mc{display:inline-block;height:var(--mch);aspect-ratio:var(--ar);vertical-align:middle;margin-left:6px}
+.mc svg{display:block;width:100%;height:100%}
+#bot{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:20px;align-items:center;height:var(--botH);padding:10px 18px;background:var(--bar);border-top:1px solid var(--line)}
+#bank{display:grid;grid-auto-flow:column;gap:24px;align-items:center}
+.bk{position:relative;height:calc(var(--botH) - 44px);transition:transform .12s;aspect-ratio:var(--ar);padding:0;border:0;background:none}
+.bk svg{display:block;width:100%;height:100%}
+.bk b{position:absolute;right:-8px;top:-9px;padding:1px 8px;border-radius:99px;background:var(--gold);color:#2a1d04;font-size:13px}
+.bk:disabled{opacity:.4;cursor:default}
+.bk:not(:disabled):hover{transform:translateY(-4px)}
+#acts{display:grid;grid-template-rows:1fr 1.5fr;gap:12px;justify-self:end;align-self:stretch;width:min(100%,300px)}
+#acts button{font-size:clamp(18px,2.6vh,28px);font-weight:700;border-radius:16px}
+#cross{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;opacity:0}
+#cross.show{animation:pop 1.2s}
+@keyframes pop{0%{opacity:0;transform:scale(.4)}15%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1.1)}}
+#cf{position:fixed;inset:0;pointer-events:none}
+@media(min-width:1500px){#bot{grid-template-columns:minmax(0,1.3fr) auto minmax(0,.7fr)}#acts{width:min(100%,340px)}#left{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);grid-template-rows:auto minmax(0,1fr);column-gap:24px}#target{grid-column:1;grid-row:1/3}#hHead{grid-column:2;grid-row:1}#hints{grid-column:2;grid-row:2}}
+@media(max-width:900px){#bot{height:auto;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:none}#left{grid-column:1/-1;max-height:26vh}.bk{height:clamp(84px,17vh,140px)}#acts{grid-template-rows:none;width:auto}}
+</style>
+</head>
+<body>
+<header id="top">
+  <a id="bHome" href="index.html" title="Back to index">🏠</a>
+  <button id="bNew">🎲 New game</button>
+  <span class="grp">☀️ Sun <input id="iS" type="number" min="1" max="30" value="4">
+    🌙 Moon <input id="iM" type="number" min="1" max="30" value="6">
+    <span id="gR">⭐ Star <input id="iR" type="number" min="1" max="30" value="3"></span>
+    <button id="bCustom">Custom game</button></span>
+  <button id="bMode"></button>
+  <button id="bTypes"></button>
+  <button id="bArt"></button>
+  <button id="bWrap"></button>
+  <button id="bHint"></button>
+  <button id="bRes">👁 Result</button>
+  <span class="grp">Seed <input id="seed" spellcheck="false"><button id="bLoad">Load</button></span>
+  <button id="bTheme"></button>
+</header>
+
+<main id="mid">
+  <div id="board"><div id="grid"></div></div>
+  <div id="info"><div id="msg"></div></div>
+</main>
+
+<footer id="bot">
+  <div id="left">
+    <div id="target"></div>
+    <div id="hHead"><span class="grp" id="hCnt">💡 Hints <button id="hMinus" title="Fewer hints">−</button><b id="hNum">2</b><button id="hPlus" title="More hints">+</button></span></div>
+    <ol id="hints"></ol>
+  </div>
+  <div id="bank"></div>
+  <div id="acts"><button id="bReset">↺ Reset</button><button id="bCheck" class="on">✔ Check</button></div>
+</footer>
+
+<div id="cross"><svg viewBox="0 0 100 100" style="width:min(70vmin,500px)"><path d="M12 12L88 88M88 12L12 88" stroke="#ff4d5e" stroke-width="16" stroke-linecap="round"/></svg></div>
+<canvas id="cf"></canvas>
+
+<script>
+const $=id=>document.getElementById(id);
+const T={s:{e:'☀️',img:'smt/sun.svg',bg:'#ffe3a3',nm:'Sun'},
+         m:{e:'🌙',img:'smt/moon.svg',bg:'#cfd7ff',nm:'Moon'},
+         r:{e:'⭐',img:'smt/star.svg',bg:'#ffd3e6',nm:'Star'}};
+const ok={};                       // which SVG files actually loaded
+const R=1.62, MAXN=60;             // golden-ratio card, max cards
+let st={sol:'',mode:'E',types:3,hint:true,hn:2,svg:false,wrap:true,dark:false,order:[],seq:[],cur:0,shown:false};
+
+/* ---------- helpers ---------- */
+let RNG=Math.random;                 // swapped for a seeded generator while a puzzle is built
+const rnd=(a,b)=>a+Math.floor(RNG()*(b-a+1));
+const pick=a=>a[rnd(0,a.length-1)];
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=rnd(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
+const gcd=(a,b)=>b?gcd(b,a%b):a;
+const cnt=s=>({s:(s.match(/s/g)||[]).length,m:(s.match(/m/g)||[]).length,r:(s.match(/r/g)||[]).length});
+const ord=n=>{const x=['th','st','nd','rd'],v=n%100;return n+(x[(v-20)%10]||x[v]||x[0])};
+// smallest loop length p (p divides N, at least 2 loops) or 0 if not a valid loop
+function period(a){const n=a.length;for(let p=1;p<=n/2;p++){if(n%p)continue;let g=true;for(let i=p;i<n;i++)if(a[i]!==a[i-p]){g=false;break}if(g)return p}return 0}
+const ratio={};                    // measured height/width of each loaded SVG file
+function measure(i){               // let the browser resolve width from a fixed height (works for viewBox-only SVGs too)
+  i.style.cssText='position:absolute;visibility:hidden;height:1000px;width:auto';
+  document.body.appendChild(i);const w=i.getBoundingClientRect().width;i.remove();i.style.cssText='';
+  const r=w>0?1000/w:i.naturalHeight/i.naturalWidth;
+  return r>.3&&r<4?r:0;
+}
+function curR(){                   // card height/width: the SVG's own ratio in SVG mode, golden ratio for emoji
+  if(st.svg)for(const k of ['s','m','r'])if(ok[k]&&ratio[k])return ratio[k];
+  return R;
+}
+const useImg=k=>st.svg&&ok[k];      // SVG only when switched on and actually loaded
+const ic=t=>useImg(t)?`<img src="${T[t].img}" alt="${T[t].nm}" style="height:1.25em;vertical-align:-.25em">`:T[t].e;
+function say(t,err){$('msg').className=err?'err':'';$('msg').innerHTML=t}
+
+/* ---------- SVG card (golden ratio, rounded gold border, emoji failsafe) ---------- */
+function card(k){
+  const H=+(curR()*100).toFixed(2);
+  // SVG art is already a finished card: fill the whole slot with it, no extra frame or padding
+  if(useImg(k))return `<svg viewBox="0 0 100 ${H}" xmlns="http://www.w3.org/2000/svg"><image href="${T[k].img}" x="0" y="0" width="100" height="${H}" preserveAspectRatio="xMidYMid meet"/></svg>`;
+  // emoji failsafe: drawn card with rounded gold border
+  return `<svg viewBox="0 0 100 ${H}" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="94" height="${H-6}" rx="16" fill="${T[k].bg}" stroke="#d9a93c" stroke-width="5"/><rect x="11" y="11" width="78" height="${H-22}" rx="10" fill="none" stroke="#b8860b" stroke-opacity=".45" stroke-width="1.5"/><text x="50" y="${H/2+3}" font-size="58" text-anchor="middle" dominant-baseline="central">${T[k].e}</text></svg>`;
+}
+
+/* ---------- puzzle generation (short, opaque seed) ---------- */
+// Seed = mode + the three card counts + 20 random bits, packed into 8 base-36 characters (e.g. 7K2F-Q9XD).
+// The pattern is rebuilt from those random bits, so the seed never spells out the answer.
+const P20=1<<20;
+function prng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function enc(mode,c,rand){
+  let n=mode==='H'?1:0;
+  n=((n*64+c.s)*64+c.m)*64+c.r;n=n*P20+rand;
+  const t=n.toString(36).toUpperCase().padStart(8,'0');
+  return t.slice(0,4)+'-'+t.slice(4);
+}
+function dec(txt){
+  const t=txt.replace(/[^0-9a-z]/gi,'');
+  if(t.length!==8)return null;
+  let n=parseInt(t,36);if(!isFinite(n))return null;
+  const rand=n%P20;n=Math.floor(n/P20);
+  const r=n%64;n=Math.floor(n/64);const m=n%64;n=Math.floor(n/64);const s=n%64;n=Math.floor(n/64);
+  return n>1?null:{mode:n?'H':'E',c:{s,m,r},rand};
+}
+// Rebuild the same puzzle (solution + hint order) from mode, counts and random bits.
+function build(mode,c,rand){
+  const ks=['s','m','r'].filter(k=>c[k]>0),tot=ks.reduce((a,k)=>a+c[k],0);
+  if(!c.s||!c.m||tot>MAXN)return null;
+  const g=ks.reduce((a,k)=>gcd(a,c[k]),0);
+  if(g<2)return null;
+  RNG=prng(rand);
+  const ds=[];for(let d=2;d<=g;d++)if(g%d===0)ds.push(d);
+  const lim=mode==='H'?5:3,pref=ds.filter(d=>d<=lim),d=pick(pref.length?pref:ds);
+  const b=[];ks.forEach(k=>{for(let i=0;i<c[k]/d;i++)b.push(k)});
+  const sol=shuffle(b).join('').repeat(d),order=shuffle([...Array(sol.length).keys()]);
+  RNG=Math.random;
+  return {sol,order};
+}
+function start(mode,c,rand){
+  const o=build(mode,c,rand);if(!o)return false;
+  Object.assign(st,{mode,sol:o.sol,order:o.order,seq:Array(o.sol.length).fill(''),cur:0,shown:false,types:c.r>0?3:2});
+  $('seed').value=enc(mode,c,rand);
+  $('iS').value=c.s;$('iM').value=c.m;if(c.r)$('iR').value=c.r;
+  say(helpMsg());
+  ui();draw();return true;
+}
+function newGame(){
+  const hard=st.mode==='H',ks=st.types===2?['s','m']:['s','m','r'],k=rnd(2,hard?5:3),c={s:0,m:0,r:0};
+  ks.forEach(t=>c[t]=k*rnd(1,hard?4:3));
+  start(st.mode,c,rnd(0,P20-1));
+}
+function custom(){
+  const ks=st.types===2?['s','m']:['s','m','r'];
+  const c={s:+$('iS').value|0,m:+$('iM').value|0,r:st.types===3?+$('iR').value|0:0};
+  if(ks.some(k=>c[k]<1))return say('Every card type in use needs at least 1 card.',1);
+  if(ks.reduce((a,k)=>a+c[k],0)>MAXN)return say('Use at most '+MAXN+' cards in total.',1);
+  const g=ks.reduce((a,k)=>gcd(a,c[k]),0);
+  if(g<2)return say('No loop is possible: every count must share a divisor of 2 or more (for example 4 sun + 6 moon makes 2 loops).',1);
+  start(st.mode,c,rnd(0,P20-1));
+}
+function loadSeed(){
+  const d=dec($('seed').value);
+  if(!d||!start(d.mode,d.c,d.rand))return say('Seed not recognised. It looks like 7K2F-Q9XD.',1);
+  st.hint=st.mode==='E';ui();renderHints();
+}
+
+/* ---------- UI refresh ---------- */
+function ui(){
+  $('bMode').textContent='Mode: '+(st.mode==='E'?'Easy':'Hard');
+  $('bTypes').textContent='Types: '+st.types;
+  $('bWrap').textContent='Wrap: '+(st.wrap?'2–3 rows':'1 row');
+  $('bWrap').classList.toggle('on',st.wrap);
+  $('bWrap').title='On: cards wrap into two or three rows. Off: every card stays in one row.';
+  document.documentElement.dataset.theme=st.dark?'dark':'light';
+  $('bTheme').innerHTML=st.dark?ic('m')+' Dark':ic('s')+' Light';
+  $('bTheme').title=st.dark?'Switch to light mode':'Switch to dark mode';
+  const any=Object.keys(ok).length>0;
+  $('bArt').textContent='Art: '+(st.svg&&any?'SVG':'Emoji');
+  $('bArt').classList.toggle('on',st.svg&&any);
+  $('bArt').title=any?'Switch between your SVG images and the emoji failsafe':'No SVG found in smt/, showing emoji';
+  $('bHint').textContent='Hint: '+(st.hint?'On':'Off');
+  $('bHint').classList.toggle('on',st.hint);
+  $('gR').style.display=st.types===3?'':'none';
+}
+function draw(){document.documentElement.style.setProperty('--ar',(1/curR()).toFixed(5));layout();renderBank();renderTarget();renderHints()}
+const view=()=>st.shown?[...st.sol]:st.seq;
+
+const LH=w=>Math.min(36,Math.max(22,w*.24));   // height of the slot-number label
+function layout(){
+  const cr=curR(),rad=cr===R?.16:.1,N=st.sol.length,bd=$('board'),W=bd.clientWidth-28,H=bd.clientHeight-10,g=6;
+  if(W<=0||H<=0)return;
+  let best={w:0,c:1};
+  for(const rows of st.wrap?[2,3]:[1]){          // wrap on: best of 2 or 3 rows; wrap off: one row
+    const c=Math.ceil(N/rows),r=Math.ceil(N/c);
+    let w=Math.min(190,(W-g*(c-1))/c);
+    while(w>8&&r*(LH(w)+w*cr)+g*(r-1)>H)w-=.5;   // shrink until label + card rows fit the height
+    if(w>best.w)best={w,c};
+  }
+  const w=Math.max(8,Math.floor(best.w)),v=view();
+  const gr=$('grid');
+  gr.style.gridTemplateColumns=`repeat(${best.c},${w}px)`;
+  gr.style.gap=g+'px';gr.style.setProperty('--lh',LH(w)+'px');
+  let h='';
+  for(let i=0;i<N;i++){
+    const f=v[i],nx=!st.shown&&i===st.cur;
+    h+=`<div class="cell" data-i="${i}"><div class="no${nx?' nx':''}">${i+1}</div><div class="slot${f?' f':''}${nx?' nx':''}" style="height:${(w*cr).toFixed(1)}px;border-radius:${(w*rad).toFixed(1)}px">${f?card(f):''}</div></div>`;
+  }
+  gr.innerHTML=h;
+}
+function renderBank(){
+  const c=cnt(st.sol),u=cnt(st.seq.join('')),ks=st.types===2?['s','m']:['s','m','r'];
+  $('bank').innerHTML=ks.map(t=>`<button class="bk" data-t="${t}" title="${T[t].nm}" ${st.shown||st.cur<0||u[t]>=c[t]?'disabled':''}>${card(t)}<b>${u[t]}/${c[t]}</b></button>`).join('');
+}
+function renderTarget(){
+  const c=cnt(st.sol),ks=st.types===2?['s','m']:['s','m','r'];
+  $('target').innerHTML=`<div class="cnts">${ks.map(t=>`<span>${ic(t)} <b>×${c[t]}</b></span>`).join('')}<span class="tot">${st.sol.length} cards</span></div><div class="goal">Goal: use every card in one line that repeats a pattern at least 2 times and ends exactly at the end of a loop.</div>`;
+}
+const hMax=()=>Math.max(1,st.sol.length-1);
+function renderHints(){
+  const n=Math.min(st.hn,hMax()),list=st.order.slice(0,n).sort((a,b)=>a-b);
+  $('hNum').textContent=n;
+  $('hMinus').disabled=n<=1;$('hPlus').disabled=n>=hMax();
+  $('hCnt').style.opacity=st.hint?1:.5;
+  $('hints').innerHTML=st.hint?list.map((i,n)=>`<li><b>${n+1}.</b> The ${ord(i+1)} card is <span class="mc">${card(st.sol[i])}</span></li>`).join(''):'<li style="opacity:.6">Hints are off.</li>';
+}
+
+/* ---------- actions ---------- */
+function add(t){
+  if(st.shown||st.cur<0)return;const c=cnt(st.sol),u=cnt(st.seq.join(''));
+  if(u[t]>=c[t])return;
+  st.seq[st.cur]=t;st.cur=nextEmpty(st.cur);tone(660,0,.06);draw();   // fill the selected slot, then move on
+}
+// next empty slot to the right; at the right edge, go back to the first hole on the left; -1 when full
+function nextEmpty(from){
+  const n=st.seq.length;
+  for(let i=from+1;i<n;i++)if(!st.seq[i])return i;
+  for(let i=0;i<=from&&i<n;i++)if(!st.seq[i])return i;
+  return -1;
+}
+function check(){
+  if(st.shown)return;const N=st.sol.length;
+  const left=st.seq.filter(x=>!x).length;
+  if(left)return say(`Fill every slot first (${N-left}/${N}).`,1);
+  const p=period(st.seq);
+  if(p){say(`Correct! Pattern ${st.seq.slice(0,p).map(ic).join('')} repeats ${N/p} times.`);confetti();sfx(1)}
+  else{say('Not a full loop yet. Take another look and try again, you can do it!',1);cross();sfx(0)}
+}
+function reveal(){
+  const p=period([...st.sol]),b=[...st.sol.slice(0,p)].map(ic).join(''),k=st.sol.length/p;
+  st.shown=true;say(`Main solution: ${Array(k).fill(b).join(' | ')} |`);draw();
+}
+const helpMsg=()=>'Fill all '+st.sol.length+' slots, then press Check. Tip: click an empty slot to choose where the next card goes.';
+function reset(){st.seq=Array(st.sol.length).fill('');st.cur=0;st.shown=false;say(helpMsg());draw()}
+
+$('bank').onclick=e=>{const b=e.target.closest('.bk');if(b)add(b.dataset.t)};
+$('grid').onclick=e=>{const c=e.target.closest('.cell');if(!c||st.shown)return;const i=+c.dataset.i;if(st.seq[i]){st.seq[i]='';st.cur=i;draw()}          // take a card down and select that hole
+  else if(st.cur!==i){st.cur=i;draw()}};                // choose which empty slot the next card fills
+$('bNew').onclick=newGame;
+$('bCustom').onclick=custom;
+$('bMode').onclick=()=>{st.mode=st.mode==='E'?'H':'E';st.hint=st.mode==='E';newGame()};
+$('bTypes').onclick=()=>{st.types=st.types===3?2:3;newGame()};
+$('bTheme').onclick=()=>{st.dark=!st.dark;ui()};
+$('bWrap').onclick=()=>{st.wrap=!st.wrap;ui();layout()};
+$('bArt').onclick=()=>{st.svg=!st.svg;ui();draw()};
+$('bHint').onclick=()=>{st.hint=!st.hint;ui();renderHints()};
+$('hMinus').onclick=()=>{st.hn=Math.max(1,Math.min(st.hn,hMax())-1);renderHints()};
+$('hPlus').onclick=()=>{st.hn=Math.min(hMax(),st.hn+1);renderHints()};
+$('bRes').onclick=reveal;
+$('bLoad').onclick=loadSeed;
+$('seed').onkeydown=e=>{if(e.key==='Enter')loadSeed()};
+$('bReset').onclick=reset;
+$('bCheck').onclick=check;
+document.onkeydown=e=>{
+  if(e.target.tagName==='INPUT')return;
+  const k=e.key.toLowerCase();
+  if('smr'.includes(k)&&k.length===1&&(k!=='r'||st.types===3))add(k);
+  else if(e.key==='Backspace'&&!st.shown){let i=st.seq.length-1;while(i>=0&&!st.seq[i])i--;if(i>=0){st.seq[i]='';st.cur=i;draw()}}
+  else if(e.key==='Enter')check();
+};
+new ResizeObserver(layout).observe($('board'));
+
+/* ---------- feedback: sound, cross, confetti ---------- */
+let AC;
+function tone(f,t,d,ty='sine',v=.12){
+  try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+  const o=AC.createOscillator(),g=AC.createGain(),s=AC.currentTime+t;
+  o.type=ty;o.frequency.value=f;g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.001,s+d);
+  o.connect(g).connect(AC.destination);o.start(s);o.stop(s+d)}catch(_){}
+}
+function sfx(win){(win?[523,659,784,1047]:[392,330,262,196]).forEach((f,i)=>tone(f,i*(win?.12:.28),win?.25:.4,win?'triangle':'sawtooth',win?.15:.1))}
+function cross(){const c=$('cross');c.classList.remove('show');void c.offsetWidth;c.classList.add('show')}
+function confetti(){
+  const c=$('cf'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  const P=Array.from({length:170},()=>({x:innerWidth/2,y:innerHeight*.6,vx:(Math.random()-.5)*18,vy:-Math.random()*17-4,s:6+Math.random()*7,c:`hsl(${Math.random()*360} 90% 60%)`,r:Math.random()*6}));
+  let f=0;(function a(){x.clearRect(0,0,c.width,c.height);
+    P.forEach(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.r+=.2;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);x.restore()});
+    if(++f<180)requestAnimationFrame(a);else x.clearRect(0,0,c.width,c.height)})();
+}
+
+/* ---------- start ---------- */
+newGame();
+for(const k in T){const i=new Image();i.onload=()=>{ok[k]=1;ratio[k]=measure(i);ui();draw()};i.src=T[k].img}  // SVG loads -> swap emoji for image
+</script>
+</body>
+</html>
