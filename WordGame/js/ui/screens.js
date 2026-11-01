@@ -275,18 +275,16 @@ window.WG = window.WG || {};
         }
       }, ["Load"]);
 
-      // Go → straight into the test with those words
+      // Go → start learning those words, same as the Start button
       const seedGo = WG.el("button", {
-        type: "button", class: "lc-go", title: "Load and start the test",
+        type: "button", class: "lc-go", title: "Load and start learning",
         onclick: () => {
           const got = WG.seed.decode(seedInput.value);
           if (!got) return;
           WG.sfx.play("done");
           applySeed(got);
-          ui.enterTestDefaults();
           WG.engine.startRound("custom", got.words.length);
-          WG.engine.enterTest();
-          ui.show("test");
+          ui.show("learn");
         }
       }, ["Go"]);
       seedLoad.disabled = true;
