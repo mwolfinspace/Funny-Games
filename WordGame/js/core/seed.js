@@ -1,13 +1,20 @@
 // Canonical dictionary order + seed ids for custom word lists.
 //
-// A seed id is a self-contained, short code for a set of words: the set is
-// ranked with the combinatorial number system (order-independent, no
-// duplicates) and written in base 64. Nothing is stored on a server, so the
-// same code always rebuilds the same list — as long as the word files below
-// stay in the same order.
+// A seed id is a self-contained, short code for a *set* of words: order and
+// duplicates don't matter, so the set is ranked with the combinatorial number
+// system and written in a wide printable alphabet (digits + letters +
+// symbols). Nothing is stored on a server, so the same code always rebuilds
+// the same list — as long as the word files below stay in the same order.
 window.WG = window.WG || {};
 (function () {
-  const AB = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
+  // 83 chars: everything printable except space, quotes, backslash, angle
+  // brackets, comma/semicolon/braces and & — the ones that get mangled by
+  // shells, chat apps or HTML. More symbols per char = shorter codes.
+  const AB = "0123456789abcdefghijklmnopqrstuvwxyz" +
+             "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+             "!#$%()*+-./:=?@[]^_|~";
+  const CHK_BITS = 10;          // 1024 buckets: catches typos without bulk
+  const CHK_MOD = 1 << CHK_BITS;
   const MAX_N = 200;            // far more words than any lesson needs
   const MAX_CODE = 240;         // reject absurdly long pasted strings
   const TAG = { PREA1: "Pre-A1", A1: "A1", A2: "A2" };
@@ -49,22 +56,24 @@ window.WG = window.WG || {};
   // silently loading a different list.
   function chk(ids) {
     let h = 7;
-    for (let i = 0; i < ids.length; i++) h = (h * 131 + ids[i] + 1) % 4096;
+    for (let i = 0; i < ids.length; i++) h = (h * 131 + ids[i] + 1) % CHK_MOD;
     return h;
   }
 
-  function toB64(v) {
+  function pack(v) {
     let s = "";
-    while (v > 0n) { s = AB[Number(v % 64n)] + s; v /= 64n; }
+    const BASE = B(AB.length);
+    while (v > 0n) { s = AB[Number(v % BASE)] + s; v /= BASE; }
     return s;
   }
 
-  function fromB64(s) {
+  function unpack(s) {
+    const BASE = B(AB.length);
     let v = 0n;
     for (let i = 0; i < s.length; i++) {
       const d = AB.indexOf(s[i]);
       if (d < 0) return null;
-      v = v * 64n + B(d);
+      v = v * BASE + B(d);
     }
     return v;
   }
@@ -89,7 +98,7 @@ window.WG = window.WG || {};
     let cum = 0n;
     for (let k = 0; k < ids.length; k++) cum += binom(M, k);
 
-    return toB64((cum + rank) * 4096n + B(chk(ids)));
+    return pack((cum + rank) * B(CHK_MOD) + B(chk(ids)));
   }
 
   function decode(code) {
@@ -97,11 +106,11 @@ window.WG = window.WG || {};
     const s = String(code == null ? "" : code).trim();
     if (!s || s.length > MAX_CODE) return null;
 
-    const raw = fromB64(s);
+    const raw = unpack(s);
     if (raw === null || raw <= 0n) return null;
 
-    const sum = Number(raw % 4096n);
-    let v = raw / 4096n;
+    const sum = Number(raw % B(CHK_MOD));
+    let v = raw / B(CHK_MOD);
     const M = RECS.length;
 
     // recover the set size, then the rank within it
