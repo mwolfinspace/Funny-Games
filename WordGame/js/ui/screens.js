@@ -252,19 +252,44 @@ window.WG = window.WG || {};
         spellcheck: "false", "aria-label": "Seed id"
       });
       const seedMark = WG.el("span", { class: "lc-seed-mark", "aria-hidden": "true" });
+
+      // store the seed's words as the custom pool and select that mode
+      const applySeed = got => {
+        WG.store.setCustomWords(got.words);
+        s.level = "custom";
+        s.count = got.words.length;
+        WG.store.saveSettings();
+      };
+
+      // Load → open the picker with those words already ticked, so the
+      // teacher can check or edit them before playing
+      const seedLoad = WG.el("button", {
+        type: "button", class: "lc-load", title: "Load and review the words",
+        onclick: () => {
+          const got = WG.seed.decode(seedInput.value);
+          if (!got) return;
+          WG.sfx.play("tap");
+          applySeed(got);
+          ui.show("welcome");   // refresh the badge behind the popup
+          WG.picker.open();
+        }
+      }, ["Load"]);
+
+      // Go → straight into the test with those words
       const seedGo = WG.el("button", {
-        type: "button", class: "lc-go", title: "Load this seed",
+        type: "button", class: "lc-go", title: "Load and start the test",
         onclick: () => {
           const got = WG.seed.decode(seedInput.value);
           if (!got) return;
           WG.sfx.play("done");
-          WG.store.setCustomWords(got.words);
-          s.level = "custom";
-          s.count = got.words.length;
-          WG.store.saveSettings();
-          ui.show("welcome");
+          applySeed(got);
+          ui.enterTestDefaults();
+          WG.engine.startRound("custom", got.words.length);
+          WG.engine.enterTest();
+          ui.show("test");
         }
       }, ["Go"]);
+      seedLoad.disabled = true;
       seedGo.disabled = true;
 
       const checkSeed = () => {
@@ -274,6 +299,7 @@ window.WG = window.WG || {};
         seedMark.className = "lc-seed-mark" + (v ? (ok ? " ok" : " bad") : "");
         seedInput.classList.toggle("ok", !!v && ok);
         seedInput.classList.toggle("bad", !!v && !ok);
+        seedLoad.disabled = !ok;
         seedGo.disabled = !ok;
       };
       seedInput.addEventListener("input", checkSeed);
@@ -294,7 +320,7 @@ window.WG = window.WG || {};
           ]),
           customBadge
         ]),
-        WG.el("div", { class: "lc-seed" }, [seedInput, seedMark, seedGo])
+        WG.el("div", { class: "lc-seed" }, [seedInput, seedMark, seedLoad, seedGo])
       ]);
       levelsPanel.append(customBtn);
       main.append(levelsPanel);
