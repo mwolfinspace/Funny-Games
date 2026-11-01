@@ -72,6 +72,15 @@ window.WG = window.WG || {};
       WG.storeSet("imgCache", c);
     },
 
+    // ── custom word list (full word records, survives F5) ────
+    customWords() {
+      const v = WG.storeGet("customWords", []);
+      return Array.isArray(v) ? v : [];
+    },
+    setCustomWords(list) {
+      WG.storeSet("customWords", Array.isArray(list) ? list : []);
+    },
+
     k: w => String(w).toLowerCase()
   };
 })();

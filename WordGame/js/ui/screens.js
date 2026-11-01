@@ -140,16 +140,25 @@ window.WG = window.WG || {};
     // ═══════════════════════ welcome ═══════════════════════
     renderWelcome() {
       const s = WG.store.settings;
+      // a saved custom level whose list is empty has nothing to play
+      if (s.level === "custom" && !WG.store.customWords().length) {
+        s.level = "prea1";
+        WG.store.saveSettings();
+      }
       const LEVEL_META = {
         prea1:     { tag: "PRE-A1", short: "Starters",  full: "Pre-A1 Starters",       desc: "First words, colours & animals",       color: "#1fae6e" },
         a1:        { tag: "A1",     short: "Movers",    full: "A1 Movers",             desc: "Everyday routines & short sentences",  color: "#5b7cfa" },
         a2:        { tag: "A2",     short: "Flyers",    full: "A2 Flyers",             desc: "Richer stories & bigger ideas",        color: "#8b5cf6" },
-        challenge: { tag: "ALL",    short: "Challenge", full: "Challenge — all levels", desc: "A mix of every Cambridge level",       color: "#f59e0b" }
+        challenge: { tag: "ALL",    short: "Challenge", full: "Challenge — all levels", desc: "A mix of every Cambridge level",       color: "#f59e0b" },
+        custom:    { tag: "MY",     short: "Custom",    full: "Custom word list",      desc: "Your own picked words",                color: "#ec4899" }
       };
       const meta = key => LEVEL_META[key] || {
         tag: String(key).toUpperCase(), short: key, full: key, desc: "Practise this word pool", color: "#5b7cfa"
       };
-      const maxCount = () => Math.max(5, WG.engine.poolSize(s.level) || 40);
+      // a custom round always uses every picked word
+      const maxCount = () => s.level === "custom"
+        ? Math.max(1, WG.store.customWords().length)
+        : Math.max(5, WG.engine.poolSize(s.level) || 40);
 
       const wrap = WG.el("div", { class: "welcome" });
       // middle area: everything you set up scrolls here, never the page
@@ -196,6 +205,7 @@ window.WG = window.WG || {};
       ]);
       const grid = WG.el("div", { class: "lvl-grid" });
       Object.keys(WG.engine.LEVELS).forEach(key => {
+        if (key === "custom") return; // built as its own banner below the grid
         const L = WG.engine.LEVELS[key];
         const M = meta(key);
         const size = WG.engine.poolSize(key);
@@ -228,6 +238,65 @@ window.WG = window.WG || {};
         grid.append(card);
       });
       levelsPanel.append(grid);
+
+      // ── custom list: opens the picker instead of selecting a level ──
+      const customN = WG.store.customWords().length;
+      const customOn = s.level === "custom" && customN > 0;
+      const customBadge = WG.el("span", { class: "lc-badge" }, [
+        customN ? customN + (customN === 1 ? " word" : " words") : null
+      ]);
+
+      const seedInput = WG.el("input", {
+        class: "lc-seed-input", type: "text", placeholder: "Paste a seed id…",
+        autocomplete: "off", autocorrect: "off", autocapitalize: "off",
+        spellcheck: "false", "aria-label": "Seed id"
+      });
+      const seedMark = WG.el("span", { class: "lc-seed-mark", "aria-hidden": "true" });
+      const seedGo = WG.el("button", {
+        type: "button", class: "lc-go", title: "Load this seed",
+        onclick: () => {
+          const got = WG.seed.decode(seedInput.value);
+          if (!got) return;
+          WG.sfx.play("done");
+          WG.store.setCustomWords(got.words);
+          s.level = "custom";
+          s.count = got.words.length;
+          WG.store.saveSettings();
+          ui.show("welcome");
+        }
+      }, ["Go"]);
+      seedGo.disabled = true;
+
+      const checkSeed = () => {
+        const v = seedInput.value.trim();
+        const ok = !!v && WG.seed.check(v);
+        seedMark.textContent = v ? (ok ? "✓" : "✗") : "";
+        seedMark.className = "lc-seed-mark" + (v ? (ok ? " ok" : " bad") : "");
+        seedInput.classList.toggle("ok", !!v && ok);
+        seedInput.classList.toggle("bad", !!v && !ok);
+        seedGo.disabled = !ok;
+      };
+      seedInput.addEventListener("input", checkSeed);
+      seedInput.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !seedGo.disabled) { e.preventDefault(); seedGo.click(); }
+      });
+
+      const customBtn = WG.el("div", { class: "lvl-custom" + (customOn ? " sel" : "") }, [
+        WG.el("button", {
+          type: "button", class: "lc-main",
+          "aria-pressed": customOn ? "true" : "false",
+          onclick: () => { WG.sfx.play("tap"); WG.picker.open(); }
+        }, [
+          WG.el("span", { class: "lc-ico", "aria-hidden": "true" }, ["✏️"]),
+          WG.el("span", { class: "lc-txt" }, [
+            WG.el("span", { class: "lc-title" }, ["Custom word list"]),
+            WG.el("span", { class: "lc-desc" }, ["Pick your own words from the dictionary"])
+          ]),
+          customBadge
+        ]),
+        WG.el("div", { class: "lc-seed" }, [seedInput, seedMark, seedGo])
+      ]);
+      levelsPanel.append(customBtn);
       main.append(levelsPanel);
 
       // ── 2 · session length ──
@@ -297,7 +366,7 @@ window.WG = window.WG || {};
           class: "btn btn-primary btn-start",
           onclick: () => {
             WG.sfx.play("done");
-            s.count = WG.clamp(s.count, 5, maxCount());
+            s.count = s.level === "custom" ? maxCount() : WG.clamp(s.count, 5, maxCount());
             WG.store.saveSettings();
             WG.engine.startRound(s.level, s.count);
             ui.show("learn");
@@ -328,9 +397,23 @@ window.WG = window.WG || {};
 
       const paintCount = () => {
         const max = maxCount();
-        s.count = WG.clamp(s.count, 5, max);
+        const custom = s.level === "custom";
+        s.count = custom ? max : WG.clamp(s.count, 5, max);
 
         presetsEl.innerHTML = "";
+        counterEl.innerHTML = "";
+        counterEl.classList.toggle("counter-static", custom);
+        if (custom) {
+          // the picked list decides the length — nothing to adjust here
+          counterEl.append(WG.el("div", { class: "count-display" }, [
+            WG.el("span", { class: "count-val mono" }, [String(s.count)]),
+            WG.el("span", { class: "count-word" }, [s.count === 1 ? "word picked" : "words picked"])
+          ]));
+          estimateEl.textContent = "≈ " + Math.max(1, Math.ceil(s.count * 0.5)) + " min per round";
+          updateSummary();
+          return;
+        }
+
         [5, 10, 15, 20, 30].forEach(v => {
           if (v > max) return;
           const on = s.count === v;

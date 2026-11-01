@@ -8,7 +8,10 @@ window.WG = window.WG || {};
     a1:        { key: "A1",    name: "A1 Movers",       emoji: "🐥", pool: () => D.A1 || [] },
     a2:        { key: "A2",    name: "A2 Flyers",       emoji: "🦅", pool: () => D.A2 || [] },
     challenge: { key: "CH",    name: "Challenge — All levels", emoji: "🏆",
-                 pool: () => [].concat(D.PREA1 || [], D.A1 || [], D.A2 || []) }
+                 pool: () => [].concat(D.PREA1 || [], D.A1 || [], D.A2 || []) },
+    // teacher-built list; the pool is whatever was picked in the custom picker
+    custom:    { key: "CUSTOM", name: "Custom word list", emoji: "✏️",
+                 pool: () => WG.store.customWords() }
   };
 
   const state = {
