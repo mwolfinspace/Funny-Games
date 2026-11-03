@@ -17,12 +17,14 @@ window.WG_CONFIG = {
     browserFallback: true
   },
 
-  // ── Internet photos (safe search) ───────────────────────────
-  // Openverse has mature=false filtering (always on).
-  // Wikimedia Commons is the backup provider.
+  // ── Internet photos ─────────────────────────────────────────
+  // Pexels is the primary provider (landscape orientation, high quality).
+  // Openverse (mature=false) and Wikimedia Commons are fallbacks.
+  // Get a free Pexels API key at https://www.pexels.com/api
   images: {
     enabled: true,
-    primary: "openverse",          // "openverse" | "commons"
+    primary: "pexels",            // "pexels" | "openverse" | "commons"
+    pexelsKey: "",                // your Pexels API key
     timeoutMs: 8000
   },
 

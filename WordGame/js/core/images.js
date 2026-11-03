@@ -1,18 +1,35 @@
-// Internet photos with safe search (Openverse mature=false, primary;
-// Wikimedia Commons fallback). Everything is cached; offline or
-// failed lookups fall back to the word's emoji.
+// Internet photos (Pexels primary — landscape orientation;
+// Openverse + Wikimedia Commons fallback). Everything is cached;
+// offline or failed lookups fall back to the word's emoji.
 window.WG = window.WG || {};
 (function () {
-  function fetchTimeout(url, ms) {
+  function fetchTimeout(url, ms, opts) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms || WG_CONFIG.images.timeoutMs || 8000);
-    return fetch(url, { signal: ctrl.signal, mode: "cors" })
+    return fetch(url, Object.assign({ signal: ctrl.signal, mode: "cors" }, opts))
       .finally(() => clearTimeout(t));
+  }
+
+  async function pexels(q) {
+    const key = WG_CONFIG.images.pexelsKey;
+    if (!key) throw new Error("no pexels key");
+    const url = "https://api.pexels.com/v1/search?query=" +
+      encodeURIComponent(q) + "&orientation=landscape&per_page=20";
+    const r = await fetchTimeout(url, null, { headers: { Authorization: key } });
+    if (!r.ok) throw new Error("px " + r.status);
+    const j = await r.json();
+    const out = [];
+    for (const x of (j.photos || [])) {
+      const u = (x.src && (x.src.large || x.src.medium || x.src.original)) || "";
+      if (u && !out.includes(u)) out.push(u);
+    }
+    if (!out.length) throw new Error("px empty");
+    return out;
   }
 
   async function openverse(q) {
     const url = "https://api.openverse.org/v1/images/" +
-      "?q=" + encodeURIComponent(q) + "&page_size=20&mature=false&aspect_ratio=square-tall";
+      "?q=" + encodeURIComponent(q) + "&page_size=20&mature=false&aspect_ratio=wide";
     const r = await fetchTimeout(url);
     if (!r.ok) throw new Error("ov " + r.status);
     const j = await r.json();
@@ -54,8 +71,11 @@ window.WG = window.WG || {};
 
   async function fetchCandidates(word) {
     const q = searchQuery(word);
-    const providers = WG_CONFIG.images.primary === "commons"
-      ? [commons, openverse] : [openverse, commons];
+    const primary = WG_CONFIG.images.primary;
+    let providers;
+    if (primary === "pexels") providers = [pexels, openverse, commons];
+    else if (primary === "commons") providers = [commons, openverse, pexels];
+    else providers = [openverse, pexels, commons];
     let all = [];
     for (const prov of providers) {
       try {
