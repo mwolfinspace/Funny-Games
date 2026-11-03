@@ -69,17 +69,40 @@ window.WG = window.WG || {};
   const inflight = {};
   const cursor = {};
 
+  // Rate-limit cooldown: when a provider returns 429, skip it for
+  // this many ms before retrying (Pexels limit is per-hour).
+  const RATE_COOLDOWN = 60 * 60 * 1000;
+  const rateLimited = {};
+
+  function isRateLimited(name) {
+    const until = rateLimited[name] || 0;
+    if (until && Date.now() < until) return true;
+    delete rateLimited[name];
+    return false;
+  }
+
+  async function tryProvider(name, fn, q) {
+    if (isRateLimited(name)) throw new Error(name + " rate-limited");
+    try {
+      return await fn(q);
+    } catch (e) {
+      // Detect HTTP 429 from the error message (fn throws "px 429" etc.)
+      if (/\b429\b/.test(e.message)) rateLimited[name] = Date.now() + RATE_COOLDOWN;
+      throw e;
+    }
+  }
+
   async function fetchCandidates(word) {
     const q = searchQuery(word);
     const primary = WG_CONFIG.images.primary;
     let providers;
-    if (primary === "pexels") providers = [pexels, openverse, commons];
-    else if (primary === "commons") providers = [commons, openverse, pexels];
-    else providers = [openverse, pexels, commons];
+    if (primary === "pexels") providers = [["pexels", pexels], ["openverse", openverse], ["commons", commons]];
+    else if (primary === "commons") providers = [["commons", commons], ["openverse", openverse], ["pexels", pexels]];
+    else providers = [["openverse", openverse], ["pexels", pexels], ["commons", commons]];
     let all = [];
-    for (const prov of providers) {
+    for (const [name, fn] of providers) {
       try {
-        const urls = await prov(q);
+        const urls = await tryProvider(name, fn, q);
         for (const u of urls) if (!all.includes(u)) all.push(u);
       } catch (e) { /* try next provider */ }
     }
