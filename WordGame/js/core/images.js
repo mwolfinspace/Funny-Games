@@ -1,4 +1,4 @@
-// Internet photos (Pexels primary — landscape orientation;
+// Internet photos (Unsplash primary — landscape orientation;
 // Openverse + Wikimedia Commons fallback). Everything is cached;
 // offline or failed lookups fall back to the word's emoji.
 window.WG = window.WG || {};
@@ -10,20 +10,20 @@ window.WG = window.WG || {};
       .finally(() => clearTimeout(t));
   }
 
-  async function pexels(q) {
-    const key = WG_CONFIG.images.pexelsKey;
-    if (!key) throw new Error("no pexels key");
-    const url = "https://api.pexels.com/v1/search?query=" +
+  async function unsplash(q) {
+    const key = WG_CONFIG.images.unsplashKey;
+    if (!key) throw new Error("no unsplash key");
+    const url = "https://api.unsplash.com/search/photos?query=" +
       encodeURIComponent(q) + "&orientation=landscape&per_page=20";
-    const r = await fetchTimeout(url, null, { headers: { Authorization: key } });
-    if (!r.ok) throw new Error("px " + r.status);
+    const r = await fetchTimeout(url, null, { headers: { Authorization: "Client-ID " + key } });
+    if (!r.ok) throw new Error("us " + r.status);
     const j = await r.json();
     const out = [];
-    for (const x of (j.photos || [])) {
-      const u = (x.src && (x.src.large || x.src.medium || x.src.original)) || "";
+    for (const x of (j.results || [])) {
+      const u = (x.urls && (x.urls.regular || x.urls.full || x.urls.raw)) || "";
       if (u && !out.includes(u)) out.push(u);
     }
-    if (!out.length) throw new Error("px empty");
+    if (!out.length) throw new Error("us empty");
     return out;
   }
 
@@ -70,7 +70,7 @@ window.WG = window.WG || {};
   const cursor = {};
 
   // Rate-limit cooldown: when a provider returns 429, skip it for
-  // this many ms before retrying (Pexels limit is per-hour).
+  // this many ms before retrying (Unsplash free tier = 50 req/hour).
   const RATE_COOLDOWN = 60 * 60 * 1000;
   const rateLimited = {};
 
@@ -86,7 +86,7 @@ window.WG = window.WG || {};
     try {
       return await fn(q);
     } catch (e) {
-      // Detect HTTP 429 from the error message (fn throws "px 429" etc.)
+      // Detect HTTP 429 from the error message (fn throws "us 429" etc.)
       if (/\b429\b/.test(e.message)) rateLimited[name] = Date.now() + RATE_COOLDOWN;
       throw e;
     }
@@ -96,9 +96,9 @@ window.WG = window.WG || {};
     const q = searchQuery(word);
     const primary = WG_CONFIG.images.primary;
     let providers;
-    if (primary === "pexels") providers = [["pexels", pexels], ["openverse", openverse], ["commons", commons]];
-    else if (primary === "commons") providers = [["commons", commons], ["openverse", openverse], ["pexels", pexels]];
-    else providers = [["openverse", openverse], ["pexels", pexels], ["commons", commons]];
+    if (primary === "unsplash") providers = [["unsplash", unsplash], ["openverse", openverse], ["commons", commons]];
+    else if (primary === "commons") providers = [["commons", commons], ["openverse", openverse], ["unsplash", unsplash]];
+    else providers = [["openverse", openverse], ["unsplash", unsplash], ["commons", commons]];
     let all = [];
     for (const [name, fn] of providers) {
       try {

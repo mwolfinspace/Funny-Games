@@ -18,13 +18,13 @@ window.WG_CONFIG = {
   },
 
   // ── Internet photos ─────────────────────────────────────────
-  // Pexels is the primary provider (landscape orientation, high quality).
+  // Unsplash is the primary provider (landscape orientation).
   // Openverse (mature=false) and Wikimedia Commons are fallbacks.
-  // Get a free Pexels API key at https://www.pexels.com/api
+  // Get a free Unsplash access key at https://unsplash.com/developers
   images: {
     enabled: true,
-    primary: "pexels",            // "pexels" | "openverse" | "commons"
-    pexelsKey: "",                // your Pexels API key
+    primary: "unsplash",          // "unsplash" | "openverse" | "commons"
+    unsplashKey: "ZgD2HJ79nKfJVUlfuKpGiF3taugdma6zJ_8jWxWAoTU",
     timeoutMs: 8000
   },
 
