@@ -637,7 +637,7 @@ window.WG = window.WG || {};
       const cornerL = WG.el("button", { class: "btn corner corner-l" });
       if (mode === "learn") {
         cornerL.title = "Generate new word set";
-        cornerL.append("🔄", WG.el("span", { class: "cl-label" }, ["New words"]));
+        cornerL.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["🔄"]), WG.el("span", { class: "cl-label" }, ["New words"]));
         cornerL.onclick = () => {
           WG.sfx.play("tap");
           ui.modal({
@@ -650,11 +650,11 @@ window.WG = window.WG || {};
         };
       } else if (st.review) {
         cornerL.title = "Back to results";
-        cornerL.append("📊", WG.el("span", { class: "cl-label" }, ["Results"]));
+        cornerL.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["📊"]), WG.el("span", { class: "cl-label" }, ["Results"]));
         cornerL.onclick = () => { WG.sfx.play("tap"); ui.show("result"); };
       } else {
         cornerL.title = "Give up and see results";
-        cornerL.append("🏳️", WG.el("span", { class: "cl-label" }, ["Give up"]));
+        cornerL.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["🏳️"]), WG.el("span", { class: "cl-label" }, ["Give up"]));
         cornerL.onclick = () => {
           WG.sfx.play("tap");
           ui.modal({
@@ -677,7 +677,7 @@ window.WG = window.WG || {};
       if (mode === "learn") {
         cornerR.title = "Ready to Test";
         cornerR.classList.add("btn-test");
-        cornerR.append("📝", WG.el("span", { class: "cl-label" }, ["Ready to Test"]));
+        cornerR.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["📝"]), WG.el("span", { class: "cl-label" }, ["Ready to Test"]));
         cornerR.onclick = () => {
           WG.sfx.play("done");
           ui.enterTestDefaults();
@@ -687,7 +687,7 @@ window.WG = window.WG || {};
       } else if (!st.review) {
         cornerR.title = "Submit answers";
         cornerR.classList.add("btn-submit");
-        cornerR.append("✅", WG.el("span", { class: "cl-label" }, ["Submit"]));
+        cornerR.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["✅"]), WG.el("span", { class: "cl-label" }, ["Submit"]));
         cornerR.onclick = () => ui.submit();
       } else {
         cornerR.classList.add("corner-spacer", "corner-blank");
