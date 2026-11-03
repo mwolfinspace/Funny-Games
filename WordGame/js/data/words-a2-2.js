@@ -103,7 +103,7 @@ window.WG_DATA.A2.push(
 {w:"Katy", t:"name", vn:"Katy (tên)", en:"a girl's name", ex:"Katy likes dancing.", e:"👧"},
 {w:"keep", t:"verb", vn:"giữ", en:"hold or not give away", ex:"Keep the change.", e:"✋"},
 {w:"key", t:"noun", vn:"chìa khóa", en:"metal tool to open locks", ex:"I lost my house key.", e:"🔑"},
-{w:"kilometre", t:"noun", vn:"kilômét", en:"a thousand metres", ex:"The town is five kilometres away.", e:"📏", a:["kilometer"]},
+{w:"kilometre", t:"noun", vn:"ki-lô-mét", en:"a thousand metres", ex:"The town is five kilometres away.", e:"📏", a:["kilometer"]},
 {w:"king", t:"noun", vn:"nhà vua", en:"a male ruler", ex:"The king wears a crown.", e:"👑"},
 {w:"knee", t:"noun", vn:"đầu gối", en:"the middle of the leg", ex:"I fell and hurt my knee.", e:"🦵"},
 {w:"knife", t:"noun", vn:"con dao", en:"a tool for cutting", ex:"Use a knife to cut bread.", e:"🔪"},

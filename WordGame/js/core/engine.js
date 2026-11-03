@@ -27,10 +27,47 @@ window.WG = window.WG || {};
     submitted: false
   };
 
+  // Split a Vietnamese gloss such as "cô ấy, chị ấy" into its meanings.
+  // Diacritics are significant here (má / mà / mã), so never use WG.norm().
+  function glosses(vn) {
+    return String(vn || "")
+      .normalize("NFC")
+      .toLowerCase()
+      .split(/[;,]/)
+      .map(s => s.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  }
+
+  // Two words share a meaning when one gloss list is contained in the other,
+  // e.g. "lớn" and "to, lớn", or "ông" and "ông".
+  function sameMeaning(a, b) {
+    const ga = glosses(a.vn);
+    const gb = glosses(b.vn);
+    const [small, big] = ga.length <= gb.length ? [ga, gb] : [gb, ga];
+    return small.length > 0 && small.every(g => big.includes(g));
+  }
+
   function pickSet(level, count) {
     const pool = LEVELS[level].pool();
     const shuffled = WG.shuffle(pool);
-    return shuffled.slice(0, WG.clamp(count, 1, shuffled.length));
+    const want = Math.max(1, count);
+    const picked = [];
+    for (const word of shuffled) {
+      if (picked.some(p => sameMeaning(p, word))) continue;
+      picked.push(word);
+      if (picked.length >= want) break;
+    }
+    return picked;
+  }
+
+  // Test order is always a fresh shuffle so it never mirrors the learn order.
+  // answers/visited/reps are indexed by card position, so they reset with it.
+  function shuffleForTest() {
+    state.set = WG.shuffle(state.set);
+    state.answers = new Array(state.set.length).fill("");
+    state.visited = new Array(state.set.length).fill(false);
+    state.reps = new Array(state.set.length).fill(0);
+    state.idx = 0;
   }
 
   function isCorrect(word, input) {
@@ -66,16 +103,14 @@ window.WG = window.WG || {};
     },
 
     retry() {
-      state.answers = new Array(state.set.length).fill("");
-      state.reps = new Array(state.set.length).fill(0);
-      state.idx = 0;
+      shuffleForTest();
       state.review = false;
       state.submitted = false;
       state.screen = "test";
     },
 
     enterTest() {
-      state.idx = 0;
+      shuffleForTest();
       state.review = false;
       state.screen = "test";
     },

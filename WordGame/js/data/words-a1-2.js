@@ -9,7 +9,7 @@ window.WG_DATA.A1.push(
 {w:"Fred", t:"name", vn:"Fred (tên)", en:"a boy's name", ex:"Fred rides his skateboard.", e:"👦"},
 {w:"Friday", t:"noun", vn:"thứ Sáu", en:"the day after Thursday", ex:"We have music on Friday.", e:"📅"},
 {w:"frightened", t:"adjective", vn:"hãi hùng, sợ hãi", en:"very afraid", ex:"The mouse is frightened of the cat.", e:"😱"},
-{w:"funfair", t:"noun", vn:"công viên giải trí", en:"a park with rides and games", ex:"The funfair has a big wheel.", e:"🎡"},
+{w:"funfair", t:"noun", vn:"hội chợ vui chơi", en:"a park with rides and games", ex:"The funfair has a big wheel.", e:"🎡"},
 {w:"get dressed", t:"verb", vn:"mặc quần áo", en:"put your clothes on", ex:"Get dressed for school.", e:"👕"},
 {w:"get off", t:"verb", vn:"xuống xe", en:"leave a bus or bike", ex:"Get off the bus at the park.", e:"🚏"},
 {w:"get on", t:"verb", vn:"lên xe", en:"enter a bus or bike", ex:"Get on the train quickly.", e:"🚌"},
