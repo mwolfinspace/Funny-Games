@@ -416,25 +416,52 @@ window.WG = window.WG || {};
         paintCount();
       };
 
-      const paintCount = () => {
+      // The number itself is an input: type any length, or use the presets.
+      const countInput = WG.el("input", {
+        type: "number", class: "count-input mono",
+        inputmode: "numeric", min: "5", step: "1",
+        "aria-label": "Words per round", title: "Type how many words you want",
+        value: String(s.count)
+      });
+      const minusBtn = WG.el("button", {
+        type: "button", class: "btn btn-ico", "aria-label": "Fewer words",
+        onclick: () => setCount(s.count - 5)
+      }, ["➖"]);
+      const plusBtn = WG.el("button", {
+        type: "button", class: "btn btn-ico", "aria-label": "More words",
+        onclick: () => setCount(s.count + 5)
+      }, ["➕"]);
+      const editDisplay = WG.el("div", { class: "count-display" }, [
+        countInput,
+        WG.el("span", { class: "count-word" }, ["words"])
+      ]);
+      const staticVal = WG.el("span", { class: "count-val mono" });
+      const staticWord = WG.el("span", { class: "count-word" });
+      const staticDisplay = WG.el("div", { class: "count-display" }, [staticVal, staticWord]);
+
+      // typed value → clamp, save, keep presets/summary in step
+      const commitCount = () => {
+        const raw = parseInt(countInput.value, 10);
+        if (!Number.isFinite(raw)) { countInput.value = String(s.count); return; }
+        const v = WG.clamp(raw, 5, maxCount());
+        if (String(v) !== countInput.value) countInput.value = String(v);
+        if (v === s.count) return;
+        s.count = v;
+        WG.store.saveSettings();
+        minusBtn.disabled = s.count <= 5;
+        plusBtn.disabled = s.count >= maxCount();
+        paintPresets();
+        paintMeta();
+      };
+      countInput.addEventListener("change", commitCount);
+      countInput.addEventListener("blur", commitCount);
+      countInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); commitCount(); countInput.blur(); }
+      });
+
+      const paintPresets = () => {
         const max = maxCount();
-        const custom = s.level === "custom";
-        s.count = custom ? max : WG.clamp(s.count, 5, max);
-
         presetsEl.innerHTML = "";
-        counterEl.innerHTML = "";
-        counterEl.classList.toggle("counter-static", custom);
-        if (custom) {
-          // the picked list decides the length — nothing to adjust here
-          counterEl.append(WG.el("div", { class: "count-display" }, [
-            WG.el("span", { class: "count-val mono" }, [String(s.count)]),
-            WG.el("span", { class: "count-word" }, [s.count === 1 ? "word picked" : "words picked"])
-          ]));
-          estimateEl.textContent = "≈ " + Math.max(1, Math.ceil(s.count * 0.5)) + " min per round";
-          updateSummary();
-          return;
-        }
-
         [5, 10, 15, 20, 30].forEach(v => {
           if (v > max) return;
           const on = s.count === v;
@@ -445,25 +472,39 @@ window.WG = window.WG || {};
             onclick: () => setCount(v)
           }, [String(v)]));
         });
+      };
 
-        counterEl.innerHTML = "";
-        counterEl.append(
-          WG.el("button", {
-            type: "button", class: "btn btn-ico", "aria-label": "Fewer words",
-            onclick: () => setCount(s.count - 5)
-          }, ["➖"]),
-          WG.el("div", { class: "count-display" }, [
-            WG.el("span", { class: "count-val mono" }, [String(s.count)]),
-            WG.el("span", { class: "count-word" }, ["words"])
-          ]),
-          WG.el("button", {
-            type: "button", class: "btn btn-ico", "aria-label": "More words",
-            onclick: () => setCount(s.count + 5)
-          }, ["➕"])
-        );
-
+      const paintMeta = () => {
         estimateEl.textContent = "≈ " + Math.max(1, Math.ceil(s.count * 0.5)) + " min per round";
         updateSummary();
+      };
+
+      const paintCount = () => {
+        const max = maxCount();
+        const custom = s.level === "custom";
+        s.count = custom ? max : WG.clamp(s.count, 5, max);
+
+        counterEl.classList.toggle("counter-static", custom);
+        const mode = custom ? "static" : "edit";
+        if (counterEl.dataset.mode !== mode) {
+          counterEl.dataset.mode = mode;
+          counterEl.innerHTML = "";
+          if (custom) counterEl.append(staticDisplay);
+          else counterEl.append(minusBtn, editDisplay, plusBtn);
+        }
+
+        if (custom) {
+          // the picked list decides the length — nothing to adjust here
+          staticVal.textContent = String(s.count);
+          staticWord.textContent = s.count === 1 ? "word picked" : "words picked";
+        } else {
+          countInput.max = String(max);
+          countInput.value = String(s.count);
+          minusBtn.disabled = s.count <= 5;
+          plusBtn.disabled = s.count >= max;
+          paintPresets();
+        }
+        paintMeta();
       };
 
       paintCount();
