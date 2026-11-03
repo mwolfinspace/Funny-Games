@@ -82,7 +82,7 @@ window.WG = window.WG || {};
         HINTS.forEach(h => {
           const on = this.hints()[h.key] !== false;
           pills.append(WG.el("button", {
-            class: "pill" + (on ? " on" : "off"),
+            class: "pill" + (on ? " on" : " off"),
             title: h.label,
             "aria-label": h.label,
             "aria-pressed": on ? "true" : "false",
