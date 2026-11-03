@@ -1,0 +1,156 @@
+/* ═══════════════════════════════════════════════════════════════
+   Virtual keyboard — fresh glass board.
+   The board is 15.3u wide × 5.3u tall (5 rows), so its height is
+   derived from the viewport: --kb-h is the vertical budget and
+   --kb-w the width that keeps the board inside that budget.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* vertical budget → the keyboard decides its own height from the screen */
+  --kb-h: clamp(150px, 31vh, 340px);
+  --kb-w: min(1020px, calc(var(--kb-h) * 15.3 / 5.3));
+}
+
+/* the slot the keyboard is mounted into */
+.kb-wrap {
+  width: min(100%, var(--kb-w));
+  margin: 0 auto;
+  flex: none;
+}
+.kb-wrap.vkb-off { pointer-events: none; opacity: .55; filter: saturate(.6); }
+
+.vkb {
+  /* override --vkb-bg (e.g. transparent) to let the game show through the glass */
+  --vkb-bg:
+    radial-gradient(60% 95% at 10% 10%, hsl(280 90% 62% / .6), transparent 60%),
+    radial-gradient(55% 85% at 90% 15%, hsl(190 95% 55% / .55), transparent 60%),
+    radial-gradient(60% 90% at 72% 100%, hsl(335 90% 62% / .55), transparent 60%),
+    radial-gradient(50% 80% at 22% 100%, hsl(45 100% 60% / .45), transparent 60%),
+    #180d3a;
+  /* dark theme tokens (default) */
+  --vkb-edge:rgba(255,255,255,.55); --vkb-glow:rgba(160,100,255,.5); --vkb-sheen:rgba(255,255,255,.15);
+  --vkb-text:#fff; --vkb-tsh:rgba(0,0,0,.45); --vkb-drop:rgba(0,0,0,.3);
+  --vkb-g1:rgba(255,255,255,.30); --vkb-g2:rgba(255,255,255,.07); --vkb-g3:rgba(255,255,255,.16);
+  --vkb-kborder:rgba(255,255,255,.38); --vkb-hi:rgba(255,255,255,.75);
+  --vkb-off:rgba(255,255,255,.06); --vkb-offb:rgba(255,255,255,.14); --vkb-offhi:rgba(255,255,255,.18);
+  container-type: inline-size; width: 100%; box-sizing: border-box;
+  padding: var(--vkb-pad, 0);
+  animation: vkb-in .42s cubic-bezier(.22, 1, .36, 1) both;
+}
+.vkb[data-theme=light] {
+  --vkb-bg:
+    radial-gradient(60% 95% at 10% 10%, hsl(280 90% 80% / .8), transparent 60%),
+    radial-gradient(55% 85% at 90% 15%, hsl(190 95% 74% / .75), transparent 60%),
+    radial-gradient(60% 90% at 72% 100%, hsl(335 90% 82% / .75), transparent 60%),
+    radial-gradient(50% 80% at 22% 100%, hsl(45 100% 74% / .65), transparent 60%),
+    #f4efff;
+  --vkb-edge:rgba(90,70,160,.55); --vkb-glow:rgba(120,80,220,.3); --vkb-sheen:rgba(255,255,255,.65);
+  --vkb-text:#241a52; --vkb-tsh:rgba(255,255,255,.8); --vkb-drop:rgba(70,50,140,.28);
+  --vkb-g1:rgba(255,255,255,.78); --vkb-g2:rgba(255,255,255,.28); --vkb-g3:rgba(255,255,255,.5);
+  --vkb-kborder:rgba(255,255,255,.95); --vkb-hi:#fff;
+  --vkb-off:rgba(255,255,255,.3); --vkb-offb:rgba(255,255,255,.6); --vkb-offhi:rgba(255,255,255,.7);
+}
+
+@keyframes vkb-in {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.vkb .board {
+  --u: calc(100cqw / 15.3);                     /* 1 key unit = 15 keys + 0.3u inner padding (0.15u each side) */
+  position: relative; aspect-ratio: 15.3 / 5.3; /* 5 rows × 1u + inner padding, so every 1u key stays square */
+  border-radius: calc(var(--u) * .45);
+  outline: 2px solid var(--vkb-edge);
+  box-shadow: 0 0 calc(var(--u) * .9) var(--vkb-glow);
+  font: 700 calc(var(--u) * .42)/1 ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", "Trebuchet MS", system-ui, sans-serif;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+/* 60 columns = 4 per key unit, so 1.25u / 1.75u / 2.25u / 6.25u are exact */
+.vkb .keys {
+  position: absolute; inset: calc(var(--u) * .15);
+  display: grid; grid-template-columns: repeat(60, 1fr); grid-template-rows: repeat(5, 1fr);
+}
+
+.vkb .board::before {                           /* rainbow backdrop: colours cycle and blobs drift, slowly, forever */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: var(--vkb-bg); background-size: 140% 140%;
+  box-shadow: inset 0 0 calc(var(--u) * .5) var(--vkb-sheen);
+  animation: vkb-hue 48s linear infinite, vkb-drift 24s ease-in-out infinite alternate;
+}
+@keyframes vkb-hue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+@keyframes vkb-drift {
+  from { background-position: 0% 0%, 100% 0%, 100% 100%, 0% 100%; }
+  to   { background-position: 100% 100%, 0% 100%, 0% 0%, 100% 0%; }
+}
+
+.vkb .k {
+  position: relative; min-width: 0; margin: calc(var(--u) * .03); padding: 0; font: inherit; color: var(--vkb-text);
+  border: 1px solid var(--vkb-kborder); border-radius: calc(var(--u) * .26);
+  background: linear-gradient(150deg, var(--vkb-g1), var(--vkb-g2) 55%, var(--vkb-g3));
+  -webkit-backdrop-filter: blur(8px) saturate(1.7); backdrop-filter: blur(8px) saturate(1.7);
+  box-shadow: inset 0 1px 1px var(--vkb-hi), inset 0 -.3em .6em rgba(255,255,255,.07), 0 .2em .5em var(--vkb-drop);
+  text-shadow: 0 0 .5em hsl(var(--h) 100% 80% / .9), 0 1px 2px var(--vkb-tsh);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12em;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform .22s cubic-bezier(.3, 1.7, .5, 1), box-shadow .25s, background .25s, border-color .25s;
+}
+.vkb .k > * { position: relative; z-index: 1; }
+.vkb .k::after {                                /* glass sheen */
+  content: ""; position: absolute; left: 8%; right: 8%; top: 5%; height: 42%; pointer-events: none;
+  border-radius: calc(var(--u) * .2); background: linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,0)); opacity: .55;
+}
+.vkb .k::before {                               /* light that follows the cursor */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .2s;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), hsl(var(--h) 100% 88% / .9), transparent 65%);
+}
+/* hover, toggled-on and pressed keys glow in their own colour */
+.vkb .k:not(:disabled):is(:hover, .on, .down) {
+  transform: translateY(-6%) scale(1.07); z-index: 2; border-color: hsl(var(--h) 100% 88% / .95);
+  background: linear-gradient(150deg, hsl(var(--h) 100% 82% / .55), hsl(var(--h) 100% 60% / .2) 60%, hsl(var(--h) 100% 75% / .3));
+  box-shadow: inset 0 1px 1px #fff, 0 0 .5em hsl(var(--h) 100% 70% / .95), 0 0 1.4em hsl(var(--h) 100% 60% / .6), 0 .4em .9em var(--vkb-drop);
+}
+.vkb .k:not(:disabled):is(:hover, .on, .down)::before { opacity: 1; }
+.vkb .k.on:not(:disabled) { transform: scale(.95); }
+.vkb .k.down:not(:disabled) { transform: scale(.88) translateY(4%); }
+/* disabled keys: blank, flat, no glow */
+.vkb .k:disabled {
+  cursor: default; background: var(--vkb-off); border-color: var(--vkb-offb);
+  box-shadow: inset 0 1px 0 var(--vkb-offhi); -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.vkb .k:disabled::before, .vkb .k:disabled::after { display: none; }
+
+.vkb .k i, .vkb .k b { font-style: normal; font-weight: 700; font-size: .78em; line-height: 1; }
+.vkb .k i { opacity: .5; }
+.vkb .s .k i { opacity: 1; }
+.vkb .s .k b { opacity: .5; }
+.vkb .k[data-t=caps], .vkb .k[data-t=shift], .vkb .k[data-t=enter] { font-size: 1.1em; font-weight: 800; }
+.vkb .k[data-t=back] { font-size: .78em; font-weight: 800; }
+.vkb .k[data-t=enter] {                         /* special blue Enter */
+  border-color: hsl(215 100% 82% / .85);
+  background: linear-gradient(150deg, hsl(215 100% 72% / .8), hsl(222 100% 50% / .5) 60%, hsl(215 100% 66% / .6));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.85), 0 0 .5em hsl(215 100% 60% / .85), 0 .2em .5em var(--vkb-drop);
+}
+
+/* light / dark toggle icon (bottom-left key) */
+.vkb .k[data-t=theme] svg {
+  width: 1.45em; height: 1.45em; fill: currentColor; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 .3em currentColor);
+}
+.vkb .k[data-t=theme] .sun { display: none; color: #ff8a00; }
+.vkb .k[data-t=theme] .moon { color: #ffe38a; }
+.vkb[data-theme=light] .k[data-t=theme] .sun { display: block; }
+.vkb[data-theme=light] .k[data-t=theme] .moon { display: none; }
+
+@keyframes vkb-ring {
+  from { outline: 2px solid hsl(var(--h) 100% 80% / .95); outline-offset: 0; }
+  to   { outline: 2px solid hsl(var(--h) 100% 80% / 0); outline-offset: calc(var(--u) * .22); }
+}
+.vkb .k.pop { animation: vkb-ring .5s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vkb, .vkb .k { animation: none; transition: none; }
+  .vkb .k.pop, .vkb .board::before { animation: none; }
+}
+
+/* hidden while reviewing answers */
+.kb-hidden { display: none; }

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual Keyboard</title>
+<style>
+/* ===== VIRTUAL KEYBOARD: copy this CSS block + the JS block into your game ===== */
+.vkb{
+  /* override --vkb-bg (e.g. transparent) to let your game show through the glass */
+  --vkb-bg:
+    radial-gradient(60% 95% at 10% 10%, hsl(280 90% 62% / .6), transparent 60%),
+    radial-gradient(55% 85% at 90% 15%, hsl(190 95% 55% / .55), transparent 60%),
+    radial-gradient(60% 90% at 72% 100%, hsl(335 90% 62% / .55), transparent 60%),
+    radial-gradient(50% 80% at 22% 100%, hsl(45 100% 60% / .45), transparent 60%),
+    #180d3a;
+  /* dark theme tokens (default) */
+  --vkb-edge:rgba(255,255,255,.55); --vkb-glow:rgba(160,100,255,.5); --vkb-sheen:rgba(255,255,255,.15);
+  --vkb-text:#fff; --vkb-tsh:rgba(0,0,0,.45); --vkb-drop:rgba(0,0,0,.3);
+  --vkb-g1:rgba(255,255,255,.30); --vkb-g2:rgba(255,255,255,.07); --vkb-g3:rgba(255,255,255,.16);
+  --vkb-kborder:rgba(255,255,255,.38); --vkb-hi:rgba(255,255,255,.75);
+  --vkb-off:rgba(255,255,255,.06); --vkb-offb:rgba(255,255,255,.14); --vkb-offhi:rgba(255,255,255,.18);
+  container-type:inline-size; width:100%; box-sizing:border-box;
+  padding:var(--vkb-pad, 0);                   /* no outside padding: fills its container (set --vkb-pad if you want room for the glow) */
+}
+.vkb[data-theme=light]{
+  --vkb-bg:
+    radial-gradient(60% 95% at 10% 10%, hsl(280 90% 80% / .8), transparent 60%),
+    radial-gradient(55% 85% at 90% 15%, hsl(190 95% 74% / .75), transparent 60%),
+    radial-gradient(60% 90% at 72% 100%, hsl(335 90% 82% / .75), transparent 60%),
+    radial-gradient(50% 80% at 22% 100%, hsl(45 100% 74% / .65), transparent 60%),
+    #f4efff;
+  --vkb-edge:rgba(90,70,160,.55); --vkb-glow:rgba(120,80,220,.3); --vkb-sheen:rgba(255,255,255,.65);
+  --vkb-text:#241a52; --vkb-tsh:rgba(255,255,255,.8); --vkb-drop:rgba(70,50,140,.28);
+  --vkb-g1:rgba(255,255,255,.78); --vkb-g2:rgba(255,255,255,.28); --vkb-g3:rgba(255,255,255,.5);
+  --vkb-kborder:rgba(255,255,255,.95); --vkb-hi:#fff;
+  --vkb-off:rgba(255,255,255,.3); --vkb-offb:rgba(255,255,255,.6); --vkb-offhi:rgba(255,255,255,.7);
+}
+.vkb .board{
+  --u:calc(100cqw / 15.3);                     /* 1 key unit = 15 keys + 0.3u inner padding (0.15u each side) */
+  position:relative; aspect-ratio:15.3/5.3;    /* 5 rows x 1u + inner padding, so every 1u key stays square */
+  border-radius:calc(var(--u)*.45);
+  outline:2px solid var(--vkb-edge);
+  box-shadow:0 0 calc(var(--u)*.9) var(--vkb-glow);
+  font:700 calc(var(--u)*.42)/1 ui-rounded,"SF Pro Rounded","Nunito","Varela Round","Trebuchet MS",system-ui,sans-serif;
+  user-select:none; -webkit-user-select:none; touch-action:manipulation;
+}
+/* 60 columns = 4 per key unit, so 1.25u / 1.75u / 2.25u / 6.25u are exact */
+.vkb .keys{position:absolute; inset:calc(var(--u)*.15); display:grid; grid-template-columns:repeat(60,1fr); grid-template-rows:repeat(5,1fr)}
+
+.vkb .board::before{                            /* rainbow backdrop: colours cycle and blobs drift, slowly, forever */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background:var(--vkb-bg); background-size:140% 140%;
+  box-shadow:inset 0 0 calc(var(--u)*.5) var(--vkb-sheen);
+  animation:vkb-hue 48s linear infinite, vkb-drift 24s ease-in-out infinite alternate;
+}
+@keyframes vkb-hue{from{filter:hue-rotate(0deg)} to{filter:hue-rotate(360deg)}}
+@keyframes vkb-drift{
+  from{background-position:0% 0%, 100% 0%, 100% 100%, 0% 100%}
+  to{background-position:100% 100%, 0% 100%, 0% 0%, 100% 0%}
+}
+
+.vkb .k{
+  position:relative; min-width:0; margin:calc(var(--u)*.03); padding:0; font:inherit; color:var(--vkb-text);
+  border:1px solid var(--vkb-kborder); border-radius:calc(var(--u)*.26);
+  background:linear-gradient(150deg, var(--vkb-g1), var(--vkb-g2) 55%, var(--vkb-g3));
+  -webkit-backdrop-filter:blur(8px) saturate(1.7); backdrop-filter:blur(8px) saturate(1.7);
+  box-shadow:inset 0 1px 1px var(--vkb-hi), inset 0 -.3em .6em rgba(255,255,255,.07), 0 .2em .5em var(--vkb-drop);
+  text-shadow:0 0 .5em hsl(var(--h) 100% 80% / .9), 0 1px 2px var(--vkb-tsh);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.12em;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  transition:transform .22s cubic-bezier(.3,1.7,.5,1), box-shadow .25s, background .25s, border-color .25s;
+}
+.vkb .k > *{position:relative; z-index:1}
+.vkb .k::after{                                 /* glass sheen */
+  content:""; position:absolute; left:8%; right:8%; top:5%; height:42%; pointer-events:none;
+  border-radius:calc(var(--u)*.2); background:linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,0)); opacity:.55;
+}
+.vkb .k::before{                                /* light that follows the cursor */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; opacity:0; transition:opacity .2s;
+  background:radial-gradient(circle at var(--x,50%) var(--y,50%), hsl(var(--h) 100% 88% / .9), transparent 65%);
+}
+/* hover, toggled-on and pressed keys glow in their own colour */
+.vkb .k:not(:disabled):is(:hover,.on,.down){
+  transform:translateY(-6%) scale(1.07); z-index:2; border-color:hsl(var(--h) 100% 88% / .95);
+  background:linear-gradient(150deg, hsl(var(--h) 100% 82% / .55), hsl(var(--h) 100% 60% / .2) 60%, hsl(var(--h) 100% 75% / .3));
+  box-shadow:inset 0 1px 1px #fff, 0 0 .5em hsl(var(--h) 100% 70% / .95), 0 0 1.4em hsl(var(--h) 100% 60% / .6), 0 .4em .9em var(--vkb-drop);
+}
+.vkb .k:not(:disabled):is(:hover,.on,.down)::before{opacity:1}
+.vkb .k.on:not(:disabled){transform:scale(.95)}
+.vkb .k.down:not(:disabled){transform:scale(.88) translateY(4%)}
+/* disabled keys: blank, flat, no glow */
+.vkb .k:disabled{cursor:default; background:var(--vkb-off); border-color:var(--vkb-offb);
+  box-shadow:inset 0 1px 0 var(--vkb-offhi); -webkit-backdrop-filter:none; backdrop-filter:none}
+.vkb .k:disabled::before,.vkb .k:disabled::after{display:none}
+
+.vkb .k i,.vkb .k b{font-style:normal; font-weight:700; font-size:.78em; line-height:1}
+.vkb .k i{opacity:.5}
+.vkb .s .k i{opacity:1}
+.vkb .s .k b{opacity:.5}
+.vkb .k[data-t=caps],.vkb .k[data-t=shift],.vkb .k[data-t=enter]{font-size:1.1em; font-weight:800}
+.vkb .k[data-t=back]{font-size:.78em; font-weight:800}
+.vkb .k[data-t=enter]{                          /* special blue Enter */
+  border-color:hsl(215 100% 82% / .85);
+  background:linear-gradient(150deg, hsl(215 100% 72% / .8), hsl(222 100% 50% / .5) 60%, hsl(215 100% 66% / .6));
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.85), 0 0 .5em hsl(215 100% 60% / .85), 0 .2em .5em var(--vkb-drop);
+}
+
+/* light / dark toggle icon (bottom-left key) */
+.vkb .k[data-t=theme] svg{width:1.45em; height:1.45em; fill:currentColor; stroke:currentColor; stroke-width:1.8;
+  stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 .3em currentColor)}
+.vkb .k[data-t=theme] .sun{display:none; color:#ff8a00}
+.vkb .k[data-t=theme] .moon{color:#ffe38a}
+.vkb[data-theme=light] .k[data-t=theme] .sun{display:block}
+.vkb[data-theme=light] .k[data-t=theme] .moon{display:none}
+
+@keyframes vkb-ring{
+  from{outline:2px solid hsl(var(--h) 100% 80% / .95); outline-offset:0}
+  to{outline:2px solid hsl(var(--h) 100% 80% / 0); outline-offset:calc(var(--u)*.22)}
+}
+.vkb .k.pop{animation:vkb-ring .5s ease-out}
+@media (prefers-reduced-motion:reduce){.vkb .k{transition:none} .vkb .k.pop,.vkb .board::before{animation:none}}
+/* ===== end of keyboard CSS ===== */
+
+/* demo page only */
+:root{color-scheme:dark; --page:radial-gradient(80% 60% at 50% 0%, #2a1660, #0a0618); --ink:#eee;
+  --field:rgba(255,255,255,.08); --fieldb:rgba(255,255,255,.28)}
+:root[data-theme=light]{color-scheme:light; --page:radial-gradient(80% 60% at 50% 0%, #fff, #e4dbfb); --ink:#241a52;
+  --field:rgba(255,255,255,.7); --fieldb:rgba(90,70,160,.35)}
+body{margin:0; padding:16px; font:16px system-ui,sans-serif; color:var(--ink); background:var(--page)}
+.demo{max-width:900px; margin:0 auto}
+textarea{width:100%; box-sizing:border-box; height:5.5em; margin-bottom:8px; padding:12px; font:inherit; color:var(--ink);
+  background:var(--field); border:1px solid var(--fieldb); border-radius:16px}
+</style>
+</head>
+<body>
+<div class="demo">
+  <textarea id="t" placeholder="Type with the on-screen keyboard"></textarea>
+  <div id="kb"></div>
+</div>
+
+<script>
+/* ===== VIRTUAL KEYBOARD JS ===== */
+(function () {
+  'use strict';
+  const SH = '!@#$%^&*()';
+  const off = (c, u = 1) => ({ c, u, t: 'off' });                         // disabled, blank key
+  const sym = (c, lo, hi, u = 1) => ({ c, u, t: 'ch', lo, hi });          // number / symbol key
+  const abc = s => [...s].map(l => ({ c: 'Key' + l.toUpperCase(), u: 1, t: 'ch', lo: l, hi: l.toUpperCase(), abc: 1 }));
+  const mod = (c, u, t, key, label) => ({ c, u, t, key, label });         // shift, caps, enter, backspace
+  const arrow = (c, label) => ({ c, u: 1, t: 'arrow', key: c, label });   // arrow keys
+  const ICONS = '<svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/>' +
+    '<path fill="none" d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.9 1.9M16.8 16.8l1.9 1.9M18.7 5.3l-1.9 1.9M7.2 16.8l-1.9 1.9"/></svg>' +
+    '<svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  // US ANSI laptop layout, 15u wide x 5u tall. Every row adds up to exactly 15u.
+  const ROWS = [
+    [sym('Backquote', '`', '~'), ...[...'1234567890'].map((d, i) => sym('Digit' + d, d, SH[i])),
+      sym('Minus', '-', '_'), sym('Equal', '=', '+'), mod('Backspace', 2, 'back', 'Backspace', 'backspace')],
+    [off('Tab', 1.5), ...abc('qwertyuiop'), sym('BracketLeft', '[', '{'), sym('BracketRight', ']', '}'),
+      sym('Backslash', '\\', '|', 1.5)],
+    [mod('CapsLock', 1.75, 'caps', 'CapsLock', 'caps'), ...abc('asdfghjkl'), sym('Semicolon', ';', ':'),
+      sym('Quote', "'", '"'), mod('Enter', 2.25, 'enter', 'Enter', 'enter')],
+    // no right Shift: blank filler, then Up arrow sits directly above the Down arrow
+    [mod('ShiftLeft', 2.25, 'shift', 'Shift', 'shift'), ...abc('zxcvbnm'), sym('Comma', ',', '<'),
+      sym('Period', '.', '>'), sym('Slash', '/', '?'), off('Blank', 0.75), arrow('ArrowUp', '\u2191'), off('Blank2')],
+    [{ c: 'Theme', u: 1.25, t: 'theme' },   // bottom-left key = light/dark toggle
+      off('MetaLeft', 1.25), off('AltLeft', 1.25), { c: 'Space', u: 6.25, t: 'ch', lo: ' ', hi: ' ' },
+      off('AltRight'), off('ControlRight'), arrow('ArrowLeft', '\u2190'), arrow('ArrowDown', '\u2193'), arrow('ArrowRight', '\u2192')]
+  ];
+  ROWS.forEach((row, r) => { let x = 0; row.forEach(k => { k.r = r; k.x = x; x += k.u; }); });
+  const KEYS = ROWS.flat();
+  const SHIFT = KEYS.find(k => k.t === 'shift');
+  const hue = k => k.t === 'enter' ? 215 : Math.round((k.x + k.u / 2) / 15 * 320 + k.r * 28) % 360;   // rainbow across the board
+
+  const KC = { Backspace: 8, Enter: 13, ShiftLeft: 16, CapsLock: 20, Space: 32, Semicolon: 186, Equal: 187,
+    Comma: 188, Minus: 189, Period: 190, Slash: 191, Backquote: 192, BracketLeft: 219, Backslash: 220,
+    BracketRight: 221, Quote: 222, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 };
+  const kcode = c => c.startsWith('Key') ? c.charCodeAt(3) : c.startsWith('Digit') ? c.charCodeAt(5) : KC[c];
+  const tag = (n, text, cls) => { const e = document.createElement(n); e.textContent = text; if (cls) e.className = cls; return e; };
+
+  /**
+   * VirtualKeyboard.mount(element, options)
+   *   target   : <input> or <textarea> to type into (optional)
+   *   dispatch : where keydown/keyup events go. Default: target, or document if no target. null = none.
+   *   onKey    : callback({type, key, code, shift, caps}) for every keydown / keyup
+   *   theme    : 'light' | 'dark' (default: follow the system; the bottom-left key toggles it)
+   *   onTheme  : callback('light' | 'dark') when the theme changes
+   * Returns { shift, caps, destroy() }
+   */
+  function mount(root, opts = {}) {
+    const target = opts.target || null;
+    const st = { shift: false, caps: false };
+    const down = new Map();            // pointerId -> { el, k, ch, timer }
+    let hold = null, used = false;     // finger currently holding Shift
+
+    root.classList.add('vkb');
+    const mq = window.matchMedia('(prefers-color-scheme: light)');      // follow the system until the toggle is used
+    let manual = opts.theme === 'light' || opts.theme === 'dark';
+    const sys = () => mq.matches ? 'light' : 'dark';
+    const setTheme = t => { root.dataset.theme = t; if (opts.onTheme) opts.onTheme(t); };
+    const onSys = () => { if (!manual) setTheme(sys()); };
+    mq.addEventListener('change', onSys);
+    setTheme(manual ? opts.theme : sys());
+    const board = document.createElement('div'); board.className = 'board';
+    const grid = document.createElement('div'); grid.className = 'keys';
+    const els = KEYS.map((k, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.tabIndex = -1; b.dataset.i = i; b.dataset.t = k.t; b.className = 'k';
+      b.style.gridColumn = 'span ' + k.u * 4;
+      b.style.setProperty('--h', hue(k));
+      if (k.t === 'off') b.disabled = true;
+      else if (k.t === 'theme') { b.innerHTML = ICONS; b.title = 'Light / dark mode'; b.setAttribute('aria-label', b.title); }
+      else if (k.t === 'ch') {
+        if (k.abc) b.append(tag('span', k.lo));                       // letters start lower case
+        else if (k.lo !== ' ') b.append(tag('i', k.hi), tag('b', k.lo));
+      } else b.append(tag('span', k.label));
+      grid.append(b);
+      return b;
+    });
+    board.append(grid); root.append(board);
+
+    const render = () => {
+      const up = st.shift !== st.caps;
+      board.classList.toggle('s', st.shift);
+      KEYS.forEach((k, i) => {
+        if (k.abc) els[i].firstChild.textContent = up ? k.hi : k.lo;   // upper case only when caps or shift is on
+        if (k.t === 'shift') els[i].classList.toggle('on', st.shift);
+        if (k.t === 'caps') els[i].classList.toggle('on', st.caps);
+      });
+    };
+    const charOf = k => k.t !== 'ch' ? undefined : ((k.abc ? st.shift !== st.caps : st.shift) ? k.hi : k.lo);
+
+    function send(type, k, rec, repeat) {
+      const key = rec.ch ?? k.key, n = kcode(k.c);
+      const ev = new KeyboardEvent(type, { key, code: k.c, shiftKey: st.shift, repeat: !!repeat, bubbles: true, cancelable: true });
+      Object.defineProperties(ev, { keyCode: { value: n }, which: { value: n } });   // for games that read keyCode
+      const to = opts.dispatch === undefined ? (target || document) : opts.dispatch;
+      const ok = to ? to.dispatchEvent(ev) : true;                                   // false if a game called preventDefault
+      if (opts.onKey) opts.onKey({ type, key, code: k.c, shift: st.shift, caps: st.caps });
+      return ok;
+    }
+    function insert(k, ch) {
+      const t = target, s = t.selectionStart ?? t.value.length, e = t.selectionEnd ?? s;
+      if (k.t === 'arrow') {            // move the caret (up/down move by line, keeping the column)
+        const v = t.value; let p;
+        if (k.c === 'ArrowLeft') p = s === e ? Math.max(0, s - 1) : s;
+        else if (k.c === 'ArrowRight') p = s === e ? Math.min(v.length, e + 1) : e;
+        else {
+          const ls = s ? v.lastIndexOf('\n', s - 1) + 1 : 0, col = s - ls;
+          if (k.c === 'ArrowUp') p = !ls ? 0 : Math.min((ls < 2 ? 0 : v.lastIndexOf('\n', ls - 2) + 1) + col, ls - 1);
+          else { const nl = v.indexOf('\n', s), ne = nl < 0 ? -1 : v.indexOf('\n', nl + 1);
+                 p = nl < 0 ? v.length : Math.min(nl + 1 + col, ne < 0 ? v.length : ne); }
+        }
+        t.setSelectionRange(p, p); return;
+      }
+      if (k.t === 'back') { if (s === e && s === 0) return; t.setRangeText('', s === e ? s - 1 : s, e, 'end'); }
+      else if (ch !== undefined || (k.t === 'enter' && t.tagName === 'TEXTAREA')) t.setRangeText(ch ?? '\n', s, e, 'end');
+      else return;
+      t.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    function act(rec, repeat) {
+      const ok = send('keydown', rec.k, rec, repeat);
+      if (ok && target) insert(rec.k, rec.ch);
+    }
+    function setShift(v) {
+      if (st.shift === v) return;
+      st.shift = v; send(v ? 'keydown' : 'keyup', SHIFT, {}); render();
+    }
+
+    function onDown(e) {
+      const el = e.target.closest('.k');
+      if (!el || el.disabled) return;
+      e.preventDefault(); el.setPointerCapture(e.pointerId);
+      const k = KEYS[el.dataset.i], rec = { el, k, ch: charOf(k) };
+      down.set(e.pointerId, rec); el.classList.add('down');
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');     // glow ring
+      if (k.t === 'theme') { manual = true; setTheme(root.dataset.theme === 'light' ? 'dark' : 'light'); return; }
+      if (k.t === 'shift') {            // tap = latch for one key, hold + another finger = momentary
+        if (st.shift) setShift(false); else { setShift(true); hold = e.pointerId; used = false; }
+        return;
+      }
+      if (hold !== null) used = true;
+      if (k.t === 'caps') { st.caps = !st.caps; send('keydown', k, rec); render(); return; }
+      act(rec);
+      rec.timer = setTimeout(() => { rec.timer = setInterval(() => act(rec, true), 45); }, 450);   // key repeat
+    }
+    function onUp(e) {
+      const rec = down.get(e.pointerId);
+      if (!rec) return;
+      down.delete(e.pointerId); rec.el.classList.remove('down');
+      clearTimeout(rec.timer); clearInterval(rec.timer);
+      if (rec.k.t === 'theme') return;
+      if (rec.k.t === 'shift') { if (hold === e.pointerId) { hold = null; if (used) setShift(false); } return; }
+      send('keyup', rec.k, rec);
+      if (rec.k.t !== 'caps' && hold === null) setShift(false);   // one-shot shift ends after a key
+    }
+    function onMove(e) {                // cursor-following light inside the hovered key
+      const el = e.target.closest('.k');
+      if (!el || el.disabled) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--x', (e.clientX - r.left) / r.width * 100 + '%');
+      el.style.setProperty('--y', (e.clientY - r.top) / r.height * 100 + '%');
+    }
+    const stop = e => e.preventDefault();   // keep focus on the text field
+    board.addEventListener('pointerdown', onDown);
+    board.addEventListener('pointerup', onUp);
+    board.addEventListener('pointercancel', onUp);
+    board.addEventListener('pointermove', onMove);
+    board.addEventListener('animationend', e => e.target.classList.remove('pop'));
+    board.addEventListener('mousedown', stop);
+    board.addEventListener('contextmenu', stop);
+
+    return {
+      get shift() { return st.shift; },
+      get caps() { return st.caps; },
+      get theme() { return root.dataset.theme; },
+      set theme(t) { manual = true; setTheme(t); },
+      destroy() { down.forEach(r => { clearTimeout(r.timer); clearInterval(r.timer); }); mq.removeEventListener('change', onSys); delete root.dataset.theme; root.replaceChildren(); root.classList.remove('vkb'); }
+    };
+  }
+  window.VirtualKeyboard = { mount };
+})();
+/* ===== end of keyboard JS ===== */
+
+// demo: type into the textarea. In a game, use {dispatch: document} or just listen for keydown/keyup.
+VirtualKeyboard.mount(document.getElementById('kb'), {
+  target: document.getElementById('t'),
+  onTheme: t => { document.documentElement.dataset.theme = t; }   // demo page follows the keyboard
+});
+</script>
+</body>
+</html>

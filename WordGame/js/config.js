@@ -5,12 +5,14 @@ window.WG_CONFIG = {
 
   // ── Text-to-speech ──────────────────────────────────────────
   // Personal Kokoro TTS service. {text} and {voice} are replaced.
-  // Male English voices on Kokoro: am_michael, am_adam, am_onyx,
-  // am_puck, bm_daniel, bm_george, bm_fable
+  // The game alternates through `voices` on every click:
+  //   Michael (man) → Bella (woman) → Michael → …
+  // Both ids are verified working on tts.xedryk.top.
   tts: {
     enabled: true,
     url: "https://tts.xedryk.top/tts?text={text}&voice={voice}&speed=0.9",
-    voice: "am_michael",
+    voices: ["am_michael", "af_bella"],
+    voice: "am_michael",            // used only if `voices` is empty
     // Fallback when offline / service down: built-in browser voice
     browserFallback: true
   },
@@ -31,5 +33,13 @@ window.WG_CONFIG = {
   },
 
   // ── Sound effects ───────────────────────────────────────────
-  sfx: true
+  sfx: true,
+
+  // ── Volume ─────────────────────────────────────────────────
+  // Multipliers applied on top of the original mix levels.
+  // 1 = unchanged · 3 = 300% · 4 = 400%
+  volumes: {
+    sfx: 4,                         // sound effects  (master 0.5 → 2.0)
+    tts: 3                          // spoken words   (1.0 → 3.0)
+  }
 };

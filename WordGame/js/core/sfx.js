@@ -11,7 +11,10 @@ window.WG = window.WG || {};
       if (!AC) return false;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = 0.5;
+      // Base mix is 0.5; the config multiplier scales it (4 → 2.0 = 400%).
+      const v = window.WG_CONFIG && WG_CONFIG.volumes;
+      const mult = (v && typeof v.sfx === "number") ? v.sfx : 4;
+      master.gain.value = 0.5 * mult;
       master.connect(ctx.destination);
       return true;
     } catch (e) { return false; }

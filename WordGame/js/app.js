@@ -27,6 +27,7 @@ window.WG = window.WG || {};
       document.documentElement.dataset.theme = cur;
       WG.store.settings.theme = cur;
       WG.store.saveSettings();
+      if (WG.kb && WG.kb.syncTheme) WG.kb.syncTheme();
       WG.ui.renderTopbar();
     },
 

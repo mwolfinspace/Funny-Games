@@ -963,9 +963,12 @@ window.WG = window.WG || {};
       const st = S();
       const kbWrap = WG.$(".kb-wrap", this.root);
       if (!kbWrap) return;
-      kbWrap.innerHTML = "";
       if (st.review) { kbWrap.classList.add("kb-hidden"); return; }
       kbWrap.classList.remove("kb-hidden");
+
+      // build the board once per screen — later cards only swap the answer box
+      if (kbWrap.dataset.kb === st.screen) return;
+      kbWrap.dataset.kb = st.screen;
 
       if (st.screen === "learn") {
         this.kbCtl = WG.kb.mount(kbWrap, {
