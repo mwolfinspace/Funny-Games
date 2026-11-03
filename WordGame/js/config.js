@@ -38,8 +38,10 @@ window.WG_CONFIG = {
   // ── Volume ─────────────────────────────────────────────────
   // Multipliers applied on top of the original mix levels.
   // 1 = unchanged · 3 = 300% · 4 = 400%
+  // The TTS clips are already near full scale, so anything much above ~1.5
+  // clips the peaks and the voice crackles. Keep tts low.
   volumes: {
     sfx: 4,                         // sound effects  (master 0.5 → 2.0)
-    tts: 3                          // spoken words   (1.0 → 3.0)
+    tts: 1.5                        // spoken words   (1.0 → 1.5, limiter-guarded)
   }
 };

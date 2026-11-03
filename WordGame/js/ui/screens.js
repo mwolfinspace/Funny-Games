@@ -131,6 +131,12 @@ window.WG = window.WG || {};
         }
       }, [document.documentElement.dataset.theme === "dark" ? "🌙" : "☀️"]));
 
+      right.append(WG.el("button", {
+        class: "btn btn-ico", title: "How to play / Cách chơi",
+        "aria-label": "How to play",
+        onclick: () => { WG.sfx.play("tap"); ui.help(); }
+      }, ["❓"]));
+
       tb.append(right);
     },
 
@@ -177,29 +183,6 @@ window.WG = window.WG || {};
       const wrap = WG.el("div", { class: "welcome" });
       // middle area: everything you set up scrolls here, never the page
       const mid = WG.el("div", { class: "w-mid" });
-
-      // ── hero ──
-      const step = (icon, title, sub) => WG.el("li", {}, [
-        WG.el("span", { class: "ws-ico", "aria-hidden": "true" }, [icon]),
-        WG.el("span", { class: "ws-title" }, [title]),
-        WG.el("span", { class: "ws-sub" }, [sub])
-      ]);
-
-      mid.append(WG.el("header", { class: "w-hero glass" }, [
-        WG.el("div", { class: "w-hero-main" }, [
-          WG.el("span", { class: "w-eyebrow" }, ["🧠 Cambridge YLE · Vocabulary"]),
-          WG.el("h1", { class: "w-title" }, [
-            "Learn English words ",
-            WG.el("span", { class: "w-grad" }, ["the fun way"]),
-            "."
-          ])
-        ]),
-        WG.el("ol", { class: "w-steps", "aria-label": "How it works" }, [
-          step("📚", "Learn", "Look, type & listen"),
-          step("⌨️", "Practice", "Type each word"),
-          step("🏆", "Win", "Beat your score")
-        ])
-      ]));
 
       const panelHead = (num, title, sub) => WG.el("div", { class: "w-panel-head" }, [
         WG.el("span", { class: "w-step" }, [num]),
@@ -620,11 +603,11 @@ window.WG = window.WG || {};
         WG.el("button", {
           class: "card-arrow ca-l", title: "Previous word (←)", "aria-label": "Previous word",
           onclick: () => ui.nav(-1)
-        }, ["⬅️"]),
+        }, ["←"]),
         WG.el("button", {
           class: "card-arrow ca-r", title: "Next word (→)", "aria-label": "Next word",
           onclick: () => ui.nav(1)
-        }, ["➡️"]),
+        }, ["→"]),
         WG.el("div", { class: "dots-row" }, [dots])
       );
       return WG.el("div", { class: "stage" + (extra ? " " + extra : "") }, [card]);
@@ -653,18 +636,10 @@ window.WG = window.WG || {};
         cornerL.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["📊"]), WG.el("span", { class: "cl-label" }, ["Results"]));
         cornerL.onclick = () => { WG.sfx.play("tap"); ui.show("result"); };
       } else {
-        cornerL.title = "Give up and see results";
-        cornerL.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["🏳️"]), WG.el("span", { class: "cl-label" }, ["Give up"]));
-        cornerL.onclick = () => {
-          WG.sfx.play("tap");
-          ui.modal({
-            emoji: "🏳️",
-            title: "Give up?",
-            body: "Unanswered words count as wrong. See your results now?",
-            okText: "See results 📊",
-            onOk: () => { WG.engine.finish(); ui.show("result"); }
-          });
-        };
+        cornerL.title = "Previous word";
+        cornerL.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["←"]), WG.el("span", { class: "cl-label" }, ["Back"]));
+        cornerL.onclick = () => ui.nav(-1);
+        cornerL.disabled = st.idx === 0;
       }
       bar.append(cornerL);
 
@@ -685,10 +660,7 @@ window.WG = window.WG || {};
           ui.show("test");
         };
       } else if (!st.review) {
-        cornerR.title = "Submit answers";
-        cornerR.classList.add("btn-submit");
-        cornerR.append(WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, ["✅"]), WG.el("span", { class: "cl-label" }, ["Submit"]));
-        cornerR.onclick = () => ui.submit();
+        this.paintTestNext(cornerR);
       } else {
         cornerR.classList.add("corner-spacer", "corner-blank");
         cornerR.disabled = true;
@@ -696,6 +668,31 @@ window.WG = window.WG || {};
       bar.append(cornerR);
 
       return bar;
+    },
+
+    // Test navigation: "Next" steps forward and turns into "Submit" on the
+    // last card, so the student can't submit before seeing every word.
+    paintTestNext(btn) {
+      const st = S();
+      const last = st.idx >= st.set.length - 1;
+      btn.innerHTML = "";
+      btn.classList.toggle("btn-submit", last);
+      btn.title = last ? "Submit answers" : "Next word";
+      btn.append(
+        WG.el("span", { class: "cl-ico", "aria-hidden": "true" }, [last ? "✅" : "→"]),
+        WG.el("span", { class: "cl-label" }, [last ? "Submit" : "Next"])
+      );
+      btn.onclick = () => { last ? ui.submit() : ui.nav(1); };
+    },
+
+    // Keep the test corner buttons in step with the card that is showing.
+    syncTestNav() {
+      const st = S();
+      if (st.screen !== "test" || st.review) return;
+      const back = WG.$(".nav .corner-l", this.root);
+      if (back) back.disabled = st.idx === 0;
+      const next = WG.$(".nav .corner-r", this.root);
+      if (next) this.paintTestNext(next);
     },
 
     renderDots(dotsEl) {
@@ -737,6 +734,7 @@ window.WG = window.WG || {};
       this.renderTopbar();
       this.updateCard(i > this._lastIdx ? 1 : -1);
       this._lastIdx = st.idx;
+      this.syncTestNav();
     },
 
     // ═══════════════════════ learn: word + typing practice ═══════════════════════
@@ -1150,6 +1148,103 @@ window.WG = window.WG || {};
         setTimeout(() => { root.innerHTML = ""; }, 180);
       }
       back.addEventListener("click", e => { if (e.target === back) close(); });
+    },
+
+    // ═══════════════════════ help ═══════════════════════
+    // Full-screen explainer: how a round runs, what every card field is,
+    // and what a seed id does. Opened from the "?" button in the topbar.
+    help() {
+      const root = WG.$("#modal-root");
+      root.innerHTML = "";
+
+      const sec = (title, ...body) => WG.el("section", { class: "help-sec" }, [
+        WG.el("h3", {}, [title]),
+        ...body
+      ]);
+      const p = text => WG.el("p", {}, [text]);
+      const ul = items => WG.el("ul", {}, items.map(t => WG.el("li", {}, [t])));
+
+      const back = WG.el("div", { class: "help-back" });
+      const box = WG.el("section", {
+        class: "help glass", role: "dialog", "aria-modal": "true",
+        "aria-labelledby": "help-title"
+      }, [
+        WG.el("header", { class: "help-head" }, [
+          WG.el("span", { class: "help-ico", "aria-hidden": "true" }, ["❓"]),
+          WG.el("h2", { id: "help-title" }, ["How to play"]),
+          WG.el("button", {
+            class: "btn btn-ico help-close", title: "Close (Esc)", "aria-label": "Close",
+            onclick: close
+          }, ["✕"])
+        ]),
+        WG.el("div", { class: "help-body" }, [
+          sec("1 · Learn",
+            p("Each card shows one word with its photo, its type and its meaning. Type the word on your keyboard — or on the on-screen board — and the tiles turn green when you get it right."),
+            p("Type it again to build up repetitions. Use ← → to move between cards.")
+          ),
+          sec("2 · Test",
+            p("The word is hidden. Type it from the Vietnamese meaning, then press Submit."),
+            p("Stuck? Turn on the letter hint (🔤) to see how many letters the answer has.")
+          ),
+          sec("3 · Results",
+            p("You get a score and a review of every card. Try again to replay the same words in a new order, or start a fresh set."),
+            p("Words you missed are worth another look in the review list.")
+          ),
+          sec("Reading a card",
+            ul([
+              "Photo or emoji — the picture for the word.",
+              "Word type — noun, verb, adjective…",
+              "Vietnamese meaning — your main clue in the test.",
+              "English meaning and example sentence — extra context.",
+              "🔊 — hear the word spoken."
+            ])
+          ),
+          sec("Photo buttons",
+            ul([
+              "❌ — hide this photo and use the emoji instead.",
+              "🔄 — load a different photo for the same word.",
+              "✔️ — confirm this photo is right for the word."
+            ])
+          ),
+          sec("Topbar hints",
+            p("The pills switch each piece of card detail on or off: photo, voice, Vietnamese, English, example, word type and letter count. What you pick on the setup screen is saved; the test starts with only the Vietnamese meaning showing.")
+          ),
+          sec("Seed ID",
+            p("A seed id is a short code that stands for a whole custom word list. Build the list with Custom word list, copy the code, and paste it on another device to load exactly the same words."),
+            p("Nothing is stored online — the code rebuilds the list from the built-in dictionary, so it is safe to share. A mistyped code is rejected instead of loading the wrong words.")
+          ),
+          sec("Levels",
+            ul([
+              "Pre-A1 Starters, A1 Movers, A2 Flyers — the Cambridge word lists.",
+              "Challenge — every level mixed together.",
+              "Custom — your own picks, or a list loaded from a seed id."
+            ])
+          ),
+          sec("Keyboard",
+            ul([
+              "← / → or PageUp / PageDown — previous / next card.",
+              "Enter — next card while learning.",
+              "Any letter — types into the practice pad while learning.",
+              "Esc — close this window."
+            ])
+          )
+        ])
+      ]);
+
+      back.append(box);
+      root.append(back);
+      requestAnimationFrame(() => back.classList.add("in"));
+
+      const onKey = e => { if (e.key === "Escape") { e.preventDefault(); close(); } };
+      document.addEventListener("keydown", onKey, true);
+      back.addEventListener("click", e => { if (e.target === back) close(); });
+
+      function close() {
+        WG.sfx.play("tap");
+        document.removeEventListener("keydown", onKey, true);
+        back.classList.remove("in");
+        setTimeout(() => { root.innerHTML = ""; }, 180);
+      }
     },
 
     // ═══════════════════════ confetti ═══════════════════════

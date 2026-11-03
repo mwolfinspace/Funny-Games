@@ -2,15 +2,16 @@
 // browser speechSynthesis fallback for offline use. English only.
 //
 // Playback path: the WAV is fetched once, decoded into an AudioBuffer and
-// played through the 300% gain node. Using a decoded buffer (instead of an
-// <audio> element wired into Web Audio) means the whole clip is always
-// played: a media element can stop a fraction early on `ended` / a late
-// decode error, which used to clip the last syllable ("take a photo" →
-// "take a pho"). The element path is kept only as a fallback.
+// played through the gain → limiter chain (see `graph()`). Using a decoded
+// buffer (instead of an <audio> element wired into Web Audio) means the whole
+// clip is always played: a media element can stop a fraction early on
+// `ended` / a late decode error, which used to clip the last syllable
+// ("take a photo" → "take a pho"). The element path is kept only as a fallback.
 window.WG = window.WG || {};
 (function () {
   let actx = null;
   let ttsGain = null;
+  let ttsLimit = null;
 
   let currentBuffer = null;   // AudioBufferSourceNode (main path)
   let currentAudio = null;    // <audio> (fallback path)
@@ -26,7 +27,7 @@ window.WG = window.WG || {};
   // routed through a Web Audio gain node to go above 100%.
   function ttsMultiplier() {
     const v = window.WG_CONFIG && WG_CONFIG.volumes;
-    return (v && typeof v.tts === "number") ? v.tts : 3;
+    return (v && typeof v.tts === "number") ? v.tts : 1.5;
   }
 
   function graph() {
@@ -37,9 +38,19 @@ window.WG = window.WG || {};
       actx = new AC();
       ttsGain = actx.createGain();
       ttsGain.gain.value = ttsMultiplier();
-      ttsGain.connect(actx.destination);
+      // Kokoro clips are already near full scale, so a plain gain above 1.0
+      // pushes the peaks past 0 dBFS and the voice crackles. The compressor
+      // is wired as a limiter: it catches those peaks instead of clipping.
+      ttsLimit = actx.createDynamicsCompressor();
+      ttsLimit.threshold.value = -2;
+      ttsLimit.knee.value = 0;
+      ttsLimit.ratio.value = 20;
+      ttsLimit.attack.value = 0.002;
+      ttsLimit.release.value = 0.15;
+      ttsGain.connect(ttsLimit);
+      ttsLimit.connect(actx.destination);
       return actx;
-    } catch (e) { actx = null; ttsGain = null; return null; }
+    } catch (e) { actx = null; ttsGain = null; ttsLimit = null; return null; }
   }
 
   // Unlock the context on the first user gesture (autoplay policy).
