@@ -15,6 +15,16 @@ window.WG = window.WG || {};
   const ui = {
     topbar: null,
     root: null,
+    // Hints used during the test phase. Kept in memory only so the choices
+    // made on the setup screen survive the round.
+    testHints: null,
+
+    // Hints actually in force right now.
+    hints() {
+      return S().screen === "test" && this.testHints
+        ? this.testHints
+        : WG.store.settings.hints;
+    },
 
     init() {
       this.topbar = WG.$("#topbar");
@@ -70,17 +80,21 @@ window.WG = window.WG || {};
       if (mode === "learn" || mode === "test") {
         const pills = WG.el("div", { class: "tb-pills" });
         HINTS.forEach(h => {
-          const on = !!WG.store.settings.hints[h.key];
+          const on = this.hints()[h.key] !== false;
           pills.append(WG.el("button", {
-            class: "pill" + (on ? " on" : " off"),
+            class: "pill" + (on ? " on" : "off"),
             title: h.label,
             "aria-label": h.label,
             "aria-pressed": on ? "true" : "false",
             onclick: (e) => {
-              WG.store.setHint(h.key, !WG.store.settings.hints[h.key]);
+              const live = this.hints();
+              const next = live[h.key] === false;
+              live[h.key] = next;
+              // only the setup screen writes the saved preference
+              if (live === WG.store.settings.hints) WG.store.saveSettings();
               WG.sfx.play("toggle");
-              e.currentTarget.classList.toggle("on");
-              e.currentTarget.classList.toggle("off");
+              e.currentTarget.classList.toggle("on", next);
+              e.currentTarget.classList.toggle("off", !next);
               ui.applyHints();
             }
           }, [h.icon]));
@@ -122,7 +136,7 @@ window.WG = window.WG || {};
 
     // Show/hide card sections based on hint settings + phase
     applyHints() {
-      const h = WG.store.settings.hints;
+      const h = this.hints();
       WG.$$("[data-hint]", this.root).forEach(n => {
         const on = h[n.dataset.hint] !== false;
         n.classList.toggle("hint-hidden", !on);
@@ -488,7 +502,7 @@ window.WG = window.WG || {};
       if (!area) return;
       const st = S();
       area.innerHTML = "";
-      if (WG.store.settings.hints.photo === false) return; // photo panel is off
+      if (this.hints().photo === false) return; // photo panel is off
 
       const shell = WG.el("div", { class: "photo-box" });
       const state = WG.el("div", { class: "photo-state loading" }, []);
@@ -884,7 +898,7 @@ window.WG = window.WG || {};
         w.note ? WG.el("span", { class: "note-chip" }, [w.note]) : null
       ]));
 
-      right.append(WG.el("div", { class: "sec", "data-hint": "vn" }, [
+      right.append(WG.el("div", { class: "sec sec-vn", "data-hint": "vn" }, [
         WG.el("span", { class: "sec-label" }, ["🇻🇳"]),
         WG.el("span", { class: "vn-text" }, [w.vn])
       ]));
@@ -972,11 +986,12 @@ window.WG = window.WG || {};
       });
     },
 
-    // Entering test: default hints = Vietnamese meaning only (+ photo, voice)
+    // Entering test: default hints = Vietnamese meaning only (+ photo, voice).
+    // The overlay is in-memory, so the setup screen keeps what the teacher chose.
     enterTestDefaults() {
-      const h = WG.store.settings.hints;
-      h.en = false; h.ex = false; h.pos = false; h.letters = false;
-      WG.store.saveSettings();
+      this.testHints = Object.assign({}, WG.store.settings.hints, {
+        en: false, ex: false, pos: false, letters: false
+      });
     },
 
     submit() {
