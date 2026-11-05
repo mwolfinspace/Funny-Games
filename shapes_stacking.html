@@ -1792,22 +1792,28 @@
 
                 updateLoader(50);
 
-                // Stage 2: Check extra shapes in parallel (safe check - limited range to avoid 404 spam)
-                // Check up to 4 extra shapes to avoid 404 log spam
-                const maxExtra = 4;
+                // Stage 2: Check extra shapes in parallel (dynamic scan - discover all available SVGs)
+                // Scan extra shapes 1-50 to discover all available SVGs in the folder
+                // Silently skip missing ones (no 404 log spam)
+                // Fallback SVG generation will handle any shapes not found
                 const extraPromises = [];
-                for (let i = 1; i <= maxExtra; i++) {
+                const extraScanLimit = 50;
+                for (let i = 1; i <= extraScanLimit; i++) {
+                    const shapeId = SHAPES_COUNT + i;
                     const url = `./shapes/extra${i}.svg`;
                     extraPromises.push(
                         fetch(url, { method: "HEAD" })
                             .then(res => {
                                 if (res.ok) {
-                                    const id = SHAPES_COUNT + i;
-                                    shapeCache[id] = url;
-                                    state.extraShapes.push(id);
+                                    shapeCache[shapeId] = url;
+                                    state.extraShapes.push(shapeId);
                                 }
+                                // If not found, just silently skip - no 404 error log spam
                             })
-                            .catch(() => {})
+                            .catch(() => {
+                                // File not found - just skip, no repeated 404 errors
+                                // Fallback SVG generation will handle missing shapes
+                            })
                     );
                 }
 
