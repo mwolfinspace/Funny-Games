@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRACTION RACE - Educational Math Game</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            heading: ['Fredoka', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts: Fredoka & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-heading {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    /* Vertical Fraction Styling (No Slash /) */
+    .frac {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      line-height: 1.05;
+      font-weight: 700;
+    }
+    .frac .top {
+      border-bottom: 2px solid currentColor;
+      padding: 0 3px;
+      text-align: center;
+    }
+    .frac .bottom {
+      padding: 0 3px;
+      text-align: center;
+    }
+
+    /* Safe breathing room between the seven lanes — grows with viewport
+       height so short screens stay usable and tall screens look airy. */
+    .lanes-gap {
+      gap: clamp(3px, 0.9vh, 10px);
+    }
+
+    /* Tick-road fractions scale with viewport height so they fill the
+       space under the red track instead of floating in it. */
+    .lane-label { font-size: clamp(10px, 1.8vh, 18px); }
+    .lane-axis  { height: clamp(25px, 4.4vh, 44px); }
+
+    /* Short windows: shrink the tracks, badge and labels so the seven
+       lanes still fit without overlapping. */
+    @media (max-height: 700px) {
+      #lanes-board .lane-track { height: 16px !important; }
+      #lanes-board .den-badge { font-size: 14px !important; }
+      #lanes-board .lane-label { font-size: 10px !important; }
+      #lanes-board .lane-axis { height: 24px !important; }
+    }
+
+    /* Track Progress Fill Animations */
+    @keyframes progress-pulse {
+      0%, 100% { opacity: 0.85; }
+      50% { opacity: 0.55; }
+    }
+    .animate-progress-glow {
+      animation: progress-pulse 1.2s infinite ease-in-out;
+    }
+
+    /* 3D Card Flip Styles */
+    .perspective-1000 { perspective: 1000px; }
+    .transform-style-3d { transform-style: preserve-3d; }
+    .backface-hidden { backface-visibility: hidden; }
+    .rotate-y-180 { transform: rotateY(180deg); }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 h-screen w-screen overflow-hidden flex flex-col">
+
+  <!-- TOP CONTROL & STATUS HEADER -->
+  <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between shrink-0 shadow-sm z-30">
+    
+    <!-- Title & Logo -->
+    <div class="flex items-center gap-3">
+      <a href="index.html" title="Back to all games" aria-label="Back to all games"
+         class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition shrink-0">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 3.2 2.4 11.6a1 1 0 0 0 1.3 1.5l1.3-1.1V20a1 1 0 0 0 1 1h5v-5h2v5h5a1 1 0 0 0 1-1v-8l1.3 1.1a1 1 0 1 0 1.3-1.5L12 3.2Z"/></svg>
+      </a>
+      <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg shadow-md shadow-indigo-500/20 font-bold">
+        🏁
+      </div>
+      <div>
+        <h1 class="font-heading text-lg md:text-xl font-bold bg-gradient-to-r from-indigo-600 via-sky-600 to-amber-500 dark:from-indigo-400 dark:via-sky-400 dark:to-amber-400 bg-clip-text text-transparent">
+          FRACTION RACE
+        </h1>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-none hidden sm:block">Simplification & Common Denominator Challenge</p>
+      </div>
+    </div>
+
+    <!-- Center Turn Status Banner & Scores -->
+    <div class="flex items-center gap-4 bg-slate-100 dark:bg-slate-950 px-3.5 py-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
+      <!-- Blue Team Score -->
+      <div class="flex items-center gap-1.5">
+        <div class="w-5 h-5 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+          <svg class="w-full h-full fill-current" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2zm-3-4H8v-2h8v2zm-1-4.05V12c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v1.95C9.28 14.47 7 16.94 7 20h10c0-3.06-2.28-5.53-5-5.95zM12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+        </div>
+        <div class="text-left">
+          <div class="text-[9px] uppercase font-bold text-sky-600 dark:text-sky-400 tracking-wider">Blue</div>
+          <div id="score-blue" class="text-xs font-black text-sky-900 dark:text-sky-200">0 / 3 Goal</div>
+        </div>
+      </div>
+
+      <!-- Turn Message Banner (Integrated into Header) -->
+      <div id="turn-banner-header" class="px-3 py-1 rounded-lg bg-sky-200/80 dark:bg-sky-900/50 text-sky-900 dark:text-sky-200 text-xs font-extrabold flex items-center gap-2 border border-sky-300 dark:border-sky-700">
+        <span id="turn-icon-header" class="w-4 h-4 text-sky-600 dark:text-sky-300 inline-block">
+          <svg class="w-full h-full fill-current" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2zm-3-4H8v-2h8v2zm-1-4.05V12c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v1.95C9.28 14.47 7 16.94 7 20h10c0-3.06-2.28-5.53-5-5.95zM12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+        </span>
+        <span id="turn-text-header">BLUE TEAM'S TURN: Pick a card from the left panel.</span>
+      </div>
+
+      <!-- Red Team Score -->
+      <div class="flex items-center gap-1.5">
+        <div class="text-right">
+          <div class="text-[9px] uppercase font-bold text-red-600 dark:text-red-400 tracking-wider">Red</div>
+          <div id="score-red" class="text-xs font-black text-red-900 dark:text-red-200">0 / 3 Goal</div>
+        </div>
+        <div class="w-5 h-5 text-red-600 dark:text-red-400 flex items-center justify-center">
+          <svg class="w-full h-full fill-current" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2zm-3-4H8v-2h8v2zm-1-4.05V12c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v1.95C9.28 14.47 7 16.94 7 20h10c0-3.06-2.28-5.53-5-5.95zM12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Controls -->
+    <div class="flex items-center gap-2">
+      <!-- Mode Toggle -->
+      <div class="bg-slate-200 dark:bg-slate-800 p-0.5 rounded-lg flex items-center text-xs">
+        <button id="btn-mode-classic" onclick="setGameMode('classic')" class="px-2.5 py-1 rounded-md font-bold transition bg-indigo-600 text-white shadow-sm">
+          🏆 Classic
+        </button>
+        <button id="btn-mode-champion" onclick="setGameMode('champion')" class="px-2.5 py-1 rounded-md font-bold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          👑 Champion
+        </button>
+      </div>
+
+      <button onclick="startNewGame()" class="p-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition" title="New Game">
+        🔄
+      </button>
+      <button onclick="resetTurn()" class="p-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition" title="Reset Turn">
+        🧹
+      </button>
+      <button onclick="toggleTheme()" class="p-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition" title="Toggle Theme">
+        ☀️/🌙
+      </button>
+      <button id="btn-audio" onclick="toggleAudio()" class="p-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition" title="Audio">
+        🔊
+      </button>
+      <button onclick="toggleRulesModal(true)" class="p-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold rounded-lg border border-indigo-300 dark:border-indigo-800 transition">
+        📖 Rules
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WIDESCREEN CONTAINER (100vh Fit, No Scroll) -->
+  <main class="flex-1 flex gap-3 p-3 overflow-hidden">
+
+    <!-- LEFT SIDEBAR: DYNAMIC CARD BANK / MOVEMENT DOCK -->
+    <aside class="w-72 md:w-80 flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-md shrink-0 overflow-hidden">
+      
+      <!-- Panel Header -->
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div class="flex items-center gap-1.5">
+          <span id="panel-icon" class="text-base">🃏</span>
+          <h2 id="panel-title" class="font-heading font-bold text-sm text-slate-800 dark:text-slate-200">
+            Card Bank (18 Cards)
+          </h2>
+        </div>
+        <button id="btn-shuffle" onclick="shuffleDeckCards()" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 transition flex items-center gap-1">
+          🔀 Shuffle
+        </button>
+      </div>
+
+      <!-- Panel Body Container -->
+      <div id="left-panel-content" class="flex-1 overflow-y-auto p-1 relative flex flex-col">
+        <!-- Rendered Dynamically via JS -->
+      </div>
+    </aside>
+
+    <!-- RIGHT ZONE: 7 TRACK LANES -->
+    <section class="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-md overflow-hidden justify-between">
+      
+      <!-- Lanes Container -->
+      <div id="lanes-board" class="flex-1 flex flex-col justify-between h-full lanes-gap pb-4 overflow-hidden">
+        <!-- Rendered dynamically by JS -->
+      </div>
+
+    </section>
+  </main>
+
+  <!-- FORGE / DECOMPOSITION MODAL -->
+  <div id="modal-forge" class="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+    <div id="modal-forge-content" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-3xl w-[92vw] h-[88vh] max-w-5xl p-6 shadow-2xl flex flex-col justify-between transform scale-95 transition-transform duration-300 overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl font-bold shadow-md">
+            🔍
+          </div>
+          <div>
+            <h3 class="font-heading font-bold text-xl text-slate-900 dark:text-white">EQUATION FORGE</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Pick all valid simplified forms and unique denominator sum equations!</p>
+          </div>
+        </div>
+
+        <!-- Picked Card Display (Large Fraction) -->
+        <div class="flex items-center gap-3 bg-slate-100 dark:bg-slate-950 px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Drawn Card:</span>
+          <div id="forge-drawn-card" class="text-3xl font-black text-indigo-600 dark:text-amber-400">
+            <!-- Large Fraction Display -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Options Grid (8 Cards with Scaled Fraction Equations) -->
+      <div id="forge-options-grid" class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 py-4 overflow-y-auto">
+        <!-- Dynamically rendered 8+ option cards -->
+      </div>
+
+      <!-- Modal Footer Controls -->
+      <div class="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        <div id="forge-status-bar" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+          Select all correct equations to unlock movement cards.
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="skipForgePick()" class="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition flex items-center gap-1">
+            ⚡ Fast Skip
+          </button>
+          <button id="btn-finish-forge" onclick="finishForgePhase()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-1">
+            ✔️ Complete & Move ➔
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RULES MODAL -->
+  <div id="modal-rules" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-3">
+        <h3 class="font-heading font-bold text-lg text-indigo-600 dark:text-amber-400">📖 Game Rules</h3>
+        <button onclick="toggleRulesModal(false)" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold">✕</button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-600 dark:text-slate-300 overflow-y-auto pr-1">
+        <p><strong>1. Objective:</strong> First team to advance 3 pawns across the finish line (1.0) wins!</p>
+        <p><strong>2. Card Draw:</strong> Pick a hidden card from the 18 Card Bank.</p>
+        <p><strong>3. Forge Phase:</strong> Select valid equations (simplifications or sums of fractions with different denominators).</p>
+        <p><strong>4. Movement:</strong> Preview moves on the 7 lanes. Confirm your move to advance your pawns.</p>
+        <p><strong>5. Champion Mode:</strong> Finishing a track locks that lane from future moves!</p>
+      </div>
+      <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-right">
+        <button onclick="toggleRulesModal(false)" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl">Got It!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VICTORY MODAL -->
+  <div id="modal-victory" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-500">
+    <div class="bg-white dark:bg-slate-900 border border-amber-400 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl flex flex-col items-center gap-4">
+      <div class="text-6xl animate-bounce">🏆</div>
+      <h2 id="victory-title" class="font-heading text-2xl font-black text-amber-500">
+        BLUE TEAM WINS!
+      </h2>
+      <p id="victory-desc" class="text-xs text-slate-500 dark:text-slate-300">
+        Congratulations! 3 pawns reached the finish line first!
+      </p>
+      <button onclick="startNewGame(); toggleVictoryModal(false);" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg transition">
+        🎮 Play Again
+      </button>
+    </div>
+  </div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-40"></canvas>
+
+  <!-- GAME LOGIC SCRIPT -->
+  <script>
+    /* ==========================================================================
+       1. DATA STRUCTURES & CONFIG
+       ========================================================================== */
+    const SVG_PAWN = `<svg class="w-full h-full fill-current" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2zm-3-4H8v-2h8v2zm-1-4.05V12c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v1.95C9.28 14.47 7 16.94 7 20h10c0-3.06-2.28-5.53-5-5.95zM12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>`;
+
+    const LANES_CONFIG = [
+      { den: 2, ticks: [0, 1] },
+      { den: 3, ticks: [0, 1, 2] },
+      { den: 4, ticks: [0, 1, 2, 3] },
+      { den: 5, ticks: [0, 1, 2, 3, 4] },
+      { den: 6, ticks: [0, 1, 2, 3, 4, 5] },
+      { den: 8, ticks: [0, 1, 2, 3, 4, 5, 6, 7] },
+      { den: 10, ticks: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }
+    ];
+
+    const CARDS_DECK_MASTER = [
+      { id: 1, originalNum: 300, originalDen: 400, simpNum: 3, simpDen: 4 },
+      { id: 2, originalNum: 3, originalDen: 5, simpNum: 3, simpDen: 5 },
+      { id: 3, originalNum: 30, originalDen: 45, simpNum: 2, simpDen: 3 },
+      { id: 4, originalNum: 2, originalDen: 3, simpNum: 2, simpDen: 3 },
+      { id: 5, originalNum: 24, originalDen: 40, simpNum: 3, simpDen: 5 },
+      { id: 6, originalNum: 3, originalDen: 4, simpNum: 3, simpDen: 4 },
+      { id: 7, originalNum: 20, originalDen: 50, simpNum: 2, simpDen: 5 },
+      { id: 8, originalNum: 2, originalDen: 5, simpNum: 2, simpDen: 5 },
+      { id: 9, originalNum: 1, originalDen: 3, simpNum: 1, simpDen: 3 },
+      { id: 10, originalNum: 50, originalDen: 150, simpNum: 1, simpDen: 3 },
+      { id: 11, originalNum: 1, originalDen: 4, simpNum: 1, simpDen: 4 },
+      { id: 12, originalNum: 15, originalDen: 60, simpNum: 1, simpDen: 4 },
+      { id: 13, originalNum: 1, originalDen: 5, simpNum: 1, simpDen: 5 },
+      { id: 14, originalNum: 15, originalDen: 75, simpNum: 1, simpDen: 5 },
+      { id: 15, originalNum: 4, originalDen: 5, simpNum: 4, simpDen: 5 },
+      { id: 16, originalNum: 80, originalDen: 100, simpNum: 4, simpDen: 5 },
+      { id: 17, originalNum: 1, originalDen: 6, simpNum: 1, simpDen: 6 },
+      { id: 18, originalNum: 15, originalDen: 90, simpNum: 1, simpDen: 6 }
+    ];
+
+    const FORGE_EQUATIONS_MASTER = {
+      '3/4': [
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">4</span></span>', isCorrect: true, moves: [{ den: 4, steps: 3 }] },
+        { labelHtml: '<span class="frac"><span class="top">6</span><span class="bottom">8</span></span>', isCorrect: true, moves: [{ den: 8, steps: 6 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">4</span></span>', isCorrect: true, moves: [{ den: 2, steps: 1 }, { den: 4, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">2</span><span class="bottom">8</span></span>', isCorrect: true, moves: [{ den: 2, steps: 1 }, { den: 8, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">4</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">4</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">3</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">4</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">3</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">5</span><span class="bottom">8</span></span>', isCorrect: false, moves: [] }
+      ],
+      '3/5': [
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">5</span></span>', isCorrect: true, moves: [{ den: 5, steps: 3 }] },
+        { labelHtml: '<span class="frac"><span class="top">6</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 10, steps: 6 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 2, steps: 1 }, { den: 10, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span> + <span class="frac"><span class="top">4</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 5, steps: 1 }, { den: 10, steps: 4 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">5</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">4</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] }
+      ],
+      '2/3': [
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">3</span></span>', isCorrect: true, moves: [{ den: 3, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">4</span><span class="bottom">6</span></span>', isCorrect: true, moves: [{ den: 6, steps: 4 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: true, moves: [{ den: 2, steps: 1 }, { den: 6, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">3</span></span> + <span class="frac"><span class="top">2</span><span class="bottom">6</span></span>', isCorrect: true, moves: [{ den: 3, steps: 1 }, { den: 6, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">3</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">3</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">3</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">5</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">4</span></span>', isCorrect: false, moves: [] }
+      ],
+      '2/5': [
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">5</span></span>', isCorrect: true, moves: [{ den: 5, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">4</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 10, steps: 4 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span> + <span class="frac"><span class="top">2</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 5, steps: 1 }, { den: 10, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">4</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> - <span class="frac"><span class="top">1</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] }
+      ],
+      '4/5': [
+        { labelHtml: '<span class="frac"><span class="top">4</span><span class="bottom">5</span></span>', isCorrect: true, moves: [{ den: 5, steps: 4 }] },
+        { labelHtml: '<span class="frac"><span class="top">8</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 10, steps: 8 }] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">5</span></span> + <span class="frac"><span class="top">2</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 5, steps: 3 }, { den: 10, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">3</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 2, steps: 1 }, { den: 10, steps: 3 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">5</span></span> + <span class="frac"><span class="top">2</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> + <span class="frac"><span class="top">2</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">7</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">9</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] }
+      ],
+      '1/3': [
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">3</span></span>', isCorrect: true, moves: [{ den: 3, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">6</span></span>', isCorrect: true, moves: [{ den: 6, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">6</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">4</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">2</span></span> - <span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] }
+      ],
+      '1/4': [
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">4</span></span>', isCorrect: true, moves: [{ den: 4, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">8</span></span>', isCorrect: true, moves: [{ den: 8, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">8</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">8</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">3</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">8</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] }
+      ],
+      '1/5': [
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: true, moves: [{ den: 5, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">10</span></span>', isCorrect: true, moves: [{ den: 10, steps: 2 }] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">10</span></span> + <span class="frac"><span class="top">1</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">4</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">8</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">4</span><span class="bottom">10</span></span>', isCorrect: false, moves: [] }
+      ],
+      '1/6': [
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">6</span></span>', isCorrect: true, moves: [{ den: 6, steps: 1 }] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">12</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">5</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">2</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">8</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">3</span><span class="bottom">6</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">4</span></span>', isCorrect: false, moves: [] },
+        { labelHtml: '<span class="frac"><span class="top">1</span><span class="bottom">3</span></span>', isCorrect: false, moves: [] }
+      ]
+    };
+
+    /* ==========================================================================
+       2. GAME STATE
+       ========================================================================== */
+    let gameState = {
+      mode: 'classic',
+      turn: 'blue',
+      phase: 'pick', // 'pick', 'forge', 'move'
+      scores: { blue: 0, red: 0 },
+      pieces: {
+        blue: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 8: 0, 10: 0 },
+        red: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 8: 0, 10: 0 }
+      },
+      laneLockedBy: { 2: null, 3: null, 4: null, 5: null, 6: null, 8: null, 10: null },
+      cardsDeck: [],
+      selectedDeckCard: null,
+      collectedMoveCards: [],
+      activeMoveCardIndex: null
+    };
+
+    /* ==========================================================================
+       3. SOUND SYNTHESIZER
+       ========================================================================== */
+    const SoundEngine = {
+      ctx: null,
+      muted: false,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+      },
+      playFlip() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.08);
+        } catch(e) {}
+      },
+      playCorrect() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc1.type = 'triangle'; osc2.type = 'triangle';
+          osc1.frequency.setValueAtTime(523.25, now);
+          osc2.frequency.setValueAtTime(659.25, now + 0.08);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc1.connect(gain); osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc1.start(now); osc1.stop(now + 0.12);
+          osc2.start(now + 0.08); osc2.stop(now + 0.3);
+        } catch(e) {}
+      },
+      playWrong() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.setValueAtTime(130, now + 0.1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } catch(e) {}
+      },
+      playMove() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(840, now + 0.12);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } catch(e) {}
+      },
+      playFanfare() {
+        if (this.muted || !this.ctx) return;
+        try {
+          [440, 554.37, 659.25, 880].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const startTime = this.ctx.currentTime + idx * 0.1;
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.2, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + 0.25);
+          });
+        } catch(e) {}
+      }
+    };
+
+    function toggleAudio() {
+      SoundEngine.init();
+      SoundEngine.muted = !SoundEngine.muted;
+      document.getElementById('btn-audio').innerText = SoundEngine.muted ? '🔇' : '🔊';
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    /* ==========================================================================
+       4. INITIALIZATION & GAME LIFECYCLE
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      initDeck();
+      renderLanesBoard();
+      renderLeftPanel();
+      updateTurnUI();
+    });
+
+    function setGameMode(mode) {
+      if (gameState.mode === mode) return;
+      gameState.mode = mode;
+      const btnClassic = document.getElementById('btn-mode-classic');
+      const btnChampion = document.getElementById('btn-mode-champion');
+      if (mode === 'classic') {
+        btnClassic.className = "px-2.5 py-1 rounded-md font-bold transition bg-indigo-600 text-white shadow-sm";
+        btnChampion.className = "px-2.5 py-1 rounded-md font-bold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+      } else {
+        btnChampion.className = "px-2.5 py-1 rounded-md font-bold transition bg-amber-600 text-white shadow-sm";
+        btnClassic.className = "px-2.5 py-1 rounded-md font-bold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+      }
+      startNewGame();
+    }
+
+    function initDeck() {
+      gameState.cardsDeck = JSON.parse(JSON.stringify(CARDS_DECK_MASTER));
+      shuffleArray(gameState.cardsDeck);
+      gameState.cardsDeck.forEach((c, idx) => {
+        c.cardNum = idx + 1;
+        c.used = false;
+      });
+    }
+
+    function shuffleDeckCards() {
+      if (gameState.phase !== 'pick') return;
+      SoundEngine.init();
+      SoundEngine.playFlip();
+      shuffleArray(gameState.cardsDeck);
+      renderLeftPanel();
+    }
+
+    function restockDeck() {
+      if (gameState.phase !== 'pick') return;
+      SoundEngine.init();
+      SoundEngine.playFlip();
+      initDeck();
+      renderLeftPanel();
+    }
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    function startNewGame() {
+      gameState.turn = Math.random() < 0.5 ? 'blue' : 'red';
+      gameState.phase = 'pick';
+      gameState.scores = { blue: 0, red: 0 };
+      gameState.pieces = {
+        blue: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 8: 0, 10: 0 },
+        red: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 8: 0, 10: 0 }
+      };
+      gameState.laneLockedBy = { 2: null, 3: null, 4: null, 5: null, 6: null, 8: null, 10: null };
+      gameState.selectedDeckCard = null;
+      gameState.collectedMoveCards = [];
+      gameState.activeMoveCardIndex = null;
+
+      initDeck();
+      renderLanesBoard();
+      renderLeftPanel();
+      updateTurnUI();
+    }
+
+    function resetTurn() {
+      gameState.phase = 'pick';
+      gameState.selectedDeckCard = null;
+      gameState.collectedMoveCards = [];
+      gameState.activeMoveCardIndex = null;
+      renderLanesBoard();
+      renderLeftPanel();
+      updateTurnUI();
+    }
+
+    /* ==========================================================================
+       5. LANES & TRACKS RENDERING (With Left Denominator Badges & SVG Pawns)
+       ========================================================================== */
+    function renderLanesBoard(previewMoveCard = null) {
+      const boardContainer = document.getElementById('lanes-board');
+      boardContainer.innerHTML = '';
+
+      LANES_CONFIG.forEach(lane => {
+        const den = lane.den;
+        const blueStep = gameState.pieces.blue[den];
+        const redStep = gameState.pieces.red[den];
+        const isLocked = gameState.laneLockedBy[den] !== null;
+
+        // Calculate ghost steps for preview card
+        let blueGhostStep = null;
+        let redGhostStep = null;
+
+        if (previewMoveCard && previewMoveCard.moves) {
+          const moveForLane = previewMoveCard.moves.find(m => m.den === den);
+          if (moveForLane) {
+            if (gameState.turn === 'blue') {
+              blueGhostStep = Math.min(den, blueStep + moveForLane.steps);
+            } else {
+              redGhostStep = Math.min(den, redStep + moveForLane.steps);
+            }
+          }
+        }
+
+        // Single Lane Outer Flex Container (Row with Left Denominator Badge)
+        const laneOuter = document.createElement('div');
+        laneOuter.className = 'flex items-center gap-2 flex-1 w-full min-h-0';
+
+        // Left Denominator Badge
+        const denBadge = document.createElement('div');
+        denBadge.className = 'den-badge w-12 sm:w-16 h-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-sm font-heading font-black text-indigo-600 dark:text-indigo-400 text-sm sm:text-lg';
+        denBadge.innerHTML = `<span class="frac"><span class="top">1</span><span class="bottom">${den}</span></span>`;
+        laneOuter.appendChild(denBadge);
+
+        // Single Lane Box
+        const laneBox = document.createElement('div');
+        laneBox.className = `flex-1 flex flex-col justify-center py-0.5 px-3 rounded-2xl border ${isLocked ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800'} relative overflow-visible shadow-sm h-full`;
+
+        // Upper Tracks Area
+        const tracksArea = document.createElement('div');
+        tracksArea.className = 'relative flex-none flex flex-col justify-end gap-0.5 z-10 overflow-visible';
+
+        // 1. Blue Track
+        const blueTrackRow = createTrackRow({
+          color: 'blue',
+          den: den,
+          currentStep: blueStep,
+          ghostStep: blueGhostStep,
+          isActive: gameState.turn === 'blue'
+        });
+        tracksArea.appendChild(blueTrackRow);
+
+        // 2. Red Track
+        const redTrackRow = createTrackRow({
+          color: 'red',
+          den: den,
+          currentStep: redStep,
+          ghostStep: redGhostStep,
+          isActive: gameState.turn === 'red'
+        });
+        tracksArea.appendChild(redTrackRow);
+
+        laneBox.appendChild(tracksArea);
+
+        // 3. Shared Axis Line & Fraction Labels Below (Positioned Close to Tracks)
+        const axisRow = document.createElement('div');
+        axisRow.className = 'lane-axis shrink-0 relative flex items-center z-20 overflow-visible';
+
+        for (let i = 0; i <= den; i++) {
+          const pct = (i / den) * 100;
+
+          // Fraction Label directly below the red track
+          const labelBox = document.createElement('div');
+          labelBox.className = 'lane-label absolute top-0 -translate-x-1/2 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 pointer-events-none z-20 whitespace-nowrap';
+          labelBox.style.left = `calc(24px + (100% - 48px) * ${pct / 100})`;
+
+          if (i === 0) {
+            labelBox.innerText = '0';
+          } else if (i === den) {
+            labelBox.innerText = '1';
+          } else {
+            labelBox.innerHTML = `<span class="frac"><span class="top">${i}</span><span class="bottom">${den}</span></span>`;
+          }
+
+          axisRow.appendChild(labelBox);
+        }
+
+        // Champion Mode Lock Badge Overlay
+        if (isLocked) {
+          const lockOverlay = document.createElement('div');
+          lockOverlay.className = 'absolute inset-0 bg-amber-500/10 backdrop-blur-[1px] rounded-2xl flex items-center justify-end px-4 pointer-events-none z-30';
+          lockOverlay.innerHTML = `<span class="font-heading font-black text-amber-600 dark:text-amber-400 text-xs bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-400 shadow-sm">🔒 LANE LOCKED</span>`;
+          laneBox.appendChild(lockOverlay);
+        }
+
+        laneBox.appendChild(axisRow);
+        laneOuter.appendChild(laneBox);
+        boardContainer.appendChild(laneOuter);
+      });
+    }
+
+    function createTrackRow({ color, den, currentStep, ghostStep, isActive }) {
+      const isBlue = color === 'blue';
+      const trackBg = isBlue ? 'bg-sky-100 dark:bg-sky-950/40 border-sky-300 dark:border-sky-800/40' : 'bg-red-100 dark:bg-red-950/40 border-red-300 dark:border-red-800/40';
+      const progressBg = isBlue ? 'bg-blue-600 dark:bg-blue-500' : 'bg-red-600 dark:bg-red-500';
+      const previewBg = isBlue ? 'bg-sky-300/80 dark:bg-sky-400/80 animate-progress-glow' : 'bg-red-300/80 dark:bg-red-400/80 animate-progress-glow';
+
+      const trackRow = document.createElement('div');
+      trackRow.className = `lane-track h-4 sm:h-5 rounded-xl border ${trackBg} relative flex items-center px-6 shadow-inner overflow-visible`;
+
+      // Draw Clean Vertical Tick Marks INSIDE the Track Road
+      for (let i = 0; i <= den; i++) {
+        const pct = (i / den) * 100;
+        const tickMark = document.createElement('div');
+        tickMark.className = 'absolute top-0 bottom-0 w-0.5 bg-slate-300/80 dark:bg-slate-700/80 pointer-events-none z-1';
+        tickMark.style.left = `calc(24px + (100% - 48px) * ${pct / 100})`;
+        trackRow.appendChild(tickMark);
+      }
+
+      // Track Road Center Line
+      const roadBar = document.createElement('div');
+      roadBar.className = 'absolute left-6 right-6 h-1 bg-slate-200/70 dark:bg-slate-800/70 rounded-full top-1/2 -translate-y-1/2 z-0';
+      trackRow.appendChild(roadBar);
+
+      // Solid Progress Bar Fill (0 to current position X) - Bold Color
+      const currentPct = (currentStep / den) * 100;
+      if (currentStep > 0) {
+        const progressFill = document.createElement('div');
+        progressFill.className = `absolute left-6 top-1/2 -translate-y-1/2 h-2 ${progressBg} rounded-full transition-all duration-500 z-5`;
+        progressFill.style.width = `calc((100% - 48px) * ${currentPct / 100})`;
+        trackRow.appendChild(progressFill);
+      }
+
+      // Preview/Demo Progress Fill (X to Y) - Light Translucent Color
+      if (ghostStep !== null && ghostStep > currentStep) {
+        const ghostPct = (ghostStep / den) * 100;
+        const previewFill = document.createElement('div');
+        previewFill.className = `absolute top-1/2 -translate-y-1/2 h-2.5 ${previewBg} rounded-full transition-all duration-300 z-6 border border-emerald-400 dark:border-emerald-300`;
+        previewFill.style.left = `calc(24px + (100% - 48px) * ${currentPct / 100})`;
+        previewFill.style.width = `calc((100% - 48px) * ${(ghostPct - currentPct) / 100})`;
+        trackRow.appendChild(previewFill);
+      }
+
+      // Pawn Element with Vector SVG Pawn Icon
+      const pawnBg = isBlue ? 'bg-blue-600 text-white shadow-blue-500/40' : 'bg-red-600 text-white shadow-red-500/40';
+      const pawn = document.createElement('div');
+      pawn.className = `absolute z-20 w-4 h-4 sm:w-5 sm:h-5 rounded-full ${pawnBg} flex items-center justify-center p-0.5 shadow-md transition-all duration-500 -translate-x-1/2 top-1/2 -translate-y-1/2 ${isActive && currentStep < den ? 'ring-2 ring-white dark:ring-slate-900 shadow-lg' : ''}`;
+      pawn.style.left = `calc(24px + (100% - 48px) * ${currentPct / 100})`;
+      pawn.innerHTML = SVG_PAWN;
+      trackRow.appendChild(pawn);
+
+      // Ghost Pawn Element (If previewing)
+      if (ghostStep !== null && ghostStep !== currentStep) {
+        const ghostPct = (ghostStep / den) * 100;
+        const ghostPawn = document.createElement('div');
+        ghostPawn.className = `absolute z-20 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center p-0.5 shadow-lg -translate-x-1/2 top-1/2 -translate-y-1/2 ring-2 ring-emerald-300 animate-pulse`;
+        ghostPawn.style.left = `calc(24px + (100% - 48px) * ${ghostPct / 100})`;
+        ghostPawn.innerHTML = SVG_PAWN;
+        trackRow.appendChild(ghostPawn);
+      }
+
+      return trackRow;
+    }
+
+    /* ==========================================================================
+       6. LEFT SIDEBAR PANEL (Dynamic Phase 1 Card Deck & Phase 3 Movement Dock)
+       ========================================================================== */
+    function renderLeftPanel() {
+      const container = document.getElementById('left-panel-content');
+      const titleEl = document.getElementById('panel-title');
+      const iconEl = document.getElementById('panel-icon');
+      const btnShuffle = document.getElementById('btn-shuffle');
+
+      container.innerHTML = '';
+
+      if (gameState.phase === 'pick') {
+        iconEl.innerText = '🃏';
+        titleEl.innerText = 'Card Bank (18 Cards)';
+        btnShuffle.style.display = 'flex';
+
+        const usedCount = gameState.cardsDeck.filter(c => c.used).length;
+
+        // Check if >= 14 cards (80%+) are picked
+        if (usedCount >= 14) {
+          const restockBanner = document.createElement('div');
+          restockBanner.className = 'mb-2 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300 shrink-0';
+          restockBanner.innerHTML = `
+            <span>Most cards used (${usedCount}/18)</span>
+            <button onclick="restockDeck()" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow transition flex items-center gap-1">
+              🔄 Restock Deck
+            </button>
+          `;
+          container.appendChild(restockBanner);
+        }
+
+        // 18 Cards Grid Filling Full Height
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-3 gap-2 w-full flex-1 auto-rows-fr overflow-y-auto p-1';
+
+        gameState.cardsDeck.forEach((card, idx) => {
+          const cardEl = document.createElement('div');
+          cardEl.className = `perspective-1000 w-full h-full min-h-[54px] rounded-xl cursor-pointer transition-colors ${card.used ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`;
+
+          const isRevealed = card.used;
+
+          cardEl.innerHTML = `
+            <div class="relative w-full h-full duration-500 transform-style-3d ${isRevealed ? 'rotate-y-180' : ''}">
+              <!-- Face Down Card Back -->
+              <div class="absolute inset-0 backface-hidden bg-gradient-to-br from-indigo-600 to-sky-700 border-2 border-indigo-400/60 rounded-xl flex items-center justify-center shadow-sm hover:border-white transition">
+                <span class="font-heading font-black text-white text-base md:text-lg">#${idx + 1}</span>
+              </div>
+              <!-- Face Up Card Front -->
+              <div class="absolute inset-0 backface-hidden rotate-y-180 bg-white dark:bg-slate-950 border-2 border-amber-400 rounded-xl flex flex-col items-center justify-center p-1 shadow-inner">
+                <span class="text-[9px] font-extrabold text-slate-400">#${idx + 1}</span>
+                <span class="font-heading font-black text-sm text-amber-500">
+                  <span class="frac"><span class="top">${card.originalNum}</span><span class="bottom">${card.originalDen}</span></span>
+                </span>
+              </div>
+            </div>
+          `;
+
+          if (!card.used) {
+            cardEl.onclick = () => handlePickCard(card, idx);
+          }
+
+          grid.appendChild(cardEl);
+        });
+
+        container.appendChild(grid);
+
+      } else if (gameState.phase === 'move') {
+        iconEl.innerText = '🚀';
+        titleEl.innerText = 'Movement Dock';
+        btnShuffle.style.display = 'none';
+
+        const moveDockContainer = document.createElement('div');
+        moveDockContainer.className = 'flex flex-col h-full justify-between gap-3 p-1 overflow-y-auto';
+
+        const cardsBox = document.createElement('div');
+        cardsBox.className = 'flex flex-col gap-2.5 p-1 overflow-y-auto';
+
+        if (gameState.collectedMoveCards.length === 0) {
+          cardsBox.innerHTML = `<div class="text-center text-xs text-amber-500 py-4 font-bold">No valid move cards collected! Pass turn to opponent.</div>`;
+        }
+
+        gameState.collectedMoveCards.forEach((opt, idx) => {
+          const isSelected = gameState.activeMoveCardIndex === idx;
+
+          let isCardLocked = false;
+          if (gameState.mode === 'champion') {
+            isCardLocked = opt.moves.some(m => gameState.laneLockedBy[m.den] !== null);
+          }
+
+          const cardBtn = document.createElement('button');
+          cardBtn.className = `relative p-3 rounded-xl border-2 text-left transition-all flex items-center justify-between shadow-sm ${isCardLocked ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 text-slate-400' : (isSelected ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-600 ring-4 ring-indigo-500/40 shadow-lg' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300')}`;
+
+          cardBtn.onclick = () => selectMoveCard(idx, isCardLocked);
+
+          cardBtn.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="font-heading font-black text-base text-slate-800 dark:text-slate-100">${opt.labelHtml}</span>
+            </div>
+            ${isSelected ? '<span class="text-[10px] bg-indigo-600 text-white font-bold px-2 py-0.5 rounded-full shadow-sm">Selected</span>' : ''}
+            
+            ${isCardLocked ? `
+              <div class="absolute inset-0 bg-amber-500/20 backdrop-blur-[1px] rounded-xl flex items-center justify-center border border-amber-400 z-10">
+                <span class="font-heading font-bold text-amber-700 dark:text-amber-300 text-xs bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-amber-400 shadow-sm">🔒 LOCKED</span>
+              </div>
+            ` : ''}
+          `;
+
+          cardsBox.appendChild(cardBtn);
+        });
+
+        moveDockContainer.appendChild(cardsBox);
+
+        const isSelectedCardLocked = gameState.activeMoveCardIndex !== null && gameState.mode === 'champion' && 
+          gameState.collectedMoveCards[gameState.activeMoveCardIndex]?.moves.some(m => gameState.laneLockedBy[m.den] !== null);
+
+        const canConfirm = gameState.activeMoveCardIndex !== null && !isSelectedCardLocked;
+
+        const actionDock = document.createElement('div');
+        actionDock.className = 'flex flex-col gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0';
+        actionDock.innerHTML = `
+          <button id="btn-confirm-move" ${!canConfirm ? 'disabled' : ''} onclick="confirmApplyMove()" class="w-full py-2.5 px-3 rounded-xl font-bold text-xs shadow-md transition ${canConfirm ? 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'} flex items-center justify-center gap-1.5">
+            <span>CONFIRM MOVE</span> 🚀
+          </button>
+          
+          <button onclick="skipTurn()" class="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl transition">
+            ⏭️ Pass Turn
+          </button>
+        `;
+
+        moveDockContainer.appendChild(actionDock);
+        container.appendChild(moveDockContainer);
+      }
+    }
+
+    /* ==========================================================================
+       7. PHASE 1 -> PHASE 2: FORGE MODAL ENGINE
+       ========================================================================== */
+    function handlePickCard(card, idx) {
+      SoundEngine.init();
+      SoundEngine.playFlip();
+
+      card.used = true;
+      gameState.selectedDeckCard = card;
+
+      renderLeftPanel();
+
+      setTimeout(() => {
+        openForgeModal(card);
+      }, 300);
+    }
+
+    let forgePickedOptions = [];
+
+    function openForgeModal(card) {
+      gameState.phase = 'forge';
+      forgePickedOptions = [];
+
+      document.getElementById('forge-drawn-card').innerHTML = `<span class="frac"><span class="top">${card.originalNum}</span><span class="bottom">${card.originalDen}</span></span>`;
+
+      const key = `${card.simpNum}/${card.simpDen}`;
+      const candidates = FORGE_EQUATIONS_MASTER[key] || FORGE_EQUATIONS_MASTER['3/4'];
+
+      const optionsCopy = JSON.parse(JSON.stringify(candidates));
+      shuffleArray(optionsCopy);
+
+      const grid = document.getElementById('forge-options-grid');
+      grid.innerHTML = '';
+
+      optionsCopy.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.id = `forge-opt-${idx}`;
+        btn.className = 'relative p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 hover:border-indigo-500 rounded-2xl flex items-center justify-center text-center transition group shadow-sm';
+
+        btn.onclick = () => handleForgeOptionClick(opt, btn);
+
+        btn.innerHTML = `
+          <div class="font-heading font-black text-2xl sm:text-3xl text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-amber-400">
+            ${opt.labelHtml}
+          </div>
+          <div class="tick-badge absolute top-2 right-2 w-6 h-6 rounded-full bg-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-md opacity-0 transition-opacity">
+            ✓
+          </div>
+        `;
+
+        grid.appendChild(btn);
+      });
+
+      document.getElementById('forge-status-bar').innerText = 'Select all correct equations to unlock movement cards.';
+
+      const modal = document.getElementById('modal-forge');
+      const content = document.getElementById('modal-forge-content');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+      }, 10);
+    }
+
+    function handleForgeOptionClick(opt, btnEl) {
+      if (btnEl.disabled) return;
+
+      const tickBadge = btnEl.querySelector('.tick-badge');
+
+      if (opt.isCorrect) {
+        SoundEngine.playCorrect();
+        btnEl.className = 'relative p-4 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 rounded-2xl flex items-center justify-center text-center shadow-md pointer-events-none';
+        tickBadge.classList.remove('opacity-0');
+
+        forgePickedOptions.push(opt);
+
+        const card = gameState.selectedDeckCard;
+        const key = `${card.simpNum}/${card.simpDen}`;
+        const totalCorrectAvailable = (FORGE_EQUATIONS_MASTER[key] || FORGE_EQUATIONS_MASTER['3/4']).filter(o => o.isCorrect).length;
+
+        document.getElementById('forge-status-bar').innerText = `Correct! (${forgePickedOptions.length}/${totalCorrectAvailable} equations collected)`;
+
+        if (forgePickedOptions.length >= totalCorrectAvailable) {
+          setTimeout(() => {
+            finishForgePhase();
+          }, 400);
+        }
+
+      } else {
+        SoundEngine.playWrong();
+        btnEl.className = 'relative p-4 bg-red-50 dark:bg-red-950/60 border-2 border-red-500 rounded-2xl flex items-center justify-center text-center shadow-md pointer-events-none';
+        
+        document.getElementById('forge-status-bar').innerText = 'Incorrect equation! Picking phase ended.';
+
+        document.querySelectorAll('#forge-options-grid button').forEach(b => b.disabled = true);
+      }
+    }
+
+    function skipForgePick() {
+      const card = gameState.selectedDeckCard;
+      const baseOption = {
+        labelHtml: `<span class="frac"><span class="top">${card.simpNum}</span><span class="bottom">${card.simpDen}</span></span>`,
+        isCorrect: true,
+        moves: [{ den: card.simpDen, steps: card.simpNum }]
+      };
+      forgePickedOptions = [baseOption];
+      finishForgePhase();
+    }
+
+    function finishForgePhase() {
+      if (forgePickedOptions.length === 0) {
+        const card = gameState.selectedDeckCard;
+        const baseOption = {
+          labelHtml: `<span class="frac"><span class="top">${card.simpNum}</span><span class="bottom">${card.simpDen}</span></span>`,
+          isCorrect: true,
+          moves: [{ den: card.simpDen, steps: card.simpNum }]
+        };
+        forgePickedOptions.push(baseOption);
+      }
+
+      gameState.collectedMoveCards = forgePickedOptions;
+      gameState.phase = 'move';
+      gameState.activeMoveCardIndex = gameState.collectedMoveCards.length > 0 ? 0 : null;
+
+      const modal = document.getElementById('modal-forge');
+      const content = document.getElementById('modal-forge-content');
+      modal.classList.add('opacity-0');
+      content.classList.add('scale-95');
+
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        renderLanesBoard(gameState.collectedMoveCards[gameState.activeMoveCardIndex]);
+        renderLeftPanel();
+      }, 300);
+    }
+
+    /* ==========================================================================
+       8. PHASE 3: MOVEMENT EXECUTION & WIN LOGIC
+       ========================================================================== */
+    function selectMoveCard(index, isLocked) {
+      if (isLocked) {
+        SoundEngine.playWrong();
+      } else {
+        SoundEngine.playFlip();
+      }
+
+      gameState.activeMoveCardIndex = index;
+      renderLanesBoard(gameState.collectedMoveCards[index]);
+      renderLeftPanel();
+    }
+
+    function confirmApplyMove() {
+      if (gameState.activeMoveCardIndex === null) return;
+      const moveCard = gameState.collectedMoveCards[gameState.activeMoveCardIndex];
+      if (!moveCard || !moveCard.moves) return;
+
+      SoundEngine.playMove();
+
+      const team = gameState.turn;
+
+      moveCard.moves.forEach(m => {
+        const den = m.den;
+        const currentPos = gameState.pieces[team][den];
+        const newPos = Math.min(den, currentPos + m.steps);
+        gameState.pieces[team][den] = newPos;
+
+        if (newPos === den && currentPos < den) {
+          gameState.scores[team]++;
+          if (gameState.mode === 'champion') {
+            gameState.laneLockedBy[den] = team;
+          }
+          SoundEngine.playFanfare();
+          triggerMiniConfetti();
+        }
+      });
+
+      renderLanesBoard();
+      updateTurnUI();
+
+      if (gameState.scores[team] >= 3) {
+        setTimeout(() => handleVictory(team), 400);
+        return;
+      }
+
+      setTimeout(() => switchTurn(), 500);
+    }
+
+    function skipTurn() {
+      switchTurn();
+    }
+
+    function switchTurn() {
+      gameState.turn = gameState.turn === 'blue' ? 'red' : 'blue';
+      gameState.phase = 'pick';
+      gameState.selectedDeckCard = null;
+      gameState.collectedMoveCards = [];
+      gameState.activeMoveCardIndex = null;
+
+      renderLanesBoard();
+      renderLeftPanel();
+      updateTurnUI();
+    }
+
+    function updateTurnUI() {
+      const banner = document.getElementById('turn-banner-header');
+      const icon = document.getElementById('turn-icon-header');
+      const text = document.getElementById('turn-text-header');
+
+      document.getElementById('score-blue').innerText = `${gameState.scores.blue} / 3 Goal`;
+      document.getElementById('score-red').innerText = `${gameState.scores.red} / 3 Goal`;
+
+      if (gameState.turn === 'blue') {
+        banner.className = "px-3 py-1 rounded-lg bg-sky-200/80 dark:bg-sky-900/50 text-sky-900 dark:text-sky-200 text-xs font-extrabold flex items-center gap-2 border border-sky-300 dark:border-sky-700";
+        icon.className = "w-4 h-4 text-sky-600 dark:text-sky-300 inline-block";
+        text.innerText = "BLUE TEAM'S TURN: Pick a card from the left panel.";
+      } else {
+        banner.className = "px-3 py-1 rounded-lg bg-red-200/80 dark:bg-red-900/50 text-red-900 dark:text-red-200 text-xs font-extrabold flex items-center gap-2 border border-red-300 dark:border-red-700";
+        icon.className = "w-4 h-4 text-red-600 dark:text-red-300 inline-block";
+        text.innerText = "RED TEAM'S TURN: Pick a card from the left panel.";
+      }
+    }
+
+    /* ==========================================================================
+       9. VICTORY & CONFETTI ENGINE
+       ========================================================================== */
+    function handleVictory(winningTeam) {
+      SoundEngine.playFanfare();
+      triggerFullConfetti();
+
+      const titleEl = document.getElementById('victory-title');
+      const descEl = document.getElementById('victory-desc');
+
+      if (winningTeam === 'blue') {
+        titleEl.innerText = "🏆 BLUE TEAM WINS!";
+        titleEl.className = "font-heading text-2xl font-black text-sky-500";
+      } else {
+        titleEl.innerText = "🏆 RED TEAM WINS!";
+        titleEl.className = "font-heading text-2xl font-black text-red-500";
+      }
+
+      descEl.innerText = `Blue Score: ${gameState.scores.blue} | Red Score: ${gameState.scores.red}`;
+      toggleVictoryModal(true);
+    }
+
+    function toggleRulesModal(show) {
+      const modal = document.getElementById('modal-rules');
+      if (show) {
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.remove('opacity-0'), 10);
+      } else {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+      }
+    }
+
+    function toggleVictoryModal(show) {
+      const modal = document.getElementById('modal-victory');
+      if (show) {
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.remove('opacity-0'), 10);
+      } else {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+      }
+    }
+
+    /* Confetti Canvas */
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+    let confettiParticles = [];
+    let animationFrameId = null;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function triggerMiniConfetti() { createConfetti(40); }
+    function triggerFullConfetti() { createConfetti(140); }
+
+    function createConfetti(count) {
+      const colors = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6'];
+      for (let i = 0; i < count; i++) {
+        confettiParticles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height * 0.3,
+          r: Math.random() * 6 + 4,
+          dx: (Math.random() - 0.5) * 6,
+          dy: Math.random() * 4 + 2,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          tilt: Math.random() * 10,
+          tiltAngle: 0,
+          tiltAngleIncremental: Math.random() * 0.08 + 0.04
+        });
+      }
+      if (!animationFrameId) animateConfetti();
+    }
+
+    function animateConfetti() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      confettiParticles.forEach((p, index) => {
+        p.tiltAngle += p.tiltAngleIncremental;
+        p.y += p.dy;
+        p.x += p.dx;
+        p.tilt = Math.sin(p.tiltAngle) * 15;
+        ctx.beginPath();
+        ctx.lineWidth = p.r;
+        ctx.strokeStyle = p.color;
+        ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+        ctx.stroke();
+        if (p.y > canvas.height) confettiParticles.splice(index, 1);
+      });
+      if (confettiParticles.length > 0) {
+        animationFrameId = requestAnimationFrame(animateConfetti);
+      } else {
+        animationFrameId = null;
+      }
+    }
+  </script>
+</body>
+</html>
