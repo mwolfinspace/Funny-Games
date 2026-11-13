@@ -14,7 +14,6 @@ window.WG_DATA.A1.push(
 {w:"safe", t:"adjective", vn:"an toàn", en:"not in danger", ex:"The house is safe in the storm.", e:"🛡️"},
 {w:"sail", t:"noun + verb", vn:"buồm; đi thuyền", en:"travel on water with sails", ex:"We sail to the island.", e:"⛵"},
 {w:"salad", t:"noun", vn:"món salad", en:"cold mixed vegetables", ex:"I eat salad with dinner.", e:"🥗"},
-{w:"Sally", t:"name", vn:"Sally (tên)", en:"a girl's name", ex:"Sally makes a fruit salad.", e:"👧"},
 {w:"sandwich", t:"noun", vn:"bánh mì kẹp", en:"bread with food inside", ex:"I eat a cheese sandwich.", e:"🥪"},
 {w:"Saturday", t:"noun", vn:"thứ Bảy", en:"the day after Friday", ex:"We swim every Saturday.", e:"📅"},
 {w:"sauce", t:"noun", vn:"nước sốt", en:"a liquid food for dishes", ex:"Tomato sauce is on the pizza.", e:"🥫"},
@@ -104,7 +103,6 @@ window.WG_DATA.A1.push(
 {w:"up", t:"adverb + preposition", vn:"lên", en:"to a higher place", ex:"The cat climbs up the tree.", e:"⬆️"},
 {w:"upstairs", t:"adverb + noun", vn:"tầng trên", en:"on a higher floor", ex:"The bedrooms are upstairs.", e:"⬆️"},
 {w:"vegetable", t:"noun", vn:"rau củ", en:"a plant food like carrot", ex:"Eat vegetables every day.", e:"🥬"},
-{w:"Vicky", t:"name", vn:"Vicky (tên)", en:"a girl's name", ex:"Vicky has roller skates.", e:"👧"},
 {w:"video", t:"noun", vn:"video", en:"a recorded moving picture", ex:"I watch a video about pandas.", e:"📹"},
 {w:"village", t:"noun", vn:"ngôi làng", en:"a small place in the countryside", ex:"My village is near a river.", e:"🏡"},
 {w:"wait", t:"verb", vn:"chờ đợi", en:"stay until something happens", ex:"Wait for me at the gate.", e:"⏳"},
@@ -135,5 +133,4 @@ window.WG_DATA.A1.push(
 {w:"would", t:"verb", vn:"sẽ, muốn (lịch sự)", en:"used to say what you want politely", ex:"Would you like some cake?", e:"", ni:true},
 {w:"wrong", t:"adjective", vn:"sai", en:"not correct", ex:"Two plus two is five — wrong!", e:"❌"},
 {w:"yesterday", t:"adverb + noun", vn:"hôm qua", en:"the day before today", ex:"Yesterday we went to the beach.", e:"📅"},
-{w:"Zoe", t:"name", vn:"Zoe (tên)", en:"a girl's name", ex:"Zoe draws dinosaurs.", e:"👧"}
 );
