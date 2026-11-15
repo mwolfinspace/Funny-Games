@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
 <style>
   :root{
@@ -323,6 +324,7 @@
   const OCR_API = OCR_QUERY !== null ? OCR_QUERY : (location.origin + "/api/ocr");
   const OCR_TIMEOUT_MS = 3000;
   let ocrHealthy = null;
+  let ortSession = null, ortInputName = null, ortReady = false, ortLoading = false;
   let drawStart=0, drawEnd=0;      // ms of actual pen-down→pen-up handwriting
 
   const game = document.querySelector("#game"), lesson = document.querySelector("#lesson");
@@ -1117,6 +1119,15 @@ function fitScatter(root){
     }).catch(()=>{ readEngineLoading=false; updateFinishLabel(); });
   }
 
+  // Preload the ONNX Runtime Web MNIST model in the background when the
+  // teacher switches into a write mode (~1.5-3 MB WASM + ~20-80 KB model).
+  let ortPreloaded=false;
+  function preloadOrt(){
+    if(ortPreloaded) return;
+    ortPreloaded=true;
+    loadOrtModel().catch(()=>{});
+  }
+
   // Recognizes the drawn number entirely on-device. Returns
   // {number, confidence} or null on any failure.
   async function clientOcrRecognize(){
@@ -1132,6 +1143,128 @@ function fitScatter(root){
       if(!Number.isInteger(n)) return null;
       return { number:n, confidence: typeof data.confidence==="number" ? Math.min(1,data.confidence/100) : 0 };
     }catch(e){ return null; }
+  }
+
+  // ---- ONNX Runtime Web digit recognizer (client-side, zero backend) ----
+  // Loads a quantized MNIST CNN (~20-80 KB) from the same folder and runs
+  // inference in WebAssembly. Input: 28x28 grayscale, black background,
+  // white ink, normalized [0,1], shape [1,1,28,28]. Output: 10 logits.
+  async function loadOrtModel(){
+    if(ortReady || ortLoading) return ortReady;
+    if(typeof ort === 'undefined'){ ortReady=false; return false; }
+    ortLoading=true;
+    try{
+      ortSession = await ort.InferenceSession.create('./mnist.onnx');
+      ortInputName = ortSession.inputNames[0];
+      ortReady = true;
+      return true;
+    }catch(e){
+      console.warn('ONNX Runtime Web model load failed (falling back to local/Tesseract):', e);
+      ortReady = false;
+      return false;
+    }finally{
+      ortLoading = false;
+    }
+  }
+
+  // Render the current strokes to a 28x28 MNIST-style tensor:
+  // crop to ink bounding box, center in a 20x20 cell with 4px padding,
+  // invert to black-background/white-ink, normalize [0,1].
+  function mnistTensorFromStrokes(){
+    if(!strokes.length) return null;
+    const w=canvas.clientWidth, h=canvas.clientHeight;
+    if(w<=0 || h<=0) return null;
+
+    const temp=document.createElement('canvas');
+    temp.width=w; temp.height=h;
+    const g=temp.getContext('2d');
+    g.fillStyle='#fff'; g.fillRect(0,0,w,h);
+    g.lineCap='round'; g.lineJoin='round';
+    g.lineWidth=Math.max(9,Math.min(21,w*0.021));
+    g.strokeStyle='#000';
+    for(const s of strokes){
+      if(s.length<2)continue;
+      g.beginPath(); g.moveTo(s[0].x,s[0].y);
+      for(let i=1;i<s.length;i++) g.lineTo(s[i].x,s[i].y);
+      g.stroke();
+    }
+
+    const id=g.getImageData(0,0,w,h).data;
+    let minX=w,minY=h,maxX=-1,maxY=-1;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i=(y*w+x)*4;
+        const lum=(id[i]+id[i+1]+id[i+2])/3;
+        if(id[i+3]>128 && lum<220){
+          if(x<minX)minX=x; if(x>maxX)maxX=x;
+          if(y<minY)minY=y; if(y>maxY)maxY=y;
+        }
+      }
+    }
+    if(maxX<0) return null;
+
+    const pad=Math.max(4,Math.round((maxX-minX+maxY-minY)*0.12));
+    const cw=Math.max(1,maxX-minX+1+pad*2);
+    const ch=Math.max(1,maxY-minY+1+pad*2);
+
+    const crop=document.createElement('canvas');
+    crop.width=cw; crop.height=ch;
+    const cg=crop.getContext('2d');
+    cg.drawImage(temp,minX-pad,minY-pad,cw,ch,0,0,cw,ch);
+
+    // Scale to fit inside 20x20 preserving aspect ratio (MNIST convention)
+    const fit=20;
+    const scale=Math.min(fit/cw,fit/ch);
+    const dw=Math.max(1,Math.round(cw*scale));
+    const dh=Math.max(1,Math.round(ch*scale));
+
+    const mnist=document.createElement('canvas');
+    mnist.width=28; mnist.height=28;
+    const mg=mnist.getContext('2d');
+    mg.fillStyle='#000'; mg.fillRect(0,0,28,28); // black background
+    const ox=Math.round((28-dw)/2), oy=Math.round((28-dh)/2);
+    mg.drawImage(crop,0,0,cw,ch,ox,oy,dw,dh);
+
+    const out=mg.getImageData(0,0,28,28).data;
+    const input=new Float32Array(28*28);
+    for(let i=0;i<28*28;i++){
+      // Invert: white ink on black background, normalized [0,1]
+      input[i]=(255-out[i*4])/255.0;
+    }
+    return new ort.Tensor('float32',input,[1,1,28,28]);
+  }
+
+  function softmax(logits){
+    const m=Math.max(...logits);
+    const exps=logits.map(x=>Math.exp(x-m));
+    const sum=exps.reduce((a,b)=>a+b,0);
+    return exps.map(e=>e/sum);
+  }
+
+  // Recognize the drawn number with ONNX Runtime Web. Returns
+  // {number, confidence} or null on failure / not ready.
+  async function ortRecognize(){
+    if(!ortReady){
+      await loadOrtModel();
+      if(!ortReady) return null;
+    }
+    try{
+      const tensor=mnistTensorFromStrokes();
+      if(!tensor) return null;
+      const feeds={}; feeds[ortInputName]=tensor;
+      const results=await ortSession.run(feeds);
+      const outName=ortSession.outputNames[0];
+      const data=results[outName].data; // Float32Array length 10
+      const probs=softmax(Array.from(data));
+      let best=0, bestN=0;
+      for(let i=0;i<probs.length;i++){
+        if(probs[i]>best){ best=probs[i]; bestN=i; }
+      }
+      return {number:bestN, confidence:best};
+    }catch(e){
+      console.warn('ONNX inference failed:', e);
+      return null;
+    }
   }
 
   // Calls the server OCR. Returns {number, confidence} or null on any failure.
@@ -1431,27 +1564,34 @@ function fitScatter(root){
   }
 
   async function evaluateDrawing(){
-    // Tesseract.js reads the whole board; the local shape matcher runs
-    // alongside. A small extra stroke can make OCR flip "3" -> "0"/"1", but
-    // the overall SHAPE still clearly matches the target — in that case the
-    // shape wins so one added line doesn't wrongly fail a correct drawing.
-    // OCR guesses are only trusted when their confidence beats the local
-    // shape score; otherwise the (more reliable for kid handwriting) local
-    // matcher decides.
-    const c = await clientOcrRecognize();
+    // 1) ONNX Runtime Web first — fastest, most accurate for digits,
+    //    zero backend, runs in WebAssembly on GitHub Pages.
+    const o = await ortRecognize();
     const v = localDigitVerify();
+    if(o && Number.isInteger(o.number)){
+      if(o.number === state.target){
+        return {method:"onnx", number:o.number, confidence:Math.max(o.confidence, v.confidence||0)};
+      }
+      // ONNX disagrees — trust local shape if it is confident or clearly correct.
+      if(v.correct || (v.confidence||0) > (o.confidence||0)){
+        return {method:"local", number: v.correct ? state.target : v.guessed, confidence:v.confidence};
+      }
+      return {method:"onnx", number:o.number, confidence:o.confidence};
+    }
+
+    // 2) Fallback: Tesseract.js (client-side, heavy but dependency-free).
+    const c = await clientOcrRecognize();
     if(c && Number.isInteger(c.number)){
       if(c.number === state.target){
         return {method:"client", number:c.number, confidence:Math.max(c.confidence, v.confidence||0)};
       }
-      // OCR disagrees — accept only if the shape still clearly IS the target,
-      // or if the local shape score is more confident than the OCR guess.
       if(v.correct || (v.confidence||0) > (c.confidence||0)){
         return {method:"local", number: v.correct ? state.target : v.guessed, confidence:v.confidence};
       }
       return {method:"client", number:c.number, confidence:c.confidence};
     }
-    // OCR engine unavailable — try the server, then the local matcher.
+
+    // 3) Fallback: server OCR (only if the teacher deployed an endpoint).
     try{
       const ok = await serverOcrHealth();
       if(ok){
@@ -1459,6 +1599,8 @@ function fitScatter(root){
         if(res) return {method:"server", number:res.number, confidence:res.confidence};
       }
     }catch(e){}
+
+    // 4) Final fallback: local shape matcher (always works offline).
     if(v.correct) return {method:"local", number:state.target, confidence:v.confidence};
     return {method:"local", number:v.guessed, confidence:v.confidence};
   }
@@ -1778,7 +1920,7 @@ function fitScatter(root){
     state.mode=b.dataset.mode;
     document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.toggle("active",x===b));
     state.round=1; makeTarget(); render(); saveSettings();
-    if(state.mode==="write"||state.mode==="writeCount") preloadOcr();
+    if(state.mode==="write"||state.mode==="writeCount"){ preloadOcr(); preloadOrt(); }
   });
   lesson.addEventListener("change",()=>{state.lesson=+lesson.value;state.round=1;makeTarget();render();saveSettings()});
   document.querySelector("#sameToggle").addEventListener("click",()=>{
@@ -1869,6 +2011,8 @@ function fitScatter(root){
   // Preload the OCR engine immediately on page load (not just when entering a
   // write mode) so the very first "Finish" has no download/worker wait.
   preloadOcr();
+  // ONNX Runtime Web is preloaded lazily on first write-mode entry so non-writing
+  // modes (many / count) don't download the WASM + model unnecessarily.
 })();
 </script>
 </body>
