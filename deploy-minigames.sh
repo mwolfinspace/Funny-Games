@@ -53,23 +53,17 @@ ref_df="$REF_DIR/Dockerfile.hub.sha256"
 ref_server_old=$(cat "$ref_server" 2>/dev/null || true)
 ref_df_old=$(cat "$ref_df" 2>/dev/null || true)
 
-restart_hub=0
-if [ "${before:-}" != "${ref_server_old:-}" ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] backend/server.js changed — rebuilding minigames-hub" | tee -a "$LOG"
-  cd "$WEB_DIR/backend"
-  docker build -f Dockerfile.hub -t minigames-hub:local . 2>&1 | tee -a "$LOG"
-  docker compose -f /mnt/data/docker/stacks/minigames/compose.yml up -d --force-recreate minigames-hub 2>&1 | tee -a "$LOG" || \
-    docker run -d --name minigames-hub --restart unless-stopped -p 127.0.0.1:8907:8907 \
-      -v "$WEB_DIR:/repo:ro" minigames-hub:local 2>&1 | tee -a "$LOG" || true
-  restart_hub=1
-fi
+hub_changed=0
+COMPOSE_DIR="/mnt/data/docker/stacks/minigames"
 
-if [ "${df_before:-}" != "${ref_df_old:-}" ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] backend/Dockerfile.hub changed — recreating minigames-hub" | tee -a "$LOG"
+if [ "${before:-}" != "${ref_server_old:-}" ] || [ "${df_before:-}" != "${ref_df_old:-}" ]; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] backend changed — rebuilding minigames-hub" | tee -a "$LOG"
   cd "$WEB_DIR/backend"
   docker build -f Dockerfile.hub -t minigames-hub:local . 2>&1 | tee -a "$LOG"
-  docker compose -f /mnt/data/docker/stacks/minigames/compose.yml up -d --force-recreate minigames-hub 2>&1 | tee -a "$LOG" || true
-  restart_hub=1
+  # Remove any pre-existing container with the same name, then recreate via compose
+  docker rm -f minigames-hub 2>&1 | tee -a "$LOG" || true
+  docker compose -f "$COMPOSE_DIR/compose.yml" up -d --force-recreate minigames-hub 2>&1 | tee -a "$LOG" || true
+  hub_changed=1
 fi
 
 # Save reference hashes
@@ -78,19 +72,14 @@ echo "${df_before:-}" > "$ref_df"
 
 # --- 4. Bump minigames-web so Dockge "update" / compose sees a change -------
 # nginx serves static files; a container restart picks up new files from the
-# bind-mounted volume. We touch a marker file so compose "up -d" recreates it.
-MARKER="$WEB_DIR/.deployed-at"
-date +%s > "$MARKER"
-
-if [ -f /mnt/data/docker/stacks/minigames/compose.yml ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] docker compose up -d minigames-web" | tee -a "$LOG"
-  docker compose -f /mnt/data/docker/stacks/minigames/compose.yml up -d minigames-web 2>&1 | tee -a "$LOG" || true
-else
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] docker restart minigames-web (fallback)" | tee -a "$LOG"
-  docker restart minigames-web 2>&1 | tee -a "$LOG" || true
-fi
+# bind-mounted volume. Recreate so new files are served.
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] docker compose up -d --force-recreate minigames-web" | tee -a "$LOG"
+docker rm -f minigames-web 2>&1 | tee -a "$LOG" || true
+docker compose -f "$COMPOSE_DIR/compose.yml" up -d --force-recreate minigames-web 2>&1 | tee -a "$LOG" || true
 
 # --- 5. Mirror to GitHub ------------------------------------------------------
+# Always return to the repo dir before git operations
+cd "$REPO_DIR"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] git push github main" | tee -a "$LOG"
 git push github main 2>&1 | tee -a "$LOG" || true
 
