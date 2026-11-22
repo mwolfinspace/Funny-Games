@@ -1,0 +1,70 @@
+# =============================================================================
+# minigames.xedryk.top — Dockge-managed stack
+# =============================================================================
+# Stack dir on server: /mnt/data/docker/stacks/minigames/
+#   docker compose -f compose.yml up -d
+#
+# Services:
+#   minigames-web   nginx:alpine  → static site on 127.0.0.1:8092
+#                   (Caddy proxies minigames.xedryk.top → 127.0.0.1:8092)
+#   minigames-hub   Node backend  → API on 127.0.0.1:8907
+#                   (built from backend/Dockerfile.hub; repo bind-mounted read-only)
+#
+# Deploy paths:
+#   • Gitea push → webhook-minigames.py :9099 → deploy-minigames.sh
+#     (rsyncs files → /mnt/data/www/minigames/, restarts hub if backend changed)
+#   • Dockge "Update" / "Deploy" → docker compose up -d
+#     (restarts nginx so new static files are served; recreates hub if image changed)
+# =============================================================================
+
+services:
+  minigames-web:
+    image: nginx:alpine
+    container_name: minigames-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8092:80"
+    volumes:
+      # Static site files (synced by deploy-minigames.sh on every Gitea push)
+      - /mnt/data/www/minigames:/usr/share/nginx/html:ro
+      # Nginx config: proxies /api/mg/* to the minigames-hub backend
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - minigames
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  minigames-hub:
+    build:
+      context: /mnt/data/www/minigames
+      dockerfile: backend/Dockerfile.hub
+    image: minigames-hub:local
+    container_name: minigames-hub
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8907:8907"
+    volumes:
+      # Whole repo bind-mounted read-only; changes are live after container restart
+      - /mnt/data/www/minigames:/repo:ro
+    environment:
+      - PORT=8907
+      - MG_PUBLIC_URL=https://minigames.xedryk.top
+      - MG_DATA_DIR=/srv/minigames/data
+    env_file:
+      - /mnt/data/www/minigames/backend/.env
+    networks:
+      - minigames
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8907/api/mg/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  minigames:
+    driver: bridge
