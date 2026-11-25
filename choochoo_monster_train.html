@@ -133,7 +133,7 @@
           Choochoo Monster Train
         </h1>
         <p class="hidden 2xl:block text-xs font-medium text-slate-500 mt-0.5 whitespace-nowrap">
-          Split once &amp; move front group to tail to form two identical halves!
+          Split once &amp; move the front group to the tail to match the goal blocks!
         </p>
       </div>
     </div>
@@ -197,7 +197,7 @@
         <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-500 text-white font-display font-extrabold text-4xl sm:text-5xl flex items-center justify-center shadow-xl border-4 border-white pop-in">
           ✕
         </div>
-        <span class="mt-2 px-4 py-1.5 rounded-full bg-red-100 border border-red-300 text-red-800 text-sm sm:text-base font-bold shadow-sm pop-in">
+        <span id="wrongMarkerText" class="mt-2 px-4 py-1.5 rounded-full bg-red-100 border border-red-300 text-red-800 text-sm sm:text-base font-bold shadow-sm pop-in">
           Not matching halves! Click anywhere to return
         </span>
       </div>
@@ -245,7 +245,7 @@
 
     const state = {
       totalLength: 8,         // Default 8 blocks (2 x 4)
-      colorCount: 3,          // Default 3 colors (Red, Green, Yellow)
+      colorCount: 2,          // Default 2 colors (Red, Green)
       targetBlocks: [],       // Original repeating sequence P + P
       initialBlocks: [],      // Scrambled starting puzzle sequence
       currentBlocks: [],      // Current active blocks [{ uid, colorId, labelNum }]
@@ -272,6 +272,7 @@
     const dividerBlade = document.getElementById('dividerBlade');
     const dividerLabel = document.getElementById('dividerLabel');
     const wrongMarker = document.getElementById('wrongMarker');
+    const wrongMarkerText = document.getElementById('wrongMarkerText');
     const toastBanner = document.getElementById('toastBanner');
     const toastDot = document.getElementById('toastDot');
     const toastMessage = document.getElementById('toastMessage');
@@ -485,7 +486,12 @@
 
       clearConfetti();
       hideFeedbackOverlays();
-      showToast('Find the cut that turns this train into two matching loops!', 'amber');
+      showToast(
+        state.showGoal
+          ? 'Match the goal blocks below — find the cut that lines them up!'
+          : 'Find the cut that restores the original loop pattern!',
+        'amber'
+      );
       renderTrain();
     }
 
@@ -929,27 +935,30 @@
       );
       const matchesGoal = arraysEqual(currentColors, state.targetBlocks);
 
-      // A cut is correct whenever the two halves match, even if the loop starts
-      // at a different point than the shown goal (multiple valid solutions).
-      if (halvesMatch) {
+      // The cut must restore the goal loop. Rotating by a full loop (half the
+      // train) is a no-op, so two cut positions can still both be correct.
+      if (matchesGoal) {
         state.phase = 'WON';
         renderTrain();
         renderWinFrames();
         playSound('win');
         spawnConfetti();
-        showToast(
-          matchesGoal
-            ? 'Perfect! You matched the goal loop exactly!'
-            : 'Nice! Both halves match — that is a correct loop!',
-          'emerald'
-        );
+        showToast('Perfect! You matched the goal loop!', 'emerald');
       } else {
         state.phase = 'WRONG';
         renderTrain();
         playSound('wrong');
         blocksLayer.classList.add('shake-train');
 
-        showToast('Oops! Those two halves do not match. Click anywhere or Retry to fly back!', 'red');
+        wrongMarkerText.textContent = halvesMatch
+          ? 'That loop is not the goal! Click anywhere to return'
+          : 'Not matching halves! Click anywhere to return';
+        showToast(
+          halvesMatch
+            ? 'Both halves match, but not the goal blocks. Try another cut!'
+            : 'Those two halves do not match. Try another cut!',
+          'red'
+        );
         positionWrongMarker();
       }
     }
