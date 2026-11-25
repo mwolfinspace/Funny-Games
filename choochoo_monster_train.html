@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Choochoo Monster Train</title>
+  <script src="tailwind.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background-color: #ffffff;
+      user-select: none;
+    }
+
+    .font-display {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    /* Thick divider blade pulse */
+    @keyframes dividerPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.32), 0 10px 24px rgba(217, 119, 6, 0.45);
+      }
+      50% {
+        box-shadow: 0 0 0 9px rgba(245, 158, 11, 0.16), 0 14px 30px rgba(217, 119, 6, 0.65);
+      }
+    }
+
+    .divider-glow {
+      animation: dividerPulse 1.4s infinite ease-in-out;
+    }
+
+    /* Horizontal shake animation when wrong cut happens */
+    @keyframes trainShake {
+      0%, 100% { transform: translateX(0); }
+      15% { transform: translateX(-14px); }
+      30% { transform: translateX(14px); }
+      45% { transform: translateX(-11px); }
+      60% { transform: translateX(11px); }
+      75% { transform: translateX(-6px); }
+      90% { transform: translateX(6px); }
+    }
+
+    .shake-train {
+      animation: trainShake 0.52s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    /* Pop-in animation for repeat frames and wrong X badge */
+    @keyframes popBounce {
+      0% { transform: scale(0.75); opacity: 0; }
+      70% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .pop-in {
+      animation: popBounce 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* Custom pill button transitions */
+    .pill-btn {
+      transition: transform 0.14s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .pill-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Keep the wrong-cut marker compact on short screens so it clears the train and toast */
+    @media (max-height: 640px) {
+      #wrongMarker > div:first-child {
+        width: 3rem;
+        height: 3rem;
+        font-size: 1.75rem;
+        border-width: 3px;
+      }
+      #wrongMarker > span {
+        margin-top: 0.375rem;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+      }
+    }
+
+    /* Extra-compact single-row marker when vertical space is very tight */
+    #wrongMarker.tight {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #wrongMarker.tight > div:first-child {
+      width: 2.25rem;
+      height: 2.25rem;
+      font-size: 1.25rem;
+      border-width: 2px;
+    }
+    #wrongMarker.tight > span {
+      margin-top: 0;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.7rem;
+    }
+
+  </style>
+</head>
+<body class="bg-white flex flex-col w-screen h-screen overflow-hidden text-slate-800">
+
+  <!-- Confetti Canvas Overlay -->
+  <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+  <!-- ==================== TOP BAR (SINGLE ROW) ==================== -->
+  <header class="w-full bg-white border-b border-slate-200 shadow-xs px-3 sm:px-5 py-2 z-30 flex flex-nowrap items-center justify-between gap-2 sm:gap-3 overflow-x-auto">
+    <!-- Left: Brand Title -->
+    <div class="flex items-center gap-2.5 shrink-0">
+      <a href="index.html" title="Back to all games"
+        class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center justify-center text-lg sm:text-xl shadow-xs shrink-0 cursor-pointer">
+        🏠
+      </a>
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-display font-bold text-xl sm:text-2xl shadow-xs shrink-0">
+        🚂
+      </div>
+      <div class="leading-none">
+        <h1 class="font-display font-bold text-base sm:text-xl text-slate-900 tracking-tight whitespace-nowrap">
+          Choochoo Monster Train
+        </h1>
+        <p class="hidden 2xl:block text-xs font-medium text-slate-500 mt-0.5 whitespace-nowrap">
+          Split once &amp; move front group to tail to form two identical halves!
+        </p>
+      </div>
+    </div>
+
+    <!-- Right: Train Length, Colors Count, Sound Toggle -->
+    <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+      <!-- Length Selector (4, 6, 8, 10, 12) -->
+      <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+        <span class="hidden xl:inline text-xs font-bold uppercase tracking-wider text-slate-600 px-1.5 whitespace-nowrap">Blocks</span>
+        <div id="lengthControls" class="flex items-center gap-1"></div>
+      </div>
+
+      <!-- Color Count Selector (2..8) -->
+      <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+        <span class="hidden xl:inline text-xs font-bold uppercase tracking-wider text-slate-600 px-1.5 whitespace-nowrap">Colors</span>
+        <div id="colorControls" class="flex items-center gap-1"></div>
+      </div>
+
+      <!-- Goal Toggle -->
+      <button id="goalToggleBtn" type="button" title="Show or hide the goal pattern"
+        class="pill-btn flex items-center gap-1.5 px-2.5 py-1.5 sm:px-2.5 sm:py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm border border-amber-600 shadow-xs cursor-pointer shrink-0 whitespace-nowrap">
+        <span id="goalToggleIcon" class="text-base sm:text-lg">🎯</span>
+        <span id="goalToggleText" class="sr-only">Goal On</span>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button id="soundToggleBtn" type="button" title="Toggle Sound Effects"
+        class="pill-btn flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm border border-slate-300 shadow-xs cursor-pointer shrink-0 whitespace-nowrap">
+        <span id="soundIcon" class="text-base sm:text-lg">🔊</span>
+        <span id="soundText" class="hidden xl:inline">Sound On</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN GAME ZONE (PURE WHITE) ==================== -->
+  <main id="gameZone" class="relative flex-1 w-full bg-white flex items-center justify-center overflow-hidden cursor-pointer">
+    <!-- Train Stage Container -->
+    <div id="trainStage" class="relative w-full h-full bg-white flex items-center justify-center">
+
+      <!-- Repeat Highlight Frames Layer (Shown on Win) -->
+      <div id="repeatFramesLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+
+      <!-- Goal Pattern Preview (sits beneath the train) -->
+      <div id="goalPanel" class="absolute z-10 pointer-events-none flex flex-col items-center">
+        <div id="goalCubes" class="relative"></div>
+      </div>
+
+      <!-- Active Monster Blocks Layer -->
+      <div id="blocksLayer" class="absolute inset-0 pointer-events-none z-20"></div>
+
+      <!-- Thick Glowing Vertical Divider Blade -->
+      <div id="dividerBar" class="hidden absolute z-30 pointer-events-none flex flex-col items-center">
+        <div class="px-3.5 py-1 mb-2 rounded-full bg-amber-500 text-white font-display font-bold text-xs sm:text-sm shadow-md tracking-wide uppercase whitespace-nowrap border-2 border-white">
+          <span id="dividerLabel">SPLIT</span>
+        </div>
+        <div id="dividerBlade" class="w-3.5 sm:w-4 rounded-full bg-gradient-to-b from-amber-400 via-orange-500 to-amber-500 border-2 border-white divider-glow"></div>
+      </div>
+
+      <!-- Wrong Cut Red X Marker Underneath Train (Strictly Centered Horizontally) -->
+      <div id="wrongMarker" class="hidden fixed inset-x-0 mx-auto w-fit z-30 pointer-events-none flex flex-col items-center justify-center text-center">
+        <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-500 text-white font-display font-extrabold text-4xl sm:text-5xl flex items-center justify-center shadow-xl border-4 border-white pop-in">
+          ✕
+        </div>
+        <span class="mt-2 px-4 py-1.5 rounded-full bg-red-100 border border-red-300 text-red-800 text-sm sm:text-base font-bold shadow-sm pop-in">
+          Not matching halves! Click anywhere to return
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== FLOATING TOAST NOTIFICATION (BOTTOM BLANK ZONE) ==================== -->
+  <div id="toastBanner"
+    class="fixed bottom-[82px] sm:bottom-[92px] left-1/2 -translate-x-1/2 z-40 pointer-events-none transition-all duration-300 px-4 sm:px-5 py-2 rounded-2xl shadow-sm border text-xs sm:text-sm font-bold flex items-center gap-2 bg-white/95 border-slate-200 text-slate-800 whitespace-nowrap max-w-[94vw] overflow-hidden text-ellipsis">
+    <span id="toastDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+    <span id="toastMessage">Move cursor between two blocks to aim the divider, then click to split!</span>
+  </div>
+
+  <!-- ==================== FLOATING ACTION DOCK ==================== -->
+  <div class="fixed bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 sm:gap-4 bg-white px-3.5 py-2 rounded-2xl shadow-xl border border-slate-200">
+    <button id="retryBtn" type="button"
+      class="pill-btn flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-display font-bold text-base sm:text-lg border border-slate-300 shadow-xs cursor-pointer">
+      <span class="text-xl">↺</span>
+      <span>Retry</span>
+    </button>
+    <button id="newPuzzleBtn" type="button"
+      class="pill-btn flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-display font-bold text-base sm:text-lg shadow-md cursor-pointer">
+      <span class="text-xl">✨</span>
+      <span>New Puzzle</span>
+    </button>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. COLOR PALETTE & GAME STATE
+    // =========================================================================
+    const MONSTER_PALETTE = [
+      { id: 0, name: 'Crimson Red',  fill: '#ef4444', stroke: '#991b1b', belly: '#fca5a5', badgeBg: '#dc2626' },
+      { id: 1, name: 'Lime Green',   fill: '#84cc16', stroke: '#3f6212', belly: '#d9f99d', badgeBg: '#65a30d' },
+      { id: 2, name: 'Sunny Yellow', fill: '#facc15', stroke: '#854d0e', belly: '#fef08a', badgeBg: '#ca8a04' },
+      { id: 3, name: 'Sky Cyan',     fill: '#38bdf8', stroke: '#075985', belly: '#bae6fd', badgeBg: '#0284c7' },
+      { id: 4, name: 'Royal Purple', fill: '#a855f7', stroke: '#581c87', belly: '#e9d5ff', badgeBg: '#7e22ce' },
+      { id: 5, name: 'Tangerine',    fill: '#f97316', stroke: '#9a3412', belly: '#fed7aa', badgeBg: '#ea580c' },
+      { id: 6, name: 'Bubblegum',    fill: '#ec4899', stroke: '#9d174d', belly: '#fbcfe8', badgeBg: '#db2777' },
+      { id: 7, name: 'Emerald Teal', fill: '#14b8a6', stroke: '#115e59', belly: '#99f6e4', badgeBg: '#0d9488' }
+    ];
+
+    const LENGTH_OPTIONS = [4, 6, 8, 10, 12];
+    const COLOR_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
+
+    const state = {
+      totalLength: 8,         // Default 8 blocks (2 x 4)
+      colorCount: 3,          // Default 3 colors (Red, Green, Yellow)
+      targetBlocks: [],       // Original repeating sequence P + P
+      initialBlocks: [],      // Scrambled starting puzzle sequence
+      currentBlocks: [],      // Current active blocks [{ uid, colorId, labelNum }]
+      hoveredGap: null,       // Index 1..(N-1) where divider hovers
+      phase: 'IDLE',          // 'IDLE' | 'ANIMATING' | 'WON' | 'WRONG'
+      soundEnabled: true,
+      showGoal: true,         // Goal preview toggle
+      lastCutCount: 0
+    };
+
+    // =========================================================================
+    // 2. DOM REFERENCES
+    // =========================================================================
+    const gameZone = document.getElementById('gameZone');
+    const trainStage = document.getElementById('trainStage');
+    const repeatFramesLayer = document.getElementById('repeatFramesLayer');
+    const goalPanel = document.getElementById('goalPanel');
+    const goalCubes = document.getElementById('goalCubes');
+    const goalToggleBtn = document.getElementById('goalToggleBtn');
+    const goalToggleIcon = document.getElementById('goalToggleIcon');
+    const goalToggleText = document.getElementById('goalToggleText');
+    const blocksLayer = document.getElementById('blocksLayer');
+    const dividerBar = document.getElementById('dividerBar');
+    const dividerBlade = document.getElementById('dividerBlade');
+    const dividerLabel = document.getElementById('dividerLabel');
+    const wrongMarker = document.getElementById('wrongMarker');
+    const toastBanner = document.getElementById('toastBanner');
+    const toastDot = document.getElementById('toastDot');
+    const toastMessage = document.getElementById('toastMessage');
+    const lengthControls = document.getElementById('lengthControls');
+    const colorControls = document.getElementById('colorControls');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundText = document.getElementById('soundText');
+    const retryBtn = document.getElementById('retryBtn');
+    const newPuzzleBtn = document.getElementById('newPuzzleBtn');
+    const confettiCanvas = document.getElementById('confettiCanvas');
+    const confettiCtx = confettiCanvas.getContext('2d');
+
+    // =========================================================================
+    // 3. WEB AUDIO API SOUND EFFECTS (ZERO EXTERNAL URLS)
+    // =========================================================================
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!state.soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      try {
+        if (type === 'tick') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(680, now + 0.045);
+          gain.gain.setValueAtTime(0.06, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.055);
+        } else if (type === 'snip') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(760, now);
+          osc.frequency.exponentialRampToValueAtTime(280, now + 0.14);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.16);
+        } else if (type === 'whoosh') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(480, now + 0.28);
+          osc.frequency.exponentialRampToValueAtTime(310, now + 0.52);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.12, now + 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.56);
+        } else if (type === 'snap') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(620, now + 0.09);
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.11);
+        } else if (type === 'win') {
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            const t = now + idx * 0.09;
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.16, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.36);
+          });
+        } else if (type === 'wrong') {
+          const notes = [230, 175];
+          notes.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            const t = now + idx * 0.16;
+            osc.frequency.setValueAtTime(freq, t);
+            osc.frequency.linearRampToValueAtTime(freq - 22, t + 0.18);
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.24);
+          });
+        }
+      } catch (err) {
+        // Ignore audio context autoplay restriction errors gracefully
+      }
+    }
+
+    // =========================================================================
+    // 4. PUZZLE GENERATION & VALIDATION
+    // =========================================================================
+    function isPrimitiveHalfPattern(half) {
+      const m = half.length;
+      for (let d = 1; d < m; d++) {
+        if (m % d === 0) {
+          let periodic = true;
+          for (let i = d; i < m; i++) {
+            if (half[i] !== half[i - d]) {
+              periodic = false;
+              break;
+            }
+          }
+          if (periodic) return false;
+        }
+      }
+      return true;
+    }
+
+    function arraysEqual(a, b) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    }
+
+    function generatePuzzle() {
+      const n = state.totalLength;
+      const halfLen = n / 2;
+      const maxColors = Math.min(state.colorCount, halfLen);
+      const effectiveColors = Math.max(2, maxColors);
+
+      // 1. Build a primitive loop pattern so the goal repeats cleanly
+      let half = null;
+      for (let attempt = 0; attempt < 400; attempt++) {
+        const pool = [];
+        for (let c = 0; c < effectiveColors; c++) pool.push(c);
+        while (pool.length < halfLen) {
+          pool.push(Math.floor(Math.random() * effectiveColors));
+        }
+        // Fisher-Yates shuffle
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        const candidate = pool.slice(0, halfLen);
+        if (isPrimitiveHalfPattern(candidate)) {
+          half = candidate;
+          break;
+        }
+      }
+
+      // Deterministic fallback so every length / color setting stays playable
+      if (!half) {
+        half = [];
+        for (let i = 0; i < halfLen; i++) {
+          half.push(i % effectiveColors);
+        }
+        if (halfLen >= 2 && half[0] === half[halfLen - 1]) {
+          half[halfLen - 1] = (half[0] + 1) % effectiveColors;
+        }
+      }
+
+      // 2. Goal = the loop repeated twice (two full loops)
+      const target = half.concat(half);
+
+      // 3. Scramble like the reverse of a solve: cut at a random spot and move
+      //    the back group to the beginning. Rotating by halfLen changes nothing,
+      //    so the scramble cut only needs 1..halfLen-1 (all distinct rotations).
+      const scrambleCut = 1 + Math.floor(Math.random() * Math.max(1, halfLen - 1));
+      const scrambled = target.slice(scrambleCut).concat(target.slice(0, scrambleCut));
+
+      state.targetBlocks = target;
+      state.initialBlocks = scrambled.map((colorId, idx) => ({
+        uid: `blk-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        colorId,
+        labelNum: idx + 1
+      }));
+
+      state.currentBlocks = state.initialBlocks.map(b => ({ ...b }));
+      state.hoveredGap = null;
+      state.phase = 'IDLE';
+      state.lastCutCount = 0;
+
+      clearConfetti();
+      hideFeedbackOverlays();
+      showToast('Find the cut that turns this train into two matching loops!', 'amber');
+      renderTrain();
+    }
+
+    // =========================================================================
+    // 5. RESPONSIVE LAYOUT METRICS
+    // =========================================================================
+    function computeLayoutMetrics() {
+      const rect = gameZone.getBoundingClientRect();
+      const stageW = rect.width || window.innerWidth;
+      const stageH = rect.height || (window.innerHeight - 140);
+      const n = state.totalLength;
+
+      // Maximize horizontal span across the classroom display
+      const horizontalMargin = Math.max(24, stageW * 0.04);
+      const usableW = Math.max(240, stageW - horizontalMargin * 2);
+      const gapRatio = 0.06;
+      const rawBlockSize = usableW / (n + (n - 1) * gapRatio);
+
+      // Constrain vertically so top badges, monster feet, and curved arc fit cleanly
+      const maxBlockByHeight = Math.max(44, stageH * 0.34);
+      const blockSize = Math.min(rawBlockSize, maxBlockByHeight, 156);
+      const gap = Math.max(4, blockSize * gapRatio);
+      const step = blockSize + gap;
+      const totalTrainWidth = n * blockSize + (n - 1) * gap;
+      const startX = (stageW - totalTrainWidth) / 2;
+
+      // Center train slightly above vertical midpoint to leave room for the goal
+      // preview, the wrong-cut marker, the flight arc and the toast
+      const trainTopY = Math.max(56, (stageH - blockSize) * 0.36);
+      const badgeSize = Math.max(28, Math.round(blockSize * 0.36));
+      const badgeTopOffset = Math.round(badgeSize + blockSize * 0.16);
+
+      return {
+        stageW,
+        stageH,
+        n,
+        blockSize,
+        gap,
+        step,
+        totalTrainWidth,
+        startX,
+        trainTopY,
+        badgeSize,
+        badgeTopOffset
+      };
+    }
+
+    // =========================================================================
+    // 6. SVG MONSTER BLOCK GENERATOR
+    // =========================================================================
+    function getMonsterSVG(colorObj) {
+      return `
+        <svg viewBox="0 0 120 132" class="w-full h-full overflow-visible drop-shadow-sm">
+          <!-- Left & Right Little Arms -->
+          <path d="M14 68 Q2 60 6 48" fill="none" stroke="${colorObj.stroke}" stroke-width="5" stroke-linecap="round"/>
+          <path d="M106 68 Q118 60 114 48" fill="none" stroke="${colorObj.stroke}" stroke-width="5" stroke-linecap="round"/>
+
+          <!-- Left & Right Feet -->
+          <path d="M38 108 L38 124 L26 124" fill="none" stroke="${colorObj.stroke}" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M82 108 L82 124 L94 124" fill="none" stroke="${colorObj.stroke}" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Eye Stalks -->
+          <line x1="44" y1="26" x2="40" y2="10" stroke="${colorObj.stroke}" stroke-width="5" stroke-linecap="round"/>
+          <line x1="76" y1="26" x2="80" y2="10" stroke="${colorObj.stroke}" stroke-width="5" stroke-linecap="round"/>
+
+          <!-- Fluffy Monster Cube Body -->
+          <rect x="16" y="24" width="88" height="86" rx="22" ry="22"
+                fill="${colorObj.fill}" stroke="${colorObj.stroke}" stroke-width="5"/>
+
+          <!-- Soft Belly Highlight -->
+          <rect x="30" y="54" width="60" height="42" rx="14" ry="14"
+                fill="${colorObj.belly}" opacity="0.45"/>
+
+          <!-- Googly Eyes on Top Stalks -->
+          <circle cx="40" cy="10" r="8.5" fill="#ffffff" stroke="${colorObj.stroke}" stroke-width="3.5"/>
+          <circle cx="42" cy="10" r="3.6" fill="#0f172a"/>
+          <circle cx="80" cy="10" r="8.5" fill="#ffffff" stroke="${colorObj.stroke}" stroke-width="3.5"/>
+          <circle cx="78" cy="10" r="3.6" fill="#0f172a"/>
+
+          <!-- Cheerful Smile -->
+          <path d="M44 46 Q60 58 76 46" fill="none" stroke="${colorObj.stroke}" stroke-width="4.5" stroke-linecap="round"/>
+        </svg>
+      `;
+    }
+
+    // =========================================================================
+    // 7. RENDER TRAIN, HOVER SEPARATION & WIN/WRONG OVERLAYS
+    // =========================================================================
+    function renderTopControls() {
+      lengthControls.innerHTML = '';
+      LENGTH_OPTIONS.forEach(len => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const active = state.totalLength === len;
+        btn.className = `pill-btn px-2.5 sm:px-3 py-1 rounded-lg font-display font-bold text-xs sm:text-sm cursor-pointer ${
+          active
+            ? 'bg-amber-500 text-white shadow-xs'
+            : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+        }`;
+        btn.textContent = len;
+        btn.addEventListener('click', () => {
+          if (state.totalLength === len) return;
+          initAudio();
+          playSound('tick');
+          state.totalLength = len;
+          renderTopControls();
+          generatePuzzle();
+        });
+        lengthControls.appendChild(btn);
+      });
+
+      colorControls.innerHTML = '';
+      COLOR_OPTIONS.forEach(cCount => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const active = state.colorCount === cCount;
+        btn.className = `pill-btn px-2.5 sm:px-3 py-1 rounded-lg font-display font-bold text-xs sm:text-sm cursor-pointer ${
+          active
+            ? 'bg-amber-500 text-white shadow-xs'
+            : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+        }`;
+        btn.textContent = cCount;
+        btn.addEventListener('click', () => {
+          if (state.colorCount === cCount) return;
+          initAudio();
+          playSound('tick');
+          state.colorCount = cCount;
+          renderTopControls();
+          generatePuzzle();
+        });
+        colorControls.appendChild(btn);
+      });
+    }
+
+    function hideFeedbackOverlays() {
+      repeatFramesLayer.innerHTML = '';
+      wrongMarker.classList.add('hidden');
+      blocksLayer.classList.remove('shake-train');
+    }
+
+    function renderTrain() {
+      const m = computeLayoutMetrics();
+      const hoverGap = (state.phase === 'IDLE') ? state.hoveredGap : null;
+      const hoverSplitShift = hoverGap !== null ? Math.min(22, m.blockSize * 0.22) : 0;
+
+      blocksLayer.innerHTML = '';
+
+      state.currentBlocks.forEach((block, idx) => {
+        const colorObj = MONSTER_PALETTE[block.colorId % MONSTER_PALETTE.length];
+        let x = m.startX + idx * m.step;
+
+        if (hoverGap !== null) {
+          x += (idx < hoverGap) ? -hoverSplitShift : hoverSplitShift;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.dataset.uid = block.uid;
+        wrapper.style.position = 'absolute';
+        wrapper.style.left = `${x}px`;
+        wrapper.style.top = `${m.trainTopY}px`;
+        wrapper.style.width = `${m.blockSize}px`;
+        wrapper.style.height = `${m.blockSize * 1.1}px`;
+        wrapper.style.transition = 'left 0.18s cubic-bezier(0.22, 1, 0.36, 1), top 0.18s ease, transform 0.18s ease';
+
+        // Highlight front group slightly when hovering divider
+        if (hoverGap !== null && idx < hoverGap) {
+          wrapper.style.transform = 'translateY(-4px)';
+        }
+
+        // Raised sequence number badge cleanly above eye stalks
+        const badge = document.createElement('div');
+        badge.style.position = 'absolute';
+        badge.style.left = '50%';
+        badge.style.top = `${-m.badgeTopOffset}px`;
+        badge.style.transform = 'translateX(-50%)';
+        badge.style.width = `${m.badgeSize}px`;
+        badge.style.height = `${m.badgeSize}px`;
+        badge.style.fontSize = `${Math.max(15, Math.round(m.badgeSize * 0.56))}px`;
+        badge.style.backgroundColor = colorObj.badgeBg;
+        badge.className = 'rounded-full text-white font-display font-bold flex items-center justify-center shadow-md border-2 border-white leading-none';
+        badge.textContent = block.labelNum;
+
+        wrapper.innerHTML = getMonsterSVG(colorObj);
+        wrapper.appendChild(badge);
+        blocksLayer.appendChild(wrapper);
+      });
+
+      // Position & size the tall glowing vertical divider blade
+      if (hoverGap !== null) {
+        const boundaryX = m.startX + hoverGap * m.step - m.gap / 2;
+        const bladeTopY = Math.max(8, m.trainTopY - m.badgeTopOffset - 42);
+        const bladeBottomY = m.trainTopY + m.blockSize * 1.16;
+        const bladeHeight = Math.max(80, bladeBottomY - bladeTopY - 34);
+
+        dividerBar.classList.remove('hidden');
+        dividerBar.style.left = `${boundaryX}px`;
+        dividerBar.style.top = `${bladeTopY}px`;
+        dividerBar.style.transform = 'translateX(-50%)';
+        dividerLabel.textContent = `SPLIT ${hoverGap}`;
+        dividerBlade.style.height = `${bladeHeight}px`;
+      } else {
+        dividerBar.classList.add('hidden');
+      }
+
+      renderGoal();
+      if (state.phase === 'WRONG') {
+        positionWrongMarker();
+      }
+    }
+
+    // Goal preview: the target loop pattern drawn beneath the train, column-aligned
+    function renderGoal() {
+      const visible = state.showGoal && state.phase !== 'WON';
+      goalPanel.classList.toggle('hidden', !visible);
+      if (!visible) return;
+
+      const m = computeLayoutMetrics();
+      const tileW = Math.max(18, Math.round(m.blockSize * 0.72));
+      const tileH = Math.max(24, Math.round(m.blockSize * 0.4));
+      // Sit clearly below the feet, scaling the gap down on small screens
+      const goalOffset = Math.max(18, Math.min(38, Math.round(m.blockSize * 0.28)));
+      const goalTop = m.trainTopY + m.blockSize * 1.1 + goalOffset;
+
+      goalPanel.style.left = `${m.startX}px`;
+      goalPanel.style.top = `${goalTop}px`;
+      goalPanel.style.width = `${m.totalTrainWidth}px`;
+      goalCubes.style.width = `${m.totalTrainWidth}px`;
+      goalCubes.style.height = `${tileH}px`;
+      goalCubes.innerHTML = '';
+
+      state.targetBlocks.forEach((colorId, idx) => {
+        const c = MONSTER_PALETTE[colorId % MONSTER_PALETTE.length];
+        const tile = document.createElement('div');
+        tile.style.position = 'absolute';
+        tile.style.left = `${idx * m.step + (m.blockSize - tileW) / 2}px`;
+        tile.style.top = '0';
+        tile.style.width = `${tileW}px`;
+        tile.style.height = `${tileH}px`;
+        tile.style.backgroundColor = c.fill;
+        tile.style.border = `2px solid ${c.stroke}`;
+        tile.style.borderRadius = `${Math.max(6, Math.round(tileH * 0.3))}px`;
+
+        goalCubes.appendChild(tile);
+      });
+
+      // Dashed seam between the two goal loops
+      const seam = document.createElement('div');
+      seam.style.position = 'absolute';
+      seam.style.left = `${(m.n / 2) * m.step - m.gap / 2 - 1}px`;
+      seam.style.top = '-4px';
+      seam.style.width = '2px';
+      seam.style.height = `${tileH + 8}px`;
+      seam.style.borderLeft = '2px dashed #94a3b8';
+      goalCubes.appendChild(seam);
+
+      // On short screens the toast could reach the goal row; keep the goal clear
+      if (goalPanel.getBoundingClientRect().bottom > toastBanner.getBoundingClientRect().top) {
+        toastBanner.style.display = 'none';
+      }
+    }
+
+    // Keep the wrong-cut warning below the goal preview and clear of the toast/dock
+    function positionWrongMarker() {
+      const m = computeLayoutMetrics();
+      const stageRect = gameZone.getBoundingClientRect();
+      const goalVisible = !goalPanel.classList.contains('hidden');
+      const goalBottom = goalVisible
+        ? goalPanel.getBoundingClientRect().bottom
+        : stageRect.top + m.trainTopY + m.blockSize * 1.1;
+
+      wrongMarker.classList.remove('hidden', 'tight');
+      const naturalTop = goalBottom + 12;
+      let maxTop = window.innerHeight - wrongMarker.offsetHeight - 88;
+
+      let top = naturalTop;
+      if (top > maxTop) {
+        wrongMarker.classList.add('tight');
+        maxTop = window.innerHeight - wrongMarker.offsetHeight - 88;
+        top = Math.min(naturalTop, maxTop);
+      }
+      top = Math.max(stageRect.top + 8, top);
+      wrongMarker.style.top = `${top}px`;
+
+      // The marker already carries the message, so drop the toast if they collide
+      if (top + wrongMarker.offsetHeight > toastBanner.getBoundingClientRect().top) {
+        toastBanner.style.display = 'none';
+      }
+    }
+
+    function renderWinFrames() {
+      const m = computeLayoutMetrics();
+      const halfLen = m.n / 2;
+      const halfWidth = halfLen * m.blockSize + (halfLen - 1) * m.gap;
+      const padX = Math.max(10, m.blockSize * 0.1);
+      const frameTop = m.trainTopY - m.badgeTopOffset - 12;
+      // Extra bottom room puts the "Repeat Half" tags in the empty space under the feet
+      const labelSpace = 42;
+      const frameHeight = m.blockSize * 1.15 + m.badgeTopOffset + 20 + labelSpace;
+      // Frames meet exactly at the middle seam so their borders just touch
+      const seamX = m.startX + halfWidth + m.gap / 2;
+      const trainRight = m.startX + m.totalTrainWidth;
+
+      repeatFramesLayer.innerHTML = '';
+      goalPanel.classList.add('hidden');
+
+      for (let h = 0; h < 2; h++) {
+        const frameLeft = h === 0 ? m.startX - padX : seamX;
+        const frameWidth = h === 0
+          ? seamX - (m.startX - padX)
+          : (trainRight + padX) - seamX;
+        const frame = document.createElement('div');
+        frame.style.position = 'absolute';
+        frame.style.left = `${frameLeft}px`;
+        frame.style.top = `${frameTop}px`;
+        frame.style.width = `${frameWidth}px`;
+        frame.style.height = `${frameHeight}px`;
+        frame.className = 'rounded-3xl border-4 border-emerald-500 bg-emerald-50/45 shadow-lg pop-in flex items-end justify-center pb-2';
+
+        const tag = document.createElement('span');
+        tag.className = 'px-3 py-0.5 rounded-full bg-emerald-600 text-white font-display font-bold text-xs sm:text-sm tracking-wide shadow-xs';
+        tag.textContent = `Repeat Half ${h + 1}`;
+        frame.appendChild(tag);
+
+        repeatFramesLayer.appendChild(frame);
+      }
+    }
+
+    // =========================================================================
+    // 8. CURVED ARC CUT ANIMATION & WIN / WRONG CHECK
+    // =========================================================================
+    function performCut(cutIndex) {
+      if (state.phase !== 'IDLE') return;
+      state.phase = 'ANIMATING';
+      state.hoveredGap = null;
+      state.lastCutCount = cutIndex;
+      dividerBar.classList.add('hidden');
+      hideFeedbackOverlays();
+
+      playSound('snip');
+
+      const m = computeLayoutMetrics();
+      const blockEls = Array.from(blocksLayer.children);
+
+      // Step 1: Brief outward split parting
+      const splitGap = Math.min(28, m.blockSize * 0.28);
+      blockEls.forEach((el, idx) => {
+        el.style.transition = 'left 0.2s ease-out, top 0.2s ease-out, transform 0.2s ease-out';
+        const baseLeft = m.startX + idx * m.step;
+        if (idx < cutIndex) {
+          el.style.left = `${baseLeft - splitGap}px`;
+          el.style.transform = 'translateY(-6px)';
+        } else {
+          el.style.left = `${baseLeft + splitGap}px`;
+        }
+      });
+
+      // Step 2: Smooth downward curved arc flight for front group & left slide for tail group
+      setTimeout(() => {
+        playSound('whoosh');
+
+        const duration = 680;
+        const startTime = performance.now();
+        const arcDrop = Math.min(m.stageH * 0.32, m.blockSize * 1.45);
+
+        const initialPositions = blockEls.map((_, idx) => {
+          const baseLeft = m.startX + idx * m.step;
+          return {
+            x: baseLeft + (idx < cutIndex ? -splitGap : splitGap),
+            y: m.trainTopY - (idx < cutIndex ? 6 : 0)
+          };
+        });
+
+        const targetPositions = blockEls.map((_, idx) => {
+          const newIdx = idx < cutIndex
+            ? (state.totalLength - cutIndex + idx)
+            : (idx - cutIndex);
+          return {
+            x: m.startX + newIdx * m.step,
+            y: m.trainTopY
+          };
+        });
+
+        // Disable CSS transition during manual requestAnimationFrame curve
+        blockEls.forEach(el => {
+          el.style.transition = 'none';
+          el.style.transform = 'none';
+        });
+
+        function stepArc(now) {
+          const rawT = Math.min(1, (now - startTime) / duration);
+          // Smooth cubic ease-in-out
+          const t = rawT < 0.5
+            ? 4 * rawT * rawT * rawT
+            : 1 - Math.pow(-2 * rawT + 2, 3) / 2;
+
+          blockEls.forEach((el, idx) => {
+            const p0 = initialPositions[idx];
+            const p1 = targetPositions[idx];
+
+            if (idx < cutIndex) {
+              // Front group arcs smoothly downward and across to the tail
+              const curX = p0.x + (p1.x - p0.x) * t;
+              const arcOffset = Math.sin(Math.PI * t) * arcDrop;
+              const curY = p0.y + arcOffset;
+              el.style.left = `${curX}px`;
+              el.style.top = `${curY}px`;
+              el.style.zIndex = '25';
+            } else {
+              // Tail group slides smoothly left to center
+              const curX = p0.x + (p1.x - p0.x) * t;
+              el.style.left = `${curX}px`;
+              el.style.top = `${m.trainTopY}px`;
+              el.style.zIndex = '20';
+            }
+          });
+
+          if (rawT < 1) {
+            requestAnimationFrame(stepArc);
+          } else {
+            finishCut(cutIndex);
+          }
+        }
+
+        requestAnimationFrame(stepArc);
+      }, 210);
+    }
+
+    function finishCut(cutIndex) {
+      playSound('snap');
+
+      // Rotate blocks array so front [0..cutIndex-1] moves to tail
+      const front = state.currentBlocks.slice(0, cutIndex);
+      const back = state.currentBlocks.slice(cutIndex);
+      state.currentBlocks = back.concat(front);
+
+      const currentColors = state.currentBlocks.map(b => b.colorId);
+      const halfLen = state.totalLength / 2;
+      const halvesMatch = arraysEqual(
+        currentColors.slice(0, halfLen),
+        currentColors.slice(halfLen)
+      );
+      const matchesGoal = arraysEqual(currentColors, state.targetBlocks);
+
+      // A cut is correct whenever the two halves match, even if the loop starts
+      // at a different point than the shown goal (multiple valid solutions).
+      if (halvesMatch) {
+        state.phase = 'WON';
+        renderTrain();
+        renderWinFrames();
+        playSound('win');
+        spawnConfetti();
+        showToast(
+          matchesGoal
+            ? 'Perfect! You matched the goal loop exactly!'
+            : 'Nice! Both halves match — that is a correct loop!',
+          'emerald'
+        );
+      } else {
+        state.phase = 'WRONG';
+        renderTrain();
+        playSound('wrong');
+        blocksLayer.classList.add('shake-train');
+
+        showToast('Oops! Those two halves do not match. Click anywhere or Retry to fly back!', 'red');
+        positionWrongMarker();
+      }
+    }
+
+    function resetToScrambled() {
+      if (state.phase === 'ANIMATING') return;
+
+      const wasTransformed = !arraysEqual(
+        state.currentBlocks.map(b => b.uid),
+        state.initialBlocks.map(b => b.uid)
+      );
+
+      clearConfetti();
+      hideFeedbackOverlays();
+      state.hoveredGap = null;
+      dividerBar.classList.add('hidden');
+
+      if (!wasTransformed) {
+        state.phase = 'IDLE';
+        renderTrain();
+        showToast('Move cursor between two blocks to aim the divider, then click to split!', 'amber');
+        return;
+      }
+
+      state.phase = 'ANIMATING';
+      playSound('whoosh');
+
+      const m = computeLayoutMetrics();
+      const blockEls = Array.from(blocksLayer.children);
+      const initialIndexByUid = new Map();
+      state.initialBlocks.forEach((b, idx) => initialIndexByUid.set(b.uid, idx));
+
+      const startPositions = blockEls.map((_, idx) => ({
+        x: m.startX + idx * m.step,
+        y: m.trainTopY
+      }));
+
+      const targetPositions = state.currentBlocks.map((b) => {
+        const origIdx = initialIndexByUid.get(b.uid);
+        return {
+          x: m.startX + origIdx * m.step,
+          y: m.trainTopY,
+          movedRight: origIdx < idxOfBlock(b.uid)
+        };
+      });
+
+      function idxOfBlock(uid) {
+        return state.currentBlocks.findIndex(item => item.uid === uid);
+      }
+
+      const duration = 560;
+      const startTime = performance.now();
+      const arcDrop = Math.min(m.stageH * 0.28, m.blockSize * 1.25);
+
+      blockEls.forEach(el => {
+        el.style.transition = 'none';
+        el.style.transform = 'none';
+      });
+
+      function stepReturn(now) {
+        const rawT = Math.min(1, (now - startTime) / duration);
+        const t = rawT < 0.5
+          ? 4 * rawT * rawT * rawT
+          : 1 - Math.pow(-2 * rawT + 2, 3) / 2;
+
+        blockEls.forEach((el, idx) => {
+          const p0 = startPositions[idx];
+          const p1 = targetPositions[idx];
+          const curX = p0.x + (p1.x - p0.x) * t;
+          const arcOffset = p1.movedRight ? Math.sin(Math.PI * t) * arcDrop : 0;
+          el.style.left = `${curX}px`;
+          el.style.top = `${p0.y + arcOffset}px`;
+        });
+
+        if (rawT < 1) {
+          requestAnimationFrame(stepReturn);
+        } else {
+          state.currentBlocks = state.initialBlocks.map(b => ({ ...b }));
+          state.phase = 'IDLE';
+          renderTrain();
+          showToast('Back to start! Try another split position.', 'amber');
+        }
+      }
+
+      requestAnimationFrame(stepReturn);
+    }
+
+    // =========================================================================
+    // 9. TOAST NOTIFICATION & CONFETTI ENGINE
+    // =========================================================================
+    function showToast(msg, tone = 'amber') {
+      toastBanner.style.display = '';
+      toastMessage.textContent = msg;
+      toastBanner.classList.remove(
+        'border-slate-200', 'text-slate-800',
+        'border-emerald-300', 'text-emerald-900',
+        'border-red-300', 'text-red-900'
+      );
+      toastDot.classList.remove('bg-amber-500', 'bg-emerald-500', 'bg-red-500');
+
+      if (tone === 'emerald') {
+        toastBanner.classList.add('border-emerald-300', 'text-emerald-900');
+        toastDot.classList.add('bg-emerald-500');
+      } else if (tone === 'red') {
+        toastBanner.classList.add('border-red-300', 'text-red-900');
+        toastDot.classList.add('bg-red-500');
+      } else {
+        toastBanner.classList.add('border-slate-200', 'text-slate-800');
+        toastDot.classList.add('bg-amber-500');
+      }
+    }
+
+    let confettiParticles = [];
+    let confettiAnimId = null;
+
+    function resizeConfetti() {
+      confettiCanvas.width = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+
+    function clearConfetti() {
+      confettiParticles = [];
+      if (confettiAnimId) {
+        cancelAnimationFrame(confettiAnimId);
+        confettiAnimId = null;
+      }
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+
+    function spawnConfetti() {
+      const colors = ['#ef4444', '#84cc16', '#facc15', '#38bdf8', '#a855f7', '#f97316', '#ec4899'];
+      confettiParticles = [];
+      for (let i = 0; i < 140; i++) {
+        confettiParticles.push({
+          x: window.innerWidth * (0.15 + Math.random() * 0.7),
+          y: window.innerHeight * 0.35,
+          vx: (Math.random() - 0.5) * 14,
+          vy: -Math.random() * 14 - 4,
+          size: 7 + Math.random() * 7,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.25,
+          gravity: 0.36
+        });
+      }
+      if (!confettiAnimId) {
+        updateConfetti();
+      }
+    }
+
+    function updateConfetti() {
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      confettiParticles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.rot += p.vRot;
+
+        confettiCtx.save();
+        confettiCtx.translate(p.x, p.y);
+        confettiCtx.rotate(p.rot);
+        confettiCtx.fillStyle = p.color;
+        confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+        confettiCtx.restore();
+      });
+
+      confettiParticles = confettiParticles.filter(p => p.y < confettiCanvas.height + 30);
+      if (confettiParticles.length > 0) {
+        confettiAnimId = requestAnimationFrame(updateConfetti);
+      } else {
+        confettiAnimId = null;
+      }
+    }
+
+    // =========================================================================
+    // 10. EVENT LISTENERS & INITIALIZATION
+    // =========================================================================
+    soundToggleBtn.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      soundIcon.textContent = state.soundEnabled ? '🔊' : '🔇';
+      soundText.textContent = state.soundEnabled ? 'Sound On' : 'Muted';
+      if (state.soundEnabled) {
+        initAudio();
+        playSound('tick');
+      }
+    });
+
+    function updateGoalToggleUI() {
+      goalToggleIcon.textContent = state.showGoal ? '🎯' : '🙈';
+      goalToggleText.textContent = state.showGoal ? 'Goal On' : 'Goal Off';
+      goalToggleBtn.title = state.showGoal ? 'Hide the goal pattern' : 'Show the goal pattern';
+      goalToggleBtn.setAttribute('aria-pressed', String(state.showGoal));
+      goalToggleBtn.classList.toggle('bg-amber-500', state.showGoal);
+      goalToggleBtn.classList.toggle('hover:bg-amber-600', state.showGoal);
+      goalToggleBtn.classList.toggle('border-amber-600', state.showGoal);
+      goalToggleBtn.classList.toggle('text-white', state.showGoal);
+      goalToggleBtn.classList.toggle('bg-slate-100', !state.showGoal);
+      goalToggleBtn.classList.toggle('hover:bg-slate-200', !state.showGoal);
+      goalToggleBtn.classList.toggle('border-slate-300', !state.showGoal);
+      goalToggleBtn.classList.toggle('text-slate-800', !state.showGoal);
+    }
+
+    goalToggleBtn.addEventListener('click', () => {
+      initAudio();
+      playSound('tick');
+      state.showGoal = !state.showGoal;
+      updateGoalToggleUI();
+      renderGoal();
+      if (state.phase === 'WRONG') {
+        positionWrongMarker();
+      }
+    });
+
+    function getNearestGapFromClientX(clientX) {
+      const m = computeLayoutMetrics();
+      const rect = gameZone.getBoundingClientRect();
+      const relX = clientX - rect.left;
+
+      if (relX < m.startX - m.blockSize * 0.4 || relX > m.startX + m.totalTrainWidth + m.blockSize * 0.4) {
+        return null;
+      }
+
+      let bestGap = 1;
+      let minDist = Infinity;
+
+      for (let g = 1; g < state.totalLength; g++) {
+        const boundaryX = m.startX + g * m.step;
+        const dist = Math.abs(relX - boundaryX);
+        if (dist < minDist) {
+          minDist = dist;
+          bestGap = g;
+        }
+      }
+
+      return bestGap;
+    }
+
+    function clearHoverVisuals() {
+      if (state.hoveredGap !== null) {
+        state.hoveredGap = null;
+      }
+      if (dividerBar) {
+        dividerBar.classList.add('hidden');
+      }
+      if (state.phase === 'IDLE') {
+        renderTrain();
+      }
+    }
+
+    gameZone.addEventListener('pointermove', (e) => {
+      if (state.phase !== 'IDLE') return;
+      const gap = getNearestGapFromClientX(e.clientX);
+      if (gap !== state.hoveredGap) {
+        state.hoveredGap = gap;
+        if (gap !== null) {
+          playSound('tick');
+        }
+        renderTrain();
+      }
+    });
+
+    gameZone.addEventListener('pointerleave', () => {
+      clearHoverVisuals();
+    });
+
+    gameZone.addEventListener('click', (e) => {
+      initAudio();
+
+      if (state.phase === 'WRONG') {
+        resetToScrambled();
+        return;
+      }
+
+      if (state.phase !== 'IDLE') return;
+
+      const gap = getNearestGapFromClientX(e.clientX);
+      if (gap !== null) {
+        performCut(gap);
+      }
+    });
+
+    retryBtn.addEventListener('click', () => {
+      initAudio();
+      resetToScrambled();
+    });
+
+    newPuzzleBtn.addEventListener('click', () => {
+      initAudio();
+      playSound('tick');
+      generatePuzzle();
+    });
+
+    window.addEventListener('resize', () => {
+      resizeConfetti();
+      if (state.phase !== 'ANIMATING') {
+        renderTrain();
+      }
+    });
+
+    window.addEventListener('load', () => {
+      resizeConfetti();
+      renderTopControls();
+      updateGoalToggleUI();
+      generatePuzzle();
+    });
+  </script>
+</body>
+</html>
