@@ -245,7 +245,7 @@
 
     const state = {
       totalLength: 8,         // Default 8 blocks (2 x 4)
-      colorCount: 2,          // Default 2 colors (Red, Green)
+      colorCount: 2,          // Default 2 colors (random pair each puzzle)
       targetBlocks: [],       // Original repeating sequence P + P
       initialBlocks: [],      // Scrambled starting puzzle sequence
       currentBlocks: [],      // Current active blocks [{ uid, colorId, labelNum }]
@@ -463,10 +463,19 @@
         }
       }
 
-      // 2. Goal = the loop repeated twice (two full loops)
-      const target = half.concat(half);
+      // 2. Pick a fresh random set of palette colors so puzzles look different
+      //    (e.g. blue + red, yellow + red, green + blue ...)
+      const paletteIds = MONSTER_PALETTE.map(c => c.id);
+      for (let i = paletteIds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [paletteIds[i], paletteIds[j]] = [paletteIds[j], paletteIds[i]];
+      }
+      const chosenColorIds = paletteIds.slice(0, effectiveColors);
 
-      // 3. Scramble like the reverse of a solve: cut at a random spot and move
+      // 3. Goal = the loop repeated twice (two full loops)
+      const target = half.concat(half).map(idx => chosenColorIds[idx]);
+
+      // 4. Scramble like the reverse of a solve: cut at a random spot and move
       //    the back group to the beginning. Rotating by halfLen changes nothing,
       //    so the scramble cut only needs 1..halfLen-1 (all distinct rotations).
       const scrambleCut = 1 + Math.floor(Math.random() * Math.max(1, halfLen - 1));
