@@ -1122,7 +1122,7 @@
             <span>INPUT CELLS</span>
             <div style="display:flex;align-items:center;gap:6px;">
               <span id="input-cell-counter" style="font-family:'JetBrains Mono',monospace;">0 / 16</span>
-              <button id="btn-export-cells-svg" class="mech-btn mini-svg-btn" type="button" title="Export Input Cells Grid in SVG export editor">📐 SVG</button>
+              <button id="btn-export-cells-svg" class="mech-btn mini-svg-btn" type="button" title="Open printable letter strip in SVG export editor">📐 SVG</button>
             </div>
           </div>
           <div id="input-cells-container" class="input-cells-wrap"></div>
@@ -2369,6 +2369,42 @@
 </svg>`;
       }
 
+      // Clean one-row printable strip for the typed letter cells.
+      function buildLetterStripSvg() {
+        const p = getSvgThemePalette();
+        const letters = (state.cipherCells || []).filter((ch) => ch && String(ch).trim());
+        const cellSize = 52;
+        const gap = 8;
+        const margin = 14;
+        const count = Math.max(letters.length, 1);
+        const totalW = margin * 2 + count * cellSize + (count - 1) * gap;
+        const totalH = margin * 2 + cellSize;
+
+        let shapes = '';
+        shapes += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="12" fill="${p.frameBg}" />`;
+
+        if (!letters.length) {
+          shapes += `<rect x="${margin}" y="${margin}" width="${cellSize}" height="${cellSize}" rx="14" ry="14" fill="${p.plateFill}" stroke="${p.plateStroke}" stroke-width="2.5" />`;
+        }
+
+        letters.forEach((raw, i) => {
+          const ch = String(raw).trim().toUpperCase();
+          const x = margin + i * (cellSize + gap);
+          const y = margin;
+
+          shapes += `<g>`;
+          shapes += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="14" ry="14" fill="${p.plateFill}" stroke="${p.plateStroke}" stroke-width="2.5" />`;
+          shapes += `<rect x="${x + 4}" y="${y + 4}" width="${cellSize - 8}" height="${cellSize - 8}" rx="10" ry="10" fill="none" stroke="${p.frameBorder}" stroke-width="1" stroke-opacity="0.35" />`;
+          shapes += `<text data-label="Letter ${i + 1}" x="${x + cellSize / 2}" y="${y + cellSize / 2 + 10}" text-anchor="middle" fill="${p.plateText}" font-family="Consolas, Courier New, monospace" font-size="28" font-weight="bold">${escapeXml(ch)}</text>`;
+          shapes += `</g>`;
+        });
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">
+  ${shapes}
+</svg>`;
+      }
+
       function downloadSvgFile(svgContent, filename) {
         const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -3451,14 +3487,8 @@
         });
 
         dom.btnExportCellsSvg.addEventListener('click', () => {
-          const svg = buildSingleGridSvg({
-            title: 'LETTER CELLS GRID',
-            subtitle: `${state.N}×${state.N}`,
-            N: state.N,
-            mode: 'cells',
-            cipherCells: state.cipherCells
-          });
-          openSvgEditor(svg, `turning_grille_letter_cells_${state.N}x${state.N}.svg`);
+          const svg = buildLetterStripSvg();
+          openSvgEditor(svg, `turning_grille_letter_strip_${state.N}x${state.N}.svg`);
         });
 
         dom.btnExportAllBankSvg.addEventListener('click', () => {
