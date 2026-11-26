@@ -1,0 +1,3262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Turning Grille — Secret Grid Cipher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=JetBrains+Mono:wght@700;800&family=Orbitron:wght@700;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ==========================================================================
+       1. DESIGN TOKENS & THEME VARIABLES (CLASSIC DEFAULT vs. CYBER HACKING)
+       ========================================================================== */
+    :root {
+      --bg-app: #f3ede0;
+      --bg-pattern: radial-gradient(circle at 20% 20%, rgba(212, 166, 74, 0.14), transparent 48%),
+                    radial-gradient(circle at 80% 80%, rgba(140, 98, 28, 0.10), transparent 50%),
+                    repeating-linear-gradient(45deg, rgba(140, 98, 28, 0.03) 0px, rgba(140, 98, 28, 0.03) 2px, transparent 2px, transparent 10px);
+      --bg-panel: #fcf9f2;
+      --bg-panel-elevated: #ffffff;
+      --bg-inset: #ebe2cf;
+      --border-panel: #d4c3a1;
+      --border-strong: #8c621c;
+      --text-primary: #231d16;
+      --text-secondary: #574836;
+      --text-muted: #6d5a42;
+      --brass-text: #8a5a12;
+      --anchor-color: #b45309;
+      --emerald-strong: #047857;
+      --danger-text: #b91c1c;
+      --panel-header-bg: linear-gradient(180deg, #f8f2e5 0%, #f1e7d3 100%);
+
+      --brass-light: #fde68a;
+      --brass-mid: #d4a64a;
+      --brass-dark: #784f12;
+      --brass-glow: rgba(212, 166, 74, 0.35);
+
+      --plate-bg: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+      --plate-border: #9c7a44;
+      --plate-text: #231d16;
+
+      --grille-mask-bg: rgba(39, 32, 25, 0.90);
+      --grille-mask-border: #d4a64a;
+      --grille-hole-border: #10b981;
+      --grille-hole-bg: rgba(253, 230, 138, 0.18);
+
+      --emerald: #059669;
+      --emerald-light: #d1fae5;
+      --emerald-glow: rgba(16, 185, 129, 0.32);
+      --danger: #dc2626;
+      --shadow-card: 0 5px 16px -3px rgba(68, 49, 20, 0.14), 0 0 0 1px rgba(140, 98, 28, 0.1);
+      --shadow-btn: 0 3px 0 #784f12, 0 5px 12px rgba(120, 79, 18, 0.22);
+    }
+
+    body.dark-mode {
+      --bg-app: #14110e;
+      --bg-pattern: radial-gradient(circle at 20% 20%, rgba(212, 166, 74, 0.09), transparent 48%),
+                    radial-gradient(circle at 80% 80%, rgba(140, 98, 28, 0.08), transparent 50%),
+                    repeating-linear-gradient(45deg, rgba(212, 166, 74, 0.025) 0px, rgba(212, 166, 74, 0.025) 2px, transparent 2px, transparent 10px);
+      --bg-panel: #1d1814;
+      --bg-panel-elevated: #26201a;
+      --bg-inset: #13100d;
+      --border-panel: #473928;
+      --border-strong: #c9973b;
+      --text-primary: #f7f1e3;
+      --text-secondary: #d6c7ae;
+      --text-muted: #a6957a;
+      --brass-text: #f6cf7d;
+      --anchor-color: #fbbf24;
+      --emerald-strong: #34d399;
+      --danger-text: #fca5a5;
+      --panel-header-bg: linear-gradient(180deg, #251e18 0%, #1d1814 100%);
+
+      --brass-light: #fde68a;
+      --brass-mid: #d4a64a;
+      --brass-dark: #784f12;
+      --brass-glow: rgba(212, 166, 74, 0.35);
+
+      --plate-bg: linear-gradient(180deg, #3b2f21 0%, #2a2117 100%);
+      --plate-border: #c9973b;
+      --plate-text: #fde68a;
+
+      --grille-mask-bg: rgba(18, 14, 10, 0.92);
+      --grille-mask-border: #d4a64a;
+      --grille-hole-border: #34d399;
+      --grille-hole-bg: rgba(253, 230, 138, 0.14);
+
+      --emerald: #10b981;
+      --emerald-light: rgba(16, 185, 129, 0.22);
+      --emerald-glow: rgba(16, 185, 129, 0.38);
+      --danger: #f87171;
+      --shadow-card: 0 8px 22px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(201, 151, 59, 0.14);
+      --shadow-btn: 0 3px 0 #784f12, 0 5px 14px rgba(0, 0, 0, 0.45);
+    }
+
+    body.cyber-theme {
+      --bg-app: #e6f4f8;
+      --bg-pattern: linear-gradient(rgba(6, 182, 212, 0.09) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(6, 182, 212, 0.09) 1px, transparent 1px);
+      --bg-panel: #f2fbfd;
+      --bg-panel-elevated: #ffffff;
+      --bg-inset: #d8eef4;
+      --border-panel: #67e8f9;
+      --border-strong: #0891b2;
+      --text-primary: #06283d;
+      --text-secondary: #155e75;
+      --text-muted: #0c6b83;
+      --brass-text: #0e7490;
+      --anchor-color: #0891b2;
+      --emerald-strong: #047857;
+      --danger-text: #be123c;
+      --panel-header-bg: linear-gradient(180deg, #e3f9fc 0%, #d4f0f7 100%);
+
+      --brass-light: #a5f3fc;
+      --brass-mid: #06b6d4;
+      --brass-dark: #0e7490;
+      --brass-glow: rgba(6, 182, 212, 0.38);
+
+      --plate-bg: linear-gradient(180deg, #cffafe 0%, #a5f3fc 100%);
+      --plate-border: #0891b2;
+      --plate-text: #083344;
+
+      --grille-mask-bg: rgba(8, 47, 73, 0.90);
+      --grille-mask-border: #22d3ee;
+      --grille-hole-border: #059669;
+      --grille-hole-bg: rgba(165, 243, 252, 0.22);
+
+      --emerald: #059669;
+      --emerald-light: #ccfbf1;
+      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --danger: #e11d48;
+      --shadow-card: 0 6px 18px -3px rgba(6, 182, 212, 0.2), 0 0 0 1px rgba(6, 182, 212, 0.15);
+      --shadow-btn: 0 3px 0 #0e7490, 0 5px 12px rgba(6, 182, 212, 0.25);
+    }
+
+    body.cyber-theme.dark-mode {
+      --bg-app: #050912;
+      --bg-pattern: radial-gradient(circle at 18% 15%, rgba(0, 245, 212, 0.12), transparent 45%),
+                    radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.12), transparent 45%),
+                    linear-gradient(rgba(0, 245, 212, 0.045) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 245, 212, 0.045) 1px, transparent 1px);
+      --bg-panel: #0b1220;
+      --bg-panel-elevated: #101a2e;
+      --bg-inset: #060b14;
+      --border-panel: #164e63;
+      --border-strong: #00f5d4;
+      --text-primary: #e0f2fe;
+      --text-secondary: #7dd3fc;
+      --text-muted: #38bdf8;
+      --brass-text: #67e8f9;
+      --anchor-color: #00f5d4;
+      --emerald-strong: #39ff14;
+      --danger-text: #fda4af;
+      --panel-header-bg: linear-gradient(180deg, #0d1b2e 0%, #091322 100%);
+
+      --brass-light: #67e8f9;
+      --brass-mid: #00f5d4;
+      --brass-dark: #0e7490;
+      --brass-glow: rgba(0, 245, 212, 0.45);
+
+      --plate-bg: linear-gradient(180deg, #0e2439 0%, #091726 100%);
+      --plate-border: #00f5d4;
+      --plate-text: #67e8f9;
+
+      --grille-mask-bg: rgba(5, 12, 24, 0.92);
+      --grille-mask-border: #00f5d4;
+      --grille-hole-border: #39ff14;
+      --grille-hole-bg: rgba(0, 245, 212, 0.16);
+
+      --emerald: #10b981;
+      --emerald-light: rgba(16, 185, 129, 0.22);
+      --emerald-glow: rgba(57, 255, 20, 0.42);
+      --danger: #f43f5e;
+      --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.75), 0 0 14px rgba(0, 245, 212, 0.14);
+      --shadow-btn: 0 3px 0 #0e7490, 0 0 14px rgba(0, 245, 212, 0.35);
+    }
+
+    body.cyber-theme { background-size: 28px 28px; }
+    body.cyber-theme.dark-mode { background-size: auto, auto, 28px 28px, 28px 28px; }
+    body.cyber-theme::after {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 90;
+      background: repeating-linear-gradient(0deg, rgba(0,245,212,0.025) 0px, rgba(0,245,212,0.025) 1px, transparent 1px, transparent 4px);
+    }
+    body.cyber-theme .brand-title,
+    body.cyber-theme .panel-title,
+    body.cyber-theme .modal-title {
+      font-family: 'Orbitron', 'JetBrains Mono', monospace;
+      letter-spacing: 0.06em;
+    }
+    body.cyber-theme .mech-btn.primary {
+      background: linear-gradient(180deg, #67e8f9 0%, #00f5d4 100%);
+      border-color: #0e7490;
+      color: #041e2b;
+    }
+
+    /* ==========================================================================
+       2. GLOBAL LAYOUT & VIEWPORT SHELL
+       ========================================================================== */
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    input, textarea, select { user-select: text; -webkit-user-select: text; }
+
+    html, body {
+      height: 100dvh;
+      width: 100%;
+      margin: 0; padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-app);
+      background-image: var(--bg-pattern);
+      color: var(--text-primary);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-inset); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+
+    #confetti-canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999;
+    }
+
+    /* ==========================================================================
+       3. TOP BAR
+       ========================================================================== */
+    .topbar {
+      flex-shrink: 0; z-index: 50;
+      background: var(--bg-panel);
+      border-bottom: 1.5px solid var(--border-panel);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+      padding: 6px 12px;
+    }
+    .topbar-inner {
+      max-width: 1560px; margin: 0 auto;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px;
+    }
+    .brand { display: flex; align-items: center; gap: 9px; }
+    .brand-logo { width: 34px; height: 34px; flex-shrink: 0; }
+    .brand-title {
+      font-family: 'Cinzel', Georgia, serif; font-weight: 900;
+      font-size: clamp(0.95rem, 1.7vw, 1.2rem); letter-spacing: 0.05em; line-height: 1.1;
+    }
+    .brand-sub {
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--brass-text);
+    }
+
+    .toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .mode-switch {
+      display: inline-flex; background: var(--bg-inset);
+      border: 1.5px solid var(--border-panel); border-radius: 10px; padding: 2px; gap: 2px;
+    }
+    .mode-btn {
+      border: none; background: transparent; color: var(--text-secondary);
+      font-family: inherit; font-weight: 800; font-size: 0.74rem;
+      padding: 5px 9px; border-radius: 7px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s ease;
+    }
+    .mode-btn.active {
+      background: linear-gradient(180deg, var(--brass-light), var(--brass-mid));
+      color: #1f170c; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .mech-btn {
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg-panel-elevated);
+      color: var(--text-primary);
+      font-family: inherit; font-weight: 800; font-size: 0.74rem;
+      padding: 5px 9px; border-radius: 9px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      box-shadow: 0 2px 0 var(--border-panel);
+      transition: transform 0.1s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      white-space: nowrap;
+    }
+    .mech-btn:hover:not(:disabled) { border-color: var(--brass-mid); transform: translateY(-1px); }
+    .mech-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+    .mech-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+    .mech-btn.primary {
+      background: linear-gradient(180deg, #f3d282 0%, #d19c38 100%);
+      border-color: #8c621c; color: #1f170c; box-shadow: var(--shadow-btn);
+    }
+    .mech-btn.success {
+      background: linear-gradient(180deg, #10b981 0%, #047857 100%);
+      border-color: #065f46; color: #ffffff; box-shadow: 0 2px 0 #04372a;
+    }
+    .mech-btn.danger {
+      border-color: var(--danger); color: var(--danger-text);
+    }
+    .mech-btn.icon-only { padding: 5px 8px; font-size: 0.88rem; }
+    .mech-btn.mini-svg-btn {
+      padding: 2px 6px;
+      font-size: 0.65rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      box-shadow: none;
+    }
+
+    /* Grid Size Control Pill */
+    .size-control-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--bg-inset); border: 1.5px solid var(--border-strong);
+      border-radius: 10px; padding: 2px 6px;
+    }
+    .size-step-btn {
+      width: 24px; height: 24px; border-radius: 6px;
+      border: 1.5px solid var(--border-strong); background: var(--bg-panel-elevated);
+      color: var(--text-primary); font-weight: 900; font-size: 0.85rem;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .size-step-btn:active { transform: scale(0.92); }
+    .size-number-input {
+      width: 36px; height: 24px; text-align: center;
+      font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.82rem;
+      border: 1.5px solid var(--border-panel); border-radius: 6px;
+      background: var(--bg-panel-elevated); color: var(--text-primary); outline: none;
+    }
+    .size-suffix {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; font-weight: 800; color: var(--brass-text);
+    }
+
+    /* Seed ID Pill */
+    .seed-control-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--bg-inset); border: 1.5px solid var(--border-panel);
+      border-radius: 10px; padding: 2px 6px;
+    }
+    .seed-input {
+      width: 118px; height: 24px;
+      font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.72rem;
+      padding: 0 6px; border: 1px solid var(--border-panel); border-radius: 6px;
+      background: var(--bg-panel-elevated); color: var(--text-primary); outline: none;
+    }
+
+    /* ==========================================================================
+       4. MAIN WORKSPACE: LEFT (2 STACKED GRIDS) vs RIGHT (TOP DECODE + BOTTOM BANK)
+       ========================================================================== */
+    .main-container {
+      flex: 1; min-height: 0; width: 100%; max-width: 1560px; margin: 0 auto;
+      padding: 8px 12px;
+      display: grid;
+      grid-template-columns: minmax(330px, 430px) 1fr;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .panel-card {
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border-panel);
+      border-radius: 14px;
+      box-shadow: var(--shadow-card);
+      padding: 9px 10px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel-header {
+      flex-shrink: 0;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 6px; margin-bottom: 7px; padding: 5px 9px;
+      background: var(--panel-header-bg);
+      border: 1px solid var(--border-panel); border-radius: 9px;
+    }
+    .panel-title {
+      font-family: 'Cinzel', Georgia, serif; font-weight: 900;
+      font-size: 0.84rem; letter-spacing: 0.04em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .badge-pill {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 800;
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--bg-inset); border: 1px solid var(--border-panel); color: var(--text-secondary);
+    }
+
+    /* LEFT COLUMN: TWO STACKED BOARDS */
+    .left-column {
+      display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto;
+    }
+
+    .board-card {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+
+    .grid-stage-wrap {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: relative; padding: 2px; gap: 5px;
+    }
+
+    /* Centered Seed ID Tag Directly Below CipherGrid Frame */
+    .cipher-seed-caption {
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--brass-text);
+      background: var(--bg-inset);
+      border: 1px solid var(--border-panel);
+      border-radius: 8px;
+      padding: 2px 10px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.1s ease;
+    }
+    .cipher-seed-caption:hover {
+      border-color: var(--brass-mid);
+      transform: translateY(-1px);
+    }
+
+    .square-board {
+      display: grid;
+      gap: 3px;
+      background: var(--border-strong);
+      border: 2.5px solid var(--border-strong);
+      border-radius: 10px;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+      position: relative;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .cipher-cell {
+      background: var(--plate-bg);
+      border: 1px solid var(--plate-border);
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-weight: 800;
+      color: var(--plate-text);
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    /* Overlaid Stencil Mask Layer on Top Board */
+    .overlay-stencil-layer {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      gap: 3px;
+      padding: 4px;
+      border-radius: 8px;
+      pointer-events: none;
+      transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 6;
+    }
+
+    .overlay-stencil-cell {
+      border-radius: 5px;
+      transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .overlay-stencil-cell.opaque {
+      background: var(--grille-mask-bg);
+      border: 1.5px solid var(--grille-mask-border);
+      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.45);
+    }
+
+    .overlay-stencil-cell.hole {
+      background: var(--grille-hole-bg);
+      border: 2px solid var(--grille-hole-border);
+      box-shadow: 0 0 10px var(--emerald-glow), inset 0 0 8px rgba(16, 185, 129, 0.28);
+    }
+
+    .cipher-cell.just-revealed {
+      box-shadow: 0 0 0 2.5px var(--emerald), 0 0 14px var(--emerald-glow);
+      z-index: 4;
+    }
+
+    /* Bottom Left: Master Stencil Designer Board */
+    .designer-cell {
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.72rem;
+      transition: transform 0.1s ease, background-color 0.18s ease, border-color 0.18s ease;
+    }
+    .designer-cell:hover { transform: scale(0.95); }
+    .designer-cell.opaque {
+      background: var(--grille-mask-bg);
+      border: 1.5px solid var(--grille-mask-border);
+      color: rgba(255, 255, 255, 0.35);
+    }
+    .designer-cell.hole {
+      background: var(--emerald-light);
+      border: 2px solid var(--emerald);
+      color: var(--emerald-strong);
+      box-shadow: inset 0 0 8px var(--emerald-glow);
+    }
+
+    .board-controls-bar {
+      flex-shrink: 0;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+      gap: 6px; margin-top: 6px;
+    }
+
+    /* RIGHT COLUMN: TOP (INPUT CELLS + DECODED MESSAGE) & BOTTOM (BANK OF 8+ GRIDS) */
+    .right-column {
+      display: flex; flex-direction: column; gap: 9px; min-height: 0; overflow: hidden;
+    }
+
+    .top-right-panel {
+      flex-shrink: 0;
+      display: flex; flex-direction: column; gap: 7px;
+    }
+
+    .stream-label-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 0.68rem; font-weight: 800; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    .input-cells-wrap {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 6px; border-radius: 10px;
+      background: var(--bg-inset); border: 1.5px solid var(--border-panel);
+      max-height: 108px; overflow-y: auto;
+    }
+
+    .grid-input-cell {
+      width: 30px; height: 32px;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.92rem;
+      border: 1.5px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--bg-panel-elevated);
+      color: var(--text-primary);
+      text-transform: uppercase;
+      outline: none;
+      padding: 0;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .grid-input-cell:focus {
+      border-color: var(--emerald);
+      box-shadow: 0 0 0 2.5px var(--emerald-glow);
+    }
+    .grid-input-cell:disabled {
+      background: var(--plate-bg);
+      color: var(--plate-text);
+      opacity: 0.92;
+      cursor: not-allowed;
+    }
+
+    /* Custom Challenge Creator Bar (Sentence -> Auto Cipher + Direction + Bank Grids) */
+    .challenge-creator-box {
+      padding: 7px 10px;
+      border-radius: 11px;
+      background: var(--bg-inset);
+      border: 1.5px solid var(--border-strong);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .challenge-input-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .challenge-text-input {
+      flex: 1;
+      min-width: 180px;
+      height: 30px;
+      padding: 0 9px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg-panel-elevated);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      outline: none;
+    }
+    .challenge-text-input:focus {
+      border-color: var(--emerald);
+      box-shadow: 0 0 0 2.5px var(--emerald-glow);
+    }
+
+    .decoded-output-box {
+      padding: 8px 10px; border-radius: 11px;
+      background: var(--bg-panel-elevated);
+      border: 2px solid var(--border-strong);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    .decoded-slots-flow {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+      min-height: 36px;
+    }
+
+    .decoded-char-slot {
+      width: 28px; height: 32px;
+      border-radius: 6px;
+      border: 1.5px solid var(--border-panel);
+      background: var(--bg-inset);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.95rem;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+    .decoded-char-slot.filled {
+      background: var(--emerald-light);
+      border-color: var(--emerald);
+      color: var(--emerald-strong);
+      transform: translateY(-1px);
+    }
+    .decoded-space-gap {
+      width: 14px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .decoded-space-gap::after {
+      content: '•'; color: var(--brass-text); font-size: 0.8rem; opacity: 0.6;
+    }
+
+    .decoded-actions-row {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px;
+    }
+
+    .rotation-pills {
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .rot-step-pill {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 800;
+      padding: 2px 7px; border-radius: 999px;
+      border: 1.5px solid var(--border-panel); background: var(--bg-inset); color: var(--text-muted);
+    }
+    .rot-step-pill.recorded {
+      background: var(--emerald); border-color: #065f46; color: #ffffff;
+    }
+    .rot-step-pill.current {
+      box-shadow: 0 0 0 2px var(--brass-mid);
+    }
+
+    /* BOTTOM RIGHT: BANK OF DECODE GRIDS (0 TO 8+ STENCIL CARDS) */
+    .bank-panel {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    .bank-grid-scroll {
+      flex: 1; min-height: 0;
+      overflow-y: auto;
+      padding: 4px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+      align-content: start;
+      gap: 9px;
+    }
+
+    .bank-empty-notice {
+      grid-column: 1 / -1;
+      padding: 22px 16px;
+      border-radius: 12px;
+      border: 2px dashed var(--border-strong);
+      background: var(--bg-inset);
+      text-align: center;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stencil-card {
+      background: var(--bg-panel-elevated);
+      border: 2px solid var(--border-panel);
+      border-radius: 12px;
+      padding: 7px;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stencil-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--brass-mid);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
+    }
+    .stencil-card.selected {
+      border-color: var(--emerald);
+      background: linear-gradient(180deg, var(--bg-panel-elevated), var(--emerald-light));
+      box-shadow: 0 0 0 2.5px var(--emerald-glow);
+    }
+    .stencil-card.failed {
+      border-color: var(--danger);
+      opacity: 0.86;
+    }
+
+    .stencil-card-header {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 800;
+      color: var(--text-secondary);
+      gap: 4px;
+    }
+
+    .card-header-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .card-svg-btn {
+      border: 1px solid var(--border-strong);
+      background: var(--bg-inset);
+      color: var(--text-primary);
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .card-svg-btn:hover {
+      border-color: var(--brass-mid);
+      background: var(--brass-light);
+      color: #1f170c;
+    }
+
+    .mini-grille-preview {
+      display: grid;
+      gap: 1.5px;
+      background: var(--border-strong);
+      border: 1.5px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 2px;
+      width: 90px;
+      height: 90px;
+    }
+    .mini-grille-cell {
+      border-radius: 2px;
+    }
+    .mini-grille-cell.opaque {
+      background: var(--grille-mask-bg);
+    }
+    .mini-grille-cell.hole {
+      background: var(--brass-light);
+      border: 1px solid var(--emerald);
+    }
+
+    .failed-x-badge {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-12deg);
+      background: rgba(220, 38, 38, 0.92);
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 900;
+      font-size: 1.15rem;
+      padding: 3px 10px;
+      border-radius: 8px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .delete-bank-btn {
+      border: none; background: transparent; color: var(--danger-text);
+      font-weight: 900; font-size: 0.74rem; cursor: pointer; padding: 0 3px;
+      border-radius: 4px;
+    }
+    .delete-bank-btn:hover {
+      background: rgba(220, 38, 38, 0.15);
+    }
+
+    .shake {
+      animation: mechShake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      border-color: var(--danger) !important;
+    }
+    @keyframes mechShake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+      40%, 60% { transform: translate3d(5px, 0, 0); }
+    }
+
+    /* ==========================================================================
+       5. MODALS & VICTORY TOAST
+       ========================================================================== */
+    .victory-banner {
+      position: fixed; bottom: 16px; left: 50%;
+      transform: translateX(-50%) translateY(24px) scale(0.96);
+      z-index: 160; width: min(720px, calc(100vw - 24px));
+      display: flex; opacity: 0; pointer-events: none;
+      padding: 11px 16px; border-radius: 15px;
+      background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+      border: 2px solid rgba(255, 255, 255, 0.45); color: #ffffff;
+      box-shadow: 0 14px 34px rgba(4, 120, 87, 0.48);
+      align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+      transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .victory-banner.show {
+      opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0) scale(1);
+    }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(15, 17, 23, 0.74); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; padding: 14px;
+    }
+    .modal-card {
+      width: min(680px, 100%); max-height: 90dvh;
+      background: var(--bg-panel); border: 2px solid var(--border-strong);
+      border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+      padding: 11px 16px; background: var(--panel-header-bg);
+      border-bottom: 1.5px solid var(--border-panel);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-title {
+      font-family: 'Cinzel', Georgia, serif; font-weight: 900; font-size: 0.96rem;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .modal-body {
+      padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+      font-size: 0.86rem; line-height: 1.55; color: var(--text-primary);
+    }
+    .story-box {
+      background: var(--bg-panel-elevated); border: 1.5px solid var(--border-strong);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .rules-list {
+      background: var(--bg-inset); border: 1.5px solid var(--border-panel);
+      border-radius: 12px; padding: 10px 14px; margin: 0;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .hidden { display: none !important; }
+
+    @media (max-width: 900px) {
+      html, body { height: auto; overflow-y: auto; }
+      .main-container { grid-template-columns: 1fr; overflow: visible; }
+      .left-column { overflow: visible; }
+      .right-column { overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- ========================================================================
+       TOP NAVIGATION BAR
+       ======================================================================== -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="4" y="4" width="56" height="56" rx="12" fill="#231d16" stroke="#d4a64a" stroke-width="4" />
+          <rect x="14" y="14" width="14" height="14" rx="3" fill="#fde68a" />
+          <rect x="36" y="14" width="14" height="14" rx="3" fill="#3b2f21" stroke="#d4a64a" stroke-width="1.5" />
+          <rect x="14" y="36" width="14" height="14" rx="3" fill="#3b2f21" stroke="#d4a64a" stroke-width="1.5" />
+          <rect x="36" y="36" width="14" height="14" rx="3" fill="#10b981" />
+        </svg>
+        <div>
+          <div class="brand-title">TURNING GRILLE</div>
+          <div class="brand-sub">Secret Grid Cipher • Everyday English</div>
+        </div>
+      </div>
+
+      <!-- Grid Size + Kid/Normal + Classic/Cyber -->
+      <div class="toolbar-group">
+        <div class="size-control-pill" title="Grid Size (4x4 to 10x10)">
+          <button id="btn-size-dec" class="size-step-btn" type="button" title="Smaller Grid">➖</button>
+          <input id="input-grid-size" class="size-number-input" type="number" min="4" max="10" value="4" title="Enter Grid Size (4-10)" />
+          <span id="span-size-display" class="size-suffix">×4</span>
+          <button id="btn-size-inc" class="size-step-btn" type="button" title="Larger Grid">➕</button>
+        </div>
+
+        <div class="mode-switch" role="tablist" aria-label="Spacing Mode">
+          <button id="btn-diff-kid" class="mode-btn active" type="button" title="Kid Mode: Spaced Words">
+            🧸 KID
+          </button>
+          <button id="btn-diff-normal" class="mode-btn" type="button" title="Normal Mode: No Spaces">
+            🧠 NORMAL
+          </button>
+        </div>
+
+        <div class="mode-switch" role="tablist" aria-label="Theme Style">
+          <button id="btn-style-classic" class="mode-btn active" type="button" title="Classic Brass Theme">🏛️</button>
+          <button id="btn-style-cyber" class="mode-btn" type="button" title="Cyber Neon Theme">⚡</button>
+        </div>
+      </div>
+
+      <!-- Seed ID + Guide + New + Audio/Dark -->
+      <div class="toolbar-group">
+        <div class="seed-control-pill" title="Ultra-Compact Base91 Seed ID: Share or Load Puzzle">
+          <span>🔑</span>
+          <input id="input-seed-id" class="seed-input" type="text" placeholder="Seed ID" />
+          <button id="btn-load-seed" class="mech-btn icon-only" type="button" title="Load Seed ID">📥</button>
+          <button id="btn-copy-seed" class="mech-btn icon-only" type="button" title="Copy Seed ID">📋</button>
+        </div>
+
+        <button id="btn-open-story" class="mech-btn icon-only" type="button" title="How to Play & Cipher Rules">📜</button>
+        <button id="btn-new-puzzle" class="mech-btn primary" type="button" title="New Random English Phrase Puzzle">🎲 New</button>
+        <button id="btn-sound" class="mech-btn icon-only" type="button" title="Toggle Sound">🔊</button>
+        <button id="btn-theme" class="mech-btn icon-only" type="button" title="Light / Dark Mode">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       FLOATING VICTORY TOAST
+       ======================================================================== -->
+  <div id="victory-banner" class="victory-banner" role="status">
+    <div style="flex: 1; min-width: 190px;">
+      <div style="font-weight: 900; font-size: 0.96rem;" id="victory-title">
+        🎉 SECRET PHRASE DECODED!
+      </div>
+      <div style="font-size: 0.78rem; opacity: 0.96; font-weight: 700;" id="victory-phrase-text">
+        You cracked the Turning Grille!
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button id="btn-next-round" class="mech-btn" type="button" style="background:#fff;color:#065f46;border-color:#065f46;">
+        🎲 Next
+      </button>
+      <button id="btn-dismiss-victory" class="mech-btn icon-only" type="button" style="background:rgba(255,255,255,0.2);color:#fff;border-color:rgba(255,255,255,0.45);box-shadow:none;">
+        ✖️
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MAIN WORKSPACE
+       ======================================================================== -->
+  <main class="main-container">
+    <!-- ======================================================================
+         LEFT COLUMN: 2 STACKED GRIDS (TOP = CIPHER GRID, BOTTOM = HOLE GRID)
+         ====================================================================== -->
+    <section class="left-column">
+      <!-- TOP LEFT BOARD: CIPHER GRID + OVERLAID STENCIL -->
+      <div class="panel-card board-card">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🔐</span> <span>CIPHER GRID</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span id="badge-lock-status" class="badge-pill">🔒</span>
+            <span id="badge-rotation-deg" class="badge-pill">0°</span>
+            <button id="btn-export-cipher-svg" class="mech-btn mini-svg-btn" type="button" title="Export Cipher Grid as Word-compatible SVG">📐 SVG</button>
+          </div>
+        </div>
+
+        <div class="grid-stage-wrap" id="cipher-stage-wrap">
+          <div id="cipher-grid-board" class="square-board"></div>
+          <!-- Centered Seed ID Footer Directly Below CipherGrid Frame -->
+          <div id="cipher-seed-footer" class="cipher-seed-caption" title="Click to copy Seed ID">💾: ---</div>
+        </div>
+
+        <div class="board-controls-bar">
+          <button id="btn-toggle-lock" class="mech-btn primary icon-only" type="button" title="Lock / Unlock Cipher Grid">🔒</button>
+          <button id="btn-rotate-ccw" class="mech-btn" type="button" title="Rotate 90° Counter-Clockwise">↺ 90°</button>
+          <button id="btn-rotate-cw" class="mech-btn" type="button" title="Rotate 90° Clockwise">↻ 90°</button>
+          <button id="btn-unmount-grille" class="mech-btn icon-only" type="button" title="Remove Grille Overlay">⏏️</button>
+        </div>
+      </div>
+
+      <!-- BOTTOM LEFT BOARD: MASTER STENCIL DESIGNER -->
+      <div class="panel-card board-card">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🟨</span> <span>HOLE GRID</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span id="badge-hole-count" class="badge-pill">0 / 4</span>
+            <button id="btn-export-hole-svg" class="mech-btn mini-svg-btn" type="button" title="Export Hole Grid as Word-compatible SVG">📐 SVG</button>
+          </div>
+        </div>
+
+        <div class="grid-stage-wrap" id="designer-stage-wrap">
+          <div id="designer-grid-board" class="square-board"></div>
+        </div>
+
+        <div class="board-controls-bar">
+          <button id="btn-mount-custom" class="mech-btn success" type="button" title="Place Hole Grid onto Cipher Grid">⬆️ Place</button>
+          <button id="btn-add-to-bank" class="mech-btn primary" type="button" title="Save Hole Grid to Decode Bank">➕ Bank</button>
+          <button id="btn-reset-designer" class="mech-btn danger icon-only" type="button" title="Clear All Holes">🧹</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         RIGHT COLUMN: TOP (CONSOLE & CHALLENGE CREATOR) & BOTTOM (BANK OF GRIDS)
+         ====================================================================== -->
+    <section class="right-column">
+      <!-- TOP RIGHT: DECODE CONSOLE + MAKE YOUR OWN CHALLENGE -->
+      <div class="panel-card top-right-panel">
+        <div class="panel-header" style="margin-bottom:2px;">
+          <div class="panel-title">
+            <span>📡</span> <span>DECODE CONSOLE</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="badge-mode-desc" class="badge-pill">🧸 SPACED</span>
+            <button id="btn-toggle-creator" class="mech-btn primary" type="button" title="Create a Custom Challenge Sentence for Another Player">✍️ Make Puzzle</button>
+            <button id="btn-clear-inputs" class="mech-btn icon-only" type="button" title="Clear Grid to Type Custom Letters">✏️</button>
+          </div>
+        </div>
+
+        <!-- MAKE PUZZLE FROM ANY CUSTOM SENTENCE (WITH CW / CCW ENCRYPTION CHOICE) -->
+        <div id="challenge-creator-box" class="challenge-creator-box hidden">
+          <div class="stream-label-row">
+            <span>✍️ TYPE ANY ENGLISH SENTENCE TO CREATE A PUZZLE</span>
+            <span id="creator-size-hint" style="font-family:'JetBrains Mono',monospace;color:var(--brass-text);">AUTO SIZE</span>
+          </div>
+          <div class="challenge-input-row">
+            <input id="input-custom-sentence" class="challenge-text-input" type="text" maxlength="100" placeholder="e.g. LET THE GAME BEGIN" />
+            <div class="mode-switch" role="group" aria-label="Encryption Turn Direction" title="Choose Rotation Direction Required to Solve">
+              <button id="btn-creator-dir-cw" class="mode-btn active" type="button" title="Encrypt for Clockwise (↻ 90°) turns">↻ CW</button>
+              <button id="btn-creator-dir-ccw" class="mode-btn" type="button" title="Encrypt for Counter-Clockwise (↺ 90°) turns">↺ CCW</button>
+            </div>
+            <button id="btn-generate-challenge" class="mech-btn success" type="button" title="Generate Cipher Grid & Bank Cards">⚡ Create</button>
+            <button id="btn-close-creator" class="mech-btn icon-only" type="button" title="Close">✖️</button>
+          </div>
+          <div style="font-size:0.68rem;font-weight:700;color:var(--text-secondary);">
+            Auto-picks grid size (4×4–10×10), locks in your chosen turn direction (<strong>↻ CW</strong> or <strong>↺ CCW</strong>), and updates the ultra-short 🔑 Seed ID!
+          </div>
+        </div>
+
+        <!-- Input Cells (1-to-1 sync with Top-Left Cipher Grid) -->
+        <div>
+          <div class="stream-label-row" style="margin-bottom:4px;">
+            <span>INPUT CELLS</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="input-cell-counter" style="font-family:'JetBrains Mono',monospace;">0 / 16</span>
+              <button id="btn-export-cells-svg" class="mech-btn mini-svg-btn" type="button" title="Export Input Cells Grid as Word-compatible SVG">📐 SVG</button>
+            </div>
+          </div>
+          <div id="input-cells-container" class="input-cells-wrap"></div>
+        </div>
+
+        <!-- Decoded Output Readout & Check Button -->
+        <div class="decoded-output-box">
+          <div class="stream-label-row">
+            <span>DECODED MESSAGE (L→R, T→B)</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="badge-turn-dir" class="badge-pill" title="Current Rotation Sequence">DIR: —</span>
+              <div class="rotation-pills" id="rotation-pills-row">
+                <span class="rot-step-pill current" data-turn="0">T1</span>
+                <span class="rot-step-pill" data-turn="1">T2</span>
+                <span class="rot-step-pill" data-turn="2">T3</span>
+                <span class="rot-step-pill" data-turn="3">T4</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="decoded-slots-container" class="decoded-slots-flow"></div>
+
+          <div class="decoded-actions-row">
+            <div id="decode-status-hint" style="font-size:0.74rem;font-weight:700;color:var(--text-secondary);">
+              Pick a grid from the bank (or build your own in Hole Grid) and rotate 90°!
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button id="btn-clear-decoded" class="mech-btn icon-only" type="button" title="Restart Rotation Read">↺</button>
+              <button id="btn-check-answer" class="mech-btn success" type="button" title="Check Decoded Message">
+                ✅ Check
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM RIGHT: BANK OF DECODE GRIDS (0 TO 8+ STENCIL CARDS) -->
+      <div class="panel-card bank-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🗂️</span> <span>BANK OF DECODE GRIDS</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span id="badge-bank-count" class="badge-pill">8</span>
+            <button id="btn-clear-all-bank" class="mech-btn danger mini-svg-btn" type="button" title="Remove ALL Bank Grids (Cipher-Only Mode -> Ultra-Short Seed ID)">🗑️ Clear All</button>
+            <button id="btn-export-all-bank-svg" class="mech-btn mini-svg-btn" type="button" title="Export All Bank Cards Sheet as Word-compatible SVG">📐 All SVG</button>
+            <button id="btn-regen-bank" class="mech-btn icon-only" type="button" title="Generate 8 Bank Grids">🔄</button>
+          </div>
+        </div>
+
+        <div id="bank-grids-container" class="bank-grid-scroll"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================================
+       MODAL: GAME RULES & CIPHER GUIDE
+       ======================================================================== -->
+  <div id="story-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title"><span>📜</span> TURNING GRILLE GUIDE</div>
+        <button id="btn-close-story" class="mech-btn icon-only" type="button">✖️</button>
+      </div>
+      <div class="modal-body">
+        <div class="story-box">
+          <div style="font-weight:900;color:var(--brass-text);margin-bottom:4px;font-size:0.92rem;">
+            🔐 SECRET ENGLISH PHRASE CIPHER
+          </div>
+          <p style="margin:0;">
+            Over <strong>400+ everyday English phrases</strong> for kids and learners (like <em>"LET THE GAME BEGIN"</em>, <em>"GO TO THE COFFEE SHOP"</em>, or <em>"GOOD MORNING MY FRIEND"</em>) are hidden inside a square letter grid. Place a perforated stencil mask over the grid and turn it 90° four times to reveal the secret sentence!
+          </p>
+        </div>
+
+        <div>
+          <div style="font-weight:800;margin-bottom:6px;color:var(--text-secondary);">
+            🧭 HOW TO PLAY & CREATE CHALLENGES:
+          </div>
+          <ol class="rules-list">
+            <li><strong>Step 1 — Pick or Build a Hole Grid:</strong> Click a card in the <strong>Bank of Decode Grids</strong>, OR design your own stencil in the <strong>Hole Grid</strong> (bottom left) and click <strong>⬆️ Place</strong>.</li>
+            <li><strong>Step 2 — Watch Rotation Direction:</strong> Click <strong>↻ 90°</strong> (clockwise) or <strong>↺ 90°</strong> (counter-clockwise). Turning in the wrong direction scrambles the word order and will <strong>not</strong> pass!</li>
+            <li><strong>Step 3 — Collect All 4 Turns & Check:</strong> After 4 turns (<code>T1 → T2 → T3 → T4</code>), click <strong>✅ Check</strong>. Any recognized English phrase or matching target sentence wins!</li>
+            <li><strong>Ultra-Short Seed ID Mode (🗑️ Clear All):</strong> Remove individual bank cards with <strong>✖</strong> or click <strong>🗑️ Clear All</strong> to leave only the Cipher Grid! Your <strong>🔑 Seed ID</strong> shrinks to just a few characters, challenging players to deduce the Hole Grid themselves!</li>
+            <li><strong>Custom Challenge Creator (✍️ Make Puzzle):</strong> Type any English sentence, choose <strong>↻ CW</strong> or <strong>↺ CCW</strong> encryption direction, and share the compact Seed ID or <strong>📐 SVG</strong> cutouts!</li>
+          </ol>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;">
+          <button id="btn-start-mission" class="mech-btn primary" type="button">🚀 Let's Play!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+      // ======================================================================
+      // 1. 430+ EVERYDAY ENGLISH PHRASES FOR KIDS & LEARNERS (ORGANIZED BY N×N)
+      // ======================================================================
+      const PHRASE_BANK = {
+        4: [
+          'LET THE GAME BEGIN',
+          'GOOD MORNING FRIEND',
+          'HAVE A NICE DAY',
+          'TIME FOR SCHOOL',
+          'READ A GOOD BOOK',
+          'OPEN THE DOOR',
+          'CLOSE THE WINDOW',
+          'WASH YOUR HANDS',
+          'BRUSH YOUR TEETH',
+          'DRINK MORE WATER',
+          'EAT YOUR LUNCH',
+          'PLAY IN THE PARK',
+          'RIDE YOUR BIKE',
+          'FLY A BLUE KITE',
+          'FEED THE PUPPY',
+          'PET THE CUTE CAT',
+          'SING A HAPPY SONG',
+          'DANCE TO THE BEAT',
+          'DRAW A BIG STAR',
+          'PAINT THE SKY BLUE',
+          'COUNT TO TWENTY',
+          'LEARN NEW WORDS',
+          'SPELL YOUR NAME',
+          'WRITE A LETTER',
+          'SHARE YOUR TOYS',
+          'HELP YOUR MOM',
+          'HUG YOUR DAD',
+          'LOVE YOUR FAMILY',
+          'MAKE NEW FRIENDS',
+          'SMILE EVERY DAY',
+          'BE KIND ALWAYS',
+          'TELL THE TRUTH',
+          'WORK VERY HARD',
+          'NEVER GIVE UP',
+          'TRY YOUR BEST',
+          'YOU CAN DO IT',
+          'WAY TO GO KID',
+          'WELL DONE TODAY',
+          'KEEP UP THE WORK',
+          'REACH FOR STARS',
+          'FOLLOW YOUR DREAM',
+          'LOOK AT THE MOON',
+          'WATCH THE SUNSET',
+          'SMELL THE ROSES',
+          'CLIMB THE TREE',
+          'JUMP IN THE POOL',
+          'SWIM IN THE SEA',
+          'BUILD A SANDCASTLE',
+          'CATCH THE BALL',
+          'KICK THE SOCCER',
+          'SCORE A GOAL NOW',
+          'RUN VERY FAST',
+          'WALK IN THE RAIN',
+          'WEAR YOUR COAT',
+          'PUT ON YOUR HAT',
+          'TIE YOUR SHOES',
+          'PACK YOUR BAG',
+          'CATCH THE BUS',
+          'WAIT IN LINE',
+          'RAISE YOUR HAND',
+          'ASK A QUESTION',
+          'LISTEN TO TEACHER',
+          'CLEAN YOUR DESK',
+          'TIDY YOUR ROOM',
+          'MAKE YOUR BED',
+          'TURN OFF LIGHTS',
+          'GO TO SLEEP NOW',
+          'SWEET DREAMS KID',
+          'WAKE UP EARLY',
+          'SUN IS SHINING',
+          'BIRDS ARE SINGING',
+          'IT IS SNOWING',
+          'COLD WINTER DAY',
+          'WARM SPRING AIR',
+          'HOT SUMMER SUN',
+          'COOL AUTUMN WIND',
+          'HAPPY BIRTHDAY',
+          'MERRY CHRISTMAS',
+          'HAPPY NEW YEAR',
+          'ENJOY THE PARTY',
+          'BLOW THE CANDLES',
+          'OPEN YOUR GIFT',
+          'THANK YOU SO MUCH',
+          'YOU ARE WELCOME',
+          'PLEASE HELP ME',
+          'EXCUSE ME SIR',
+          'SEE YOU LATER',
+          'SEE YOU SOON',
+          'HAVE FUN TODAY',
+          'STAY SAFE KIDS',
+          'LOOK BOTH WAYS',
+          'CROSS AT GREEN',
+          'STOP AT RED LIGHT',
+          'WEAR A HELMET',
+          'BUCKLE SEAT BELT',
+          'FIND THE TREASURE',
+          'SOLVE THE PUZZLE',
+          'CRACK THE CODE',
+          'UNLOCK THE BOX',
+          'FOLLOW THE MAP',
+          'SEARCH THE CAVE',
+          'CROSS THE BRIDGE',
+          'SAIL THE OCEAN',
+          'EXPLORE THE WORLD',
+          'SAVE THE PLANET',
+          'PLANT A TREE',
+          'RECYCLE PAPER',
+          'KEEP EARTH CLEAN',
+          'WATER THE FLOWERS',
+          'BAKE A SWEET CAKE',
+          'COOK DINNER NOW',
+          'SET THE TABLE',
+          'POUR SOME MILK',
+          'SLICE THE APPLE',
+          'PEEL A BANANA',
+          'EAT FRESH FRUIT',
+          'DRINK ORANGE JUICE',
+          'TASTE THE SOUP',
+          'YUMMY ICE CREAM',
+          'SWEET CHOCOLATE',
+          'HOT PIZZA SLICE',
+          'CRUNCHY CARROTS',
+          'GO TO THE ZOO',
+          'SEE THE LION',
+          'FEED THE DUCKS',
+          'WATCH MONKEYS',
+          'TALL GIRAFFE',
+          'BIG ELEPHANT',
+          'FUNNY PENGUIN',
+          'FAST CHEETAH',
+          'GREEN TURTLE',
+          'LITTLE RABBIT',
+          'BROWN HORSE',
+          'PINK PIGLET',
+          'WHITE SHEEP',
+          'YELLOW CHICK',
+          'BUSY HONEY BEE',
+          'PRETTY BUTTERFLY',
+          'COLORFUL RAINBOW',
+          'SHINY GOLD COIN',
+          'MAGIC WAND SPELL',
+          'BRAVE KNIGHT',
+          'ROYAL CASTLE',
+          'FLYING DRAGON',
+          'SPACE ROCKET',
+          'PLANET MARS',
+          'BRIGHT GALAXY',
+          'CLEVER ROBOT',
+          'SUPER HERO KID',
+          'READY SET GO'
+        ],
+        5: [
+          'GO TO THE COFFEE SHOP',
+          'GOOD MORNING MY FRIEND',
+          'HOW ARE YOU DOING TODAY',
+          'NICE TO MEET YOU AGAIN',
+          'WHAT TIME IS IT RIGHT NOW',
+          'IT IS TIME FOR BREAKFAST',
+          'LET US GO TO THE LIBRARY',
+          'DO YOU LIKE READING BOOKS',
+          'ENGLISH IS FUN TO LEARN',
+          'PRACTICE MAKES PERFECT',
+          'ALWAYS DO YOUR HOMEWORK',
+          'STUDY HARD FOR THE TEST',
+          'LISTEN CAREFULLY IN CLASS',
+          'WRITE NEATLY IN NOTEBOOK',
+          'HELP YOUR CLASSMATES OUT',
+          'SHARE A SMILE WITH OTHERS',
+          'BE POLITE TO EVERYONE',
+          'RESPECT YOUR PARENTS NOW',
+          'CLEAN UP AFTER YOU PLAY',
+          'PUT YOUR TOYS IN THE BOX',
+          'BRUSH TEETH BEFORE BED',
+          'DRINK EIGHT GLASSES WATER',
+          'EAT HEALTHY VEGETABLES',
+          'APPLES ARE SWEET AND RED',
+          'LET US BAKE SOME COOKIES',
+          'CAN I HAVE A GLASS OF MILK',
+          'DINNER IS READY ON TABLE',
+          'PLEASE PASS THE SALT SHAKER',
+          'THANK YOU FOR THIS MEAL',
+          'WASH DISHES IN THE SINK',
+          'LET US WALK TO THE BEACH',
+          'COLLECT PRETTY SEASHELLS',
+          'BUILD A TALL SAND TOWER',
+          'WATCH DOLPHINS JUMP HIGH',
+          'SAIL ACROSS THE BLUE BAY',
+          'GO CAMPING IN THE FOREST',
+          'LIGHT A WARM CAMPFIRE',
+          'ROAST MARSHMALLOWS NOW',
+          'SLEEP UNDER BRIGHT STARS',
+          'LISTEN TO CRICKETS SING',
+          'HIKE UP THE GREEN MOUNTAIN',
+          'BREATHE FRESH MOUNTAIN AIR',
+          'TAKE PHOTOS OF NATURE',
+          'PROTECT WILD ANIMALS NOW',
+          'KEEP OUR RIVERS CLEAN',
+          'RIDE BICYCLE IN THE PARK',
+          'PLAY SOCCER WITH FRIENDS',
+          'THROW THE FRISBEE TO ME',
+          'JUMP ROPE IN THE YARD',
+          'FLY YOUR KITE IN THE WIND',
+          'VISIT THE SCIENCE MUSEUM',
+          'LOOK THROUGH TELESCOPE',
+          'COUNT THE BRIGHT PLANETS',
+          'ASTRONAUTS WALK ON MOON',
+          'BUILD A COOL LEGO CASTLE',
+          'SOLVE THIS SECRET CIPHER',
+          'TURN THE GRID NINETY DEG',
+          'FIND ALL HIDDEN LETTERS',
+          'YOU ARE A GREAT DETECTIVE',
+          'CONGRATULATIONS ON WIN',
+          'HAPPY BIRTHDAY TO YOU',
+          'WISH UPON A FALLING STAR',
+          'OPEN YOUR BIRTHDAY PRESENT',
+          'THANK YOU FOR COMING HERE',
+          'HAVE A WONDERFUL WEEKEND',
+          'ENJOY YOUR SUMMER HOLIDAY',
+          'TRAVEL AROUND THE WORLD',
+          'PACK SUITCASE FOR TRIP',
+          'BOARD THE AIRPLANE NOW',
+          'FASTEN YOUR SEATBELT KID',
+          'LOOK OUT WINDOW AT CLOUDS',
+          'WELCOME TO LONDON CITY',
+          'VISIT THE FAMOUS MUSEUM',
+          'TAKE THE RED DOUBLE BUS',
+          'BUY POSTCARDS FOR FAMILY',
+          'SEND A MESSAGE TO GRANDMA',
+          'CALL YOUR GRANDPA TODAY',
+          'VISIT COUSINS ON SUNDAY',
+          'PLAY BOARD GAMES TOGETHER',
+          'WATCH A FUNNY CARTOON',
+          'POP SOME BUTTER POPCORN',
+          'TURN DOWN THE VOLUME NOW',
+          'GO TO BED AT NINE OCLOCK',
+          'READ A BEDTIME STORYBOOK',
+          'CLOSE YOUR EYES AND SLEEP',
+          'WAKE UP WITH A BIG SMILE',
+          'TODAY WILL BE A GREAT DAY',
+          'BELIEVE IN YOURSELF KID',
+          'YOU CAN ACHIEVE ANYTHING',
+          'STAY CURIOUS AND LEARN',
+          'EVERY DAY IS AN ADVENTURE',
+          'KINDNESS MAKES WORLD BETTER',
+          'HELPING OTHERS FEELS GOOD',
+          'ALWAYS SAY PLEASE AND THANK',
+          'FORGIVE AND MAKE PEACE',
+          'TEAMWORK MAKES DREAM WORK',
+          'TOGETHER WE ARE STRONGER',
+          'CHEER FOR YOUR FAVORITE TEAM',
+          'PLAY FAIR AND HAVE FUN',
+          'SHAKE HANDS AFTER GAME'
+        ],
+        6: [
+          'LET US GO TO THE COFFEE SHOP TODAY',
+          'GOOD MORNING MY DEAR BEST FRIEND',
+          'WELCOME TO OUR ENGLISH CLASSROOM',
+          'TODAY WE ARE LEARNING SECRET CODES',
+          'CAN YOU SOLVE THIS TURNING GRILLE',
+          'TURN THE STENCIL CLOCKWISE NOW',
+          'READ THE LETTERS FROM LEFT TO RIGHT',
+          'EVERY PUZZLE HAS A CLEVER ANSWER',
+          'READING BOOKS OPENS MANY DOORS',
+          'PRACTICE SPEAKING ENGLISH EVERY DAY',
+          'LEARNING LANGUAGES IS SUPER FUN',
+          'ALWAYS BE KIND TO ANIMALS AND PEOPLE',
+          'HELP YOUR PARENTS AROUND THE HOUSE',
+          'CLEAN YOUR BEDROOM EVERY SATURDAY',
+          'WATER THE GARDEN FLOWERS MORNING',
+          'PLANT MORE TREES TO SAVE NATURE',
+          'RECYCLE PLASTIC BOTTLES AND CANS',
+          'TURN OFF WATER WHILE BRUSHING',
+          'EAT HEALTHY FOOD AND EXERCISE MORE',
+          'DRINK PLENTY OF FRESH CLEAN WATER',
+          'SLEEP EARLY SO YOU GROW STRONG',
+          'BREAKFAST IS THE MOST IMPORTANT MEAL',
+          'LET US MAKE PANCAKES WITH HONEY',
+          'SLICE FRESH STRAWBERRIES ON TOP',
+          'WOULD YOU LIKE TEA OR ORANGE JUICE',
+          'THANK YOU FOR COOKING DELICIOUS FOOD',
+          'LET US VISIT GRANDPARENTS THIS WEEKEND',
+          'BAKE CHOCOLATE CHIP COOKIES TOGETHER',
+          'TELL FUNNY JOKES AND LAUGH LOUDLY',
+          'PLAY HIDE AND SEEK IN THE GARDEN',
+          'RIDE SKATEBOARD WITH KNEE PADS ON',
+          'ALWAYS WEAR A HELMET WHEN BIKING',
+          'LOOK LEFT AND RIGHT BEFORE CROSSING',
+          'FOLLOW TRAFFIC RULES TO STAY SAFE',
+          'VISIT THE AQUARIUM TO SEE SHARKS',
+          'WATCH COLORFUL FISH SWIM IN TANKS',
+          'SEA TURTLES SWIM GRACEFULLY IN SEA',
+          'DOLPHINS ARE SMART AND PLAYFUL',
+          'ELEPHANTS NEVER FORGET ANYTHING',
+          'GIRAFFES EAT LEAVES FROM TALL TREES',
+          'PENGUINS SLIDE ON ICE AND SNOW',
+          'LIONS ARE THE KINGS OF THE JUNGLE',
+          'BUTTERFLIES START AS CATERPILLARS',
+          'BEES MAKE SWEET GOLDEN HONEY',
+          'RAINBOWS APPEAR AFTER SUMMER RAIN',
+          'COUNT ALL SEVEN COLORS OF RAINBOW',
+          'LOOK AT TWINKLING STARS AT NIGHT',
+          'EARTH ORBITS AROUND THE BRIGHT SUN',
+          'ROCKETS BLAST OFF INTO OUTER SPACE',
+          'MAYBE ONE DAY YOU WILL VISIT MARS',
+          'DREAM BIG AND WORK HARD EVERY DAY',
+          'MISTAKES HELP US LEARN AND GROW',
+          'NEVER BE AFRAID TO ASK QUESTIONS',
+          'CURIOSITY LEADS TO GREAT DISCOVERY',
+          'SHARE YOUR LUNCH WITH A NEW FRIEND',
+          'INCLUDE EVERYONE IN YOUR GAMES',
+          'A TRUE FRIEND IS ALWAYS LOYAL',
+          'THANK YOU FOR BEING MY GOOD FRIEND',
+          'HAPPY BIRTHDAY AND BEST WISHES',
+          'HAVE A MAGICAL AND JOYFUL DAY'
+        ],
+        7: [
+          'GOOD MORNING MY FRIEND LET US GO TO THE COFFEE SHOP',
+          'WELCOME TO THE SECRET CIPHER CLUB FOR YOUNG DETECTIVES',
+          'PLACE THE HOLE GRID ON TOP AND TURN NINETY DEGREES',
+          'READING STORYBOOKS EVERY NIGHT IMPROVES YOUR ENGLISH',
+          'ALWAYS TREAT OTHERS THE WAY YOU WANT TO BE TREATED',
+          'WORKING TOGETHER AS A TEAM HELPS US SOLVE PROBLEMS',
+          'REMEMBER TO WASH YOUR HANDS BEFORE EATING YOUR MEAL',
+          'DRINKING WATER AND EATING FRUITS KEEPS YOU HEALTHY',
+          'LET US GO ON A PICNIC IN THE SUNNY PARK THIS SUNDAY',
+          'BRING SANDWICHES APPLES JUICE AND A WARM BLANKET',
+          'WATCH THE FLUFFY WHITE CLOUDS FLOAT ACROSS THE SKY',
+          'PROTECTING OUR PLANET EARTH IS EVERYONES RESPONSIBILITY',
+          'TURN OFF COMPUTERS AND LIGHTS WHEN YOU LEAVE THE ROOM',
+          'EXPLORING THE MUSEUM TEACHES US ABOUT ANCIENT HISTORY',
+          'DINOSAURS ROAMED THE EARTH MILLIONS OF YEARS AGO',
+          'ASTRONAUTS FLOAT WEIGHTLESSLY INSIDE THE SPACE STATION',
+          'PRACTICING PIANO OR GUITAR EVERY DAY MAKES YOU BETTER',
+          'PAINTING PICTURES ALLOWS YOUR IMAGINATION TO SHINE',
+          'ALWAYS BELIEVE IN YOUR OWN TALENTS AND CREATIVITY',
+          'CONGRATULATIONS YOU DECODED THE ENTIRE SECRET MESSAGE'
+        ],
+        8: [
+          'GOOD MORNING MY WONDERFUL FRIEND SHALL WE GO TO THE COFFEE SHOP',
+          'LET THE GAME BEGIN AND SEE WHO CAN CRACK THE SECRET CODE FIRST',
+          'LEARNING ENGLISH THROUGH FUN PUZZLES AND GAMES IS EXCITING',
+          'EVERY DAY IS A NEW CHANCE TO LEARN SOMETHING AMAZING TODAY',
+          'REMEMBER TO SMILE BE KIND AND HELP SOMEONE WHO NEEDS A HAND',
+          'SCIENCE TECHNOLOGY ENGINEERING AND MATH BUILD OUR FUTURE',
+          'READING ADVENTURE STORIES TAKES YOU TO MAGICAL NEW WORLDS',
+          'HEALTHY HABITS LIKE SLEEPING EARLY HELP YOU DO WELL IN SCHOOL',
+          'RESPECT NATURE KEEP PARKS CLEAN AND CARE FOR ALL CREATURES',
+          'YOU DID A FANTASTIC JOB SOLVING THIS LARGE TURNING GRILLE'
+        ],
+        9: [
+          'GOOD MORNING MY BEST FRIEND LET US WALK TO THE COFFEE SHOP FOR BREAKFAST',
+          'WELCOME YOUNG EXPLORERS TO THE ULTIMATE SECRET CIPHER PUZZLE CHALLENGE',
+          'KINDNESS HONESTY COURAGE AND CURIOSITY ARE THE GREATEST SUPERPOWERS',
+          'PRACTICING ENGLISH EVERY SINGLE DAY WILL HELP YOU SPEAK WITH CONFIDENCE',
+          'ALWAYS DO YOUR BEST IN SCHOOL BE A GOOD FRIEND AND NEVER STOP LEARNING',
+          'AMAZING WORK YOU MASTERED THE NINE BY NINE TURNING GRILLE CIPHER TODAY'
+        ],
+        10: [
+          'GOOD MORNING MY WONDERFUL FRIEND LET THE GAME BEGIN AS WE WALK TO THE COFFEE SHOP',
+          'CONGRATULATIONS MASTER DETECTIVE YOU HAVE CONQUERED THE LARGEST SECRET CIPHER GRID',
+          'READING BOOKS EXPLORING NATURE AND HELPING FRIENDS MAKE EVERY SINGLE DAY WONDERFUL',
+          'BELIEVE IN YOUR DREAMS WORK HARD EVERY DAY AND SHARE YOUR KINDNESS WITH THE WORLD'
+        ]
+      };
+
+      // Build fast lookup Set of all normalized phrases across all sizes (400+ phrases)
+      const ALL_KNOWN_COMPACT_PHRASES = new Set();
+      Object.values(PHRASE_BANK).forEach(list => {
+        list.forEach(phrase => {
+          const compact = phrase.replace(/[^A-Z]/g, '');
+          if (compact.length >= 4) ALL_KNOWN_COMPACT_PHRASES.add(compact);
+        });
+      });
+
+      // ======================================================================
+      // 2. SYNTHESIZED SOUND EFFECTS (WEB AUDIO API)
+      // ======================================================================
+      class SoundFX {
+        constructor() {
+          this.ctx = null;
+          this.enabled = true;
+        }
+        ensure() {
+          if (!this.enabled) return null;
+          if (!this.ctx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) this.ctx = new AC();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+          return this.ctx;
+        }
+        tick(freq = 420) {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          try {
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(140, now + 0.04);
+            g.gain.setValueAtTime(0.09, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(now); osc.stop(now + 0.05);
+          } catch (e) {}
+        }
+        rotateSound() {
+          this.tick(560);
+        }
+        errorSound() {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          try {
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(165, now);
+            osc.frequency.exponentialRampToValueAtTime(75, now + 0.22);
+            g.gain.setValueAtTime(0.11, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(now); osc.stop(now + 0.24);
+          } catch (e) {}
+        }
+        winSound() {
+          const ctx = this.ensure();
+          if (!ctx) return;
+          try {
+            const now = ctx.currentTime;
+            [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+              const osc = ctx.createOscillator();
+              const g = ctx.createGain();
+              osc.type = 'sine';
+              const st = now + idx * 0.085;
+              osc.frequency.setValueAtTime(f, st);
+              g.gain.setValueAtTime(0.14, st);
+              g.gain.exponentialRampToValueAtTime(0.001, st + 0.45);
+              osc.connect(g); g.connect(ctx.destination);
+              osc.start(st); osc.stop(st + 0.48);
+            });
+          } catch (e) {}
+        }
+      }
+      const sfx = new SoundFX();
+
+      // ======================================================================
+      // 3. CONFETTI CELEBRATION
+      // ======================================================================
+      class ConfettiEngine {
+        constructor(canvas) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext('2d');
+          this.particles = [];
+          this.active = false;
+          window.addEventListener('resize', () => this.resize());
+          this.resize();
+        }
+        resize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+        }
+        burst() {
+          this.resize();
+          const colors = ['#fde68a', '#d4a64a', '#10b981', '#00f5d4', '#3b82f6', '#ec4899', '#f59e0b'];
+          for (let i = 0; i < 140; i++) {
+            this.particles.push({
+              x: this.canvas.width * (0.2 + Math.random() * 0.6),
+              y: this.canvas.height * 0.45,
+              vx: (Math.random() - 0.5) * 15,
+              vy: -6 - Math.random() * 11,
+              size: 6 + Math.random() * 7,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              rot: Math.random() * Math.PI * 2,
+              vRot: (Math.random() - 0.5) * 0.25,
+              g: 0.3,
+              life: 1,
+              decay: 0.008 + Math.random() * 0.006
+            });
+          }
+          if (!this.active) {
+            this.active = true;
+            this.loop();
+          }
+        }
+        loop() {
+          if (!this.active) return;
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += p.g; p.rot += p.vRot; p.life -= p.decay;
+            if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+            this.ctx.save();
+            this.ctx.globalAlpha = Math.max(0, p.life);
+            this.ctx.translate(p.x, p.y);
+            this.ctx.rotate(p.rot);
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+            this.ctx.restore();
+          }
+          if (this.particles.length > 0) requestAnimationFrame(() => this.loop());
+          else { this.active = false; this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); }
+        }
+      }
+      const confetti = new ConfettiEngine(document.getElementById('confetti-canvas'));
+
+      // ======================================================================
+      // 4. TURNING GRILLE MATHEMATICS (CW & CCW ROTATION + DIRECTION VALIDATION)
+      // ======================================================================
+      function sanitizeLetters(str) {
+        return String(str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/Đ/g, 'D')
+          .replace(/đ/g, 'd')
+          .toUpperCase()
+          .replace(/[^A-Z]/g, '');
+      }
+
+      function normalizeSpacedSentence(str) {
+        return String(str || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/Đ/g, 'D')
+          .replace(/đ/g, 'd')
+          .toUpperCase()
+          .replace(/[^A-Z\s]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function rotateCoordCW(r, c, N) {
+        return [c, N - 1 - r];
+      }
+
+      // k can be positive (CW) or negative (CCW); normalized modulo 4
+      function rotateMaskCW(mask, N, k) {
+        const steps = ((k % 4) + 4) % 4;
+        let cur = mask.map(row => row.slice());
+        for (let s = 0; s < steps; s++) {
+          const next = Array.from({ length: N }, () => Array(N).fill(false));
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const [nr, nc] = rotateCoordCW(r, c, N);
+              next[nr][nc] = cur[r][c];
+            }
+          }
+          cur = next;
+        }
+        return cur;
+      }
+
+      function generateValidGrilleMask(N, rng = Math.random) {
+        const mask = Array.from({ length: N }, () => Array(N).fill(false));
+        const visited = Array.from({ length: N }, () => Array(N).fill(false));
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (visited[r][c]) continue;
+            const orbit = [];
+            let cr = r, cc = c;
+            for (let k = 0; k < 4; k++) {
+              if (!visited[cr][cc]) {
+                visited[cr][cc] = true;
+                orbit.push([cr, cc]);
+              }
+              [cr, cc] = rotateCoordCW(cr, cc, N);
+            }
+            if (orbit.length === 4) {
+              const pick = orbit[Math.floor(rng() * 4)];
+              mask[pick[0]][pick[1]] = true;
+            } else if (orbit.length === 1) {
+              mask[orbit[0][0]][orbit[0][1]] = rng() > 0.35;
+            }
+          }
+        }
+        return mask;
+      }
+
+      function maskToKey(mask) {
+        return mask.map(row => row.map(v => (v ? '1' : '0')).join('')).join('');
+      }
+
+      function keyToMask(key, N) {
+        const mask = Array.from({ length: N }, () => Array(N).fill(false));
+        for (let i = 0; i < N * N; i++) {
+          const r = Math.floor(i / N);
+          const c = i % N;
+          mask[r][c] = key[i] === '1';
+        }
+        return mask;
+      }
+
+      /**
+       * Encrypts plainSpaced into an NxN grid using either:
+       *   direction = 1  (Clockwise: 0° -> +90° -> +180° -> +270°)
+       *   direction = -1 (Counter-Clockwise: 0° -> -90° -> -180° -> -270°)
+       */
+      function encryptWithGrille(plainSpaced, mask, N, direction = 1) {
+        const lettersOnly = sanitizeLetters(plainSpaced);
+        const grid = Array.from({ length: N }, () => Array(N).fill(''));
+        let ptr = 0;
+
+        for (let turn = 0; turn < 4; turn++) {
+          const rotSteps = turn * direction; // +0, +1, +2, +3 for CW; 0, -1, -2, -3 for CCW
+          const rotated = rotateMaskCW(mask, N, rotSteps);
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              if (rotated[r][c] && !grid[r][c]) {
+                if (ptr < lettersOnly.length) {
+                  grid[r][c] = lettersOnly[ptr++];
+                } else {
+                  grid[r][c] = ALPHABET[Math.floor(Math.random() * 26)];
+                }
+              }
+            }
+          }
+        }
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (!grid[r][c]) {
+              grid[r][c] = ptr < lettersOnly.length
+                ? lettersOnly[ptr++]
+                : ALPHABET[Math.floor(Math.random() * 26)];
+            }
+          }
+        }
+
+        return grid.flat();
+      }
+
+      function readThroughMask(cipherCells, mask, N, rotStep) {
+        const rotated = rotateMaskCW(mask, N, rotStep);
+        const chars = [];
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (rotated[r][c]) {
+              const idx = r * N + c;
+              chars.push({ idx, char: cipherCells[idx] || '?' });
+            }
+          }
+        }
+        return chars;
+      }
+
+      function fullDecodeString(cipherCells, mask, N, direction = 1) {
+        let out = '';
+        for (let turn = 0; turn < 4; turn++) {
+          const items = readThroughMask(cipherCells, mask, N, turn * direction);
+          out += items.map(x => x.char).join('');
+        }
+        return out;
+      }
+
+      // ======================================================================
+      // 5. ULTRA-COMPACT BIT-PACKING + BASE91 SEED ID CODEC
+      //    - When bankGrilles is empty (0 cards), Seed ID is ultra-short!
+      //    - Uses 91 printable ASCII chars for maximum compression density.
+      // ======================================================================
+      const B91_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,-./:;<=>?@[]^_`{|}~";
+      const B91_MAP = Object.create(null);
+      for (let i = 0; i < B91_CHARS.length; i++) {
+        B91_MAP[B91_CHARS[i]] = i;
+      }
+
+      class BitWriter {
+        constructor() {
+          this.bytes = [];
+          this.curByte = 0;
+          this.bitPos = 0;
+        }
+        write(val, bits) {
+          for (let i = bits - 1; i >= 0; i--) {
+            this.curByte = (this.curByte << 1) | ((val >>> i) & 1);
+            this.bitPos++;
+            if (this.bitPos === 8) {
+              this.bytes.push(this.curByte);
+              this.curByte = 0;
+              this.bitPos = 0;
+            }
+          }
+        }
+        finish() {
+          if (this.bitPos > 0) {
+            this.curByte <<= (8 - this.bitPos);
+            this.bytes.push(this.curByte);
+            this.curByte = 0;
+            this.bitPos = 0;
+          }
+          return this.bytes;
+        }
+      }
+
+      class BitReader {
+        constructor(bytes) {
+          this.bytes = bytes;
+          this.byteIdx = 0;
+          this.bitPos = 0;
+        }
+        remainingBits() {
+          return (this.bytes.length - this.byteIdx) * 8 - this.bitPos;
+        }
+        read(bits) {
+          if (this.remainingBits() < bits) return null;
+          let val = 0;
+          for (let i = 0; i < bits; i++) {
+            const bit = (this.bytes[this.byteIdx] >>> (7 - this.bitPos)) & 1;
+            val = (val << 1) | bit;
+            this.bitPos++;
+            if (this.bitPos === 8) {
+              this.byteIdx++;
+              this.bitPos = 0;
+            }
+          }
+          return val;
+        }
+      }
+
+      function bytesToBase91(bytes) {
+        let b = 0, n = 0, out = '';
+        for (let i = 0; i < bytes.length; i++) {
+          b |= (bytes[i] & 255) << n;
+          n += 8;
+          if (n > 13) {
+            let v = b & 8191;
+            if (v > 88) {
+              b >>= 13;
+              n -= 13;
+            } else {
+              v = b & 16383;
+              b >>= 14;
+              n -= 14;
+            }
+            out += B91_CHARS[v % 91] + B91_CHARS[Math.floor(v / 91)];
+          }
+        }
+        if (n > 0) {
+          out += B91_CHARS[b % 91];
+          if (n > 7 || b > 90) {
+            out += B91_CHARS[Math.floor(b / 91)];
+          }
+        }
+        return out;
+      }
+
+      function base91ToBytes(str) {
+        let b = 0, n = 0, v = -1;
+        const out = [];
+        for (let i = 0; i < str.length; i++) {
+          const c = B91_MAP[str[i]];
+          if (c === undefined) return null;
+          if (v < 0) {
+            v = c;
+          } else {
+            v += c * 91;
+            b |= v << n;
+            n += (v & 8191) > 88 ? 13 : 14;
+            while (n > 7) {
+              out.push(b & 255);
+              b >>= 8;
+              n -= 8;
+            }
+            v = -1;
+          }
+        }
+        if (v >= 0) {
+          out.push((b | (v << n)) & 255);
+        }
+        return out;
+      }
+
+      function encodeSeedId(N, cipherCells, bankGrilles, encryptDir = 1) {
+        const bw = new BitWriter();
+        const masksToPack = (bankGrilles || []).slice(0, 15);
+        const totalCells = N * N;
+
+        // 4 bits: N - 2 (supports 2x2..17x17)
+        bw.write((N - 2) & 0x0F, 4);
+        // 4 bits: number of bank masks (0..15; 0 = ultra-short cipher-only seed!)
+        bw.write(masksToPack.length & 0x0F, 4);
+        // 1 bit: encryptDir (0 = CW, 1 = CCW)
+        bw.write(encryptDir === -1 ? 1 : 0, 1);
+
+        // 1 bit flag: hasAnyCipherLetter
+        const hasAnyLetter = cipherCells.some(ch => ch && /[A-Z]/.test(ch));
+        bw.write(hasAnyLetter ? 1 : 0, 1);
+
+        if (hasAnyLetter) {
+          for (let i = 0; i < totalCells; i++) {
+            const ch = cipherCells[i];
+            const code = (ch && /[A-Z]/.test(ch)) ? (ch.charCodeAt(0) - 64) : 0;
+            bw.write(code, 5);
+          }
+        }
+
+        // Pack remaining bank masks (1 bit per cell)
+        for (const g of masksToPack) {
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              bw.write(g.mask[r][c] ? 1 : 0, 1);
+            }
+          }
+        }
+
+        return bytesToBase91(bw.finish());
+      }
+
+      function decodeSeedId(seedStr) {
+        const cleaned = String(seedStr || '').trim().replace(/^💾:\s*/i, '');
+        if (!cleaned) return null;
+
+        // Legacy compatibility
+        if (cleaned.includes('.')) {
+          const parts = cleaned.split('.');
+          if (parts.length >= 2) {
+            const N = parseInt(parts[0], 10);
+            if (!isNaN(N) && N >= 4 && N <= 10 && parts[1].length === N * N) {
+              const cipherCells = parts[1].toUpperCase().split('').map(ch => (/[A-Z]/.test(ch) ? ch : ''));
+              const maskParts = (parts[2] || '').split('-').filter(Boolean);
+              const masks = [];
+              for (const hex of maskParts) {
+                let bits = '';
+                for (let i = 0; i < hex.length; i++) {
+                  const val = parseInt(hex[i], 36);
+                  if (!isNaN(val)) bits += val.toString(2).padStart(4, '0');
+                }
+                if (bits.length >= N * N) masks.push(keyToMask(bits.slice(0, N * N), N));
+              }
+              return { N, cipherCells, masks, encryptDir: 1 };
+            }
+          }
+        }
+
+        const bytes = base91ToBytes(cleaned);
+        if (!bytes || bytes.length < 2) return null;
+
+        const br = new BitReader(bytes);
+        const nRaw = br.read(4);
+        const maskCount = br.read(4);
+        const dirBit = br.read(1);
+        const hasAnyLetter = br.read(1);
+        if (nRaw === null || maskCount === null || dirBit === null || hasAnyLetter === null) return null;
+
+        const N = nRaw + 2;
+        if (N < 4 || N > 10) return null;
+
+        const totalCells = N * N;
+        const cipherCells = Array(totalCells).fill('');
+
+        if (hasAnyLetter === 1) {
+          for (let i = 0; i < totalCells; i++) {
+            const code = br.read(5);
+            if (code === null || code > 26) return null;
+            cipherCells[i] = code === 0 ? '' : String.fromCharCode(64 + code);
+          }
+        }
+
+        const masks = [];
+        for (let m = 0; m < maskCount; m++) {
+          const mask = Array.from({ length: N }, () => Array(N).fill(false));
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const bit = br.read(1);
+              if (bit === null) return null;
+              mask[r][c] = bit === 1;
+            }
+          }
+          masks.push(mask);
+        }
+
+        return { N, cipherCells, masks, encryptDir: dirBit === 1 ? -1 : 1 };
+      }
+
+      // ======================================================================
+      // 6. WORD-COMPATIBLE STANDALONE SVG EXPORTER (WITH CENTERED SEED FOOTER)
+      // ======================================================================
+      function getSvgThemePalette() {
+        const isCyber = state.visualTheme === 'cyber';
+        const isDark = state.darkMode;
+
+        if (isCyber && isDark) {
+          return {
+            frameBg: '#0b1220',
+            frameBorder: '#00f5d4',
+            gridBg: '#00f5d4',
+            plateFill: '#0e2439',
+            plateStroke: '#00f5d4',
+            plateText: '#67e8f9',
+            opaqueFill: '#050c18',
+            opaqueStroke: '#00f5d4',
+            holeFill: '#103c42',
+            holeStroke: '#39ff14',
+            holeDot: '#39ff14',
+            titleText: '#e0f2fe',
+            subText: '#67e8f9',
+            fontFamily: 'Consolas, Courier New, monospace'
+          };
+        }
+        if (isCyber && !isDark) {
+          return {
+            frameBg: '#f2fbfd',
+            frameBorder: '#0891b2',
+            gridBg: '#0891b2',
+            plateFill: '#cffafe',
+            plateStroke: '#0891b2',
+            plateText: '#083344',
+            opaqueFill: '#082f49',
+            opaqueStroke: '#22d3ee',
+            holeFill: '#ccfbf1',
+            holeStroke: '#059669',
+            holeDot: '#047857',
+            titleText: '#06283d',
+            subText: '#0e7490',
+            fontFamily: 'Consolas, Courier New, monospace'
+          };
+        }
+        if (!isCyber && isDark) {
+          return {
+            frameBg: '#1d1814',
+            frameBorder: '#c9973b',
+            gridBg: '#c9973b',
+            plateFill: '#3b2f21',
+            plateStroke: '#c9973b',
+            plateText: '#fde68a',
+            opaqueFill: '#120e0a',
+            opaqueStroke: '#d4a64a',
+            holeFill: '#143d2e',
+            holeStroke: '#34d399',
+            holeDot: '#34d399',
+            titleText: '#f7f1e3',
+            subText: '#f6cf7d',
+            fontFamily: 'Consolas, Georgia, serif'
+          };
+        }
+        return {
+          frameBg: '#fcf9f2',
+          frameBorder: '#8c621c',
+          gridBg: '#8c621c',
+          plateFill: '#fef3c7',
+          plateStroke: '#9c7a44',
+          plateText: '#231d16',
+          opaqueFill: '#272019',
+          opaqueStroke: '#d4a64a',
+          holeFill: '#d1fae5',
+          holeStroke: '#059669',
+          holeDot: '#047857',
+          titleText: '#231d16',
+          subText: '#8a5a12',
+          fontFamily: 'Consolas, Georgia, serif'
+        };
+      }
+
+      function escapeXml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function buildSingleGridSvg({ title, subtitle, N, mode, cipherCells, mask, rotStep = 0, seedFooter = '' }) {
+        const p = getSvgThemePalette();
+        const cellSize = 48;
+        const gap = 4;
+        const pad = 6;
+        const gridPx = N * cellSize + (N - 1) * gap + pad * 2;
+        const outerPad = 18;
+        const headerH = 42;
+        const footerH = seedFooter ? 30 : 0;
+        const totalW = gridPx + outerPad * 2;
+        const totalH = gridPx + outerPad * 2 + headerH + footerH;
+
+        const activeMask = mask ? rotateMaskCW(mask, N, rotStep) : null;
+        let shapes = '';
+
+        shapes += `<rect x="2" y="2" width="${totalW - 4}" height="${totalH - 4}" rx="14" fill="${p.frameBg}" stroke="${p.frameBorder}" stroke-width="3" />`;
+        shapes += `<text x="${outerPad}" y="${outerPad + 16}" fill="${p.titleText}" font-family="${p.fontFamily}" font-size="15" font-weight="bold">${escapeXml(title)}</text>`;
+        shapes += `<text x="${totalW - outerPad}" y="${outerPad + 16}" text-anchor="end" fill="${p.subText}" font-family="Consolas, monospace" font-size="13" font-weight="bold">${escapeXml(subtitle)}</text>`;
+
+        const gx = outerPad;
+        const gy = outerPad + headerH - 8;
+
+        shapes += `<rect x="${gx}" y="${gy}" width="${gridPx}" height="${gridPx}" rx="10" fill="${p.gridBg}" stroke="${p.frameBorder}" stroke-width="2.5" />`;
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            const idx = r * N + c;
+            const cx = gx + pad + c * (cellSize + gap);
+            const cy = gy + pad + r * (cellSize + gap);
+            const ch = (cipherCells && cipherCells[idx]) ? cipherCells[idx] : '';
+            const isHole = activeMask ? Boolean(activeMask[r][c]) : false;
+
+            if (mode === 'cipher') {
+              shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="6" fill="${p.plateFill}" stroke="${p.plateStroke}" stroke-width="1.5" />`;
+              if (ch) {
+                shapes += `<text x="${cx + cellSize / 2}" y="${cy + cellSize / 2 + 8}" text-anchor="middle" fill="${p.plateText}" font-family="Consolas, Courier New, monospace" font-size="23" font-weight="bold">${escapeXml(ch)}</text>`;
+              }
+              if (activeMask) {
+                if (!isHole) {
+                  shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="6" fill="${p.opaqueFill}" fill-opacity="0.90" stroke="${p.opaqueStroke}" stroke-width="1.5" />`;
+                } else {
+                  shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="6" fill="none" stroke="${p.holeStroke}" stroke-width="3" />`;
+                }
+              }
+            } else if (mode === 'hole') {
+              if (isHole) {
+                shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="6" fill="${p.holeFill}" stroke="${p.holeStroke}" stroke-width="2.5" />`;
+                shapes += `<circle cx="${cx + cellSize / 2}" cy="${cy + cellSize / 2}" r="9" fill="none" stroke="${p.holeDot}" stroke-width="2.2" />`;
+              } else {
+                shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="6" fill="${p.opaqueFill}" stroke="${p.opaqueStroke}" stroke-width="1.5" />`;
+              }
+            } else if (mode === 'cells') {
+              shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="6" fill="${p.plateFill}" stroke="${p.plateStroke}" stroke-width="1.8" />`;
+              if (ch) {
+                shapes += `<text x="${cx + cellSize / 2}" y="${cy + cellSize / 2 + 8}" text-anchor="middle" fill="${p.plateText}" font-family="Consolas, Courier New, monospace" font-size="23" font-weight="bold">${escapeXml(ch)}</text>`;
+              }
+            }
+          }
+        }
+
+        // Centered Seed ID Footer Directly Below CipherGrid Frame
+        if (seedFooter) {
+          const footerY = gy + gridPx + 22;
+          const fontSize = seedFooter.length > 38 ? 11 : 13;
+          shapes += `<text x="${totalW / 2}" y="${footerY}" text-anchor="middle" fill="${p.subText}" font-family="Consolas, Courier New, monospace" font-size="${fontSize}" font-weight="bold">${escapeXml(seedFooter)}</text>`;
+        }
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">
+  ${shapes}
+</svg>`;
+      }
+
+      function buildAllBankSheetSvg() {
+        const p = getSvgThemePalette();
+        const N = state.N;
+        const items = state.bankGrilles;
+        const cols = 4;
+        const rows = Math.max(1, Math.ceil(items.length / cols));
+
+        const cellSize = Math.max(18, Math.floor(110 / N));
+        const gap = 2;
+        const pad = 4;
+        const miniGridPx = N * cellSize + (N - 1) * gap + pad * 2;
+        const cardW = miniGridPx + 24;
+        const cardH = miniGridPx + 36;
+        const cardGap = 14;
+        const margin = 18;
+        const headerH = 42;
+        const footerH = 30;
+        const currentSeed = encodeSeedId(state.N, state.cipherCells, state.bankGrilles, state.encryptDir);
+        const seedFooter = `💾: ${currentSeed}`;
+
+        const totalW = margin * 2 + cols * cardW + (cols - 1) * cardGap;
+        const totalH = margin * 2 + headerH + rows * cardH + (rows - 1) * cardGap + footerH;
+
+        let shapes = '';
+        shapes += `<rect x="2" y="2" width="${totalW - 4}" height="${totalH - 4}" rx="16" fill="${p.frameBg}" stroke="${p.frameBorder}" stroke-width="3" />`;
+        shapes += `<text x="${margin}" y="${margin + 18}" fill="${p.titleText}" font-family="${p.fontFamily}" font-size="16" font-weight="bold">TURNING GRILLE — BANK OF DECODE GRIDS (${N}x${N})</text>`;
+        shapes += `<text x="${totalW - margin}" y="${margin + 18}" text-anchor="end" fill="${p.subText}" font-family="Consolas, monospace" font-size="13" font-weight="bold">${items.length} GRIDS</text>`;
+
+        items.forEach((item, idx) => {
+          const rCard = Math.floor(idx / cols);
+          const cCard = idx % cols;
+          const x0 = margin + cCard * (cardW + cardGap);
+          const y0 = margin + headerH + rCard * (cardH + cardGap);
+
+          shapes += `<rect x="${x0}" y="${y0}" width="${cardW}" height="${cardH}" rx="10" fill="${p.frameBg}" stroke="${p.frameBorder}" stroke-width="2" />`;
+          shapes += `<text x="${x0 + 10}" y="${y0 + 18}" fill="${p.titleText}" font-family="Consolas, monospace" font-size="13" font-weight="bold">#${idx + 1}</text>`;
+          shapes += `<text x="${x0 + cardW - 10}" y="${y0 + 18}" text-anchor="end" fill="${p.subText}" font-family="Consolas, monospace" font-size="11" font-weight="bold">${N}x${N}</text>`;
+
+          const gx = x0 + 12;
+          const gy = y0 + 25;
+          shapes += `<rect x="${gx}" y="${gy}" width="${miniGridPx}" height="${miniGridPx}" rx="6" fill="${p.gridBg}" stroke="${p.frameBorder}" stroke-width="1.5" />`;
+
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const cx = gx + pad + c * (cellSize + gap);
+              const cy = gy + pad + r * (cellSize + gap);
+              const isHole = item.mask[r][c];
+              if (isHole) {
+                shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="3" fill="${p.holeFill}" stroke="${p.holeStroke}" stroke-width="1.5" />`;
+              } else {
+                shapes += `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="3" fill="${p.opaqueFill}" stroke="${p.opaqueStroke}" stroke-width="1" />`;
+              }
+            }
+          }
+        });
+
+        shapes += `<text x="${totalW / 2}" y="${totalH - 14}" text-anchor="middle" fill="${p.subText}" font-family="Consolas, Courier New, monospace" font-size="13" font-weight="bold">${escapeXml(seedFooter)}</text>`;
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">
+  ${shapes}
+</svg>`;
+      }
+
+      function downloadSvgFile(svgContent, filename) {
+        const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        sfx.tick(620);
+      }
+
+      // ======================================================================
+      // 7. GAME STATE
+      // ======================================================================
+      const state = {
+        N: 4,
+        diffMode: 'kid',       // 'kid' | 'normal'
+        visualTheme: 'classic',// 'classic' | 'cyber'
+        darkMode: false,
+
+        cipherCells: [],
+        isLocked: true,
+        targetPlainSpaced: '',
+        lastPhrase: '',
+        encryptDir: 1,         // 1 = CW (+90°), -1 = CCW (-90°)
+        creatorEncryptDir: 1,  // chosen direction in Make Puzzle creator
+
+        designerMask: [],
+        mountedMask: null,
+        mountedBankId: null,
+        rotationStep: 0,
+        visualAngleDeg: 0,
+
+        turnOrder: [],         // ordered list of unique rotation steps [0, 1, 2, 3] or [0, 3, 2, 1]
+        turnDirections: [],    // list of +1 (CW) or -1 (CCW) turns taken by player
+        decodedChars: [],
+        lastRevealedIndices: new Set(),
+
+        bankGrilles: [],
+        nextBankId: 1
+      };
+
+      // ======================================================================
+      // 8. DOM REFERENCES
+      // ======================================================================
+      const dom = {
+        inputGridSize: document.getElementById('input-grid-size'),
+        spanSizeDisplay: document.getElementById('span-size-display'),
+        btnSizeDec: document.getElementById('btn-size-dec'),
+        btnSizeInc: document.getElementById('btn-size-inc'),
+
+        btnDiffKid: document.getElementById('btn-diff-kid'),
+        btnDiffNormal: document.getElementById('btn-diff-normal'),
+        btnStyleClassic: document.getElementById('btn-style-classic'),
+        btnStyleCyber: document.getElementById('btn-style-cyber'),
+
+        inputSeedId: document.getElementById('input-seed-id'),
+        btnLoadSeed: document.getElementById('btn-load-seed'),
+        btnCopySeed: document.getElementById('btn-copy-seed'),
+        btnOpenStory: document.getElementById('btn-open-story'),
+        btnNewPuzzle: document.getElementById('btn-new-puzzle'),
+        btnSound: document.getElementById('btn-sound'),
+        btnTheme: document.getElementById('btn-theme'),
+
+        victoryBanner: document.getElementById('victory-banner'),
+        victoryTitle: document.getElementById('victory-title'),
+        victoryPhraseText: document.getElementById('victory-phrase-text'),
+        btnNextRound: document.getElementById('btn-next-round'),
+        btnDismissVictory: document.getElementById('btn-dismiss-victory'),
+
+        badgeLockStatus: document.getElementById('badge-lock-status'),
+        badgeRotationDeg: document.getElementById('badge-rotation-deg'),
+        btnExportCipherSvg: document.getElementById('btn-export-cipher-svg'),
+        cipherStageWrap: document.getElementById('cipher-stage-wrap'),
+        cipherGridBoard: document.getElementById('cipher-grid-board'),
+        cipherSeedFooter: document.getElementById('cipher-seed-footer'),
+        btnToggleLock: document.getElementById('btn-toggle-lock'),
+        btnRotateCcw: document.getElementById('btn-rotate-ccw'),
+        btnRotateCw: document.getElementById('btn-rotate-cw'),
+        btnUnmountGrille: document.getElementById('btn-unmount-grille'),
+
+        badgeHoleCount: document.getElementById('badge-hole-count'),
+        btnExportHoleSvg: document.getElementById('btn-export-hole-svg'),
+        designerStageWrap: document.getElementById('designer-stage-wrap'),
+        designerGridBoard: document.getElementById('designer-grid-board'),
+        btnMountCustom: document.getElementById('btn-mount-custom'),
+        btnAddToBank: document.getElementById('btn-add-to-bank'),
+        btnResetDesigner: document.getElementById('btn-reset-designer'),
+
+        badgeModeDesc: document.getElementById('badge-mode-desc'),
+        btnToggleCreator: document.getElementById('btn-toggle-creator'),
+        btnClearInputs: document.getElementById('btn-clear-inputs'),
+
+        challengeCreatorBox: document.getElementById('challenge-creator-box'),
+        creatorSizeHint: document.getElementById('creator-size-hint'),
+        inputCustomSentence: document.getElementById('input-custom-sentence'),
+        btnCreatorDirCw: document.getElementById('btn-creator-dir-cw'),
+        btnCreatorDirCcw: document.getElementById('btn-creator-dir-ccw'),
+        btnGenerateChallenge: document.getElementById('btn-generate-challenge'),
+        btnCloseCreator: document.getElementById('btn-close-creator'),
+
+        inputCellCounter: document.getElementById('input-cell-counter'),
+        btnExportCellsSvg: document.getElementById('btn-export-cells-svg'),
+        inputCellsContainer: document.getElementById('input-cells-container'),
+
+        badgeTurnDir: document.getElementById('badge-turn-dir'),
+        rotationPillsRow: document.getElementById('rotation-pills-row'),
+        decodedSlotsContainer: document.getElementById('decoded-slots-container'),
+        decodeStatusHint: document.getElementById('decode-status-hint'),
+        btnClearDecoded: document.getElementById('btn-clear-decoded'),
+        btnCheckAnswer: document.getElementById('btn-check-answer'),
+
+        badgeBankCount: document.getElementById('badge-bank-count'),
+        btnClearAllBank: document.getElementById('btn-clear-all-bank'),
+        btnExportAllBankSvg: document.getElementById('btn-export-all-bank-svg'),
+        btnRegenBank: document.getElementById('btn-regen-bank'),
+        bankGridsContainer: document.getElementById('bank-grids-container'),
+
+        storyModal: document.getElementById('story-modal'),
+        btnCloseStory: document.getElementById('btn-close-story'),
+        btnStartMission: document.getElementById('btn-start-mission')
+      };
+
+      // ======================================================================
+      // 9. ROUND GENERATION & BANK OF 8 DECODE GRIDS
+      // ======================================================================
+      function buildBankOfGrilles(N, solutionMask = null, cipherCellsForCheck = null, expectedPlainCompact = '', encryptDir = 1) {
+        const seenKeys = new Set();
+        const grilles = [];
+
+        if (solutionMask) {
+          seenKeys.add(maskToKey(solutionMask));
+          grilles.push({
+            id: state.nextBankId++,
+            mask: solutionMask,
+            isSolution: true,
+            failed: false
+          });
+        }
+
+        let guard = 0;
+        while (grilles.length < 8 && guard < 600) {
+          guard++;
+          const m = generateValidGrilleMask(N);
+          const k = maskToKey(m);
+          if (seenKeys.has(k)) continue;
+
+          if (cipherCellsForCheck && expectedPlainCompact) {
+            const decodedCandidate = fullDecodeString(cipherCellsForCheck, m, N, encryptDir);
+            if (decodedCandidate.startsWith(expectedPlainCompact)) {
+              continue;
+            }
+          }
+
+          seenKeys.add(k);
+          grilles.push({
+            id: state.nextBankId++,
+            mask: m,
+            isSolution: false,
+            failed: false
+          });
+        }
+
+        for (let i = grilles.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [grilles[i], grilles[j]] = [grilles[j], grilles[i]];
+        }
+        return grilles;
+      }
+
+      function computeOptimalGridSizeForLetters(letterCount) {
+        if (letterCount <= 16) return 4;
+        if (letterCount <= 25) return 5;
+        if (letterCount <= 36) return 6;
+        if (letterCount <= 49) return 7;
+        if (letterCount <= 64) return 8;
+        if (letterCount <= 81) return 9;
+        return 10;
+      }
+
+      function startCustomSentenceChallenge(rawSentence) {
+        const normalizedSpaced = normalizeSpacedSentence(rawSentence);
+        const lettersOnly = sanitizeLetters(normalizedSpaced);
+
+        if (lettersOnly.length < 2) {
+          sfx.errorSound();
+          dom.inputCustomSentence.classList.remove('shake');
+          void dom.inputCustomSentence.offsetWidth;
+          dom.inputCustomSentence.classList.add('shake');
+          return;
+        }
+
+        const clampedLetters = lettersOnly.slice(0, 100);
+        const N = computeOptimalGridSizeForLetters(clampedLetters.length);
+        state.N = N;
+        dom.inputGridSize.value = String(N);
+        dom.spanSizeDisplay.textContent = `×${N}`;
+        dom.victoryBanner.classList.remove('show');
+
+        state.targetPlainSpaced = normalizedSpaced;
+        state.lastPhrase = normalizedSpaced;
+        state.encryptDir = state.creatorEncryptDir; // Lock puzzle to chosen CW (1) or CCW (-1) direction!
+
+        const solutionMask = generateValidGrilleMask(N);
+        state.cipherCells = encryptWithGrille(normalizedSpaced, solutionMask, N, state.encryptDir);
+        state.isLocked = true;
+
+        state.designerMask = Array.from({ length: N }, () => Array(N).fill(false));
+        state.bankGrilles = buildBankOfGrilles(N, solutionMask, state.cipherCells, clampedLetters, state.encryptDir);
+
+        unmountActiveGrille(false);
+        syncSeedInput();
+        renderAll();
+
+        sfx.winSound();
+        const dirText = state.encryptDir === 1 ? '↻ Clockwise' : '↺ Counter-Clockwise';
+        dom.decodeStatusHint.innerHTML = `<span style="color:var(--emerald-strong);font-weight:900;">✨ Puzzle created (${N}×${N}, ${dirText})! Share the 🔑 Seed ID!</span>`;
+      }
+
+      function startNewMission(newSize = state.N) {
+        const N = Math.max(4, Math.min(10, Number(newSize) || 4));
+        state.N = N;
+        dom.inputGridSize.value = String(N);
+        dom.spanSizeDisplay.textContent = `×${N}`;
+        dom.victoryBanner.classList.remove('show');
+
+        const pool = PHRASE_BANK[N] || PHRASE_BANK[4];
+        const filtered = pool.filter(p => p !== state.lastPhrase);
+        const activePool = filtered.length > 0 ? filtered : pool;
+        const chosenPhrase = activePool[Math.floor(Math.random() * activePool.length)];
+        state.lastPhrase = chosenPhrase;
+        state.targetPlainSpaced = chosenPhrase;
+        state.encryptDir = 1; // Standard puzzles default to Clockwise (↻ 90°)
+
+        const solutionMask = generateValidGrilleMask(N);
+        state.cipherCells = encryptWithGrille(chosenPhrase, solutionMask, N, state.encryptDir);
+        state.isLocked = true;
+
+        state.designerMask = Array.from({ length: N }, () => Array(N).fill(false));
+        state.bankGrilles = buildBankOfGrilles(N, solutionMask, state.cipherCells, sanitizeLetters(chosenPhrase), state.encryptDir);
+
+        unmountActiveGrille(false);
+        syncSeedInput();
+        renderAll();
+      }
+
+      function syncSeedInput() {
+        const compactSeed = encodeSeedId(state.N, state.cipherCells, state.bankGrilles, state.encryptDir);
+        dom.inputSeedId.value = compactSeed;
+        if (dom.cipherSeedFooter) {
+          dom.cipherSeedFooter.textContent = `💾: ${compactSeed}`;
+        }
+      }
+
+      // ======================================================================
+      // 10. MOUNTING, ROTATING 90° (CW OR CCW) & RECORDING CHARACTERS
+      // ======================================================================
+      function unmountActiveGrille(playAudio = true) {
+        state.mountedMask = null;
+        state.mountedBankId = null;
+        state.rotationStep = 0;
+        state.visualAngleDeg = 0;
+        state.turnOrder = [];
+        state.turnDirections = [];
+        state.decodedChars = [];
+        state.lastRevealedIndices.clear();
+        if (playAudio) sfx.tick(300);
+        renderAll();
+      }
+
+      function mountGrilleOntoCipher(mask, bankId = 'custom') {
+        if (!state.isLocked) {
+          state.isLocked = true;
+        }
+        state.mountedMask = mask.map(r => r.slice());
+        state.mountedBankId = bankId;
+        state.rotationStep = 0;
+        state.visualAngleDeg = 0;
+        state.turnOrder = [];
+        state.turnDirections = [];
+        state.decodedChars = [];
+        state.lastRevealedIndices.clear();
+
+        recordCurrentOrientation();
+        sfx.tick(520);
+        renderAll();
+      }
+
+      function recordCurrentOrientation() {
+        if (!state.mountedMask) return;
+        const step = ((state.rotationStep % 4) + 4) % 4;
+        if (state.turnOrder.includes(step)) {
+          const visible = readThroughMask(state.cipherCells, state.mountedMask, state.N, step);
+          state.lastRevealedIndices = new Set(visible.map(v => v.idx));
+          return;
+        }
+        state.turnOrder.push(step);
+        const visible = readThroughMask(state.cipherCells, state.mountedMask, state.N, step);
+        state.lastRevealedIndices = new Set(visible.map(v => v.idx));
+        visible.forEach(item => {
+          state.decodedChars.push(item.char);
+        });
+      }
+
+      function rotateMountedGrille(dir) {
+        if (!state.mountedMask) {
+          sfx.errorSound();
+          dom.cipherGridBoard.classList.remove('shake');
+          void dom.cipherGridBoard.offsetWidth;
+          dom.cipherGridBoard.classList.add('shake');
+          return;
+        }
+        state.rotationStep = (((state.rotationStep + dir) % 4) + 4) % 4;
+        state.visualAngleDeg += dir * 90;
+        state.turnDirections.push(dir);
+
+        recordCurrentOrientation();
+        sfx.rotateSound();
+        renderLeftBoards();
+        renderDecodedOutput();
+      }
+
+      // ======================================================================
+      // 11. CHECK ANSWER (VALIDATES RECOGNIZED ENGLISH PHRASES & TURN DIRECTION)
+      // ======================================================================
+      function findMatchedEnglishPhrase(rawDecoded) {
+        if (!rawDecoded) return null;
+        // 1. Check against active puzzle's target sentence (exact letter sequence)
+        const expectedCompact = sanitizeLetters(state.targetPlainSpaced);
+        if (expectedCompact.length >= 2 && rawDecoded.startsWith(expectedCompact)) {
+          return state.targetPlainSpaced;
+        }
+
+        // 2. Check against all 430+ known English phrases in the library (also handles Seed ID loaded games!)
+        for (const [sizeKey, phrases] of Object.entries(PHRASE_BANK)) {
+          for (const phrase of phrases) {
+            const compact = sanitizeLetters(phrase);
+            if (compact.length >= 4 && rawDecoded.startsWith(compact)) {
+              return phrase;
+            }
+          }
+        }
+        return null;
+      }
+
+      function checkDecodedAnswer() {
+        const rawDecoded = state.decodedChars.join('');
+        if (!rawDecoded || !state.mountedMask) {
+          sfx.errorSound();
+          return;
+        }
+
+        const bankItem = state.bankGrilles.find(g => g.id === state.mountedBankId);
+        const matchedPhrase = findMatchedEnglishPhrase(rawDecoded);
+
+        // Must have completed all 4 turns AND the decoded letters must match the exact phrase!
+        // Note: If the user chose the right grille card but rotated counter-clockwise (CCW) on a CW puzzle
+        // (or rotated CW on a CCW puzzle), rawDecoded will be scrambled (T1 + T4 + T3 + T2) and will NOT match!
+        const isMatch = state.turnOrder.length === 4 && Boolean(matchedPhrase);
+
+        if (isMatch) {
+          sfx.winSound();
+          confetti.burst();
+          dom.victoryTitle.textContent = '🎉 SECRET PHRASE DECODED!';
+          dom.victoryPhraseText.textContent = `"${matchedPhrase}"`;
+          dom.victoryBanner.classList.add('show');
+          dom.decodeStatusHint.innerHTML = `<span style="color:var(--emerald-strong);font-weight:900;">✅ Matched: "${matchedPhrase}"!</span>`;
+        } else {
+          sfx.errorSound();
+          dom.decodedSlotsContainer.parentElement.classList.remove('shake');
+          void dom.decodedSlotsContainer.parentElement.offsetWidth;
+          dom.decodedSlotsContainer.parentElement.classList.add('shake');
+
+          // Diagnose whether they rotated in the wrong direction on the right mask!
+          const cwDecoded = fullDecodeString(state.cipherCells, state.mountedMask, state.N, 1);
+          const ccwDecoded = fullDecodeString(state.cipherCells, state.mountedMask, state.N, -1);
+          const rightMaskWrongDir = Boolean(findMatchedEnglishPhrase(cwDecoded) || findMatchedEnglishPhrase(ccwDecoded));
+
+          if (state.turnOrder.length < 4) {
+            dom.decodeStatusHint.innerHTML = `<span style="color:var(--danger-text);font-weight:900;">⚠️ Complete all 4 turns (${state.turnOrder.length}/4) before checking!</span>`;
+          } else if (rightMaskWrongDir) {
+            // Do NOT mark card as failed with X if it's the right card rotated the wrong way—let them retry opposite direction!
+            dom.decodeStatusHint.innerHTML = `<span style="color:var(--danger-text);font-weight:900;">🔄 Wrong rotation direction! Reset (↺) and try turning the opposite 90° way!</span>`;
+          } else {
+            if (bankItem) {
+              bankItem.failed = true;
+            }
+            unmountActiveGrille(false);
+            dom.decodeStatusHint.innerHTML = `<span style="color:var(--danger-text);font-weight:900;">❌ Not a valid phrase! Returned to bank with ✖.</span>`;
+            renderAll();
+          }
+        }
+      }
+
+      // ======================================================================
+      // 12. RENDERING FUNCTIONS
+      // ======================================================================
+      function computeCellPixelSize(N, containerEl, reserveVerticalPx = 0) {
+        const rect = containerEl.getBoundingClientRect();
+        const availW = rect.width || 260;
+        const availH = Math.max(120, (rect.height || 260) - reserveVerticalPx);
+        const avail = Math.min(availW, availH, 290);
+        const raw = Math.floor((avail - 12 - (N - 1) * 3) / N);
+        return Math.max(20, Math.min(54, raw));
+      }
+
+      function renderLeftBoards() {
+        const N = state.N;
+
+        // 1. TOP LEFT: CIPHER GRID + OVERLAID STENCIL + CENTERED SEED ID FOOTER
+        const topCellPx = computeCellPixelSize(N, dom.cipherStageWrap, 28);
+        const topFontPx = Math.max(11, Math.floor(topCellPx * 0.48));
+
+        dom.cipherGridBoard.style.gridTemplateColumns = `repeat(${N}, ${topCellPx}px)`;
+        dom.cipherGridBoard.style.gridTemplateRows = `repeat(${N}, ${topCellPx}px)`;
+        dom.cipherGridBoard.innerHTML = '';
+
+        for (let i = 0; i < N * N; i++) {
+          const cell = document.createElement('div');
+          cell.className = 'cipher-cell';
+          cell.style.width = `${topCellPx}px`;
+          cell.style.height = `${topCellPx}px`;
+          cell.style.fontSize = `${topFontPx}px`;
+          cell.textContent = state.cipherCells[i] || '';
+          if (state.mountedMask && state.lastRevealedIndices.has(i)) {
+            cell.classList.add('just-revealed');
+          }
+          dom.cipherGridBoard.appendChild(cell);
+        }
+
+        if (state.mountedMask) {
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay-stencil-layer';
+          overlay.style.gridTemplateColumns = `repeat(${N}, ${topCellPx}px)`;
+          overlay.style.gridTemplateRows = `repeat(${N}, ${topCellPx}px)`;
+          overlay.style.transform = `rotate(${state.visualAngleDeg}deg)`;
+
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const sCell = document.createElement('div');
+              sCell.className = 'overlay-stencil-cell ' + (state.mountedMask[r][c] ? 'hole' : 'opaque');
+              overlay.appendChild(sCell);
+            }
+          }
+          dom.cipherGridBoard.appendChild(overlay);
+        }
+
+        dom.badgeLockStatus.textContent = state.isLocked ? '🔒' : '🔓';
+        dom.btnToggleLock.textContent = state.isLocked ? '🔓' : '🔒';
+        const degNorm = (((state.rotationStep * 90) % 360) + 360) % 360;
+        dom.badgeRotationDeg.textContent = state.mountedMask ? `${degNorm}°` : '—';
+        dom.btnRotateCcw.disabled = !state.mountedMask;
+        dom.btnRotateCw.disabled = !state.mountedMask;
+        dom.btnUnmountGrille.disabled = !state.mountedMask;
+
+        // 2. BOTTOM LEFT: MASTER STENCIL DESIGNER
+        const botCellPx = computeCellPixelSize(N, dom.designerStageWrap, 0);
+        dom.designerGridBoard.style.gridTemplateColumns = `repeat(${N}, ${botCellPx}px)`;
+        dom.designerGridBoard.style.gridTemplateRows = `repeat(${N}, ${botCellPx}px)`;
+        dom.designerGridBoard.innerHTML = '';
+
+        let holeCount = 0;
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (state.designerMask[r][c]) holeCount++;
+            const dCell = document.createElement('div');
+            const isHole = state.designerMask[r][c];
+            dCell.className = 'designer-cell ' + (isHole ? 'hole' : 'opaque');
+            dCell.style.width = `${botCellPx}px`;
+            dCell.style.height = `${botCellPx}px`;
+            dCell.textContent = isHole ? '○' : '';
+            dCell.title = `Row ${r + 1}, Col ${c + 1} — Click to toggle hole`;
+            dCell.addEventListener('click', () => {
+              state.designerMask[r][c] = !state.designerMask[r][c];
+              sfx.tick(state.designerMask[r][c] ? 640 : 320);
+              renderLeftBoards();
+            });
+            dom.designerGridBoard.appendChild(dCell);
+          }
+        }
+
+        const idealHoles = Math.floor((N * N) / 4);
+        dom.badgeHoleCount.textContent = `${holeCount} / ${idealHoles}`;
+      }
+
+      function renderInputCells() {
+        const N = state.N;
+        const total = N * N;
+        dom.inputCellsContainer.innerHTML = '';
+
+        let filledCount = 0;
+        for (let i = 0; i < total; i++) {
+          if (state.cipherCells[i]) filledCount++;
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.maxLength = 1;
+          inp.className = 'grid-input-cell';
+          inp.value = state.cipherCells[i] || '';
+          inp.disabled = state.isLocked;
+          inp.dataset.idx = String(i);
+          inp.title = `Cell [${Math.floor(i / N) + 1}, ${(i % N) + 1}]`;
+
+          inp.addEventListener('input', (e) => {
+            const val = sanitizeLetters(e.target.value);
+            state.cipherCells[i] = val ? val[0] : '';
+            e.target.value = state.cipherCells[i];
+            sfx.tick(480);
+            renderLeftBoards();
+            syncSeedInput();
+
+            const filledNow = state.cipherCells.filter(Boolean).length;
+            dom.inputCellCounter.textContent = `${filledNow} / ${total}`;
+
+            if (val && i + 1 < total) {
+              const nextEl = dom.inputCellsContainer.querySelector(`[data-idx="${i + 1}"]`);
+              if (nextEl) nextEl.focus();
+            }
+          });
+
+          inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !e.target.value && i > 0) {
+              const prevEl = dom.inputCellsContainer.querySelector(`[data-idx="${i - 1}"]`);
+              if (prevEl) prevEl.focus();
+            }
+          });
+
+          dom.inputCellsContainer.appendChild(inp);
+        }
+
+        dom.inputCellCounter.textContent = `${filledCount} / ${total}`;
+      }
+
+      function renderDecodedOutput() {
+        // Update turn pills (T1..T4) with actual degree angle recorded on each turn
+        dom.rotationPillsRow.querySelectorAll('.rot-step-pill').forEach(pill => {
+          const turnIdx = Number(pill.dataset.turn);
+          const recordedStep = state.turnOrder[turnIdx];
+          if (recordedStep !== undefined) {
+            pill.classList.add('recorded');
+            pill.textContent = `${recordedStep * 90}°`;
+          } else {
+            pill.classList.remove('recorded');
+            pill.textContent = `T${turnIdx + 1}`;
+          }
+          pill.classList.toggle('current', Boolean(state.mountedMask) && state.turnOrder.length - 1 === turnIdx);
+        });
+
+        // Show direction badge
+        if (!state.mountedMask || state.turnDirections.length === 0) {
+          dom.badgeTurnDir.textContent = 'DIR: —';
+        } else {
+          const allCw = state.turnDirections.every(d => d === 1);
+          const allCcw = state.turnDirections.every(d => d === -1);
+          dom.badgeTurnDir.textContent = allCw ? '↻ CW' : (allCcw ? '↺ CCW' : '⇄ MIXED');
+        }
+
+        dom.decodedSlotsContainer.innerHTML = '';
+        const totalSlots = state.N * state.N;
+        const decoded = state.decodedChars;
+
+        const spaceAfterIndices = new Set();
+        if (state.diffMode === 'kid' && state.targetPlainSpaced) {
+          let letterIdx = 0;
+          for (let i = 0; i < state.targetPlainSpaced.length; i++) {
+            if (state.targetPlainSpaced[i] === ' ') {
+              spaceAfterIndices.add(letterIdx - 1);
+            } else {
+              letterIdx++;
+            }
+          }
+        }
+
+        for (let i = 0; i < totalSlots; i++) {
+          const slot = document.createElement('div');
+          const ch = decoded[i] || '';
+          slot.className = 'decoded-char-slot' + (ch ? ' filled' : '');
+          slot.textContent = ch;
+          dom.decodedSlotsContainer.appendChild(slot);
+
+          if (state.diffMode === 'kid' && spaceAfterIndices.has(i) && i < totalSlots - 1) {
+            const gap = document.createElement('div');
+            gap.className = 'decoded-space-gap';
+            dom.decodedSlotsContainer.appendChild(gap);
+          }
+        }
+
+        if (state.mountedMask) {
+          const rem = 4 - state.turnOrder.length;
+          if (rem > 0) {
+            dom.decodeStatusHint.innerHTML = `<strong>${state.turnOrder.length}/4</strong> turns done. Rotate 90° ${rem} more time${rem > 1 ? 's' : ''}!`;
+          } else {
+            dom.decodeStatusHint.innerHTML = `All <strong>4/4</strong> turns complete! Ready to click <strong>✅ Check</strong>!`;
+          }
+        } else {
+          dom.decodeStatusHint.innerHTML = `Pick a grid from the bank (or build your own in Hole Grid) and rotate 90°!`;
+        }
+      }
+
+      function renderBankOfGrilles() {
+        const N = state.N;
+        dom.bankGridsContainer.innerHTML = '';
+        dom.badgeBankCount.textContent = `${state.bankGrilles.length}`;
+        dom.btnClearAllBank.disabled = state.bankGrilles.length === 0;
+        dom.btnExportAllBankSvg.disabled = state.bankGrilles.length === 0;
+
+        if (state.bankGrilles.length === 0) {
+          const emptyBox = document.createElement('div');
+          emptyBox.className = 'bank-empty-notice';
+          emptyBox.innerHTML = `
+            <div style="font-weight:900;font-size:0.86rem;color:var(--brass-text);">
+              🧩 CIPHER-ONLY MODE (ULTRA-SHORT SEED ID)
+            </div>
+            <div style="font-size:0.75rem;max-width:460px;">
+              All bank grids have been removed! Build your own stencil in the <strong>Hole Grid</strong> (bottom left) and click <strong>⬆️ Place</strong> or <strong>➕ Bank</strong> — or click <strong>🔄</strong> to generate 8 bank cards.
+            </div>
+          `;
+          dom.bankGridsContainer.appendChild(emptyBox);
+          return;
+        }
+
+        state.bankGrilles.forEach((item, idx) => {
+          const card = document.createElement('div');
+          card.className = 'stencil-card';
+          if (state.mountedBankId === item.id) card.classList.add('selected');
+          if (item.failed) card.classList.add('failed');
+
+          const header = document.createElement('div');
+          header.className = 'stencil-card-header';
+          header.innerHTML = `<span>#${idx + 1}</span>`;
+
+          const actionsWrap = document.createElement('div');
+          actionsWrap.className = 'card-header-actions';
+
+          const svgBtn = document.createElement('button');
+          svgBtn.type = 'button';
+          svgBtn.className = 'card-svg-btn';
+          svgBtn.textContent = '📐SVG';
+          svgBtn.title = `Export Bank Card #${idx + 1} as Word-compatible SVG`;
+          svgBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const svg = buildSingleGridSvg({
+              title: `DECODE CARD #${idx + 1}`,
+              subtitle: `${N}×${N}`,
+              N,
+              mode: 'hole',
+              mask: item.mask
+            });
+            downloadSvgFile(svg, `turning_grille_bank_card_${idx + 1}_${N}x${N}.svg`);
+          });
+          actionsWrap.appendChild(svgBtn);
+
+          // Allow removing ANY bank card (even down to 0) to shorten the Seed ID!
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'delete-bank-btn';
+          delBtn.textContent = '✖';
+          delBtn.title = 'Remove this grid from bank (makes Seed ID shorter)';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.bankGrilles = state.bankGrilles.filter(g => g.id !== item.id);
+            if (state.mountedBankId === item.id) unmountActiveGrille(false);
+            sfx.tick(340);
+            syncSeedInput();
+            renderBankOfGrilles();
+          });
+          actionsWrap.appendChild(delBtn);
+
+          header.appendChild(actionsWrap);
+          card.appendChild(header);
+
+          const mini = document.createElement('div');
+          mini.className = 'mini-grille-preview';
+          mini.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+          mini.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const mc = document.createElement('div');
+              mc.className = 'mini-grille-cell ' + (item.mask[r][c] ? 'hole' : 'opaque');
+              mini.appendChild(mc);
+            }
+          }
+          card.appendChild(mini);
+
+          if (item.failed) {
+            const xBadge = document.createElement('div');
+            xBadge.className = 'failed-x-badge';
+            xBadge.textContent = '✖';
+            card.appendChild(xBadge);
+          }
+
+          card.addEventListener('click', () => {
+            state.designerMask = item.mask.map(r => r.slice());
+            mountGrilleOntoCipher(item.mask, item.id);
+          });
+
+          dom.bankGridsContainer.appendChild(card);
+        });
+      }
+
+      function renderAll() {
+        renderLeftBoards();
+        renderInputCells();
+        renderDecodedOutput();
+        renderBankOfGrilles();
+      }
+
+      // ======================================================================
+      // 13. EVENT LISTENERS & CONTROLS
+      // ======================================================================
+      function copySeedToClipboard(feedbackEl = dom.btnCopySeed) {
+        const seedVal = dom.inputSeedId.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(seedVal).catch(() => {});
+        } else {
+          dom.inputSeedId.select();
+          try { document.execCommand('copy'); } catch (e) {}
+        }
+        if (feedbackEl === dom.btnCopySeed) {
+          const orig = dom.btnCopySeed.textContent;
+          dom.btnCopySeed.textContent = '✅';
+          setTimeout(() => { dom.btnCopySeed.textContent = orig; }, 1200);
+        } else if (feedbackEl === dom.cipherSeedFooter) {
+          const orig = dom.cipherSeedFooter.textContent;
+          dom.cipherSeedFooter.textContent = `✅ Copied: ${seedVal}`;
+          setTimeout(() => { dom.cipherSeedFooter.textContent = orig; }, 1200);
+        }
+        sfx.tick();
+      }
+
+      function bindEvents() {
+        dom.btnSizeDec.addEventListener('click', () => {
+          if (state.N > 4) { sfx.tick(); startNewMission(state.N - 1); }
+        });
+        dom.btnSizeInc.addEventListener('click', () => {
+          if (state.N < 10) { sfx.tick(); startNewMission(state.N + 1); }
+        });
+        dom.inputGridSize.addEventListener('change', () => {
+          const val = Math.max(4, Math.min(10, parseInt(dom.inputGridSize.value, 10) || 4));
+          sfx.tick();
+          startNewMission(val);
+        });
+
+        dom.btnDiffKid.addEventListener('click', () => {
+          state.diffMode = 'kid';
+          dom.btnDiffKid.classList.add('active');
+          dom.btnDiffNormal.classList.remove('active');
+          dom.badgeModeDesc.textContent = '🧸 SPACED';
+          sfx.tick();
+          renderDecodedOutput();
+        });
+        dom.btnDiffNormal.addEventListener('click', () => {
+          state.diffMode = 'normal';
+          dom.btnDiffNormal.classList.add('active');
+          dom.btnDiffKid.classList.remove('active');
+          dom.badgeModeDesc.textContent = '🧠 NO SPACES';
+          sfx.tick();
+          renderDecodedOutput();
+        });
+
+        dom.btnStyleClassic.addEventListener('click', () => {
+          state.visualTheme = 'classic';
+          document.body.classList.remove('cyber-theme');
+          dom.btnStyleClassic.classList.add('active');
+          dom.btnStyleCyber.classList.remove('active');
+          sfx.tick();
+        });
+        dom.btnStyleCyber.addEventListener('click', () => {
+          state.visualTheme = 'cyber';
+          document.body.classList.add('cyber-theme');
+          dom.btnStyleCyber.classList.add('active');
+          dom.btnStyleClassic.classList.remove('active');
+          sfx.tick();
+        });
+
+        dom.btnTheme.addEventListener('click', () => {
+          state.darkMode = !state.darkMode;
+          document.body.classList.toggle('dark-mode', state.darkMode);
+          dom.btnTheme.textContent = state.darkMode ? '☀️' : '🌙';
+          sfx.tick();
+        });
+
+        dom.btnSound.addEventListener('click', () => {
+          sfx.enabled = !sfx.enabled;
+          dom.btnSound.textContent = sfx.enabled ? '🔊' : '🔇';
+          if (sfx.enabled) sfx.tick();
+        });
+
+        // Custom Sentence Challenge Creator Toggle, Direction Selector & Generate
+        dom.btnToggleCreator.addEventListener('click', () => {
+          dom.challengeCreatorBox.classList.toggle('hidden');
+          sfx.tick();
+          if (!dom.challengeCreatorBox.classList.contains('hidden')) {
+            dom.inputCustomSentence.focus();
+          }
+        });
+        dom.btnCloseCreator.addEventListener('click', () => {
+          dom.challengeCreatorBox.classList.add('hidden');
+          sfx.tick();
+        });
+        dom.btnCreatorDirCw.addEventListener('click', () => {
+          state.creatorEncryptDir = 1;
+          dom.btnCreatorDirCw.classList.add('active');
+          dom.btnCreatorDirCcw.classList.remove('active');
+          sfx.tick(520);
+        });
+        dom.btnCreatorDirCcw.addEventListener('click', () => {
+          state.creatorEncryptDir = -1;
+          dom.btnCreatorDirCcw.classList.add('active');
+          dom.btnCreatorDirCw.classList.remove('active');
+          sfx.tick(440);
+        });
+        dom.inputCustomSentence.addEventListener('input', () => {
+          const letters = sanitizeLetters(dom.inputCustomSentence.value);
+          if (!letters.length) {
+            dom.creatorSizeHint.textContent = 'AUTO SIZE';
+          } else {
+            const reqN = computeOptimalGridSizeForLetters(letters.length);
+            dom.creatorSizeHint.textContent = `${letters.length} LETTERS → ${reqN}×${reqN}`;
+          }
+        });
+        dom.inputCustomSentence.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            startCustomSentenceChallenge(dom.inputCustomSentence.value);
+          }
+        });
+        dom.btnGenerateChallenge.addEventListener('click', () => {
+          startCustomSentenceChallenge(dom.inputCustomSentence.value);
+        });
+
+        // Word-compatible SVG Export Buttons
+        dom.btnExportCipherSvg.addEventListener('click', () => {
+          const degNorm = (((state.rotationStep * 90) % 360) + 360) % 360;
+          const compactSeed = encodeSeedId(state.N, state.cipherCells, state.bankGrilles, state.encryptDir);
+          const svg = buildSingleGridSvg({
+            title: 'CIPHER GRID',
+            subtitle: state.mountedMask ? `${state.N}×${state.N} • ${degNorm}°` : `${state.N}×${state.N}`,
+            N: state.N,
+            mode: 'cipher',
+            cipherCells: state.cipherCells,
+            mask: state.mountedMask,
+            rotStep: state.rotationStep,
+            seedFooter: `💾: ${compactSeed}`
+          });
+          downloadSvgFile(svg, `turning_grille_cipher_grid_${state.N}x${state.N}.svg`);
+        });
+
+        dom.btnExportHoleSvg.addEventListener('click', () => {
+          const svg = buildSingleGridSvg({
+            title: 'HOLE GRID (STENCIL)',
+            subtitle: `${state.N}×${state.N}`,
+            N: state.N,
+            mode: 'hole',
+            mask: state.designerMask,
+            rotStep: 0
+          });
+          downloadSvgFile(svg, `turning_grille_hole_grid_${state.N}x${state.N}.svg`);
+        });
+
+        dom.btnExportCellsSvg.addEventListener('click', () => {
+          const svg = buildSingleGridSvg({
+            title: 'LETTER CELLS GRID',
+            subtitle: `${state.N}×${state.N}`,
+            N: state.N,
+            mode: 'cells',
+            cipherCells: state.cipherCells
+          });
+          downloadSvgFile(svg, `turning_grille_letter_cells_${state.N}x${state.N}.svg`);
+        });
+
+        dom.btnExportAllBankSvg.addEventListener('click', () => {
+          if (state.bankGrilles.length === 0) return;
+          const svg = buildAllBankSheetSvg();
+          downloadSvgFile(svg, `turning_grille_bank_sheet_${state.N}x${state.N}.svg`);
+        });
+
+        // Lock & Rotate Controls
+        dom.btnToggleLock.addEventListener('click', () => {
+          state.isLocked = !state.isLocked;
+          if (!state.isLocked && state.mountedMask) {
+            unmountActiveGrille(false);
+          }
+          sfx.tick(state.isLocked ? 520 : 340);
+          renderAll();
+        });
+
+        dom.btnClearInputs.addEventListener('click', () => {
+          state.cipherCells = Array(state.N * state.N).fill('');
+          state.targetPlainSpaced = '';
+          state.isLocked = false;
+          unmountActiveGrille(false);
+          syncSeedInput();
+          sfx.tick(320);
+          renderAll();
+          const firstInput = dom.inputCellsContainer.querySelector('input');
+          if (firstInput) firstInput.focus();
+        });
+
+        dom.btnRotateCw.addEventListener('click', () => rotateMountedGrille(1));
+        dom.btnRotateCcw.addEventListener('click', () => rotateMountedGrille(-1));
+        dom.btnUnmountGrille.addEventListener('click', () => unmountActiveGrille(true));
+
+        dom.btnMountCustom.addEventListener('click', () => {
+          mountGrilleOntoCipher(state.designerMask, 'custom');
+        });
+        dom.btnAddToBank.addEventListener('click', () => {
+          const clone = state.designerMask.map(r => r.slice());
+          state.bankGrilles.unshift({
+            id: state.nextBankId++,
+            mask: clone,
+            isSolution: false,
+            failed: false
+          });
+          sfx.tick(600);
+          syncSeedInput();
+          renderBankOfGrilles();
+        });
+        dom.btnResetDesigner.addEventListener('click', () => {
+          state.designerMask = Array.from({ length: state.N }, () => Array(state.N).fill(false));
+          sfx.tick(280);
+          renderLeftBoards();
+        });
+
+        dom.btnClearDecoded.addEventListener('click', () => {
+          if (!state.mountedMask) return;
+          state.rotationStep = 0;
+          state.visualAngleDeg = 0;
+          state.turnOrder = [];
+          state.turnDirections = [];
+          state.decodedChars = [];
+          recordCurrentOrientation();
+          sfx.tick(400);
+          renderLeftBoards();
+          renderDecodedOutput();
+        });
+
+        dom.btnCheckAnswer.addEventListener('click', checkDecodedAnswer);
+
+        // Clear ALL bank cards -> Cipher-only mode with ultra-short Seed ID!
+        dom.btnClearAllBank.addEventListener('click', () => {
+          state.bankGrilles = [];
+          if (state.mountedBankId !== 'custom') {
+            unmountActiveGrille(false);
+          }
+          sfx.tick(300);
+          syncSeedInput();
+          renderBankOfGrilles();
+          dom.decodeStatusHint.innerHTML = `<span style="color:var(--brass-text);font-weight:900;">⚡ Bank cleared! Seed ID is now ultra-short (${dom.inputSeedId.value.length} chars). Build your Hole Grid!</span>`;
+        });
+
+        dom.btnRegenBank.addEventListener('click', () => {
+          const sol = state.bankGrilles.find(g => g.isSolution);
+          state.bankGrilles = buildBankOfGrilles(
+            state.N,
+            sol ? sol.mask : null,
+            state.cipherCells,
+            sanitizeLetters(state.targetPlainSpaced),
+            state.encryptDir
+          );
+          unmountActiveGrille(false);
+          sfx.tick(500);
+          syncSeedInput();
+          renderAll();
+        });
+
+        dom.btnNewPuzzle.addEventListener('click', () => { sfx.tick(); startNewMission(state.N); });
+        dom.btnNextRound.addEventListener('click', () => { sfx.tick(); startNewMission(state.N); });
+        dom.btnDismissVictory.addEventListener('click', () => dom.victoryBanner.classList.remove('show'));
+
+        dom.btnLoadSeed.addEventListener('click', () => {
+          const parsed = decodeSeedId(dom.inputSeedId.value);
+          if (!parsed) {
+            sfx.errorSound();
+            dom.inputSeedId.classList.add('shake');
+            setTimeout(() => dom.inputSeedId.classList.remove('shake'), 450);
+            return;
+          }
+          state.N = parsed.N;
+          dom.inputGridSize.value = String(parsed.N);
+          dom.spanSizeDisplay.textContent = `×${parsed.N}`;
+          state.cipherCells = parsed.cipherCells;
+          state.encryptDir = parsed.encryptDir || 1;
+          state.targetPlainSpaced = '';
+          state.isLocked = true;
+          state.designerMask = Array.from({ length: parsed.N }, () => Array(parsed.N).fill(false));
+
+          // Preserve exact mask count from Seed ID (even 0 masks if creator cleared all bank cards!)
+          state.bankGrilles = parsed.masks.map(m => ({
+            id: state.nextBankId++,
+            mask: m,
+            isSolution: false,
+            failed: false
+          }));
+
+          unmountActiveGrille(false);
+          syncSeedInput();
+          sfx.winSound();
+          renderAll();
+        });
+
+        dom.btnCopySeed.addEventListener('click', () => copySeedToClipboard(dom.btnCopySeed));
+        dom.cipherSeedFooter.addEventListener('click', () => copySeedToClipboard(dom.cipherSeedFooter));
+
+        dom.btnOpenStory.addEventListener('click', () => dom.storyModal.classList.remove('hidden'));
+        dom.btnCloseStory.addEventListener('click', () => dom.storyModal.classList.add('hidden'));
+        dom.btnStartMission.addEventListener('click', () => dom.storyModal.classList.add('hidden'));
+        dom.storyModal.addEventListener('click', (e) => {
+          if (e.target === dom.storyModal) dom.storyModal.classList.add('hidden');
+        });
+
+        window.addEventListener('resize', () => renderLeftBoards());
+      }
+
+      // Bootstrap with a random puzzle on load
+      window.addEventListener('DOMContentLoaded', () => {
+        bindEvents();
+        startNewMission(4);
+      });
+    })();
+  </script>
+</body>
+</html>
