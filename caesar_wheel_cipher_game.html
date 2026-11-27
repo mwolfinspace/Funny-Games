@@ -4250,6 +4250,18 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
 </svg>`;
       }
 
+      // Short, sortable SVG filenames: base_YYYYMMDD-HHMMSS.svg
+      function makeSvgExportName(base) {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        const cleanBase = String(base || 'export')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]+/g, '-')
+          .replace(/^[-_]+|[-_]+$/g, '') || 'export';
+        return `${cleanBase}_${stamp}.svg`;
+      }
+
       function refreshWheelDiscsPreview() {
         const svgMarkup = generateWheelDiscsSvg({
           theme: dom.wheelDiscsThemeSelect.value,
@@ -4294,7 +4306,7 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = 'caesar_wheel_printable_discs_a4.svg';
+          a.download = makeSvgExportName('cw_discs');
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -4406,11 +4418,13 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
           const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          const safeName = (dom.expTitleInput.value || 'caesar-puzzle')
+          const safeName = (dom.expTitleInput.value || 'sheet')
             .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-');
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 24) || 'sheet';
           a.href = url;
-          a.download = `${safeName}.svg`;
+          a.download = makeSvgExportName(`cw_${safeName}`);
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);

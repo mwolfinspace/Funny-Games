@@ -2480,12 +2480,25 @@
 </svg>`;
       }
 
+      // Short, sortable SVG filenames: base_YYYYMMDD-HHMMSS.svg
+      function makeStampedSvgName(base) {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        const cleanBase = String(base || 'tg_export')
+          .replace(/\.svg$/i, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]+/g, '-')
+          .replace(/^[-_]+|[-_]+$/g, '') || 'tg_export';
+        return `${cleanBase}_${stamp}.svg`;
+      }
+
       function downloadSvgFile(svgContent, filename) {
         const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = makeStampedSvgName(filename || 'tg_export');
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2497,7 +2510,7 @@
       // 6b. SVG PREVIEW / EDIT / CLEAN EXPORT MODAL
       // ======================================================================
       let currentSvgForEditor = null;
-      let currentSvgExportName = 'turning_grille_export.svg';
+      let currentSvgExportName = 'tg_export';
 
       function makeSvgControlItem(labelText, value, isMultiline, onTextChange, onToggle) {
         const item = document.createElement('div');
@@ -2629,7 +2642,7 @@
         dom.svgPreviewContainer.replaceChildren(svgEl);
         dom.svgControlsList.replaceChildren();
         currentSvgForEditor = svgEl;
-        currentSvgExportName = filename || 'turning_grille_export.svg';
+        currentSvgExportName = filename || 'tg_export';
         dom.svgEditorTitle.textContent = `📐 SVG EXPORT EDITOR — ${currentSvgExportName}`;
         dom.svgEditorModal.classList.remove('hidden');
 
@@ -3352,7 +3365,7 @@
               mode: 'hole',
               mask: item.mask
             });
-            openSvgEditor(svg, `turning_grille_bank_card_${idx + 1}_${N}x${N}.svg`);
+            openSvgEditor(svg, `tg_card${idx + 1}_${N}x${N}`);
           });
           actionsWrap.appendChild(svgBtn);
 
@@ -3549,7 +3562,7 @@
             rotStep: state.rotationStep,
             seedFooter: `💾: ${compactSeed}`
           });
-          openSvgEditor(svg, `turning_grille_cipher_grid_${state.N}x${state.N}.svg`);
+          openSvgEditor(svg, `tg_grid_${state.N}x${state.N}`);
         });
 
         dom.btnExportHoleSvg.addEventListener('click', () => {
@@ -3561,18 +3574,18 @@
             mask: state.designerMask,
             rotStep: 0
           });
-          openSvgEditor(svg, `turning_grille_hole_grid_${state.N}x${state.N}.svg`);
+          openSvgEditor(svg, `tg_holes_${state.N}x${state.N}`);
         });
 
         dom.btnExportCellsSvg.addEventListener('click', () => {
           const svg = buildLetterStripSvg();
-          openSvgEditor(svg, `turning_grille_letter_strip_${state.N}x${state.N}.svg`);
+          openSvgEditor(svg, `tg_strip_${state.N}x${state.N}`);
         });
 
         dom.btnExportAllBankSvg.addEventListener('click', () => {
           if (state.bankGrilles.length === 0) return;
           const svg = buildAllBankSheetSvg();
-          openSvgEditor(svg, `turning_grille_bank_sheet_${state.N}x${state.N}.svg`);
+          openSvgEditor(svg, `tg_bank_${state.N}x${state.N}`);
         });
 
         // Lock & Rotate Controls
