@@ -1750,17 +1750,7 @@
       .panel-title { font-size: 1.08rem; }
       .badge-pill { font-size: 0.82rem; padding: 4px 12px; }
       .word-boxes-flow { gap: 12px; }
-      .puzzle-box {
-        --slot-w: 46px !important;
-        --slot-h: 50px !important;
-        --slot-font: 1.42rem !important;
-        padding: 10px 12px;
-      }
-      .puzzle-box.sentence-card {
-        --slot-w: 42px !important;
-        --slot-h: 46px !important;
-        --slot-font: 1.3rem !important;
-      }
+      .puzzle-box { padding: 10px 12px; }
       .puzzle-box-meta { font-size: 0.8rem; }
       .puzzle-status-tag { font-size: 0.76rem; }
       .ring-nudge-label { font-size: 0.82rem; }
@@ -1789,17 +1779,7 @@
       .panel-title { font-size: 1.25rem; }
       .badge-pill { font-size: 0.95rem; padding: 5px 14px; }
       .word-boxes-flow { gap: 14px; }
-      .puzzle-box {
-        --slot-w: 56px !important;
-        --slot-h: 62px !important;
-        --slot-font: 1.7rem !important;
-        padding: 12px 15px;
-      }
-      .puzzle-box.sentence-card {
-        --slot-w: 50px !important;
-        --slot-h: 56px !important;
-        --slot-font: 1.55rem !important;
-      }
+      .puzzle-box { padding: 12px 15px; }
       .puzzle-box-meta { font-size: 0.92rem; }
       .puzzle-status-tag { font-size: 0.86rem; }
       .ring-nudge-label { font-size: 0.95rem; }
@@ -2703,6 +2683,33 @@
           .replace(/'/g, '&apos;');
       }
 
+      // Slot sizing must stay in JS: the odometer roll offset depends on the exact
+      // cell height, so CSS-only overrides would shift letters between rows.
+      function getSlotSizeTier() {
+        if (window.matchMedia('(min-width: 2400px) and (min-height: 1200px)').matches) return 'xl';
+        if (window.matchMedia('(min-width: 1800px) and (min-height: 900px)').matches) return 'lg';
+        return 'base';
+      }
+
+      function getSlotMetrics(isSentence, compactLen) {
+        const tier = getSlotSizeTier();
+        if (tier === 'xl') {
+          return isSentence
+            ? { w: 50, h: 56, font: '1.55rem' }
+            : { w: 56, h: 62, font: '1.7rem' };
+        }
+        if (tier === 'lg') {
+          return isSentence
+            ? { w: 42, h: 46, font: '1.3rem' }
+            : { w: 46, h: 50, font: '1.42rem' };
+        }
+        return isSentence
+          ? (compactLen > 18
+            ? { w: 31, h: 36, font: '1.02rem' }
+            : { w: 35, h: 40, font: '1.12rem' })
+          : { w: 38, h: 42, font: '1.2rem' };
+      }
+
       // 6. GAME STATE
       const state = {
         mode: 'word',          // 'word' | 'sentence'
@@ -2726,6 +2733,7 @@
         wordPuzzles: [],
         sentencePuzzles: [],
         celebratedRound: false,
+        slotTier: getSlotSizeTier(),
 
         // Export Modal state
         exportTarget: null,
@@ -3285,6 +3293,11 @@
         });
 
         window.addEventListener('resize', () => {
+          const nextSlotTier = getSlotSizeTier();
+          if (state.slotTier !== nextSlotTier) {
+            state.slotTier = nextSlotTier;
+            renderPuzzles();
+          }
           if (state.mode === 'sentence') {
             renderStripPools();
           }
@@ -3462,14 +3475,13 @@
         if (puzzle.solved) card.classList.add('solved');
         card.dataset.puzzleId = String(puzzle.id);
 
-        // Slot sizing based on word vs sentence length
+        // Slot sizing based on word vs sentence length and the current display tier.
         const compactLen = puzzle.cipher.replace(/ /g, '').length;
-        const slotW = isSentence ? (compactLen > 18 ? 31 : 35) : 38;
-        const slotH = isSentence ? (compactLen > 18 ? 36 : 40) : 42;
-        const slotFont = isSentence ? (compactLen > 18 ? '1.02rem' : '1.12rem') : '1.2rem';
-        card.style.setProperty('--slot-w', `${slotW}px`);
+        const slotMetrics = getSlotMetrics(isSentence, compactLen);
+        const slotH = slotMetrics.h;
+        card.style.setProperty('--slot-w', `${slotMetrics.w}px`);
         card.style.setProperty('--slot-h', `${slotH}px`);
-        card.style.setProperty('--slot-font', slotFont);
+        card.style.setProperty('--slot-font', slotMetrics.font);
 
         // Header Meta Bar
         const meta = document.createElement('div');
