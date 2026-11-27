@@ -2165,7 +2165,7 @@
           </div>
 
           <div class="modal-info-pill">
-            Wheel discs = light blue · Strips = light red. Outer disc Ø 144 mm · Inner disc Ø ~102 mm · Two A–Z × 2 strips. Print at 100%, cut along the outlines, then align the + marks.
+            Outer ring + Cipher strip = light blue · Inner ring + Decode strip = light red. Outer disc Ø 144 mm · Inner disc Ø ~102 mm · Print at 100%, cut along the outlines, then align the + marks.
           </div>
 
           <div class="modal-actions-row">
@@ -3982,43 +3982,35 @@ ${webFontStyle}  <!-- Printable sheet -->
         const showCross = Boolean(opts.showCross);
         const showStrips = opts.showStrips !== false;
 
-        // Light CMYK-friendly process tints: blue wheel discs, red strips, dark readable letters.
+        // Light CMYK-friendly pairs: outer ring + Cipher strip = blue, inner ring + Decode strip = red.
         const palettes = {
           classic: {
             sheet: '#ffffff',
-            wheelOuterFill: '#dbeafe', wheelInnerFill: '#eff6ff',
-            wheelOuterStroke: '#2563eb', wheelInnerStroke: '#0284c7', wheelText: '#1e3a5f',
-            wheelAnchor: '#1d4ed8', wheelCut: '#2563eb', cross: '#1e40af',
-            stripOuterFill: '#fee2e2', stripInnerFill: '#fff1f2',
-            stripOuterStroke: '#dc2626', stripInnerStroke: '#e11d48', stripText: '#7f1d1d',
-            stripAnchor: '#b91c1c', stripCut: '#dc2626'
+            outerFill: '#dbeafe', outerStroke: '#2563eb', outerText: '#1e3a5f',
+            outerAnchor: '#1d4ed8', outerCut: '#2563eb', outerCross: '#1e40af',
+            innerFill: '#fee2e2', innerStroke: '#dc2626', innerText: '#7f1d1d',
+            innerAnchor: '#b91c1c', innerCut: '#dc2626', innerCross: '#b91c1c'
           },
           'classic-dark': {
             sheet: '#ffffff',
-            wheelOuterFill: '#dbeafe', wheelInnerFill: '#e0f2fe',
-            wheelOuterStroke: '#1d4ed8', wheelInnerStroke: '#0369a1', wheelText: '#1e3a5f',
-            wheelAnchor: '#1e40af', wheelCut: '#1d4ed8', cross: '#1e3a8a',
-            stripOuterFill: '#ffe4e6', stripInnerFill: '#fff1f2',
-            stripOuterStroke: '#be123c', stripInnerStroke: '#e11d48', stripText: '#881337',
-            stripAnchor: '#9f1239', stripCut: '#be123c'
+            outerFill: '#dbeafe', outerStroke: '#1d4ed8', outerText: '#1e3a5f',
+            outerAnchor: '#1e40af', outerCut: '#1d4ed8', outerCross: '#1e3a8a',
+            innerFill: '#ffe4e6', innerStroke: '#be123c', innerText: '#881337',
+            innerAnchor: '#9f1239', innerCut: '#be123c', innerCross: '#9f1239'
           },
           cyber: {
             sheet: '#ffffff',
-            wheelOuterFill: '#cffafe', wheelInnerFill: '#ecfeff',
-            wheelOuterStroke: '#0891b2', wheelInnerStroke: '#0284c7', wheelText: '#083344',
-            wheelAnchor: '#0e7490', wheelCut: '#0891b2', cross: '#0e7490',
-            stripOuterFill: '#ffe4e6', stripInnerFill: '#fff1f2',
-            stripOuterStroke: '#e11d48', stripInnerStroke: '#f43f5e', stripText: '#881337',
-            stripAnchor: '#be123c', stripCut: '#e11d48'
+            outerFill: '#cffafe', outerStroke: '#0891b2', outerText: '#083344',
+            outerAnchor: '#0e7490', outerCut: '#0891b2', outerCross: '#0e7490',
+            innerFill: '#ffe4e6', innerStroke: '#e11d48', innerText: '#881337',
+            innerAnchor: '#be123c', innerCut: '#e11d48', innerCross: '#be123c'
           },
           'cyber-dark': {
             sheet: '#ffffff',
-            wheelOuterFill: '#dbeafe', wheelInnerFill: '#e0f2fe',
-            wheelOuterStroke: '#2563eb', wheelInnerStroke: '#0891b2', wheelText: '#1e3a5f',
-            wheelAnchor: '#1d4ed8', wheelCut: '#2563eb', cross: '#1e40af',
-            stripOuterFill: '#fee2e2', stripInnerFill: '#ffe4e6',
-            stripOuterStroke: '#dc2626', stripInnerStroke: '#be123c', stripText: '#7f1d1d',
-            stripAnchor: '#9f1239', stripCut: '#dc2626'
+            outerFill: '#dbeafe', outerStroke: '#2563eb', outerText: '#1e3a5f',
+            outerAnchor: '#1d4ed8', outerCut: '#2563eb', outerCross: '#1e40af',
+            innerFill: '#fee2e2', innerStroke: '#dc2626', innerText: '#7f1d1d',
+            innerAnchor: '#9f1239', innerCut: '#dc2626', innerCross: '#9f1239'
           }
         };
         const p = palettes[theme] || palettes.classic;
@@ -4090,10 +4082,10 @@ ${webFontStyle}  <!-- Printable sheet -->
           return out;
         }
 
-        function buildCross() {
+        function buildCross(crossColor) {
           if (!showCross) return '';
           return `
-            <g stroke="${p.cross}" stroke-width="2.2" stroke-linecap="round" fill="none">
+            <g stroke="${crossColor}" stroke-width="2.2" stroke-linecap="round" fill="none">
               <line x1="-18" y1="0" x2="18" y2="0" />
               <line x1="0" y1="-18" x2="0" y2="18" />
               <circle cx="0" cy="0" r="6" stroke-width="1.6" />
@@ -4106,18 +4098,21 @@ ${webFontStyle}  <!-- Printable sheet -->
           const rInner = isOuter ? 177 : 106;
           const rText = isOuter ? 211 : 139;
           const fontPx = isOuter ? 21 : 18;
-          const baseFill = isOuter ? p.wheelOuterFill : p.wheelInnerFill;
-          const baseStroke = isOuter ? p.wheelOuterStroke : p.wheelInnerStroke;
-          const textFill = p.wheelText;
+          const baseFill = isOuter ? p.outerFill : p.innerFill;
+          const baseStroke = isOuter ? p.outerStroke : p.innerStroke;
+          const textFill = isOuter ? p.outerText : p.innerText;
+          const anchorFill = isOuter ? p.outerAnchor : p.innerAnchor;
+          const cutColor = isOuter ? p.outerCut : p.innerCut;
+          const crossColor = isOuter ? p.outerCross : p.innerCross;
           const id = isOuter ? 'outer-wheel-disc' : 'inner-wheel-disc';
 
           let g = `<g id="${id}" transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${SCALE.toFixed(6)})">`;
           if (showCut) {
-            g += `<circle cx="0" cy="0" r="${rOuter + 7}" fill="none" stroke="${p.wheelCut}" stroke-width="1.6" stroke-dasharray="7 5" />`;
+            g += `<circle cx="0" cy="0" r="${rOuter + 7}" fill="none" stroke="${cutColor}" stroke-width="1.6" stroke-dasharray="7 5" />`;
           }
           g += `<circle cx="0" cy="0" r="${rOuter}" fill="${baseFill}" stroke="${baseStroke}" stroke-width="3" />`;
-          g += buildRing(rOuter, rInner, rText, fontPx, baseFill, baseStroke, textFill, p.wheelAnchor);
-          g += buildCross();
+          g += buildRing(rOuter, rInner, rText, fontPx, baseFill, baseStroke, textFill, anchorFill);
+          g += buildCross(crossColor);
           g += `</g>`;
           return g;
         }
@@ -4125,27 +4120,29 @@ ${webFontStyle}  <!-- Printable sheet -->
         function buildStrip(kind, x) {
           if (!showStrips) return '';
           const isCipher = kind === 'cipher';
-          const fill = isCipher ? p.stripOuterFill : p.stripInnerFill;
-          const stroke = isCipher ? p.stripOuterStroke : p.stripInnerStroke;
-          const textFill = p.stripText;
+          const fill = isCipher ? p.outerFill : p.innerFill;
+          const stroke = isCipher ? p.outerStroke : p.innerStroke;
+          const textFill = isCipher ? p.outerText : p.innerText;
+          const anchorFill = isCipher ? p.outerAnchor : p.innerAnchor;
+          const cutColor = isCipher ? p.outerCut : p.innerCut;
           const id = isCipher ? 'cipher-alphabet-strip' : 'decode-alphabet-strip';
           const textX = x + STRIP_W / 2;
 
           let g = `<g id="${id}">`;
           if (showCut) {
-            g += `<rect x="${x - 2}" y="${STRIP_Y - 2}" width="${STRIP_W + 4}" height="${STRIP_H + 4}" rx="2.4" fill="none" stroke="${p.stripCut}" stroke-width="0.5" stroke-dasharray="3 2" />`;
+            g += `<rect x="${x - 2}" y="${STRIP_Y - 2}" width="${STRIP_W + 4}" height="${STRIP_H + 4}" rx="2.4" fill="none" stroke="${cutColor}" stroke-width="0.5" stroke-dasharray="3 2" />`;
           }
 
           for (let i = 0; i < STRIP_ROWS; i++) {
             const y = STRIP_Y + i * STRIP_CELL_H;
             const letter = ALPHABET[i % ALPHABET.length];
             const isAnchor = letter === 'A';
-            const cellStroke = isAnchor ? p.stripAnchor : stroke;
+            const cellStroke = isAnchor ? anchorFill : stroke;
             const cellStrokeWidth = isAnchor ? '0.7' : '0.4';
             const baselineY = y + STRIP_CELL_H / 2 + STRIP_FONT * 0.35;
 
             g += `<rect x="${x}" y="${y.toFixed(2)}" width="${STRIP_W}" height="${STRIP_CELL_H.toFixed(2)}" rx="1.6" fill="${fill}" stroke="${cellStroke}" stroke-width="${cellStrokeWidth}" />`;
-            g += `<text x="${textX}" y="${baselineY.toFixed(2)}" text-anchor="middle" font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="${STRIP_FONT}" fill="${isAnchor ? p.stripAnchor : textFill}">${letter}</text>`;
+            g += `<text x="${textX}" y="${baselineY.toFixed(2)}" text-anchor="middle" font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="${STRIP_FONT}" fill="${isAnchor ? anchorFill : textFill}">${letter}</text>`;
           }
           g += `</g>`;
           return g;
