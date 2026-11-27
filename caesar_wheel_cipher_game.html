@@ -1808,6 +1808,9 @@
         <button id="btn-reset-wheels" class="mech-btn" type="button" title="Reset alphabet alignment back to A — A">
           <span>↺</span> Reset
         </button>
+        <button id="btn-wheel-discs" class="mech-btn" type="button" title="Print outer and inner cipher discs on A4 paper">
+          <span>🌀</span> Discs
+        </button>
         <button id="btn-sound" class="mech-btn icon-only" type="button" title="Toggle Sound Effects">
           🔊
         </button>
@@ -2105,6 +2108,72 @@
             </button>
             <button id="btn-copy-svg" class="mech-btn" type="button">
               <span>📋</span> Copy SVG
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL 1b: PRINTABLE PHYSICAL WHEEL DISCS (A4)
+       ======================================================================== -->
+  <div id="wheel-discs-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="wheel-discs-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="wheel-discs-modal-title">
+          <span>🌀</span> PRINTABLE WHEEL DISCS (A4)
+        </div>
+        <button id="btn-close-wheel-discs" class="mech-btn icon-only" type="button" title="Close wheel discs">✕</button>
+      </div>
+
+      <div class="modal-split-body">
+        <div class="modal-preview-pane">
+          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">
+            LIVE A4 PRINT PREVIEW
+          </div>
+          <div class="svg-sheet-frame" id="wheel-discs-preview"></div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); text-align: center; font-weight: 600;">
+            Print at <strong>100% / actual size</strong>. Do not use “Fit to page”.
+          </div>
+        </div>
+
+        <div class="modal-controls-pane">
+          <div class="form-group">
+            <label class="form-label" for="wheel-discs-theme-select">Disc Style</label>
+            <select id="wheel-discs-theme-select" class="form-select">
+              <option value="classic">🏛️ Classic Brass &amp; Parchment</option>
+              <option value="classic-dark">🌙 Classic Brass &amp; Obsidian</option>
+              <option value="cyber">⚡ Cyber Hacking Terminal</option>
+              <option value="cyber-dark">🛰️ Cyber Hacking Neon</option>
+            </select>
+          </div>
+
+          <div class="toggle-list">
+            <label class="toggle-row">
+              <span>Show cut guides</span>
+              <input id="wheel-discs-toggle-cut" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Show center cross marks</span>
+              <input id="wheel-discs-toggle-cross" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Show 20 mm scale bar</span>
+              <input id="wheel-discs-toggle-scale" type="checkbox" checked />
+            </label>
+          </div>
+
+          <div class="modal-info-pill">
+            Outer disc Ø 144 mm · Inner disc Ø ~102 mm. Cut both out, align the + marks, then stack the smaller disc on top and secure the center.
+          </div>
+
+          <div class="modal-actions-row">
+            <button id="btn-download-wheel-discs" class="mech-btn primary" type="button">
+              <span>⬇️</span> Download A4 SVG
+            </button>
+            <button id="btn-print-wheel-discs" class="mech-btn" type="button">
+              <span>🖨️</span> Print / Save PDF
             </button>
           </div>
         </div>
@@ -2607,6 +2676,7 @@
         btnRemovePuzzle: document.getElementById('btn-remove-puzzle'),
         btnNewPuzzle: document.getElementById('btn-new-puzzle'),
         btnResetWheels: document.getElementById('btn-reset-wheels'),
+        btnWheelDiscs: document.getElementById('btn-wheel-discs'),
         btnSound: document.getElementById('btn-sound'),
         btnTheme: document.getElementById('btn-theme'),
 
@@ -2671,6 +2741,17 @@
         btnDownloadSvg: document.getElementById('btn-download-svg'),
         btnPrintSvg: document.getElementById('btn-print-svg'),
         btnCopySvg: document.getElementById('btn-copy-svg'),
+
+        // Printable Wheel Discs Modal
+        wheelDiscsModal: document.getElementById('wheel-discs-modal'),
+        btnCloseWheelDiscs: document.getElementById('btn-close-wheel-discs'),
+        wheelDiscsPreview: document.getElementById('wheel-discs-preview'),
+        wheelDiscsThemeSelect: document.getElementById('wheel-discs-theme-select'),
+        wheelDiscsToggleCut: document.getElementById('wheel-discs-toggle-cut'),
+        wheelDiscsToggleCross: document.getElementById('wheel-discs-toggle-cross'),
+        wheelDiscsToggleScale: document.getElementById('wheel-discs-toggle-scale'),
+        btnDownloadWheelDiscs: document.getElementById('btn-download-wheel-discs'),
+        btnPrintWheelDiscs: document.getElementById('btn-print-wheel-discs'),
 
         // Custom Code Modal
         customModal: document.getElementById('custom-modal'),
@@ -3893,6 +3974,223 @@ ${webFontStyle}  <!-- Printable sheet -->
   ${bodySvg}
 </svg>`;
       }
+
+      // Physical paper discs: one A4 SVG page with two separately cuttable rings.
+      function generateWheelDiscsSvg(opts) {
+        const theme = String(opts.theme || 'classic');
+        const showCut = Boolean(opts.showCut);
+        const showCross = Boolean(opts.showCross);
+        const showScale = Boolean(opts.showScale);
+
+        const palettes = {
+          classic: {
+            sheet: '#ffffff', ink: '#231d16', muted: '#574836', cut: '#8c621c',
+            outerFill: '#272019', outerStroke: '#d4a64a', outerText: '#fde68a',
+            innerFill: '#fdf8ee', innerStroke: '#8c621c', innerText: '#231d16',
+            anchor: '#b45309', cross: '#b91c1c'
+          },
+          'classic-dark': {
+            sheet: '#ffffff', ink: '#231d16', muted: '#574836', cut: '#8c621c',
+            outerFill: '#17130f', outerStroke: '#d4a64a', outerText: '#fde68a',
+            innerFill: '#2c241c', innerStroke: '#b58632', innerText: '#f7f1e3',
+            anchor: '#fbbf24', cross: '#dc2626'
+          },
+          cyber: {
+            sheet: '#ffffff', ink: '#083344', muted: '#155e75', cut: '#0891b2',
+            outerFill: '#082f49', outerStroke: '#06b6d4', outerText: '#a5f3fc',
+            innerFill: '#cffafe', innerStroke: '#0891b2', innerText: '#083344',
+            anchor: '#0e7490', cross: '#be123c'
+          },
+          'cyber-dark': {
+            sheet: '#ffffff', ink: '#083344', muted: '#155e75', cut: '#0891b2',
+            outerFill: '#0b1220', outerStroke: '#00f5d4', outerText: '#67e8f9',
+            innerFill: '#0e2439', innerStroke: '#38bdf8', innerText: '#e0f2fe',
+            anchor: '#39ff14', cross: '#f43f5e'
+          }
+        };
+        const p = palettes[theme] || palettes.classic;
+
+        const PAGE_W = 210;
+        const PAGE_H = 297;
+        const OUTER_D = 144;
+        const SCALE = OUTER_D / 488;
+        const OUTER_R = 244 * SCALE;
+        const INNER_R = 172 * SCALE;
+        const OUTER_CX = PAGE_W / 2;
+        const OUTER_CY = 29 + OUTER_R;
+        const INNER_CY = 183 + INNER_R;
+
+        // Keep exported SVG self-contained offline; load display fonts only when deployed.
+        const isOnline = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
+        const webFontStyle = isOnline
+          ? `  <style>@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&amp;family=JetBrains+Mono:wght@700;800&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap');</style>\n`
+          : '';
+
+        function buildRing(rOuter, rInner, rText, fontPx, fill, stroke, textFill, anchorFill) {
+          let out = '';
+          for (let i = 0; i < 26; i++) {
+            const centerAngleDeg = -90 + i * STEP_DEG;
+            const startRad = ((centerAngleDeg - STEP_DEG / 2) * Math.PI) / 180;
+            const endRad = ((centerAngleDeg + STEP_DEG / 2) * Math.PI) / 180;
+
+            const x1Out = rOuter * Math.cos(startRad);
+            const y1Out = rOuter * Math.sin(startRad);
+            const x2Out = rOuter * Math.cos(endRad);
+            const y2Out = rOuter * Math.sin(endRad);
+            const x2In = rInner * Math.cos(endRad);
+            const y2In = rInner * Math.sin(endRad);
+            const x1In = rInner * Math.cos(startRad);
+            const y1In = rInner * Math.sin(startRad);
+
+            const d = [
+              `M ${x1Out.toFixed(2)} ${y1Out.toFixed(2)}`,
+              `A ${rOuter} ${rOuter} 0 0 1 ${x2Out.toFixed(2)} ${y2Out.toFixed(2)}`,
+              `L ${x2In.toFixed(2)} ${y2In.toFixed(2)}`,
+              `A ${rInner} ${rInner} 0 0 0 ${x1In.toFixed(2)} ${y1In.toFixed(2)}`,
+              'Z'
+            ].join(' ');
+
+            out += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="1.4" />`;
+
+            const textRad = (centerAngleDeg * Math.PI) / 180;
+            const tx = rText * Math.cos(textRad);
+            const ty = rText * Math.sin(textRad);
+            // Explicit baseline instead of dominant-baseline for Word/PowerPoint compatibility.
+            const baselineY = ty + fontPx * 0.35;
+            const rotation = centerAngleDeg + 90;
+            const charFill = i === 0 ? anchorFill : textFill;
+
+            out += `<text x="${tx.toFixed(2)}" y="${baselineY.toFixed(2)}" text-anchor="middle" `
+              + `font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="${fontPx}" `
+              + `fill="${charFill}" transform="rotate(${rotation.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)})">${ALPHABET[i]}</text>`;
+          }
+          return out;
+        }
+
+        function buildCross() {
+          if (!showCross) return '';
+          return `
+            <g stroke="${p.cross}" stroke-width="2.2" stroke-linecap="round" fill="none">
+              <line x1="-18" y1="0" x2="18" y2="0" />
+              <line x1="0" y1="-18" x2="0" y2="18" />
+              <circle cx="0" cy="0" r="6" stroke-width="1.6" />
+            </g>`;
+        }
+
+        function buildDisc(kind, cx, cy) {
+          const isOuter = kind === 'outer';
+          const rOuter = isOuter ? 244 : 172;
+          const rInner = isOuter ? 177 : 106;
+          const rText = isOuter ? 211 : 139;
+          const fontPx = isOuter ? 21 : 18;
+          const baseFill = isOuter ? p.outerFill : p.innerFill;
+          const baseStroke = isOuter ? p.outerStroke : p.innerStroke;
+          const textFill = isOuter ? p.outerText : p.innerText;
+          const id = isOuter ? 'outer-wheel-disc' : 'inner-wheel-disc';
+
+          let g = `<g id="${id}" transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${SCALE.toFixed(6)})">`;
+          if (showCut) {
+            g += `<circle cx="0" cy="0" r="${rOuter + 7}" fill="none" stroke="${p.cut}" stroke-width="1.6" stroke-dasharray="7 5" />`;
+          }
+          g += `<circle cx="0" cy="0" r="${rOuter}" fill="${baseFill}" stroke="${baseStroke}" stroke-width="3" />`;
+          g += buildRing(rOuter, rInner, rText, fontPx, baseFill, baseStroke, textFill, p.anchor);
+          if (showCut) {
+            g += `<circle cx="0" cy="0" r="${rInner}" fill="none" stroke="${p.cut}" stroke-width="1" stroke-dasharray="5 4" opacity="0.65" />`;
+          }
+          g += buildCross();
+          g += `</g>`;
+          return g;
+        }
+
+        const scaleBar = showScale ? `
+          <g stroke="${p.ink}" stroke-width="0.5">
+            <line x1="12" y1="289" x2="32" y2="289" />
+            <line x1="12" y1="287.5" x2="12" y2="290.5" />
+            <line x1="32" y1="287.5" x2="32" y2="290.5" />
+          </g>
+          <text x="22" y="294.2" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-weight="800" font-size="4.2" fill="${p.ink}">20 mm</text>` : '';
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${PAGE_W}mm" height="${PAGE_H}mm" viewBox="0 0 ${PAGE_W} ${PAGE_H}">
+${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${p.sheet}" />
+
+  <text x="12" y="14" font-family="Cinzel, Georgia, serif" font-weight="900" font-size="8" fill="${p.ink}">⚙ CAESAR WHEEL — PRINTABLE DISCS</text>
+  <text x="${PAGE_W - 12}" y="14" text-anchor="end" font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="6" fill="${p.muted}">A4 · 100% ACTUAL SIZE</text>
+  <text x="12" y="20" font-family="Plus Jakarta Sans, Arial, sans-serif" font-weight="700" font-size="5" fill="${p.muted}">Cut out both circles, align the + marks, and stack the smaller disc on top.</text>
+
+  <text x="${OUTER_CX}" y="25.5" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-weight="800" font-size="5.4" fill="${p.ink}">1 · OUTER RING — CUT OUT</text>
+  ${buildDisc('outer', OUTER_CX, OUTER_CY)}
+
+  <text x="${OUTER_CX}" y="179" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-weight="800" font-size="5.4" fill="${p.ink}">2 · INNER RING — CUT OUT</text>
+  ${buildDisc('inner', OUTER_CX, INNER_CY)}
+
+  ${scaleBar}
+  <text x="${PAGE_W - 12}" y="293.2" text-anchor="end" font-family="Plus Jakarta Sans, Arial, sans-serif" font-weight="700" font-size="4.6" fill="${p.muted}">Align + → secure center → rotate to decode</text>
+</svg>`;
+      }
+
+      function refreshWheelDiscsPreview() {
+        const svgMarkup = generateWheelDiscsSvg({
+          theme: dom.wheelDiscsThemeSelect.value,
+          showCut: dom.wheelDiscsToggleCut.checked,
+          showCross: dom.wheelDiscsToggleCross.checked,
+          showScale: dom.wheelDiscsToggleScale.checked
+        });
+        dom.wheelDiscsPreview.innerHTML = svgMarkup;
+        return svgMarkup;
+      }
+
+      function openWheelDiscsModal() {
+        dom.wheelDiscsThemeSelect.value = state.visualTheme + (state.darkMode ? '-dark' : '');
+        refreshWheelDiscsPreview();
+        dom.wheelDiscsModal.classList.remove('hidden');
+        sound.playTick();
+      }
+
+      function initWheelDiscsModalHandlers() {
+        dom.btnWheelDiscs.addEventListener('click', openWheelDiscsModal);
+
+        dom.btnCloseWheelDiscs.addEventListener('click', () => {
+          dom.wheelDiscsModal.classList.add('hidden');
+        });
+        dom.wheelDiscsModal.addEventListener('click', (e) => {
+          if (e.target === dom.wheelDiscsModal) dom.wheelDiscsModal.classList.add('hidden');
+        });
+
+        [
+          dom.wheelDiscsThemeSelect,
+          dom.wheelDiscsToggleCut,
+          dom.wheelDiscsToggleCross,
+          dom.wheelDiscsToggleScale
+        ].forEach((el) => {
+          el.addEventListener('input', refreshWheelDiscsPreview);
+          el.addEventListener('change', refreshWheelDiscsPreview);
+        });
+
+        dom.btnDownloadWheelDiscs.addEventListener('click', () => {
+          const svgStr = refreshWheelDiscsPreview();
+          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'caesar_wheel_printable_discs_a4.svg';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          sound.playTing();
+        });
+
+        dom.btnPrintWheelDiscs.addEventListener('click', () => {
+          const svgStr = refreshWheelDiscsPreview();
+          const win = window.open('', '_blank', 'width=900,height=900');
+          if (win) {
+            win.document.write(`<!DOCTYPE html><html><head><title>Print Caesar Wheel Discs</title><style>@page{size:A4 portrait;margin:0;}html,body{margin:0;padding:0;}svg{width:210mm;height:297mm;display:block;}<\/style></head><body>${svgStr}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+            win.document.close();
+          }
+        });
+      }
+
       function refreshExportPreview() {
         const svgMarkup = generatePrintableWorksheetSvg({
           title: dom.expTitleInput.value,
@@ -4397,6 +4695,10 @@ ${webFontStyle}  <!-- Printable sheet -->
             dom.expSvgThemeSelect.value = state.visualTheme + (state.darkMode ? '-dark' : '');
             refreshExportPreview();
           }
+          if (!dom.wheelDiscsModal.classList.contains('hidden')) {
+            dom.wheelDiscsThemeSelect.value = state.visualTheme + (state.darkMode ? '-dark' : '');
+            refreshWheelDiscsPreview();
+          }
           sound.playTick();
         });
 
@@ -4421,6 +4723,7 @@ ${webFontStyle}  <!-- Printable sheet -->
         initWheelInteractions();
         initStripInteractions();
         initExportModalHandlers();
+        initWheelDiscsModalHandlers();
         initCustomModalHandlers();
         initToolbarHandlers();
 
