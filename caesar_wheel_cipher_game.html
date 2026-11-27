@@ -1278,6 +1278,10 @@
       border-bottom: 1px solid rgba(128, 128, 128, 0.18);
     }
 
+    .odometer-window.lower-case-drum .odometer-cell {
+      text-transform: lowercase;
+    }
+
     .puzzle-box.solved .odometer-cell {
       color: var(--emerald-strong);
     }
@@ -2114,9 +2118,9 @@
           <div class="form-group">
             <label class="form-label" for="exp-plain-input">
               <span>Decrypted Answer (Plaintext)</span>
-              <span style="font-size: 0.65rem; color: var(--text-muted);">A–Z &amp; Spaces</span>
+              <span style="font-size: 0.65rem; color: var(--text-muted);">Any Characters</span>
             </label>
-            <input id="exp-plain-input" class="form-input" type="text" maxlength="42" placeholder="CAT" />
+            <input id="exp-plain-input" class="form-input" type="text" maxlength="42" placeholder="CAT or 8:30 PM!" />
           </div>
 
           <div class="form-group">
@@ -2124,7 +2128,7 @@
               <span>Encrypted Code (Top Row)</span>
               <span style="font-size: 0.65rem; color: var(--text-muted);">Auto-syncs with Key</span>
             </label>
-            <input id="exp-cipher-input" class="form-input" type="text" maxlength="42" placeholder="DBU" />
+            <input id="exp-cipher-input" class="form-input" type="text" maxlength="42" placeholder="DBU or X9#!" />
           </div>
 
           <div class="form-group">
@@ -2266,7 +2270,7 @@
         <!-- Right: Encrypt Row, Decrypt Row, Optional Key Row -->
         <div class="modal-controls-pane">
           <div class="modal-info-pill">
-            Enter <strong>Encrypt</strong> OR <strong>Decrypt</strong> (at least one is required). Key is optional—selecting a key lets you auto-align the wheel to reveal the answer!
+            Enter <strong>Encrypt</strong> OR <strong>Decrypt</strong> (at least one is required). Letters, numbers, symbols, emoji and blank spaces are all allowed — only A–Z letters are shifted by the wheel!
           </div>
 
           <div class="form-group">
@@ -2274,7 +2278,7 @@
               <span>1. Encrypt Row (Ciphertext)</span>
               <span style="font-size: 0.65rem; color: var(--text-muted);">Top Row</span>
             </label>
-            <input id="cust-cipher-input" class="form-input" type="text" maxlength="42" placeholder="e.g. KHOOR or DBU" />
+            <input id="cust-cipher-input" class="form-input" type="text" maxlength="42" placeholder="e.g. KHOOR, DBU, X9#!, or any text" />
           </div>
 
           <div class="form-group">
@@ -2282,7 +2286,7 @@
               <span>2. Decrypt Row (Plaintext)</span>
               <span style="font-size: 0.65rem; color: var(--text-muted);">Bottom Row</span>
             </label>
-            <input id="cust-plain-input" class="form-input" type="text" maxlength="42" placeholder="e.g. HELLO or CAT" />
+            <input id="cust-plain-input" class="form-input" type="text" maxlength="42" placeholder="e.g. HELLO, CAT, 8:30 PM!, or any text" />
           </div>
 
           <div class="form-group">
@@ -2636,42 +2640,48 @@
         return ((n % 26) + 26) % 26;
       }
 
+      // Custom puzzles accept any character: digits, symbols, emoji, and spaces are
+      // preserved. Only A-Z/a-z letters are shifted by the cipher wheel.
+      function normalizeCustomText(str) {
+        return String(str ?? '').replace(/[\r\n\t]+/g, ' ');
+      }
+
+      // Legacy helper name kept so every call site shares the same freeform behavior.
       function sanitizeAlphaSpace(str) {
-        return String(str || '')
-          .toUpperCase()
-          .replace(/[^A-Z ]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
+        return normalizeCustomText(str);
+      }
+
+      function getLetterIndex(ch) {
+        const first = Array.from(String(ch || ''))[0];
+        if (!first) return -1;
+        return ALPHABET.indexOf(first.toUpperCase());
+      }
+
+      function shiftText(text, shift) {
+        return Array.from(String(text || ''))
+          .map((ch) => {
+            const idx = getLetterIndex(ch);
+            if (idx < 0) return ch;
+            const shifted = ALPHABET[mod26(idx + shift)];
+            return ch === ch.toUpperCase() ? shifted : shifted.toLowerCase();
+          })
+          .join('');
+      }
+
+      function firstLetterIndex(text) {
+        for (const ch of Array.from(String(text || ''))) {
+          const idx = getLetterIndex(ch);
+          if (idx >= 0) return idx;
+        }
+        return -1;
       }
 
       function encryptText(plain, shift) {
-        const clean = sanitizeAlphaSpace(plain);
-        let out = '';
-        for (let i = 0; i < clean.length; i++) {
-          const ch = clean[i];
-          if (ch === ' ') {
-            out += ' ';
-          } else {
-            const idx = ALPHABET.indexOf(ch);
-            out += idx >= 0 ? ALPHABET[mod26(idx + shift)] : ch;
-          }
-        }
-        return out;
+        return shiftText(normalizeCustomText(plain), Number(shift) || 0);
       }
 
       function decryptText(cipher, shift) {
-        const clean = sanitizeAlphaSpace(cipher);
-        let out = '';
-        for (let i = 0; i < clean.length; i++) {
-          const ch = clean[i];
-          if (ch === ' ') {
-            out += ' ';
-          } else {
-            const idx = ALPHABET.indexOf(ch);
-            out += idx >= 0 ? ALPHABET[mod26(idx - shift)] : ch;
-          }
-        }
-        return out;
+        return shiftText(normalizeCustomText(cipher), -(Number(shift) || 0));
       }
 
       function escapeXml(str) {
@@ -3331,6 +3341,20 @@
         return { win, reel };
       }
 
+      // Non-letter characters (digits, symbols, emoji) stay fixed in the decoder row.
+      function createFixedDrum(char, slotHeightPx) {
+        const win = document.createElement('div');
+        win.className = 'odometer-window fixed-char-window';
+        win.style.height = `${slotHeightPx}px`;
+
+        const cell = document.createElement('div');
+        cell.className = 'odometer-cell';
+        cell.textContent = char;
+        win.appendChild(cell);
+
+        return win;
+      }
+
       function rollOdometerDrumTo(reel, nextIdx, animate) {
         const target = mod26(nextIdx);
         const prev = Number(reel.dataset.currentIdx || 0);
@@ -3595,20 +3619,28 @@
           const row2 = document.createElement('div');
           row2.className = 'slots-strip';
 
-          const chars = puzzle.cipher.replace(/ /g, '');
+          const chars = Array.from(puzzle.cipher).filter((ch) => ch !== ' ');
           for (let i = 0; i < chars.length; i++) {
             const cChar = chars[i];
-            const cIdx = ALPHABET.indexOf(cChar);
+            const cIdx = getLetterIndex(cChar);
 
             const plate = document.createElement('div');
             plate.className = 'cipher-plate';
             plate.textContent = cChar;
             row1.appendChild(plate);
 
-            const pIdx = mod26(cIdx - activeShift);
-            const { win, reel } = createOdometerDrum(pIdx, slotH);
-            row2.appendChild(win);
-            puzzle.drumReels.push({ reel, cipherIdx: cIdx });
+            if (cIdx >= 0) {
+              const pIdx = mod26(cIdx - activeShift);
+              const { win, reel } = createOdometerDrum(pIdx, slotH);
+              if (cChar === cChar.toLowerCase() && cChar !== cChar.toUpperCase()) {
+                win.classList.add('lower-case-drum');
+              }
+              row2.appendChild(win);
+              puzzle.drumReels.push({ reel, cipherIdx: cIdx });
+            } else {
+              row2.appendChild(createFixedDrum(cChar, slotH));
+              puzzle.drumReels.push({ reel: null, cipherIdx: null, fixedChar: cChar });
+            }
           }
 
           rowsStack.appendChild(row1);
@@ -3632,19 +3664,28 @@
             const wRow2 = document.createElement('div');
             wRow2.className = 'word-group';
 
-            for (let i = 0; i < word.length; i++) {
-              const cChar = word[i];
-              const cIdx = ALPHABET.indexOf(cChar);
+            const wordChars = Array.from(word);
+            for (let i = 0; i < wordChars.length; i++) {
+              const cChar = wordChars[i];
+              const cIdx = getLetterIndex(cChar);
 
               const plate = document.createElement('div');
               plate.className = 'cipher-plate';
               plate.textContent = cChar;
               wRow1.appendChild(plate);
 
-              const pIdx = mod26(cIdx - activeShift);
-              const { win, reel } = createOdometerDrum(pIdx, slotH);
-              wRow2.appendChild(win);
-              puzzle.drumReels.push({ reel, cipherIdx: cIdx });
+              if (cIdx >= 0) {
+                const pIdx = mod26(cIdx - activeShift);
+                const { win, reel } = createOdometerDrum(pIdx, slotH);
+                if (cChar === cChar.toLowerCase() && cChar !== cChar.toUpperCase()) {
+                  win.classList.add('lower-case-drum');
+                }
+                wRow2.appendChild(win);
+                puzzle.drumReels.push({ reel, cipherIdx: cIdx });
+              } else {
+                wRow2.appendChild(createFixedDrum(cChar, slotH));
+                puzzle.drumReels.push({ reel: null, cipherIdx: null, fixedChar: cChar });
+              }
             }
 
             wordPairCol.appendChild(wRow1);
@@ -3661,25 +3702,33 @@
           const stripRow2 = document.createElement('div');
           stripRow2.className = 'normal-sentence-strip';
 
-          const compactCipher = puzzle.compactCipher || puzzle.cipher.replace(/ /g, '');
+          const compactChars = Array.from(puzzle.compactCipher || puzzle.cipher).filter((ch) => ch !== ' ');
           const gapElsRow1 = [];
           const gapElsRow2 = [];
 
-          for (let i = 0; i < compactCipher.length; i++) {
-            const cChar = compactCipher[i];
-            const cIdx = ALPHABET.indexOf(cChar);
+          for (let i = 0; i < compactChars.length; i++) {
+            const cChar = compactChars[i];
+            const cIdx = getLetterIndex(cChar);
 
             const plate = document.createElement('div');
             plate.className = 'cipher-plate';
             plate.textContent = cChar;
             stripRow1.appendChild(plate);
 
-            const pIdx = mod26(cIdx - activeShift);
-            const { win, reel } = createOdometerDrum(pIdx, slotH);
-            stripRow2.appendChild(win);
-            puzzle.drumReels.push({ reel, cipherIdx: cIdx });
+            if (cIdx >= 0) {
+              const pIdx = mod26(cIdx - activeShift);
+              const { win, reel } = createOdometerDrum(pIdx, slotH);
+              if (cChar === cChar.toLowerCase() && cChar !== cChar.toUpperCase()) {
+                win.classList.add('lower-case-drum');
+              }
+              stripRow2.appendChild(win);
+              puzzle.drumReels.push({ reel, cipherIdx: cIdx });
+            } else {
+              stripRow2.appendChild(createFixedDrum(cChar, slotH));
+              puzzle.drumReels.push({ reel: null, cipherIdx: null, fixedChar: cChar });
+            }
 
-            if (i < compactCipher.length - 1) {
+            if (i < compactChars.length - 1) {
               const hasSpace = puzzle.solved
                 ? puzzle.expectedSpaces.has(i)
                 : puzzle.userSpaces.has(i);
@@ -3764,6 +3813,7 @@
         list.forEach((puzzle) => {
           if (puzzle.solved) return;
           puzzle.drumReels.forEach(({ reel, cipherIdx }) => {
+            if (!reel) return;
             const decodedIdx = mod26(cipherIdx - shift);
             rollOdometerDrumTo(reel, decodedIdx, animateDrums);
           });
@@ -3880,15 +3930,15 @@
 
         const MAX_COLS = 12;
         const lines = [];
-        let currCipherLine = '';
-        let currPlainLine = '';
+        let currCipherLine = [];
+        let currPlainLine = [];
 
         const cWords = displayCipher.split(' ');
         const pWords = displayPlain.split(' ');
 
         for (let w = 0; w < cWords.length; w++) {
-          const cw = cWords[w];
-          const pw = pWords[w] || cw;
+          const cw = Array.from(cWords[w]);
+          const pw = Array.from(pWords[w] || cWords[w]);
 
           if (currCipherLine.length === 0) {
             for (let idx = 0; idx < cw.length; idx += MAX_COLS) {
@@ -3902,8 +3952,8 @@
               }
             }
           } else if (currCipherLine.length + 1 + cw.length <= MAX_COLS) {
-            currCipherLine += ' ' + cw;
-            currPlainLine += ' ' + pw;
+            currCipherLine = currCipherLine.concat([' '], cw);
+            currPlainLine = currPlainLine.concat([' '], pw);
           } else {
             lines.push({ cipher: currCipherLine, plain: currPlainLine });
             currCipherLine = cw.slice(0, MAX_COLS);
@@ -4485,9 +4535,9 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
           }
         } else {
           // If both cipher & plain are entered without selecting a key, infer key automatically!
-          if (rawCipher && rawPlain && rawCipher.length === rawPlain.length) {
-            const c0 = ALPHABET.indexOf(rawCipher.replace(/ /g, '')[0]);
-            const p0 = ALPHABET.indexOf(rawPlain.replace(/ /g, '')[0]);
+          if (rawCipher && rawPlain && Array.from(rawCipher).length === Array.from(rawPlain).length) {
+            const c0 = firstLetterIndex(rawCipher);
+            const p0 = firstLetterIndex(rawPlain);
             if (c0 >= 0 && p0 >= 0) {
               const inferred = mod26(c0 - p0);
               return { cipher: rawCipher, plain: rawPlain, shift: inferred };
@@ -4527,6 +4577,7 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
         // Show live decoded preview inside the preview card if shift is chosen
         if (resolved.shift !== null) {
           previewPuzzle.drumReels.forEach(({ reel, cipherIdx }) => {
+            if (!reel) return;
             rollOdometerDrumTo(reel, mod26(cipherIdx - resolved.shift), false);
           });
         }

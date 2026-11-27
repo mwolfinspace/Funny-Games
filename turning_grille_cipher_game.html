@@ -1167,14 +1167,14 @@
           <div style="display:flex;align-items:center;gap:6px;">
             <span id="badge-mode-desc" class="badge-pill">🧸 SPACED</span>
             <button id="btn-toggle-creator" class="mech-btn primary" type="button" title="Create a Custom Challenge Sentence for Another Player">✍️ Make Puzzle</button>
-            <button id="btn-clear-inputs" class="mech-btn icon-only" type="button" title="Clear Grid to Type Custom Letters">✏️</button>
+            <button id="btn-clear-inputs" class="mech-btn icon-only" type="button" title="Clear Grid to Type Any Custom Characters">✏️</button>
           </div>
         </div>
 
         <!-- MAKE PUZZLE FROM ANY CUSTOM SENTENCE (WITH CW / CCW ENCRYPTION CHOICE) -->
         <div id="challenge-creator-box" class="challenge-creator-box hidden">
           <div class="stream-label-row">
-            <span>✍️ TYPE ANY ENGLISH SENTENCE TO CREATE A PUZZLE</span>
+            <span>✍️ TYPE ANY TEXT — LETTERS, NUMBERS &amp; SYMBOLS</span>
             <span id="creator-size-hint" style="font-family:'JetBrains Mono',monospace;color:var(--brass-text);">AUTO SIZE</span>
           </div>
           <div class="challenge-input-row">
@@ -1187,14 +1187,14 @@
             <button id="btn-close-creator" class="mech-btn icon-only" type="button" title="Close">✖️</button>
           </div>
           <div style="font-size:0.68rem;font-weight:700;color:var(--text-secondary);">
-            Auto-picks grid size (4×4–10×10), locks in your chosen turn direction (<strong>↻ CW</strong> or <strong>↺ CCW</strong>), and updates the ultra-short 🔑 Seed ID!
+            Auto-picks grid size (4×4–10×10), keeps numbers, symbols, emoji and blank spaces, locks in your chosen turn direction (<strong>↻ CW</strong> or <strong>↺ CCW</strong>), and updates the 🔑 Seed ID!
           </div>
         </div>
 
         <!-- Input Cells (1-to-1 sync with Top-Left Cipher Grid) -->
         <div>
           <div class="stream-label-row" style="margin-bottom:4px;">
-            <span>INPUT CELLS</span>
+            <span>INPUT CELLS — ANY CHARACTER</span>
             <div style="display:flex;align-items:center;gap:6px;">
               <span id="input-cell-counter" style="font-family:'JetBrains Mono',monospace;">0 / 16</span>
               <button id="btn-export-cells-svg" class="mech-btn mini-svg-btn" type="button" title="Open printable letter strip in SVG export editor">📐 SVG</button>
@@ -1281,7 +1281,7 @@
             <li><strong>Step 2 — Watch Rotation Direction:</strong> Click <strong>↻ 90°</strong> (clockwise) or <strong>↺ 90°</strong> (counter-clockwise). Turning in the wrong direction scrambles the word order and will <strong>not</strong> pass!</li>
             <li><strong>Step 3 — Collect All 4 Turns & Check:</strong> After 4 turns (<code>T1 → T2 → T3 → T4</code>), click <strong>✅ Check</strong>. Any recognized English phrase or matching target sentence wins!</li>
             <li><strong>Ultra-Short Seed ID Mode (🗑️ Clear All):</strong> Remove individual bank cards with <strong>✖</strong> or click <strong>🗑️ Clear All</strong> to leave only the Cipher Grid! Your <strong>🔑 Seed ID</strong> shrinks to just a few characters, challenging players to deduce the Hole Grid themselves!</li>
-            <li><strong>Custom Challenge Creator (✍️ Make Puzzle):</strong> Type any English sentence, choose <strong>↻ CW</strong> or <strong>↺ CCW</strong> encryption direction, and share the compact Seed ID or <strong>📐 SVG</strong> cutouts!</li>
+            <li><strong>Custom Challenge Creator (✍️ Make Puzzle):</strong> Type any text — letters, numbers, symbols, emoji, or blank spaces — choose <strong>↻ CW</strong> or <strong>↺ CCW</strong> encryption direction, and share the Seed ID or <strong>📐 SVG</strong> cutouts!</li>
           </ol>
         </div>
 
@@ -1868,6 +1868,55 @@
           .trim();
       }
 
+      // Custom creator accepts any character: letters, digits, symbols, emoji, and blanks.
+      function normalizeFreeformSentence(str) {
+        return String(str ?? '')
+          .replace(/\r\n?/g, '\n')
+          .replace(/\t/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function toFreeformTokens(str) {
+        return Array.from(String(str ?? '')).filter((ch) => !/\s/.test(ch));
+      }
+
+      function compactFreeform(str) {
+        return toFreeformTokens(str).join('');
+      }
+
+      function encryptFreeformWithGrille(rawText, mask, N, direction = 1) {
+        const tokens = toFreeformTokens(rawText);
+        const grid = Array.from({ length: N }, () => Array(N).fill(''));
+        let ptr = 0;
+
+        for (let turn = 0; turn < 4; turn++) {
+          const rotSteps = turn * direction;
+          const rotated = rotateMaskCW(mask, N, rotSteps);
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              if (rotated[r][c] && !grid[r][c]) {
+                grid[r][c] = ptr < tokens.length
+                  ? tokens[ptr++]
+                  : ALPHABET[Math.floor(Math.random() * 26)];
+              }
+            }
+          }
+        }
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (!grid[r][c]) {
+              grid[r][c] = ptr < tokens.length
+                ? tokens[ptr++]
+                : ALPHABET[Math.floor(Math.random() * 26)];
+            }
+          }
+        }
+
+        return grid.flat();
+      }
+
       function rotateCoordCW(r, c, N) {
         return [c, N - 1 - r];
       }
@@ -2109,7 +2158,85 @@
         return out;
       }
 
+      // Extended seed keeps any single Unicode character per cell (digits, symbols,
+      // emoji, lowercase). 'TG2"' cannot appear in a classic base91 seed.
+      function encodeExtendedSeedId(N, cipherCells, bankGrilles, encryptDir = 1) {
+        const bw = new BitWriter();
+        const masksToPack = (bankGrilles || []).slice(0, 15);
+
+        bw.write((N - 2) & 0x0F, 4);
+        bw.write(masksToPack.length & 0x0F, 4);
+        bw.write(encryptDir === -1 ? 1 : 0, 1);
+        bw.write(1, 1); // extended character mode
+
+        for (let i = 0; i < N * N; i++) {
+          const first = Array.from(String(cipherCells[i] || ''))[0] || '';
+          const code = first ? first.codePointAt(0) : 0;
+          bw.write(code > 0 && code <= 0x10FFFF ? code : 0, 21);
+        }
+
+        for (const g of masksToPack) {
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              bw.write(g.mask[r][c] ? 1 : 0, 1);
+            }
+          }
+        }
+
+        return 'TG2"' + bytesToBase91(bw.finish());
+      }
+
+      function decodeExtendedSeedId(payload) {
+        const bytes = base91ToBytes(payload);
+        if (!bytes || bytes.length < 2) return null;
+
+        const br = new BitReader(bytes);
+        const nRaw = br.read(4);
+        const maskCount = br.read(4);
+        const dirBit = br.read(1);
+        const modeBit = br.read(1);
+        if (nRaw === null || maskCount === null || dirBit === null || modeBit !== 1) return null;
+
+        const N = nRaw + 2;
+        if (N < 4 || N > 10) return null;
+
+        const cipherCells = Array(N * N).fill('');
+        for (let i = 0; i < N * N; i++) {
+          const code = br.read(21);
+          if (code === null) return null;
+          if (code === 0) continue;
+          try {
+            cipherCells[i] = String.fromCodePoint(code);
+          } catch (err) {
+            cipherCells[i] = '';
+          }
+        }
+
+        const masks = [];
+        for (let m = 0; m < maskCount; m++) {
+          const mask = Array.from({ length: N }, () => Array(N).fill(false));
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              const bit = br.read(1);
+              if (bit === null) return null;
+              mask[r][c] = bit === 1;
+            }
+          }
+          masks.push(mask);
+        }
+
+        return { N, cipherCells, masks, encryptDir: dirBit === 1 ? -1 : 1, freeform: true };
+      }
+
       function encodeSeedId(N, cipherCells, bankGrilles, encryptDir = 1) {
+        const needsExtended = cipherCells.some((ch) => {
+          const first = Array.from(String(ch || ''))[0] || '';
+          return Boolean(first) && !/^[A-Z]$/.test(first);
+        });
+        if (needsExtended) {
+          return encodeExtendedSeedId(N, cipherCells, bankGrilles, encryptDir);
+        }
+
         const bw = new BitWriter();
         const masksToPack = (bankGrilles || []).slice(0, 15);
         const totalCells = N * N;
@@ -2148,6 +2275,10 @@
       function decodeSeedId(seedStr) {
         const cleaned = String(seedStr || '').trim().replace(/^💾:\s*/i, '');
         if (!cleaned) return null;
+
+        if (cleaned.startsWith('TG2"')) {
+          return decodeExtendedSeedId(cleaned.slice(4));
+        }
 
         // Legacy compatibility
         if (cleaned.includes('.')) {
@@ -2463,7 +2594,7 @@
         }
 
         letters.forEach((raw, i) => {
-          const ch = String(raw).trim().toUpperCase();
+          const ch = String(raw);
           const x = margin + i * (cellSize + gap);
           const y = margin;
 
@@ -2896,10 +3027,10 @@
       }
 
       function startCustomSentenceChallenge(rawSentence) {
-        const normalizedSpaced = normalizeSpacedSentence(rawSentence);
-        const lettersOnly = sanitizeLetters(normalizedSpaced);
+        const normalizedSpaced = normalizeFreeformSentence(rawSentence);
+        const tokens = toFreeformTokens(normalizedSpaced);
 
-        if (lettersOnly.length < 2) {
+        if (tokens.length < 2) {
           sfx.errorSound();
           dom.inputCustomSentence.classList.remove('shake');
           void dom.inputCustomSentence.offsetWidth;
@@ -2907,8 +3038,8 @@
           return;
         }
 
-        const clampedLetters = lettersOnly.slice(0, 100);
-        const N = computeOptimalGridSizeForLetters(clampedLetters.length);
+        const clampedTokens = tokens.slice(0, 100);
+        const N = computeOptimalGridSizeForLetters(clampedTokens.length);
         state.N = N;
         dom.inputGridSize.value = String(N);
         dom.spanSizeDisplay.textContent = `×${N}`;
@@ -2919,11 +3050,11 @@
         state.encryptDir = state.creatorEncryptDir; // Lock puzzle to chosen CW (1) or CCW (-1) direction!
 
         const solutionMask = generateValidGrilleMask(N);
-        state.cipherCells = encryptWithGrille(normalizedSpaced, solutionMask, N, state.encryptDir);
+        state.cipherCells = encryptFreeformWithGrille(normalizedSpaced, solutionMask, N, state.encryptDir);
         state.isLocked = true;
 
         state.designerMask = Array.from({ length: N }, () => Array(N).fill(false));
-        state.bankGrilles = buildBankOfGrilles(N, solutionMask, state.cipherCells, clampedLetters, state.encryptDir);
+        state.bankGrilles = buildBankOfGrilles(N, solutionMask, state.cipherCells, clampedTokens.join(''), state.encryptDir);
 
         unmountActiveGrille(false);
         syncSeedInput();
@@ -3042,7 +3173,12 @@
       // ======================================================================
       function findMatchedEnglishPhrase(rawDecoded) {
         if (!rawDecoded) return null;
-        // 1. Check against active puzzle's target sentence (exact letter sequence)
+        // 1. Check against active puzzle's target (exact characters, including numbers/symbols).
+        const expectedFreeform = compactFreeform(state.targetPlainSpaced);
+        if (expectedFreeform.length >= 2 && rawDecoded.startsWith(expectedFreeform)) {
+          return state.targetPlainSpaced;
+        }
+
         const expectedCompact = sanitizeLetters(state.targetPlainSpaced);
         if (expectedCompact.length >= 2 && rawDecoded.startsWith(expectedCompact)) {
           return state.targetPlainSpaced;
@@ -3081,7 +3217,7 @@
           dom.victoryTitle.textContent = '🎉 SECRET PHRASE DECODED!';
           dom.victoryPhraseText.textContent = `"${matchedPhrase}"`;
           dom.victoryBanner.classList.add('show');
-          dom.decodeStatusHint.innerHTML = `<span style="color:var(--emerald-strong);font-weight:900;">✅ Matched: "${matchedPhrase}"!</span>`;
+          dom.decodeStatusHint.innerHTML = `<span style="color:var(--emerald-strong);font-weight:900;">✅ Matched: "${escapeXml(matchedPhrase)}"!</span>`;
         } else {
           sfx.errorSound();
           dom.decodedSlotsContainer.parentElement.classList.remove('shake');
@@ -3213,16 +3349,15 @@
           if (state.cipherCells[i]) filledCount++;
           const inp = document.createElement('input');
           inp.type = 'text';
-          inp.maxLength = 1;
           inp.className = 'grid-input-cell';
           inp.value = state.cipherCells[i] || '';
           inp.disabled = state.isLocked;
           inp.dataset.idx = String(i);
-          inp.title = `Cell [${Math.floor(i / N) + 1}, ${(i % N) + 1}]`;
+          inp.title = `Cell [${Math.floor(i / N) + 1}, ${(i % N) + 1}] — any single character`;
 
           inp.addEventListener('input', (e) => {
-            const val = sanitizeLetters(e.target.value);
-            state.cipherCells[i] = val ? val[0] : '';
+            const val = Array.from(e.target.value)[0] || '';
+            state.cipherCells[i] = val;
             e.target.value = state.cipherCells[i];
             sfx.tick(480);
             renderLeftBoards();
@@ -3531,12 +3666,12 @@
           sfx.tick(440);
         });
         dom.inputCustomSentence.addEventListener('input', () => {
-          const letters = sanitizeLetters(dom.inputCustomSentence.value);
-          if (!letters.length) {
+          const tokens = toFreeformTokens(dom.inputCustomSentence.value);
+          if (!tokens.length) {
             dom.creatorSizeHint.textContent = 'AUTO SIZE';
           } else {
-            const reqN = computeOptimalGridSizeForLetters(letters.length);
-            dom.creatorSizeHint.textContent = `${letters.length} LETTERS → ${reqN}×${reqN}`;
+            const reqN = computeOptimalGridSizeForLetters(tokens.length);
+            dom.creatorSizeHint.textContent = `${tokens.length} CHARACTERS → ${reqN}×${reqN}`;
           }
         });
         dom.inputCustomSentence.addEventListener('keydown', (e) => {
