@@ -1,0 +1,4625 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Dot Grid Geometry Studio &amp; Pick's Theorem Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --panel-bg: rgba(255, 255, 255, 0.92);
+      --panel-border: rgba(15, 23, 42, 0.12);
+      --panel-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+      --btn-bg: #ffffff;
+      --btn-hover: #f1f5f9;
+      --btn-border: #cbd5e1;
+      --btn-text: #1e293b;
+      --accent: #1d8f70;
+      --accent-dark: #157259;
+      --accent-soft: rgba(29, 143, 112, 0.12);
+      --rose: #e11d68;
+      --danger: #dc2626;
+      --muted: #64748b;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f6fb;
+      color: var(--btn-text);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    /* Fullscreen Interactive Canvas */
+    #mainCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    /* Glassmorphic Floating Panels */
+    .panel {
+      position: fixed;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--panel-shadow);
+      border-radius: var(--radius);
+      z-index: 20;
+    }
+
+    /* Generic Crisp Buttons */
+    .btn {
+      appearance: none;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      min-height: 36px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      white-space: nowrap;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--btn-hover);
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 3px 10px rgba(29, 143, 112, 0.28);
+    }
+
+    .btn.active:hover {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn.primary:hover {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+    }
+
+    .btn.danger {
+      color: var(--danger);
+      border-color: #fecaca;
+      background: #fff5f5;
+    }
+
+    .btn.danger:hover {
+      background: #fee2e2;
+      border-color: #f87171;
+    }
+
+    .btn.icon-only {
+      min-width: 36px;
+      padding: 6px 8px;
+      font-size: 15px;
+    }
+
+    .btn.sm {
+      min-height: 30px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .divider {
+      width: 1px;
+      height: 24px;
+      background: rgba(15, 23, 42, 0.12);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* Top Floating Toolbar */
+    #topToolbar {
+      top: 10px;
+      left: 10px;
+      max-width: calc(100vw - 310px);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 30;
+    }
+
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .toolbar-collapse-btn {
+      display: none;
+    }
+
+    /* Select Filter Sub-bar */
+    #selectFilterBar {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 6px;
+      background: rgba(29, 143, 112, 0.08);
+      border: 1px solid rgba(29, 143, 112, 0.22);
+      border-radius: 8px;
+    }
+
+    #selectFilterBar.visible {
+      display: inline-flex;
+    }
+
+    #drawModeBar {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 6px;
+      background: rgba(225, 29, 104, 0.07);
+      border: 1px solid rgba(225, 29, 104, 0.2);
+      border-radius: 8px;
+    }
+
+    #drawModeBar.visible {
+      display: inline-flex;
+    }
+
+    /* Swatch Buttons */
+    .swatch-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .swatch-btn {
+      width: 30px;
+      height: 30px;
+      min-height: 30px;
+      min-width: 30px;
+      border-radius: 999px;
+      border: 2px solid rgba(15, 23, 42, 0.26);
+      padding: 0;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.15s ease;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.7);
+    }
+
+    .swatch-btn:hover {
+      transform: scale(1.08);
+    }
+
+    .hidden-color-input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+
+    /* Line Width Visual Pills 1..5 */
+    .width-group {
+      display: inline-flex;
+      align-items: center;
+      background: #f1f5f9;
+      border: 1px solid var(--btn-border);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .width-pill {
+      appearance: none;
+      border: none;
+      background: transparent;
+      width: 28px;
+      height: 30px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s ease;
+    }
+
+    .width-pill:hover {
+      background: rgba(15, 23, 42, 0.08);
+    }
+
+    .width-pill.active {
+      background: var(--accent);
+    }
+
+    .width-pill span {
+      display: block;
+      width: 16px;
+      border-radius: 99px;
+      background: #334155;
+    }
+
+    .width-pill.active span {
+      background: #ffffff;
+    }
+
+    /* Top-Right Pick's Theorem & Area Inspector HUD */
+    #inspectorHud {
+      top: 10px;
+      right: 10px;
+      width: 286px;
+      max-width: calc(100vw - 20px);
+      overflow: hidden;
+      z-index: 28;
+    }
+
+    .hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(248, 250, 252, 0.7);
+      cursor: pointer;
+    }
+
+    .hud-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #0f172a;
+    }
+
+    .hud-body {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12.5px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    #inspectorHud.collapsed .hud-body {
+      display: none;
+    }
+
+    #inspectorHud.collapsed .hud-header {
+      border-bottom: none;
+    }
+
+    .stat-card {
+      background: #f8fafc;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 9px;
+      padding: 8px 10px;
+    }
+
+    .area-big {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .area-unit {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .pick-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    .pick-badge.ok {
+      background: rgba(22, 163, 74, 0.14);
+      color: #15803d;
+    }
+
+    .pick-badge.warn {
+      background: rgba(245, 158, 11, 0.16);
+      color: #b45309;
+    }
+
+    .pick-badge.neutral {
+      background: rgba(100, 116, 139, 0.13);
+      color: #475569;
+    }
+
+    .pick-formula-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: #ffffff;
+      border: 1px dashed rgba(29, 143, 112, 0.45);
+      border-radius: 7px;
+      padding: 7px 9px;
+      color: #0f172a;
+      line-height: 1.5;
+    }
+
+    .dot-legend {
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .hud-hint {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.4;
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+      padding-top: 7px;
+    }
+
+    /* Bottom-Left Utility Dock */
+    #bottomDock {
+      left: 10px;
+      bottom: 10px;
+      padding: 6px 8px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      max-width: calc(100vw - 20px);
+      z-index: 26;
+    }
+
+    #zoomLabel {
+      font-size: 12px;
+      font-weight: 700;
+      min-width: 44px;
+      text-align: center;
+      color: #334155;
+    }
+
+    /* Bottom-Center Draft Controls (Touch & Keyboard Friendly) */
+    #draftActionBar {
+      position: fixed;
+      left: 50%;
+      bottom: 66px;
+      transform: translateX(-50%);
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      z-index: 35;
+    }
+
+    #draftActionBar.visible {
+      display: flex;
+    }
+
+    /* Mini Floating Context Toolbar Near Selection */
+    #miniToolbar {
+      position: fixed;
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      padding: 6px;
+      z-index: 40;
+      max-width: min(460px, calc(100vw - 16px));
+      border: 1px solid rgba(29, 143, 112, 0.35);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+    }
+
+    #miniToolbar.visible {
+      display: flex;
+    }
+
+    #miniColorPopover {
+      position: fixed;
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      width: 224px;
+      z-index: 45;
+    }
+
+    #miniColorPopover.visible {
+      display: flex;
+    }
+
+    .palette-chip {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 2px solid rgba(15, 23, 42, 0.16);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    .palette-chip:hover {
+      transform: scale(1.14);
+    }
+
+    /* Quick Palette Popover for Top Toolbar */
+    #topPalettePopover {
+      position: fixed;
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      width: 228px;
+      z-index: 46;
+    }
+
+    #topPalettePopover.visible {
+      display: flex;
+    }
+
+    /* Custom Modal Backdrop & Dialogs */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.54);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      z-index: 100;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.32);
+      width: min(940px, 100%);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalIn 0.16s ease-out;
+    }
+
+    .modal-card.narrow {
+      width: min(540px, 100%);
+    }
+
+    .modal-card.confirm-card {
+      width: min(390px, 100%);
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(6px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-body {
+      padding: 16px 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-footer {
+      padding: 12px 18px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* SVG Studio Layout */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 16px;
+      min-height: 360px;
+    }
+
+    .svg-preview-box {
+      background: repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 50% / 18px 18px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      min-height: 290px;
+      max-height: 58vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: auto;
+      position: relative;
+    }
+
+    .svg-preview-box svg {
+      max-width: 100%;
+      max-height: 52vh;
+      width: auto;
+      height: auto;
+      filter: drop-shadow(0 6px 16px rgba(15, 23, 42, 0.14));
+    }
+
+    .studio-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 58vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .control-section {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-section-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .control-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .control-row input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .control-row input[type="color"] {
+      width: 32px;
+      height: 28px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 1px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .control-row input[type="range"] {
+      accent-color: var(--accent);
+      width: 115px;
+    }
+
+    /* Seed Modal Styles */
+    .seed-input-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .text-input {
+      flex: 1;
+      min-width: 180px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      color: #0f172a;
+      background: #f8fafc;
+      outline: none;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent);
+      background: #ffffff;
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    .preset-card {
+      text-align: left;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .preset-card:hover {
+      border-color: var(--accent);
+      background: #f0fdf9;
+      transform: translateY(-1px);
+    }
+
+    .preset-card strong {
+      font-size: 13px;
+      color: #0f172a;
+    }
+
+    .preset-card span {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    /* Floating Toast Bar */
+    #toastBar {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(15, 23, 42, 0.92);
+      color: #ffffff;
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 200;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    #toastBar.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 920px) {
+      #topToolbar {
+        max-width: calc(100vw - 20px);
+      }
+
+      #inspectorHud {
+        top: auto;
+        bottom: 62px;
+        right: 10px;
+        width: min(300px, calc(100vw - 20px));
+      }
+
+      .studio-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .studio-controls {
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .btn {
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+
+      .hide-xs {
+        display: none;
+      }
+
+      #topToolbar.compact-mobile .toolbar-row.secondary-row {
+        display: none;
+      }
+
+      .toolbar-collapse-btn {
+        display: inline-flex;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Endless Interactive Dot Grid Canvas -->
+  <canvas id="mainCanvas"></canvas>
+
+  <!-- Floating Top Toolbar -->
+  <div id="topToolbar" class="panel">
+    <div class="toolbar-row">
+      <!-- Primary Tools -->
+      <button class="btn active" data-tool="draw" title="Draw lines &amp; auto-closed shapes (click start dot to close, Enter to finish line)">
+        ✏️ <span class="hide-xs">Line/Shape</span>
+      </button>
+      <button class="btn" data-tool="dot" title="Paint or reset individual lattice dots">
+        🔵 <span class="hide-xs">Dot</span>
+      </button>
+      <button class="btn" data-tool="select" title="Click or drag marquee to select &amp; move shapes/lines/dots">
+        🖱️ <span class="hide-xs">Select</span>
+      </button>
+      <button class="btn" data-tool="eraser" title="Click or drag to erase lines/shapes or reset dot colors">
+        🧹 <span class="hide-xs">Erase</span>
+      </button>
+      <button class="btn" data-tool="pan" title="Pan the endless canvas (or use middle-mouse / 2-finger drag)">
+        ✋ <span class="hide-xs">Pan</span>
+      </button>
+
+      <!-- Contextual Mode Sub-bar for Draw Tool -->
+      <div id="drawModeBar" class="visible">
+        <button class="btn sm active" id="drawAutoCloseBtn" title="Chain points &amp; auto-close loop when clicking first dot">🔁 Loop</button>
+        <button class="btn sm" id="drawSegmentBtn" title="Draw individual 2-point segments">📏 Seg</button>
+      </div>
+
+      <!-- Contextual Filter Sub-bar for Select Tool -->
+      <div id="selectFilterBar">
+        <button class="btn sm active" data-filter="all" title="Select shapes, lines, and dots">All</button>
+        <button class="btn sm" data-filter="shape" title="Select shapes only">🔷</button>
+        <button class="btn sm" data-filter="line" title="Select lines only">➖</button>
+        <button class="btn sm" data-filter="dot" title="Select dots only">🔵</button>
+      </div>
+
+      <span class="divider"></span>
+
+      <!-- Grid Mode Toggle -->
+      <button class="btn" id="gridModeBtn" title="Switch between Square Grid (90°) and Isometric Triangular Grid (60°)">
+        ⬜ Square
+      </button>
+
+      <!-- Quick Seed & SVG Studio -->
+      <button class="btn" id="openSeedBtn" title="Share, copy, or load ultra-compact board SeedID &amp; lesson presets">
+        🌱 <span class="hide-xs">SeedID</span>
+      </button>
+      <button class="btn primary" id="openSvgBtn" title="Open Print-Ready SVG Export Studio">
+        📤 <span class="hide-xs">SVG Studio</span>
+      </button>
+
+      <button class="btn icon-only toolbar-collapse-btn" id="mobileMoreBtn" title="Show/hide style &amp; view controls">⚙️</button>
+    </div>
+
+    <!-- Second Row: Style & View Controls -->
+    <div class="toolbar-row secondary-row">
+      <!-- Active Line/Shape Color -->
+      <div class="swatch-wrap" title="Active Shape/Line Color (click for classroom palette)">
+        <span style="font-size:12px;font-weight:700;color:#475569;">🎨</span>
+        <button class="swatch-btn" id="activeColorSwatch" style="background:#e11d68;"></button>
+      </div>
+
+      <!-- Active Dot Color -->
+      <div class="swatch-wrap" title="Active Dot Color (click for palette)">
+        <span style="font-size:12px;font-weight:700;color:#475569;">🔵</span>
+        <button class="swatch-btn" id="activeDotColorSwatch" style="background:#ef4444;"></button>
+      </div>
+
+      <button class="btn sm" id="resetColorsBtn" title="Reset active drawing &amp; dot colors to default">🔄</button>
+
+      <span class="divider"></span>
+
+      <!-- 5 Line Thickness Levels (Thin -> Thick) -->
+      <div class="width-group" id="lineWidthGroup" title="Line thickness (1 thin → 5 thick)">
+        <button class="width-pill" data-width="1" title="Thin (1)"><span style="height:1.5px;"></span></button>
+        <button class="width-pill active" data-width="2" title="Regular (2)"><span style="height:2.5px;"></span></button>
+        <button class="width-pill" data-width="3" title="Medium (3)"><span style="height:4px;"></span></button>
+        <button class="width-pill" data-width="4" title="Bold (4)"><span style="height:5.5px;"></span></button>
+        <button class="width-pill" data-width="5" title="Heavy (5)"><span style="height:7.5px;"></span></button>
+      </div>
+
+      <!-- Dash Toggle -->
+      <button class="btn sm" id="dashToggleBtn" title="Toggle dashed line style">━ Solid</button>
+
+      <span class="divider"></span>
+
+      <!-- View Rotate & Flip -->
+      <button class="btn sm" id="viewRotLeftBtn" title="Rotate canvas view counter-clockwise">↺ 90°</button>
+      <button class="btn sm" id="viewRotRightBtn" title="Rotate canvas view clockwise">↻ 90°</button>
+      <button class="btn sm" id="viewFlipHBtn" title="Flip canvas view horizontally">↔️</button>
+      <button class="btn sm" id="viewFlipVBtn" title="Flip canvas view vertically">↕️</button>
+
+      <span class="divider"></span>
+
+      <!-- Show Hidden Toggle & Clear -->
+      <button class="btn sm" id="showHiddenBtn" title="Show hidden elements as faint ghosts so you can unhide them">👁️‍🗨️ Hidden</button>
+      <button class="btn sm danger" id="clearBoardBtn" title="Clear all shapes, lines, and colored dots">🗑️ Clear</button>
+    </div>
+  </div>
+
+  <!-- Top-Right Area & Pick's Theorem Inspector HUD -->
+  <div id="inspectorHud" class="panel">
+    <div class="hud-header" id="hudToggleHeader">
+      <span class="hud-title">📐 Area &amp; Pick's Lab</span>
+      <span id="hudCollapseArrow" style="font-size:12px;color:#64748b;">▾</span>
+    </div>
+    <div class="hud-body">
+      <div class="stat-card">
+        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;" id="inspectorScopeLabel">Board Analysis</div>
+        <div class="area-big">
+          <span id="areaValueText">0</span>
+          <span class="area-unit" id="areaUnitText">sq units</span>
+        </div>
+        <div id="areaBreakdownText" style="font-size:11.5px;color:#475569;margin-top:2px;">Draw a closed polygon to measure area.</div>
+      </div>
+
+      <div class="stat-card" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+          <span id="pickBadge" class="pick-badge neutral">ℹ️ Draw a polygon</span>
+        </div>
+        <div id="pickFormulaBox" class="pick-formula-box" style="display:none;"></div>
+        <div id="pickReasonText" style="font-size:11.5px;color:#64748b;line-height:1.35;"></div>
+        <div class="dot-legend" id="pickLegend" style="display:none;">
+          <span><span class="legend-dot" style="background:#16a34a;"></span>i = <strong id="pickICount">0</strong></span>
+          <span><span class="legend-dot" style="background:#ef4444;"></span>b = <strong id="pickBCount">0</strong></span>
+        </div>
+        <button class="btn sm" id="togglePickDotsBtn" title="Highlight interior (green) &amp; boundary (red) dots on the canvas">
+          🔍 Highlight i &amp; b Dots
+        </button>
+      </div>
+
+      <div class="hud-hint" id="hudToolHint">
+        ✏️ Click dots to chain lines. Click first dot to auto-close loop, <b>Enter</b> to finish open line, <b>Esc</b> or <b>Right-Click</b> to cancel/erase.
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom-Center Floating Draft Controls (Visible While Drawing) -->
+  <div id="draftActionBar" class="panel">
+    <span id="draftPointCount" style="font-size:12px;font-weight:700;color:#475569;padding:0 4px;">2 pts</span>
+    <button class="btn sm primary" id="draftFinishLineBtn" title="Finish as open polyline (Enter)">✅ Finish Line</button>
+    <button class="btn sm" id="draftCloseShapeBtn" title="Close loop into polygon">🔷 Close Loop</button>
+    <button class="btn sm" id="draftUndoPtBtn" title="Remove last point (Backspace)">↩️ Pt</button>
+    <button class="btn sm danger" id="draftCancelBtn" title="Cancel drawing (Esc)">✖️</button>
+  </div>
+
+  <!-- Mini Floating Context Toolbar (Appears Near Selected Items) -->
+  <div id="miniToolbar" class="panel">
+    <button class="btn sm icon-only" id="miniColorBtn" title="Change color of selected items">🎨</button>
+    <button class="btn sm icon-only" id="miniFillBtn" title="Cycle shape fill (Soft / Solid / Outline)">🎭</button>
+    <button class="btn sm icon-only" id="miniDashBtn" title="Toggle dashed line">┄</button>
+    <button class="btn sm" id="miniWidthBtn" title="Cycle line thickness 1→5">📏2</button>
+    <button class="btn sm icon-only" id="miniResetColorBtn" title="Reset color to default">🔄</button>
+    <span class="divider"></span>
+    <button class="btn sm icon-only" id="miniFlipHBtn" title="Flip selected horizontally">↔️</button>
+    <button class="btn sm icon-only" id="miniFlipVBtn" title="Flip selected vertically">↕️</button>
+    <button class="btn sm icon-only" id="miniRotateBtn" title="Rotate selected (90° Square / 60° Tri)">↻</button>
+    <span class="divider"></span>
+    <button class="btn sm icon-only" id="miniHideBtn" title="Hide / Unhide selected">👁️</button>
+    <button class="btn sm icon-only" id="miniDupBtn" title="Duplicate selected">📋</button>
+    <button class="btn sm icon-only" id="miniExportBtn" title="Export selected in SVG Studio">📤</button>
+    <button class="btn sm icon-only danger" id="miniDeleteBtn" title="Delete selected (Del)">🗑️</button>
+  </div>
+
+  <!-- Color Palette Popover for Mini Toolbar -->
+  <div id="miniColorPopover" class="panel"></div>
+
+  <!-- Color Palette Popover for Top Toolbar Swatches -->
+  <div id="topPalettePopover" class="panel"></div>
+
+  <!-- Hidden Native Color Pickers -->
+  <input type="color" id="nativeColorPicker" class="hidden-color-input" value="#e11d68" />
+  <input type="color" id="boardBgPicker" class="hidden-color-input" value="#f0f6fb" />
+
+  <!-- Bottom-Left Utility Dock -->
+  <div id="bottomDock" class="panel">
+    <a href="index.html" class="btn sm icon-only" id="homeBtn" title="Back to all tools" style="text-decoration: none;">🏠</a>
+    <span class="divider"></span>
+    <button class="btn sm icon-only" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↩️</button>
+    <button class="btn sm icon-only" id="redoBtn" title="Redo (Ctrl+Y)" disabled>↪️</button>
+    <span class="divider"></span>
+    <button class="btn sm icon-only" id="zoomOutBtn" title="Zoom Out">➖</button>
+    <span id="zoomLabel">100%</span>
+    <button class="btn sm icon-only" id="zoomInBtn" title="Zoom In">➕</button>
+    <button class="btn sm icon-only" id="fitViewBtn" title="Fit board to screen / Reset view">🎯</button>
+    <span class="divider"></span>
+    <button class="btn sm" id="guideLinesBtn" title="Toggle faint lattice guide lines"># Guides</button>
+    <button class="swatch-btn" id="boardBgSwatch" title="Change workspace background color" style="width:26px;height:26px;min-width:26px;min-height:26px;background:#f0f6fb;"></button>
+  </div>
+
+  <!-- Custom Modal 1: SeedID & Classroom Lesson Presets -->
+  <div id="seedModal" class="modal-backdrop">
+    <div class="modal-card narrow">
+      <div class="modal-header">
+        <h3>🌱 Compact SeedID &amp; Lesson Presets</h3>
+        <button class="btn sm icon-only" data-close-modal="seedModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:5px;">Current Board SeedID (Ultra-Compact)</div>
+          <div class="seed-input-row">
+            <input type="text" id="currentSeedField" class="text-input" readonly />
+            <button class="btn primary" id="copySeedBtn">📋 Copy</button>
+            <button class="btn" id="copySeedLinkBtn">🔗 Link</button>
+          </div>
+          <div id="seedLengthInfo" style="font-size:11.5px;color:#64748b;margin-top:4px;"></div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:5px;">Load a SeedID</div>
+          <div class="seed-input-row">
+            <input type="text" id="loadSeedInput" class="text-input" placeholder="Paste SeedID here (e.g. S002002)..." />
+            <button class="btn primary" id="loadSeedBtn">📥 Load</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">📚 Textbook Lesson Presets (1-Click Load)</div>
+          <div class="preset-grid" id="presetGrid"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" data-close-modal="seedModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Modal 2: Print-Ready SVG Export Studio -->
+  <div id="svgModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>📤 Print-Ready SVG Export Studio</h3>
+        <button class="btn sm icon-only" data-close-modal="svgModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="studio-grid">
+          <!-- Left: Live Vector SVG Preview -->
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="svg-preview-box" id="svgPreviewBox"></div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;">
+              <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                <button class="btn sm" id="svgFlipHBtn" title="Flip exported diagram horizontally">↔️ Flip H</button>
+                <button class="btn sm" id="svgFlipVBtn" title="Flip exported diagram vertically">↕️ Flip V</button>
+                <button class="btn sm" id="svgRotateBtn" title="Rotate exported diagram">↻ Rotate</button>
+                <button class="btn sm" id="svgResetTransformBtn" title="Reset export flip/rotate">🔄 Reset</button>
+              </div>
+              <span id="svgDimBadge" style="font-size:11.5px;font-weight:600;color:#64748b;"></span>
+            </div>
+            <!-- Quick Textbook Card Themes -->
+            <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
+              <span style="font-size:11.5px;font-weight:700;color:#64748b;">Themes:</span>
+              <button class="btn sm" data-svg-theme="pink">🌸 Pink Book</button>
+              <button class="btn sm" data-svg-theme="blue">🌊 Blue Book</button>
+              <button class="btn sm" data-svg-theme="yellow">🌻 Yellow Book</button>
+              <button class="btn sm" data-svg-theme="orange">🍊 Orange Flat</button>
+              <button class="btn sm" data-svg-theme="print">📄 Clean Print</button>
+            </div>
+          </div>
+
+          <!-- Right: Studio Settings -->
+          <div class="studio-controls">
+            <div class="control-section">
+              <div class="control-section-title">Scope &amp; Framing</div>
+              <div class="control-row">
+                <div style="display:flex;gap:5px;">
+                  <button class="btn sm active" id="svgScopeAllBtn">🌐 All Visible</button>
+                  <button class="btn sm" id="svgScopeSelBtn">🎯 Selected Only</button>
+                </div>
+              </div>
+              <div class="control-row">
+                <span>Extra Grid Rings: <strong id="svgPadVal">1</strong></span>
+                <input type="range" id="svgExtraPad" min="0" max="4" step="1" value="1" />
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgSafetyGrid" checked /> Safety Grid Margin</label>
+                <label><input type="checkbox" id="svgShowGuides" /> Faint Grid Lines</label>
+              </div>
+            </div>
+
+            <div class="control-section">
+              <div class="control-section-title">Grid Dots Styling</div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgShowDots" checked /> Show Grid Dots</label>
+                <label>Dot Color <input type="color" id="svgDotColor" value="#4b9ec2" /></label>
+              </div>
+              <div class="control-row">
+                <span>Dot Size: <strong id="svgDotSizeVal">4.2</strong>px</span>
+                <input type="range" id="svgDotSize" min="2" max="8" step="0.4" value="4.2" />
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgKeepCustomDots" checked /> Keep Custom Colored Dots</label>
+              </div>
+            </div>
+
+            <div class="control-section">
+              <div class="control-section-title">Card &amp; Border</div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgBorderCard" checked /> Border Card</label>
+                <label><input type="checkbox" id="svgRoundedCard" checked /> Curved Corners</label>
+              </div>
+              <div class="control-row">
+                <span>Corner Radius: <strong id="svgRadiusVal">14</strong>px</span>
+                <input type="range" id="svgCornerRadius" min="0" max="32" step="2" value="14" />
+              </div>
+              <div class="control-row">
+                <label>Card BG <input type="color" id="svgBgColor" value="#e0f2f9" /></label>
+                <label>Border <input type="color" id="svgBorderColor" value="#4da2c2" /></label>
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgTransparentBg" /> Transparent Background</label>
+              </div>
+            </div>
+
+            <div class="control-section">
+              <div class="control-section-title">Overlays &amp; Metadata</div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgIncludeHidden" /> Include Hidden Elements</label>
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgIncludePick" /> Include Pick's i/b Dot Highlights</label>
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgIncludeArea" /> Include Area / Formula Label</label>
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgIncludeSeed" checked /> Include Compact SeedID Tag</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="copySvgCodeBtn">📋 Copy SVG</button>
+        <button class="btn" id="downloadPngBtn">🖼️ Download PNG</button>
+        <button class="btn primary" id="downloadSvgBtn">⬇️ Download SVG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Modal 3: Confirm Dialog (Replaces browser confirm) -->
+  <div id="confirmModal" class="modal-backdrop">
+    <div class="modal-card confirm-card">
+      <div class="modal-header">
+        <h3 id="confirmTitle">⚠️ Confirm Action</h3>
+        <button class="btn sm icon-only" data-close-modal="confirmModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage" style="margin:0;font-size:14px;line-height:1.5;color:#334155;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" data-close-modal="confirmModal">Cancel</button>
+        <button class="btn danger" id="confirmOkBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Non-blocking Floating Toast -->
+  <div id="toastBar"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      /* =====================================================================
+       * CONSTANTS, PALETTES & CLASSROOM PRESETS
+       * ===================================================================== */
+      const GRID_STEP = 48;
+      const SQRT3 = Math.sqrt(3);
+      const HALF_SQRT3 = SQRT3 / 2;
+      const STORAGE_KEY = "dot_grid_geometry_studio_v1";
+      const STROKE_WIDTHS = [1.4, 2.5, 3.8, 5.4, 7.6]; // Levels 1..5
+      const DEFAULT_STROKE = "#e11d68";
+      const DEFAULT_DOT_COLOR = "#ef4444";
+
+      // 16 classroom & textbook colors (indexed 0..f for ultra-compact SeedID)
+      const PRESET_COLORS = [
+        "#e11d68", // 0: Textbook Magenta/Rose
+        "#2563eb", // 1: Royal Blue
+        "#16a34a", // 2: Emerald Green
+        "#ea580c", // 3: Textbook Orange-Red
+        "#7c3aed", // 4: Violet
+        "#0891b2", // 5: Cyan Teal
+        "#ca8a04", // 6: Golden Amber
+        "#dc2626", // 7: Bright Red
+        "#1e293b", // 8: Deep Slate/Navy
+        "#db2777", // 9: Hot Pink
+        "#0d9488", // a: Teal
+        "#4f46e5", // b: Indigo
+        "#65a30d", // c: Lime Green
+        "#d97706", // d: Warm Orange
+        "#9333ea", // e: Purple
+        "#64748b"  // f: Cool Gray
+      ];
+
+      const SVG_THEMES = {
+        pink:   { bg: "#fbd5df", border: "#e11d68", dot: "#ee88a6", showDots: true, borderCard: true, rounded: true, radius: 14, transparent: false },
+        blue:   { bg: "#dcf0f7", border: "#4da2c2", dot: "#4b9ec2", showDots: true, borderCard: true, rounded: true, radius: 14, transparent: false },
+        yellow: { bg: "#fdf9b5", border: "#f58220", dot: "#f58220", showDots: true, borderCard: true, rounded: true, radius: 12, transparent: false },
+        orange: { bg: "#ff7a00", border: "#ff7a00", dot: "#ffb366", showDots: false, borderCard: false, rounded: false, radius: 0, transparent: false },
+        print:  { bg: "#ffffff", border: "#334155", dot: "#94a3b8", showDots: true, borderCard: true, rounded: true, radius: 10, transparent: false }
+      };
+
+      const LESSON_PRESETS = [
+        {
+          title: "🔷 Square Pick's Polygon",
+          desc: "Classic tilted polygon (i=8, b=10, Area=12)",
+          seed: "S02355320:CP3FP3"
+        },
+        {
+          title: "⭐ Square Star (Pick's Lab)",
+          desc: "Non-convex star polygon (i=3, b=12, Area=8)",
+          seed: "S011120314132433324130312:CP3FP3"
+        },
+        {
+          title: "✂️ Bounding Box & Shift",
+          desc: "Triangle inside dashed bounding box for cut/shift",
+          seed: "S031042:CP0FP0|0040430300:CP1W1D"
+        },
+        {
+          title: "🎀 Self-Intersecting Bowtie",
+          desc: "Shows why Pick's Theorem fails on non-simple loops",
+          seed: "S00333003:CP4FP4"
+        },
+        {
+          title: "🔺 Tri Grid Area Shifting",
+          desc: "Two triangles with same base & height (Area = 12 △)",
+          seed: "T200444:CP0FP0A2,200464:CP1FP1A2"
+        },
+        {
+          title: "🌟 Tri Grid 21-Unit Polygon",
+          desc: "Textbook triangular geoboard challenge (Area = 21 △)",
+          seed: "T014051533413:CP0FP0A2"
+        }
+      ];
+
+      /* =====================================================================
+       * APPLICATION STATE
+       * ===================================================================== */
+      const canvas = document.getElementById("mainCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const state = {
+        gridMode: "square", // "square" | "tri"
+        boardBg: "#f0f6fb",
+        showGuides: false,
+        showHidden: false,
+        highlightPickDots: false,
+
+        // Active tool & style
+        tool: "draw", // "draw" | "dot" | "select" | "eraser" | "pan"
+        drawAutoClose: true,
+        selectFilter: "all", // "all" | "shape" | "line" | "dot"
+        activeColor: DEFAULT_STROKE,
+        activeDotColor: DEFAULT_DOT_COLOR,
+        activeWidth: 2, // 1..5
+        activeDashed: false,
+
+        // Camera transform
+        camera: {
+          x: window.innerWidth * 0.5,
+          y: window.innerHeight * 0.5,
+          zoom: 1,
+          rotDeg: 0,
+          flipX: false,
+          flipY: false
+        },
+        dpr: Math.min(window.devicePixelRatio || 1, 2.5),
+
+        // Board entities
+        nextId: 1,
+        shapes: [], // { id, pts:[{q,r}], strokeColor, fillColor, fillAlpha, lineWidth, dashed, hidden }
+        lines: [],  // { id, pts:[{q,r}], strokeColor, lineWidth, dashed, hidden }
+        dots: {},   // key "q,r" -> { q, r, color, hidden, sizeScale }
+
+        // Selection sets
+        selected: {
+          shapes: new Set(),
+          lines: new Set(),
+          dots: new Set() // keys "q,r"
+        },
+
+        // Interaction transient state
+        draftPts: [], // [{q, r}] while drawing
+        hoverLattice: null, // {q, r}
+        hoverHit: null, // { type, id/key }
+        marquee: null, // { startSx, startSy, curSx, curSy }
+        dragMove: null, // { startQ, startR, lastDq, lastDr, beforeSnap }
+        pointers: new Map(), // active PointerEvents for touch pinch/pan
+        pinchState: null,
+        panState: null,
+        erasingDrag: null,
+
+        // Undo / Redo
+        undoStack: [],
+        redoStack: [],
+        maxHistory: 150,
+
+        // Cached Pick analysis for rendering highlights & HUD
+        lastAnalysis: null,
+
+        // SVG Export Studio settings
+        svgSettings: {
+          scope: "all", // "all" | "selected"
+          extraPad: 1,
+          safetyGrid: true,
+          showGuides: false,
+          showDots: true,
+          dotColor: "#4b9ec2",
+          dotSize: 4.2,
+          keepCustomDots: true,
+          borderCard: true,
+          roundedCard: true,
+          cornerRadius: 14,
+          bgColor: "#dcf0f7",
+          borderColor: "#4da2c2",
+          transparentBg: false,
+          includeHidden: false,
+          includePick: false,
+          includeArea: false,
+          includeSeed: true,
+          flipH: false,
+          flipV: false,
+          rotSteps: 0
+        }
+      };
+
+      /* =====================================================================
+       * LATTICE & CAMERA COORDINATE MATH
+       * ===================================================================== */
+      function dotKey(q, r) {
+        return `${q},${r}`;
+      }
+
+      function parseDotKey(key) {
+        const parts = key.split(",");
+        return { q: parseInt(parts[0], 10), r: parseInt(parts[1], 10) };
+      }
+
+      function latticeToWorld(q, r, mode = state.gridMode) {
+        if (mode === "tri") {
+          return {
+            x: (q + r * 0.5) * GRID_STEP,
+            y: r * HALF_SQRT3 * GRID_STEP
+          };
+        }
+        return {
+          x: q * GRID_STEP,
+          y: r * GRID_STEP
+        };
+      }
+
+      function worldToLatticeNearest(wx, wy, mode = state.gridMode) {
+        if (mode === "tri") {
+          const rApprox = wy / (GRID_STEP * HALF_SQRT3);
+          const qApprox = wx / GRID_STEP - rApprox * 0.5;
+          const baseR = Math.round(rApprox);
+          const baseQ = Math.round(qApprox);
+          let bestQ = baseQ;
+          let bestR = baseR;
+          let bestD2 = Infinity;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dq = -1; dq <= 1; dq++) {
+              const cq = baseQ + dq;
+              const cr = baseR + dr;
+              const p = latticeToWorld(cq, cr, "tri");
+              const d2 = (wx - p.x) ** 2 + (wy - p.y) ** 2;
+              if (d2 < bestD2) {
+                bestD2 = d2;
+                bestQ = cq;
+                bestR = cr;
+              }
+            }
+          }
+          return { q: bestQ, r: bestR, distWorld: Math.sqrt(bestD2) };
+        }
+        const q = Math.round(wx / GRID_STEP);
+        const r = Math.round(wy / GRID_STEP);
+        const p = latticeToWorld(q, r, "square");
+        return { q, r, distWorld: Math.hypot(wx - p.x, wy - p.y) };
+      }
+
+      function worldToScreen(wx, wy) {
+        const { x, y, zoom, rotDeg, flipX, flipY } = state.camera;
+        const rad = (rotDeg * Math.PI) / 180;
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        const rx = wx * c - wy * s;
+        const ry = wx * s + wy * c;
+        const fx = flipX ? -1 : 1;
+        const fy = flipY ? -1 : 1;
+        return {
+          x: x + rx * fx * zoom,
+          y: y + ry * fy * zoom
+        };
+      }
+
+      function screenToWorld(sx, sy) {
+        const { x, y, zoom, rotDeg, flipX, flipY } = state.camera;
+        const rad = (rotDeg * Math.PI) / 180;
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        const fx = flipX ? -1 : 1;
+        const fy = flipY ? -1 : 1;
+        const rx = (sx - x) / (fx * zoom);
+        const ry = (sy - y) / (fy * zoom);
+        return {
+          x: rx * c + ry * s,
+          y: -rx * s + ry * c
+        };
+      }
+
+      function setCameraKeepingAnchor(screenX, screenY, worldPt) {
+        const { zoom, rotDeg, flipX, flipY } = state.camera;
+        const rad = (rotDeg * Math.PI) / 180;
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        const rx = worldPt.x * c - worldPt.y * s;
+        const ry = worldPt.x * s + worldPt.y * c;
+        const fx = flipX ? -1 : 1;
+        const fy = flipY ? -1 : 1;
+        state.camera.x = screenX - rx * fx * zoom;
+        state.camera.y = screenY - ry * fy * zoom;
+      }
+
+      function zoomAtScreenPoint(factor, sx, sy) {
+        const prevZoom = state.camera.zoom;
+        const nextZoom = Math.max(0.25, Math.min(4.5, prevZoom * factor));
+        if (Math.abs(nextZoom - prevZoom) < 1e-6) return;
+        const anchorW = screenToWorld(sx, sy);
+        state.camera.zoom = nextZoom;
+        setCameraKeepingAnchor(sx, sy, anchorW);
+        updateZoomLabel();
+        positionMiniToolbar();
+      }
+
+      function transformView(mutator) {
+        const cx = window.innerWidth * 0.5;
+        const cy = window.innerHeight * 0.5;
+        const centerW = screenToWorld(cx, cy);
+        mutator();
+        setCameraKeepingAnchor(cx, cy, centerW);
+        updateViewButtonsUI();
+        positionMiniToolbar();
+      }
+
+      /* =====================================================================
+       * EXACT INTEGER GEOMETRY & PICK'S THEOREM ENGINE
+       * ===================================================================== */
+      function gcd(a, b) {
+        a = Math.abs(Math.round(a));
+        b = Math.abs(Math.round(b));
+        while (b !== 0) {
+          const t = a % b;
+          a = b;
+          b = t;
+        }
+        return a;
+      }
+
+      function cross2D(ax, ay, bx, by) {
+        return ax * by - ay * bx;
+      }
+
+      function signedArea2Lattice(pts) {
+        let sum = 0;
+        const n = pts.length;
+        for (let i = 0; i < n; i++) {
+          const a = pts[i];
+          const b = pts[(i + 1) % n];
+          sum += a.q * b.r - b.q * a.r;
+        }
+        return sum;
+      }
+
+      function polygonAreaUnits(pts, mode = state.gridMode) {
+        const s2 = Math.abs(signedArea2Lattice(pts));
+        return mode === "tri" ? s2 : s2 / 2;
+      }
+
+      function pointOnSegmentLattice(p, a, b) {
+        if (cross2D(b.q - a.q, b.r - a.r, p.q - a.q, p.r - a.r) !== 0) return false;
+        return (
+          p.q >= Math.min(a.q, b.q) &&
+          p.q <= Math.max(a.q, b.q) &&
+          p.r >= Math.min(a.r, b.r) &&
+          p.r <= Math.max(a.r, b.r)
+        );
+      }
+
+      function segmentsIntersectLattice(a, b, c, d) {
+        const d1 = cross2D(b.q - a.q, b.r - a.r, c.q - a.q, c.r - a.r);
+        const d2 = cross2D(b.q - a.q, b.r - a.r, d.q - a.q, d.r - a.r);
+        const d3 = cross2D(d.q - c.q, d.r - c.r, a.q - c.q, a.r - c.r);
+        const d4 = cross2D(d.q - c.q, d.r - c.r, b.q - c.q, b.r - c.r);
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+          return true;
+        }
+        if (d1 === 0 && pointOnSegmentLattice(c, a, b)) return true;
+        if (d2 === 0 && pointOnSegmentLattice(d, a, b)) return true;
+        if (d3 === 0 && pointOnSegmentLattice(a, c, d)) return true;
+        if (d4 === 0 && pointOnSegmentLattice(b, c, d)) return true;
+        return false;
+      }
+
+      function checkPolygonSimplicity(pts) {
+        if (!pts || pts.length < 3) {
+          return { simple: false, reason: "Needs at least 3 vertices." };
+        }
+        const n = pts.length;
+        // 1. Check duplicate vertices
+        const seen = new Set();
+        for (const p of pts) {
+          const k = dotKey(p.q, p.r);
+          if (seen.has(k)) {
+            return { simple: false, reason: "Self-touching polygon (repeated vertex)." };
+          }
+          seen.add(k);
+        }
+        // 2. Check zero area
+        if (signedArea2Lattice(pts) === 0) {
+          return { simple: false, reason: "Degenerate polygon with zero area (collinear points)." };
+        }
+        // 3. Check adjacent edges folding back 180 degrees
+        for (let i = 0; i < n; i++) {
+          const prev = pts[(i - 1 + n) % n];
+          const curr = pts[i];
+          const next = pts[(i + 1) % n];
+          const v1q = prev.q - curr.q, v1r = prev.r - curr.r;
+          const v2q = next.q - curr.q, v2r = next.r - curr.r;
+          if (cross2D(v1q, v1r, v2q, v2r) === 0 && (v1q * v2q + v1r * v2r) > 0) {
+            return { simple: false, reason: "Overlapping collinear edges detected." };
+          }
+        }
+        // 4. Check non-adjacent edge intersections
+        for (let i = 0; i < n; i++) {
+          const a = pts[i];
+          const b = pts[(i + 1) % n];
+          for (let j = i + 2; j < n; j++) {
+            if (i === 0 && j === n - 1) continue; // adjacent wrap
+            const c = pts[j];
+            const d = pts[(j + 1) % n];
+            if (segmentsIntersectLattice(a, b, c, d)) {
+              return { simple: false, reason: "Self-intersecting polygon edges." };
+            }
+          }
+        }
+        return { simple: true, reason: "" };
+      }
+
+      // Exact point strictly inside polygon (assuming point is NOT on boundary)
+      function pointInPolygonLattice(q, r, pts) {
+        let inside = false;
+        const n = pts.length;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          const qi = pts[i].q, ri = pts[i].r;
+          const qj = pts[j].q, rj = pts[j].r;
+          if ((ri > r) !== (rj > r)) {
+            const dr = rj - ri;
+            // Check q < qi + (r - ri) * (qj - qi) / dr using exact multiplication
+            const lhs = (q - qi) * dr;
+            const rhs = (r - ri) * (qj - qi);
+            if (dr > 0 ? lhs < rhs : lhs > rhs) {
+              inside = !inside;
+            }
+          }
+        }
+        return inside;
+      }
+
+      function polygonsOverlapInteriorOrEdge(ptsA, ptsB) {
+        // Quick bounding box rejection
+        let minAq = Infinity, maxAq = -Infinity, minAr = Infinity, maxAr = -Infinity;
+        let minBq = Infinity, maxBq = -Infinity, minBr = Infinity, maxBr = -Infinity;
+        for (const p of ptsA) {
+          if (p.q < minAq) minAq = p.q; if (p.q > maxAq) maxAq = p.q;
+          if (p.r < minAr) minAr = p.r; if (p.r > maxAr) maxAr = p.r;
+        }
+        for (const p of ptsB) {
+          if (p.q < minBq) minBq = p.q; if (p.q > maxBq) maxBq = p.q;
+          if (p.r < minBr) minBr = p.r; if (p.r > maxBr) maxBr = p.r;
+        }
+        if (maxAq < minBq || maxBq < minAq || maxAr < minBr || maxBr < minAr) return false;
+
+        // Check strict proper edge intersections or strictly interior vertex
+        for (let i = 0; i < ptsA.length; i++) {
+          const a = ptsA[i], b = ptsA[(i + 1) % ptsA.length];
+          for (let j = 0; j < ptsB.length; j++) {
+            const c = ptsB[j], d = ptsB[(j + 1) % ptsB.length];
+            const d1 = cross2D(b.q - a.q, b.r - a.r, c.q - a.q, c.r - a.r);
+            const d2 = cross2D(b.q - a.q, b.r - a.r, d.q - a.q, d.r - a.r);
+            const d3 = cross2D(d.q - c.q, d.r - c.r, a.q - c.q, a.r - c.r);
+            const d4 = cross2D(d.q - c.q, d.r - c.r, b.q - c.q, b.r - c.r);
+            if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+              return true;
+            }
+          }
+        }
+        // Check midpoints of edges & centroids
+        const sampleInside = (src, target) => {
+          for (const p of src) {
+            let onEdge = false;
+            for (let k = 0; k < target.length; k++) {
+              if (pointOnSegmentLattice(p, target[k], target[(k + 1) % target.length])) {
+                onEdge = true;
+                break;
+              }
+            }
+            if (!onEdge && pointInPolygonLattice(p.q, p.r, target)) return true;
+          }
+          // Centroid check (scaled x2)
+          let cq = 0, cr = 0;
+          for (const p of src) { cq += p.q; cr += p.r; }
+          const scaled = target.map(p => ({ q: p.q * src.length, r: p.r * src.length }));
+          let onEdge = false;
+          for (let k = 0; k < scaled.length; k++) {
+            if (pointOnSegmentLattice({ q: cq, r: cr }, scaled[k], scaled[(k + 1) % scaled.length])) {
+              onEdge = true;
+              break;
+            }
+          }
+          if (!onEdge && pointInPolygonLattice(cq, cr, scaled)) return true;
+          return false;
+        };
+        return sampleInside(ptsA, ptsB) || sampleInside(ptsB, ptsA);
+      }
+
+      function computePickForPolygon(pts, mode = state.gridMode) {
+        const simplicity = checkPolygonSimplicity(pts);
+        const area = polygonAreaUnits(pts, mode);
+        if (!simplicity.simple) {
+          return {
+            applicable: false,
+            reason: simplicity.reason,
+            area,
+            i: 0,
+            b: 0,
+            interiorDots: [],
+            boundaryDots: []
+          };
+        }
+
+        // Exact boundary points via GCD
+        let b = 0;
+        const boundaryDots = [];
+        const boundarySet = new Set();
+        const n = pts.length;
+        let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+
+        for (let k = 0; k < n; k++) {
+          const p1 = pts[k];
+          const p2 = pts[(k + 1) % n];
+          if (p1.q < minQ) minQ = p1.q; if (p1.q > maxQ) maxQ = p1.q;
+          if (p1.r < minR) minR = p1.r; if (p1.r > maxR) maxR = p1.r;
+          const dq = p2.q - p1.q;
+          const dr = p2.r - p1.r;
+          const g = gcd(dq, dr);
+          b += g;
+          const stepQ = dq / g;
+          const stepR = dr / g;
+          for (let t = 0; t < g; t++) {
+            const q = p1.q + stepQ * t;
+            const r = p1.r + stepR * t;
+            const key = dotKey(q, r);
+            if (!boundarySet.has(key)) {
+              boundarySet.add(key);
+              boundaryDots.push({ q, r });
+            }
+          }
+        }
+
+        // Exact interior points via bounding-box lattice scan
+        const interiorDots = [];
+        const boxCells = (maxQ - minQ + 1) * (maxR - minR + 1);
+        let iCount = 0;
+        if (boxCells <= 150000) {
+          for (let r = minR + 1; r < maxR; r++) {
+            for (let q = minQ + 1; q < maxQ; q++) {
+              const key = dotKey(q, r);
+              if (!boundarySet.has(key) && pointInPolygonLattice(q, r, pts)) {
+                interiorDots.push({ q, r });
+                iCount++;
+              }
+            }
+          }
+        } else {
+          // Formula fallback for gigantic zoomed-out shapes
+          iCount = mode === "tri" ? Math.round((area - b + 2) / 2) : Math.round(area - b / 2 + 1);
+        }
+
+        return {
+          applicable: true,
+          reason: "",
+          area,
+          i: iCount,
+          b,
+          interiorDots,
+          boundaryDots
+        };
+      }
+
+      function formatNumber(val) {
+        if (Number.isInteger(val)) return String(val);
+        return Number(val.toFixed(2)).toString();
+      }
+
+      function analyzeCurrentSelection() {
+        const hasSel = hasAnySelection();
+        const shapesToCheck = hasSel
+          ? state.shapes.filter(s => state.selected.shapes.has(s.id))
+          : state.shapes.filter(s => !s.hidden);
+        const linesSelected = hasSel
+          ? state.lines.filter(l => state.selected.lines.has(l.id))
+          : state.lines.filter(l => !l.hidden);
+        const dotsSelectedCount = hasSel ? state.selected.dots.size : 0;
+
+        const mode = state.gridMode;
+        const unitLabel = mode === "tri" ? "△ units" : "sq units";
+        const scopeLabel = hasSel ? "Selected Analysis" : "All Visible Shapes";
+
+        // Case 1: No shapes present in scope
+        if (shapesToCheck.length === 0) {
+          let reason = "Draw a closed loop on the dot grid to calculate Area & Pick's Theorem.";
+          if (linesSelected.length > 0 && dotsSelectedCount > 0) {
+            reason = "Open line(s) & dot(s) selected — close a loop to apply Pick's Theorem.";
+          } else if (linesSelected.length > 0) {
+            reason = "Open line only (not a closed polygon) — Pick's Theorem requires a closed simple loop.";
+          } else if (dotsSelectedCount > 0) {
+            reason = `${dotsSelectedCount} lattice dot(s) selected — connect 3+ dots in a loop to form an area.`;
+          }
+          return {
+            scopeLabel,
+            unitLabel,
+            totalArea: 0,
+            breakdown: linesSelected.length > 0 ? `${linesSelected.length} open line(s), 0 closed shapes` : "No closed polygon in scope.",
+            pickStatus: linesSelected.length > 0 || dotsSelectedCount > 0 ? "warn" : "neutral",
+            pickBadgeText: linesSelected.length > 0 || dotsSelectedCount > 0 ? "⚠️ Pick's: Not Applicable" : "ℹ️ No Polygon",
+            formulaHtml: "",
+            reason,
+            i: 0,
+            b: 0,
+            interiorDots: [],
+            boundaryDots: []
+          };
+        }
+
+        // Case 2: Single shape (cleanest Pick's Theorem display)
+        if (shapesToCheck.length === 1) {
+          const res = computePickForPolygon(shapesToCheck[0].pts, mode);
+          if (!res.applicable) {
+            return {
+              scopeLabel,
+              unitLabel,
+              totalArea: res.area,
+              breakdown: "1 polygon (non-simple / self-intersecting)",
+              pickStatus: "warn",
+              pickBadgeText: "⚠️ Pick's: Not Applicable",
+              formulaHtml: "",
+              reason: res.reason,
+              i: 0,
+              b: 0,
+              interiorDots: [],
+              boundaryDots: []
+            };
+          }
+          const formulaHtml = mode === "tri"
+            ? `T = 2i + b − 2<br>T = 2(${res.i}) + ${res.b} − 2 = <b>${formatNumber(res.area)}</b>`
+            : `A = i + b/2 − 1<br>A = ${res.i} + ${res.b}/2 − 1 = <b>${formatNumber(res.area)}</b>`;
+          return {
+            scopeLabel,
+            unitLabel,
+            totalArea: res.area,
+            breakdown: hasSel && linesSelected.length > 0
+              ? `1 polygon + ${linesSelected.length} auxiliary line(s)`
+              : `1 simple polygon (${shapesToCheck[0].pts.length} vertices)`,
+            pickStatus: "ok",
+            pickBadgeText: "✅ Pick's: Applicable",
+            formulaHtml,
+            reason: mode === "tri"
+              ? "Triangular lattice Pick's formula (unit △ = 1)."
+              : "Square lattice Pick's formula (unit □ = 1).",
+            i: res.i,
+            b: res.b,
+            interiorDots: res.interiorDots,
+            boundaryDots: res.boundaryDots
+          };
+        }
+
+        // Case 3: Multiple shapes
+        let totalArea = 0;
+        let allSimple = true;
+        let nonSimpleReason = "";
+        let anyOverlap = false;
+        const perAreas = [];
+        const allI = [];
+        const allB = [];
+        let sumI = 0, sumB = 0;
+
+        for (let k = 0; k < shapesToCheck.length; k++) {
+          const r = computePickForPolygon(shapesToCheck[k].pts, mode);
+          totalArea += r.area;
+          perAreas.push(formatNumber(r.area));
+          if (!r.applicable) {
+            allSimple = false;
+            nonSimpleReason = r.reason;
+          } else {
+            sumI += r.i;
+            sumB += r.b;
+            for (const d of r.interiorDots) allI.push(d);
+            for (const d of r.boundaryDots) allB.push(d);
+          }
+        }
+
+        if (allSimple) {
+          for (let a = 0; a < shapesToCheck.length && !anyOverlap; a++) {
+            for (let b = a + 1; b < shapesToCheck.length; b++) {
+              if (polygonsOverlapInteriorOrEdge(shapesToCheck[a].pts, shapesToCheck[b].pts)) {
+                anyOverlap = true;
+                break;
+              }
+            }
+          }
+        }
+
+        const breakdown = `${shapesToCheck.length} shapes: ${perAreas.slice(0, 5).join(" + ")}${perAreas.length > 5 ? " + …" : ""}`;
+
+        if (!allSimple) {
+          return {
+            scopeLabel,
+            unitLabel,
+            totalArea,
+            breakdown,
+            pickStatus: "warn",
+            pickBadgeText: "⚠️ Pick's: Not Applicable",
+            formulaHtml: "",
+            reason: `Includes non-simple polygon: ${nonSimpleReason}`,
+            i: 0,
+            b: 0,
+            interiorDots: [],
+            boundaryDots: []
+          };
+        }
+
+        if (anyOverlap) {
+          return {
+            scopeLabel,
+            unitLabel,
+            totalArea,
+            breakdown: `${breakdown} (sum of parts)`,
+            pickStatus: "warn",
+            pickBadgeText: "⚠️ Overlapping Shapes",
+            formulaHtml: "",
+            reason: "Selected shapes overlap — pick a single simple polygon to verify Pick's Theorem.",
+            i: 0,
+            b: 0,
+            interiorDots: [],
+            boundaryDots: []
+          };
+        }
+
+        const count = shapesToCheck.length;
+        const formulaHtml = mode === "tri"
+          ? `Sum of ${count} simple shapes:<br>T = 2(${sumI}) + ${sumB} − 2(${count}) = <b>${formatNumber(totalArea)}</b>`
+          : `Sum of ${count} simple shapes:<br>A = ${sumI} + ${sumB}/2 − ${count} = <b>${formatNumber(totalArea)}</b>`;
+
+        return {
+          scopeLabel,
+          unitLabel,
+          totalArea,
+          breakdown,
+          pickStatus: "ok",
+          pickBadgeText: `✅ Pick's OK (${count} shapes)`,
+          formulaHtml,
+          reason: "All shapes are simple & non-overlapping (Pick's applies to each).",
+          i: sumI,
+          b: sumB,
+          interiorDots: allI,
+          boundaryDots: allB
+        };
+      }
+
+      function updateInspectorHUD() {
+        const analysis = analyzeCurrentSelection();
+        state.lastAnalysis = analysis;
+
+        document.getElementById("inspectorScopeLabel").textContent = analysis.scopeLabel;
+        document.getElementById("areaValueText").textContent = formatNumber(analysis.totalArea);
+        document.getElementById("areaUnitText").textContent = analysis.unitLabel;
+        document.getElementById("areaBreakdownText").textContent = analysis.breakdown;
+
+        const badge = document.getElementById("pickBadge");
+        badge.className = `pick-badge ${analysis.pickStatus}`;
+        badge.textContent = analysis.pickBadgeText;
+
+        const formulaBox = document.getElementById("pickFormulaBox");
+        if (analysis.formulaHtml) {
+          formulaBox.style.display = "block";
+          formulaBox.innerHTML = analysis.formulaHtml;
+        } else {
+          formulaBox.style.display = "none";
+        }
+
+        document.getElementById("pickReasonText").textContent = analysis.reason;
+
+        const legend = document.getElementById("pickLegend");
+        if (analysis.pickStatus === "ok") {
+          legend.style.display = "flex";
+          document.getElementById("pickICount").textContent = analysis.i;
+          document.getElementById("pickBCount").textContent = analysis.b;
+        } else {
+          legend.style.display = "none";
+        }
+      }
+
+      /* =====================================================================
+       * ULTRA-COMPACT SEEDID ENCODER / DECODER (ROUND-TRIP EXACT)
+       * ===================================================================== */
+      function encodeCoord(n) {
+        if (n >= 0 && n < 36) return n.toString(36);
+        return `~${n.toString(36)}.`;
+      }
+
+      function decodeCoords(str) {
+        const nums = [];
+        let idx = 0;
+        while (idx < str.length) {
+          if (str[idx] === "~") {
+            const dotPos = str.indexOf(".", idx + 1);
+            if (dotPos === -1) break;
+            const val = parseInt(str.slice(idx + 1, dotPos), 36);
+            if (!Number.isFinite(val)) break;
+            nums.push(val);
+            idx = dotPos + 1;
+          } else {
+            const val = parseInt(str[idx], 36);
+            if (!Number.isFinite(val)) break;
+            nums.push(val);
+            idx += 1;
+          }
+        }
+        const pts = [];
+        for (let i = 0; i + 1 < nums.length; i += 2) {
+          pts.push({ q: nums[i], r: nums[i + 1] });
+        }
+        return pts;
+      }
+
+      function encodeColorCompact(hex) {
+        const norm = (hex || "").toLowerCase();
+        const idx = PRESET_COLORS.indexOf(norm);
+        if (idx !== -1) return `P${idx.toString(16)}`;
+        return `X${norm.replace("#", "").slice(0, 6)}`;
+      }
+
+      function decodeColorCompact(str, pos) {
+        if (str[pos] === "P") {
+          const idx = parseInt(str[pos + 1], 16);
+          return { color: PRESET_COLORS[idx] || DEFAULT_STROKE, next: pos + 2 };
+        }
+        if (str[pos] === "X") {
+          return { color: `#${str.slice(pos + 1, pos + 7)}`, next: pos + 7 };
+        }
+        return { color: DEFAULT_STROKE, next: pos + 1 };
+      }
+
+      function encodeBoardToSeed(onlySelected = false) {
+        const shapes = onlySelected
+          ? state.shapes.filter(s => state.selected.shapes.has(s.id))
+          : state.shapes;
+        const lines = onlySelected
+          ? state.lines.filter(l => state.selected.lines.has(l.id))
+          : state.lines;
+        const dotList = onlySelected
+          ? Array.from(state.selected.dots).map(k => state.dots[k]).filter(Boolean)
+          : Object.values(state.dots);
+
+        const modeChar = state.gridMode === "tri" ? "T" : "S";
+        if (shapes.length === 0 && lines.length === 0 && dotList.length === 0) {
+          return modeChar;
+        }
+
+        // Normalize all coordinates so minQ = 0, minR = 0 for shortest possible string
+        let minQ = Infinity, minR = Infinity;
+        for (const s of shapes) for (const p of s.pts) { if (p.q < minQ) minQ = p.q; if (p.r < minR) minR = p.r; }
+        for (const l of lines) for (const p of l.pts) { if (p.q < minQ) minQ = p.q; if (p.r < minR) minR = p.r; }
+        for (const d of dotList) { if (d.q < minQ) minQ = d.q; if (d.r < minR) minR = d.r; }
+
+        const encPts = (pts) => pts.map(p => encodeCoord(p.q - minQ) + encodeCoord(p.r - minR)).join("");
+
+        const shapeTokens = shapes.map(s => {
+          let flags = "";
+          if ((s.strokeColor || "").toLowerCase() !== DEFAULT_STROKE) flags += `C${encodeColorCompact(s.strokeColor)}`;
+          if ((s.fillColor || "").toLowerCase() !== (s.strokeColor || "").toLowerCase()) flags += `F${encodeColorCompact(s.fillColor)}`;
+          const aDigit = Math.round(Math.max(0, Math.min(1, s.fillAlpha ?? 0.22)) * 9);
+          if (aDigit !== 2) flags += `A${aDigit}`;
+          if ((s.lineWidth || 2) !== 2) flags += `W${s.lineWidth}`;
+          if (s.dashed) flags += "D";
+          if (s.hidden) flags += "H";
+          return encPts(s.pts) + (flags ? `:${flags}` : "");
+        });
+
+        const lineTokens = lines.map(l => {
+          let flags = "";
+          if ((l.strokeColor || "").toLowerCase() !== DEFAULT_STROKE) flags += `C${encodeColorCompact(l.strokeColor)}`;
+          if ((l.lineWidth || 2) !== 2) flags += `W${l.lineWidth}`;
+          if (l.dashed) flags += "D";
+          if (l.hidden) flags += "H";
+          return encPts(l.pts) + (flags ? `:${flags}` : "");
+        });
+
+        const dotTokens = dotList.map(d => {
+          let flags = "";
+          if (d.color && d.color.toLowerCase() !== DEFAULT_DOT_COLOR) flags += `C${encodeColorCompact(d.color)}`;
+          if (d.hidden) flags += "H";
+          return encodeCoord(d.q - minQ) + encodeCoord(d.r - minR) + (flags ? `:${flags}` : "");
+        });
+
+        let out = modeChar + shapeTokens.join(",");
+        if (lineTokens.length > 0 || dotTokens.length > 0) {
+          out += "|" + lineTokens.join(",");
+        }
+        if (dotTokens.length > 0) {
+          out += "|" + dotTokens.join(",");
+        }
+        return out;
+      }
+
+      function decodeSeedToBoard(rawSeed) {
+        const trimmed = (rawSeed || "").trim();
+        if (!trimmed || (trimmed[0] !== "S" && trimmed[0] !== "T")) {
+          throw new Error("SeedID must start with 'S' (Square) or 'T' (Triangular).");
+        }
+        const gridMode = trimmed[0] === "T" ? "tri" : "square";
+        const body = trimmed.slice(1);
+        const sections = body.split("|");
+        const shapesSec = sections[0] || "";
+        const linesSec = sections[1] || "";
+        const dotsSec = sections[2] || "";
+
+        const parseFlags = (flagStr, defaults) => {
+          const res = { ...defaults };
+          let i = 0;
+          while (i < flagStr.length) {
+            const ch = flagStr[i];
+            if (ch === "C") {
+              const dec = decodeColorCompact(flagStr, i + 1);
+              res.strokeColor = dec.color;
+              res.color = dec.color;
+              if (!res._explicitFill) res.fillColor = dec.color;
+              i = dec.next;
+            } else if (ch === "F") {
+              const dec = decodeColorCompact(flagStr, i + 1);
+              res.fillColor = dec.color;
+              res._explicitFill = true;
+              i = dec.next;
+            } else if (ch === "A") {
+              const d = parseInt(flagStr[i + 1], 10);
+              res.fillAlpha = Number.isFinite(d) ? d / 9 : 0.22;
+              i += 2;
+            } else if (ch === "W") {
+              const w = parseInt(flagStr[i + 1], 10);
+              res.lineWidth = Math.max(1, Math.min(5, Number.isFinite(w) ? w : 2));
+              i += 2;
+            } else if (ch === "D") {
+              res.dashed = true;
+              i += 1;
+            } else if (ch === "H") {
+              res.hidden = true;
+              i += 1;
+            } else {
+              i += 1;
+            }
+          }
+          delete res._explicitFill;
+          return res;
+        };
+
+        let nextId = 1;
+        const shapes = [];
+        if (shapesSec) {
+          for (const tok of shapesSec.split(",")) {
+            if (!tok) continue;
+            const [coordPart, flagPart = ""] = tok.split(":");
+            const pts = decodeCoords(coordPart);
+            if (pts.length < 3) continue;
+            const style = parseFlags(flagPart, {
+              strokeColor: DEFAULT_STROKE,
+              fillColor: DEFAULT_STROKE,
+              fillAlpha: 0.22,
+              lineWidth: 2,
+              dashed: false,
+              hidden: false
+            });
+            shapes.push({ id: nextId++, pts, ...style });
+          }
+        }
+
+        const lines = [];
+        if (linesSec) {
+          for (const tok of linesSec.split(",")) {
+            if (!tok) continue;
+            const [coordPart, flagPart = ""] = tok.split(":");
+            const pts = decodeCoords(coordPart);
+            if (pts.length < 2) continue;
+            const style = parseFlags(flagPart, {
+              strokeColor: DEFAULT_STROKE,
+              lineWidth: 2,
+              dashed: false,
+              hidden: false
+            });
+            lines.push({ id: nextId++, pts, strokeColor: style.strokeColor, lineWidth: style.lineWidth, dashed: style.dashed, hidden: style.hidden });
+          }
+        }
+
+        const dots = {};
+        if (dotsSec) {
+          for (const tok of dotsSec.split(",")) {
+            if (!tok) continue;
+            const [coordPart, flagPart = ""] = tok.split(":");
+            const pts = decodeCoords(coordPart);
+            if (pts.length < 1) continue;
+            const p = pts[0];
+            const style = parseFlags(flagPart, { color: DEFAULT_DOT_COLOR, hidden: false });
+            dots[dotKey(p.q, p.r)] = { q: p.q, r: p.r, color: style.color, hidden: style.hidden, sizeScale: 1.25 };
+          }
+        }
+
+        return { gridMode, shapes, lines, dots, nextId };
+      }
+
+      /* =====================================================================
+       * SNAPSHOTS, UNDO/REDO & PERSISTENCE
+       * ===================================================================== */
+      function createSnapshot() {
+        return {
+          gridMode: state.gridMode,
+          boardBg: state.boardBg,
+          nextId: state.nextId,
+          shapes: state.shapes.map(s => ({ ...s, pts: s.pts.map(p => ({ q: p.q, r: p.r })) })),
+          lines: state.lines.map(l => ({ ...l, pts: l.pts.map(p => ({ q: p.q, r: p.r })) })),
+          dots: Object.fromEntries(Object.entries(state.dots).map(([k, d]) => [k, { ...d }]))
+        };
+      }
+
+      function applySnapshot(snap) {
+        if (!snap) return;
+        state.gridMode = snap.gridMode === "tri" ? "tri" : "square";
+        state.boardBg = snap.boardBg || "#f0f6fb";
+        state.nextId = snap.nextId || 1;
+        state.shapes = (snap.shapes || []).map(s => ({ ...s, pts: s.pts.map(p => ({ q: p.q, r: p.r })) }));
+        state.lines = (snap.lines || []).map(l => ({ ...l, pts: l.pts.map(p => ({ q: p.q, r: p.r })) }));
+        state.dots = Object.fromEntries(Object.entries(snap.dots || {}).map(([k, d]) => [k, { ...d }]));
+        clearSelection();
+        cancelDraft(true);
+        syncAllUI();
+        saveToLocalStorage();
+      }
+
+      function commitHistory(beforeSnap) {
+        if (!beforeSnap) return;
+        state.undoStack.push(beforeSnap);
+        if (state.undoStack.length > state.maxHistory) state.undoStack.shift();
+        state.redoStack = [];
+        updateUndoRedoUI();
+        updateInspectorHUD();
+        saveToLocalStorage();
+      }
+
+      function undo() {
+        if (state.undoStack.length === 0) return;
+        const prev = state.undoStack.pop();
+        state.redoStack.push(createSnapshot());
+        applySnapshot(prev);
+        showToast("↩️ Undone");
+      }
+
+      function redo() {
+        if (state.redoStack.length === 0) return;
+        const next = state.redoStack.pop();
+        state.undoStack.push(createSnapshot());
+        applySnapshot(next);
+        showToast("↪️ Redone");
+      }
+
+      function saveToLocalStorage() {
+        try {
+          const payload = {
+            version: 1,
+            snap: createSnapshot(),
+            showGuides: state.showGuides
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (_err) {
+          // Ignore quota or privacy mode errors gracefully
+        }
+      }
+
+      function loadFromLocalStorage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const parsed = JSON.parse(raw);
+          if (!parsed || !parsed.snap) return false;
+          state.showGuides = Boolean(parsed.showGuides);
+          applySnapshot(parsed.snap);
+          return true;
+        } catch (_err) {
+          return false;
+        }
+      }
+
+      /* =====================================================================
+       * SELECTION, HIT-TESTING & GROUP TRANSFORMS
+       * ===================================================================== */
+      function hasAnySelection() {
+        return state.selected.shapes.size > 0 || state.selected.lines.size > 0 || state.selected.dots.size > 0;
+      }
+
+      function clearSelection() {
+        state.selected.shapes.clear();
+        state.selected.lines.clear();
+        state.selected.dots.clear();
+        hideMiniPopovers();
+        positionMiniToolbar();
+        updateInspectorHUD();
+      }
+
+      function distToSegmentSq(px, py, ax, ay, bx, by) {
+        const abx = bx - ax, aby = by - ay;
+        const len2 = abx * abx + aby * aby;
+        if (len2 < 1e-6) return (px - ax) ** 2 + (py - ay) ** 2;
+        const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2));
+        const cx = ax + abx * t, cy = ay + aby * t;
+        return (px - cx) ** 2 + (py - cy) ** 2;
+      }
+
+      function pointInPolygonWorld(wx, wy, worldPts) {
+        let inside = false;
+        for (let i = 0, j = worldPts.length - 1; i < worldPts.length; j = i++) {
+          const xi = worldPts[i].x, yi = worldPts[i].y;
+          const xj = worldPts[j].x, yj = worldPts[j].y;
+          if ((yi > wy) !== (yj > wy) && wx < ((xj - xi) * (wy - yi)) / (yj - yi) + xi) {
+            inside = !inside;
+          }
+        }
+        return inside;
+      }
+
+      function hitTestAtScreen(sx, sy, filter = "all") {
+        const w = screenToWorld(sx, sy);
+        const tolWorld = 16 / state.camera.zoom;
+        const tolSq = tolWorld * tolWorld;
+
+        // 1. Custom dots (or any lattice dot if filter === 'dot')
+        if (filter === "all" || filter === "dot") {
+          const near = worldToLatticeNearest(w.x, w.y);
+          if (near.distWorld <= tolWorld * 1.1) {
+            const k = dotKey(near.q, near.r);
+            const d = state.dots[k];
+            if (d && (!d.hidden || state.showHidden)) {
+              return { type: "dot", key: k, q: near.q, r: near.r };
+            }
+            if (filter === "dot") {
+              return { type: "dot", key: k, q: near.q, r: near.r, isGridDot: true };
+            }
+          }
+        }
+
+        // 2. Lines (top-most first)
+        if (filter === "all" || filter === "line") {
+          for (let i = state.lines.length - 1; i >= 0; i--) {
+            const l = state.lines[i];
+            if (l.hidden && !state.showHidden) continue;
+            const wPts = l.pts.map(p => latticeToWorld(p.q, p.r));
+            for (let k = 0; k < wPts.length - 1; k++) {
+              if (distToSegmentSq(w.x, w.y, wPts[k].x, wPts[k].y, wPts[k + 1].x, wPts[k + 1].y) <= tolSq) {
+                return { type: "line", id: l.id };
+              }
+            }
+          }
+        }
+
+        // 3. Shapes (edges first, then filled interior, top-most first)
+        if (filter === "all" || filter === "shape") {
+          for (let i = state.shapes.length - 1; i >= 0; i--) {
+            const s = state.shapes[i];
+            if (s.hidden && !state.showHidden) continue;
+            const wPts = s.pts.map(p => latticeToWorld(p.q, p.r));
+            for (let k = 0; k < wPts.length; k++) {
+              const a = wPts[k], b = wPts[(k + 1) % wPts.length];
+              if (distToSegmentSq(w.x, w.y, a.x, a.y, b.x, b.y) <= tolSq) {
+                return { type: "shape", id: s.id };
+              }
+            }
+          }
+          for (let i = state.shapes.length - 1; i >= 0; i--) {
+            const s = state.shapes[i];
+            if (s.hidden && !state.showHidden) continue;
+            const wPts = s.pts.map(p => latticeToWorld(p.q, p.r));
+            if (pointInPolygonWorld(w.x, w.y, wPts)) {
+              return { type: "shape", id: s.id };
+            }
+          }
+        }
+
+        return null;
+      }
+
+      function isHitSelected(hit) {
+        if (!hit) return false;
+        if (hit.type === "shape") return state.selected.shapes.has(hit.id);
+        if (hit.type === "line") return state.selected.lines.has(hit.id);
+        if (hit.type === "dot") return state.selected.dots.has(hit.key);
+        return false;
+      }
+
+      function selectHit(hit, additive = false) {
+        if (!additive) {
+          state.selected.shapes.clear();
+          state.selected.lines.clear();
+          state.selected.dots.clear();
+        }
+        if (!hit) return;
+        if (hit.type === "shape") {
+          if (additive && state.selected.shapes.has(hit.id)) state.selected.shapes.delete(hit.id);
+          else state.selected.shapes.add(hit.id);
+        } else if (hit.type === "line") {
+          if (additive && state.selected.lines.has(hit.id)) state.selected.lines.delete(hit.id);
+          else state.selected.lines.add(hit.id);
+        } else if (hit.type === "dot") {
+          // If clicking an unstyled grid dot in Dot filter mode, materialize it so user can style/hide it
+          if (!state.dots[hit.key]) {
+            state.dots[hit.key] = { q: hit.q, r: hit.r, color: state.activeDotColor, hidden: false, sizeScale: 1.25 };
+          }
+          if (additive && state.selected.dots.has(hit.key)) state.selected.dots.delete(hit.key);
+          else state.selected.dots.add(hit.key);
+        }
+        positionMiniToolbar();
+        updateInspectorHUD();
+      }
+
+      function getSelectedPointsList() {
+        const pts = [];
+        for (const s of state.shapes) {
+          if (state.selected.shapes.has(s.id)) for (const p of s.pts) pts.push(p);
+        }
+        for (const l of state.lines) {
+          if (state.selected.lines.has(l.id)) for (const p of l.pts) pts.push(p);
+        }
+        for (const k of state.selected.dots) {
+          if (state.dots[k]) pts.push(state.dots[k]);
+        }
+        return pts;
+      }
+
+      function translateSelection(dq, dr) {
+        if (dq === 0 && dr === 0) return;
+        for (const s of state.shapes) {
+          if (state.selected.shapes.has(s.id)) {
+            for (const p of s.pts) { p.q += dq; p.r += dr; }
+          }
+        }
+        for (const l of state.lines) {
+          if (state.selected.lines.has(l.id)) {
+            for (const p of l.pts) { p.q += dq; p.r += dr; }
+          }
+        }
+        if (state.selected.dots.size > 0) {
+          const moved = [];
+          for (const k of state.selected.dots) {
+            if (state.dots[k]) {
+              moved.push({ ...state.dots[k], q: state.dots[k].q + dq, r: state.dots[k].r + dr });
+              delete state.dots[k];
+            }
+          }
+          state.selected.dots.clear();
+          for (const d of moved) {
+            const nk = dotKey(d.q, d.r);
+            state.dots[nk] = d;
+            state.selected.dots.add(nk);
+          }
+        }
+      }
+
+      function transformSelectionLattice(fn) {
+        const pts = getSelectedPointsList();
+        if (pts.length === 0) return;
+        const before = createSnapshot();
+
+        let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+        let minX2 = Infinity, maxX2 = -Infinity; // 2*q + r for tri H-flip
+        for (const p of pts) {
+          if (p.q < minQ) minQ = p.q; if (p.q > maxQ) maxQ = p.q;
+          if (p.r < minR) minR = p.r; if (p.r > maxR) maxR = p.r;
+          const x2 = 2 * p.q + p.r;
+          if (x2 < minX2) minX2 = x2; if (x2 > maxX2) maxX2 = x2;
+        }
+        const ctxBounds = {
+          minQ, maxQ, minR, maxR,
+          cq: Math.round((minQ + maxQ) / 2),
+          cr: Math.round((minR + maxR) / 2),
+          evenR0: Math.round((minR + maxR) / 2) * 2,
+          triK: Math.round((minX2 + maxX2) / 2)
+        };
+
+        for (const s of state.shapes) {
+          if (state.selected.shapes.has(s.id)) {
+            s.pts = s.pts.map(p => fn(p.q, p.r, ctxBounds));
+          }
+        }
+        for (const l of state.lines) {
+          if (state.selected.lines.has(l.id)) {
+            l.pts = l.pts.map(p => fn(p.q, p.r, ctxBounds));
+          }
+        }
+        if (state.selected.dots.size > 0) {
+          const moved = [];
+          for (const k of state.selected.dots) {
+            if (state.dots[k]) {
+              const np = fn(state.dots[k].q, state.dots[k].r, ctxBounds);
+              moved.push({ ...state.dots[k], q: np.q, r: np.r });
+              delete state.dots[k];
+            }
+          }
+          state.selected.dots.clear();
+          for (const d of moved) {
+            const nk = dotKey(d.q, d.r);
+            state.dots[nk] = d;
+            state.selected.dots.add(nk);
+          }
+        }
+
+        commitHistory(before);
+        positionMiniToolbar();
+      }
+
+      function flipSelectedHorizontal() {
+        if (state.gridMode === "tri") {
+          // Exact vertical-axis reflection on triangular lattice: (q', r') = (K - q - r, r)
+          transformSelectionLattice((q, r, b) => ({ q: b.triK - q - r, r }));
+        } else {
+          transformSelectionLattice((q, r, b) => ({ q: b.minQ + b.maxQ - q, r }));
+        }
+        showToast("↔️ Flipped Horizontally");
+      }
+
+      function flipSelectedVertical() {
+        if (state.gridMode === "tri") {
+          // Exact horizontal-axis reflection on triangular lattice: r' = evenR0 - r, q' = q + r - evenR0/2
+          transformSelectionLattice((q, r, b) => ({ q: q + r - b.evenR0 / 2, r: b.evenR0 - r }));
+        } else {
+          transformSelectionLattice((q, r, b) => ({ q, r: b.minR + b.maxR - r }));
+        }
+        showToast("↕️ Flipped Vertically");
+      }
+
+      function rotateSelected() {
+        if (state.gridMode === "tri") {
+          // Exact +60° clockwise rotation on axial triangular lattice: (dq, dr) -> (-dr, dq + dr)
+          transformSelectionLattice((q, r, b) => {
+            const dq = q - b.cq;
+            const dr = r - b.cr;
+            return { q: b.cq - dr, r: b.cr + dq + dr };
+          });
+          showToast("↻ Rotated 60°");
+        } else {
+          // Exact +90° clockwise rotation on square lattice: (dq, dr) -> (-dr, dq)
+          transformSelectionLattice((q, r, b) => {
+            const dq = q - b.cq;
+            const dr = r - b.cr;
+            return { q: b.cq - dr, r: b.cr + dq };
+          });
+          showToast("↻ Rotated 90°");
+        }
+      }
+
+      function duplicateSelected() {
+        if (!hasAnySelection()) return;
+        const before = createSnapshot();
+        const newShapes = [];
+        const newLines = [];
+        const newDotKeys = [];
+
+        for (const s of state.shapes) {
+          if (state.selected.shapes.has(s.id)) {
+            const copy = {
+              ...s,
+              id: state.nextId++,
+              pts: s.pts.map(p => ({ q: p.q + 1, r: p.r + 1 }))
+            };
+            newShapes.push(copy);
+          }
+        }
+        for (const l of state.lines) {
+          if (state.selected.lines.has(l.id)) {
+            const copy = {
+              ...l,
+              id: state.nextId++,
+              pts: l.pts.map(p => ({ q: p.q + 1, r: p.r + 1 }))
+            };
+            newLines.push(copy);
+          }
+        }
+        const dotsToAdd = [];
+        for (const k of state.selected.dots) {
+          if (state.dots[k]) {
+            const d = state.dots[k];
+            dotsToAdd.push({ ...d, q: d.q + 1, r: d.r + 1 });
+          }
+        }
+
+        state.selected.shapes.clear();
+        state.selected.lines.clear();
+        state.selected.dots.clear();
+
+        for (const s of newShapes) { state.shapes.push(s); state.selected.shapes.add(s.id); }
+        for (const l of newLines) { state.lines.push(l); state.selected.lines.add(l.id); }
+        for (const d of dotsToAdd) {
+          const nk = dotKey(d.q, d.r);
+          state.dots[nk] = d;
+          state.selected.dots.add(nk);
+          newDotKeys.push(nk);
+        }
+
+        commitHistory(before);
+        positionMiniToolbar();
+        showToast("📋 Duplicated");
+      }
+
+      function deleteSelected() {
+        if (!hasAnySelection()) return;
+        const before = createSnapshot();
+        state.shapes = state.shapes.filter(s => !state.selected.shapes.has(s.id));
+        state.lines = state.lines.filter(l => !state.selected.lines.has(l.id));
+        for (const k of state.selected.dots) delete state.dots[k];
+        clearSelection();
+        commitHistory(before);
+        showToast("🗑️ Removed selected");
+      }
+
+      function toggleHideSelected() {
+        if (!hasAnySelection()) return;
+        const before = createSnapshot();
+        // If any selected item is currently visible, hide all; otherwise unhide all
+        let anyVisible = false;
+        for (const s of state.shapes) if (state.selected.shapes.has(s.id) && !s.hidden) anyVisible = true;
+        for (const l of state.lines) if (state.selected.lines.has(l.id) && !l.hidden) anyVisible = true;
+        for (const k of state.selected.dots) if (state.dots[k] && !state.dots[k].hidden) anyVisible = true;
+
+        const targetHidden = anyVisible;
+        for (const s of state.shapes) if (state.selected.shapes.has(s.id)) s.hidden = targetHidden;
+        for (const l of state.lines) if (state.selected.lines.has(l.id)) l.hidden = targetHidden;
+        for (const k of state.selected.dots) if (state.dots[k]) state.dots[k].hidden = targetHidden;
+
+        commitHistory(before);
+        if (targetHidden && !state.showHidden) {
+          clearSelection();
+          showToast("🙈 Hidden (toggle 👁️‍🗨️ Hidden to view/unhide)");
+        } else {
+          positionMiniToolbar();
+          showToast(targetHidden ? "🙈 Hidden" : "👁️ Shown");
+        }
+      }
+
+      function applyColorToSelection(colorHex) {
+        if (!hasAnySelection()) return;
+        const before = createSnapshot();
+        for (const s of state.shapes) {
+          if (state.selected.shapes.has(s.id)) {
+            s.strokeColor = colorHex;
+            s.fillColor = colorHex;
+          }
+        }
+        for (const l of state.lines) {
+          if (state.selected.lines.has(l.id)) {
+            l.strokeColor = colorHex;
+          }
+        }
+        for (const k of state.selected.dots) {
+          if (state.dots[k]) state.dots[k].color = colorHex;
+        }
+        commitHistory(before);
+      }
+
+      /* =====================================================================
+       * MINI FLOATING TOOLBAR POSITIONING
+       * ===================================================================== */
+      function hideMiniPopovers() {
+        document.getElementById("miniColorPopover").classList.remove("visible");
+        document.getElementById("topPalettePopover").classList.remove("visible");
+      }
+
+      function positionMiniToolbar() {
+        const bar = document.getElementById("miniToolbar");
+        if (!hasAnySelection()) {
+          bar.classList.remove("visible");
+          document.getElementById("miniColorPopover").classList.remove("visible");
+          return;
+        }
+
+        const pts = getSelectedPointsList();
+        if (pts.length === 0) {
+          bar.classList.remove("visible");
+          return;
+        }
+
+        // Update contextual button labels
+        const selShapes = state.shapes.filter(s => state.selected.shapes.has(s.id));
+        const selLines = state.lines.filter(l => state.selected.lines.has(l.id));
+        document.getElementById("miniFillBtn").style.display = selShapes.length > 0 ? "inline-flex" : "none";
+        const hasLineOrShape = selShapes.length > 0 || selLines.length > 0;
+        document.getElementById("miniDashBtn").style.display = hasLineOrShape ? "inline-flex" : "none";
+        document.getElementById("miniWidthBtn").style.display = hasLineOrShape ? "inline-flex" : "none";
+
+        if (hasLineOrShape) {
+          const sample = selShapes[0] || selLines[0];
+          document.getElementById("miniWidthBtn").textContent = `📏${sample.lineWidth || 2}`;
+          document.getElementById("miniDashBtn").classList.toggle("active", Boolean(sample.dashed));
+        }
+
+        document.getElementById("miniRotateBtn").title = state.gridMode === "tri" ? "Rotate selected 60°" : "Rotate selected 90°";
+
+        bar.classList.add("visible");
+
+        // Compute screen bounding box of selection
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const p of pts) {
+          const w = latticeToWorld(p.q, p.r);
+          const sc = worldToScreen(w.x, w.y);
+          if (sc.x < minX) minX = sc.x;
+          if (sc.x > maxX) maxX = sc.x;
+          if (sc.y < minY) minY = sc.y;
+          if (sc.y > maxY) maxY = sc.y;
+        }
+
+        const rect = bar.getBoundingClientRect();
+        const topToolbarRect = document.getElementById("topToolbar").getBoundingClientRect();
+        const safeTop = Math.min(130, topToolbarRect.bottom + 10);
+
+        let left = (minX + maxX) / 2 - rect.width / 2;
+        let top = minY - rect.height - 18;
+        if (top < safeTop) {
+          top = maxY + 20;
+        }
+        left = Math.max(10, Math.min(window.innerWidth - rect.width - 10, left));
+        top = Math.max(safeTop, Math.min(window.innerHeight - rect.height - 64, top));
+
+        bar.style.left = `${Math.round(left)}px`;
+        bar.style.top = `${Math.round(top)}px`;
+      }
+
+      /* =====================================================================
+       * DRAFT DRAWING WORKFLOW (AUTO-CLOSE, FINISH LINE, CANCEL)
+       * ===================================================================== */
+      function updateDraftBar() {
+        const bar = document.getElementById("draftActionBar");
+        if (state.draftPts.length === 0) {
+          bar.classList.remove("visible");
+          return;
+        }
+        bar.classList.add("visible");
+        document.getElementById("draftPointCount").textContent = `${state.draftPts.length} pt${state.draftPts.length > 1 ? "s" : ""}`;
+        document.getElementById("draftFinishLineBtn").disabled = state.draftPts.length < 2;
+        document.getElementById("draftCloseShapeBtn").disabled = state.draftPts.length < 3;
+      }
+
+      function cancelDraft(silent = false) {
+        if (state.draftPts.length === 0) return false;
+        state.draftPts = [];
+        updateDraftBar();
+        if (!silent) showToast("✖️ Drawing canceled");
+        return true;
+      }
+
+      function finishDraftAsLine() {
+        if (state.draftPts.length < 2) return false;
+        const before = createSnapshot();
+        const newLine = {
+          id: state.nextId++,
+          pts: state.draftPts.map(p => ({ q: p.q, r: p.r })),
+          strokeColor: state.activeColor,
+          lineWidth: state.activeWidth,
+          dashed: state.activeDashed,
+          hidden: false
+        };
+        state.lines.push(newLine);
+        state.draftPts = [];
+        updateDraftBar();
+        commitHistory(before);
+        showToast("➖ Line added");
+        return true;
+      }
+
+      function finishDraftAsShape() {
+        if (state.draftPts.length < 3) return false;
+        const before = createSnapshot();
+        const newShape = {
+          id: state.nextId++,
+          pts: state.draftPts.map(p => ({ q: p.q, r: p.r })),
+          strokeColor: state.activeColor,
+          fillColor: state.activeColor,
+          fillAlpha: 0.22,
+          lineWidth: state.activeWidth,
+          dashed: state.activeDashed,
+          hidden: false
+        };
+        state.shapes.push(newShape);
+        state.draftPts = [];
+        updateDraftBar();
+        commitHistory(before);
+        showToast("🔷 Shape closed!");
+        return true;
+      }
+
+      function handleDrawDotClick(q, r) {
+        const pts = state.draftPts;
+        if (pts.length === 0) {
+          pts.push({ q, r });
+          updateDraftBar();
+          return;
+        }
+
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+
+        // Auto-close loop if clicking back on the first point with >= 3 points
+        if (state.drawAutoClose && pts.length >= 3 && q === first.q && r === first.r) {
+          finishDraftAsShape();
+          return;
+        }
+
+        // Ignore duplicate click on exact same last point (or finish open line if >= 2)
+        if (q === last.q && r === last.r) {
+          if (pts.length >= 2) finishDraftAsLine();
+          return;
+        }
+
+        pts.push({ q, r });
+
+        // Single-segment mode auto-finishes on second point
+        if (!state.drawAutoClose && pts.length === 2) {
+          finishDraftAsLine();
+          return;
+        }
+
+        updateDraftBar();
+      }
+
+      /* =====================================================================
+       * CANVAS RENDERING (ENDLESS DOT GRID + SHAPES + LINES + HIGHLIGHTS)
+       * ===================================================================== */
+      function resizeCanvas() {
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = Math.round(w * state.dpr);
+        canvas.height = Math.round(h * state.dpr);
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        positionMiniToolbar();
+      }
+
+      function hexToRgba(hex, alpha) {
+        const clean = (hex || "#e11d68").replace("#", "");
+        const full = clean.length === 3 ? clean.split("").map(c => c + c).join("") : clean.padEnd(6, "0");
+        const r = parseInt(full.slice(0, 2), 16) || 0;
+        const g = parseInt(full.slice(2, 4), 16) || 0;
+        const b = parseInt(full.slice(4, 6), 16) || 0;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function getViewportWorldBounds() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const corners = [
+          screenToWorld(0, 0),
+          screenToWorld(w, 0),
+          screenToWorld(w, h),
+          screenToWorld(0, h)
+        ];
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const c of corners) {
+          if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
+          if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
+        }
+        return { minX, maxX, minY, maxY };
+      }
+
+      function drawEndlessGrid() {
+        const bounds = getViewportWorldBounds();
+        const pad = GRID_STEP * 2;
+        const minX = bounds.minX - pad;
+        const maxX = bounds.maxX + pad;
+        const minY = bounds.minY - pad;
+        const maxY = bounds.maxY + pad;
+
+        const mode = state.gridMode;
+        const dotR = Math.max(2.2, Math.min(5.2, 3.6 / Math.pow(state.camera.zoom, 0.25)));
+
+        // Adaptive decimation if zoomed super far out to maintain 60fps
+        const stepSkip = state.camera.zoom < 0.35 ? 2 : 1;
+
+        if (mode === "square") {
+          const minQ = Math.floor(minX / GRID_STEP);
+          const maxQ = Math.ceil(maxX / GRID_STEP);
+          const minR = Math.floor(minY / GRID_STEP);
+          const maxR = Math.ceil(maxY / GRID_STEP);
+
+          if (state.showGuides) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.08)";
+            ctx.lineWidth = 1 / state.camera.zoom;
+            ctx.beginPath();
+            for (let q = minQ; q <= maxQ; q += stepSkip) {
+              const x = q * GRID_STEP;
+              ctx.moveTo(x, minR * GRID_STEP);
+              ctx.lineTo(x, maxR * GRID_STEP);
+            }
+            for (let r = minR; r <= maxR; r += stepSkip) {
+              const y = r * GRID_STEP;
+              ctx.moveTo(minQ * GRID_STEP, y);
+              ctx.lineTo(maxQ * GRID_STEP, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          ctx.fillStyle = "rgba(71, 118, 152, 0.45)";
+          ctx.beginPath();
+          for (let r = minR; r <= maxR; r += stepSkip) {
+            const y = r * GRID_STEP;
+            for (let q = minQ; q <= maxQ; q += stepSkip) {
+              const k = dotKey(q, r);
+              const custom = state.dots[k];
+              if (custom && custom.hidden) continue;
+              const x = q * GRID_STEP;
+              ctx.moveTo(x + dotR, y);
+              ctx.arc(x, y, dotR, 0, Math.PI * 2);
+            }
+          }
+          ctx.fill();
+        } else {
+          // Triangular / Isometric staggered dot grid (rows 1,3,5,7 align; 2,4,6,8 align)
+          const rowH = GRID_STEP * HALF_SQRT3;
+          const minR = Math.floor(minY / rowH) - 1;
+          const maxR = Math.ceil(maxY / rowH) + 1;
+
+          if (state.showGuides) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.075)";
+            ctx.lineWidth = 1 / state.camera.zoom;
+            ctx.beginPath();
+            // Horizontal rows
+            for (let r = minR; r <= maxR; r += stepSkip) {
+              const y = r * rowH;
+              ctx.moveTo(minX, y);
+              ctx.lineTo(maxX, y);
+            }
+            // 60° & 120° diagonals
+            const minQAll = Math.floor(minX / GRID_STEP - maxR * 0.5) - 2;
+            const maxQAll = Math.ceil(maxX / GRID_STEP - minR * 0.5) + 2;
+            for (let q = minQAll; q <= maxQAll; q += stepSkip) {
+              const p1 = latticeToWorld(q, minR, "tri");
+              const p2 = latticeToWorld(q, maxR, "tri");
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(p2.x, p2.y);
+            }
+            const minS = Math.floor(minX / GRID_STEP + minR * 0.5) - 2;
+            const maxS = Math.ceil(maxX / GRID_STEP + maxR * 0.5) + 2;
+            for (let s = minS; s <= maxS; s += stepSkip) {
+              const p1 = latticeToWorld(s - minR, minR, "tri");
+              const p2 = latticeToWorld(s - maxR, maxR, "tri");
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(p2.x, p2.y);
+            }
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          ctx.fillStyle = "rgba(71, 118, 152, 0.48)";
+          ctx.beginPath();
+          for (let r = minR; r <= maxR; r += stepSkip) {
+            const y = r * rowH;
+            const qStart = Math.floor(minX / GRID_STEP - r * 0.5);
+            const qEnd = Math.ceil(maxX / GRID_STEP - r * 0.5);
+            for (let q = qStart; q <= qEnd; q += stepSkip) {
+              const k = dotKey(q, r);
+              const custom = state.dots[k];
+              if (custom && custom.hidden) continue;
+              const x = (q + r * 0.5) * GRID_STEP;
+              ctx.moveTo(x + dotR, y);
+              ctx.arc(x, y, dotR, 0, Math.PI * 2);
+            }
+          }
+          ctx.fill();
+        }
+      }
+
+      function renderScene() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+        // Background
+        ctx.fillStyle = state.boardBg;
+        ctx.fillRect(0, 0, w, h);
+
+        // Apply Camera World Transform
+        const { x, y, zoom, rotDeg, flipX, flipY } = state.camera;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale((flipX ? -1 : 1) * zoom, (flipY ? -1 : 1) * zoom);
+        ctx.rotate((rotDeg * Math.PI) / 180);
+
+        // 1. Endless Dot Grid
+        drawEndlessGrid();
+
+        // 2. Shapes
+        for (const s of state.shapes) {
+          if (s.hidden && !state.showHidden) continue;
+          const isSel = state.selected.shapes.has(s.id);
+          const isHover = state.hoverHit && state.hoverHit.type === "shape" && state.hoverHit.id === s.id;
+          const wPts = s.pts.map(p => latticeToWorld(p.q, p.r));
+          if (wPts.length < 3) continue;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(wPts[0].x, wPts[0].y);
+          for (let i = 1; i < wPts.length; i++) ctx.lineTo(wPts[i].x, wPts[i].y);
+          ctx.closePath();
+
+          if (s.hidden) {
+            ctx.globalAlpha = 0.28;
+          }
+
+          if ((s.fillAlpha ?? 0.22) > 0.01) {
+            ctx.fillStyle = hexToRgba(s.fillColor || s.strokeColor, s.fillAlpha ?? 0.22);
+            ctx.fill();
+          }
+
+          const lw = STROKE_WIDTHS[(s.lineWidth || 2) - 1] || 2.5;
+          if (isSel) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(29, 143, 112, 0.35)";
+            ctx.lineWidth = lw + 8 / zoom;
+            ctx.lineJoin = "round";
+            ctx.stroke();
+            ctx.restore();
+          } else if (isHover) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(14, 165, 233, 0.28)";
+            ctx.lineWidth = lw + 6 / zoom;
+            ctx.lineJoin = "round";
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          ctx.strokeStyle = s.strokeColor || DEFAULT_STROKE;
+          ctx.lineWidth = lw;
+          ctx.lineJoin = "round";
+          ctx.lineCap = "round";
+          if (s.dashed || s.hidden) {
+            ctx.setLineDash([Math.max(8, lw * 3.2), Math.max(6, lw * 2.4)]);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 3. Lines
+        for (const l of state.lines) {
+          if (l.hidden && !state.showHidden) continue;
+          const isSel = state.selected.lines.has(l.id);
+          const isHover = state.hoverHit && state.hoverHit.type === "line" && state.hoverHit.id === l.id;
+          const wPts = l.pts.map(p => latticeToWorld(p.q, p.r));
+          if (wPts.length < 2) continue;
+
+          ctx.save();
+          if (l.hidden) ctx.globalAlpha = 0.3;
+          ctx.beginPath();
+          ctx.moveTo(wPts[0].x, wPts[0].y);
+          for (let i = 1; i < wPts.length; i++) ctx.lineTo(wPts[i].x, wPts[i].y);
+
+          const lw = STROKE_WIDTHS[(l.lineWidth || 2) - 1] || 2.5;
+          if (isSel) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(29, 143, 112, 0.36)";
+            ctx.lineWidth = lw + 9 / zoom;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.stroke();
+            ctx.restore();
+          } else if (isHover) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(14, 165, 233, 0.3)";
+            ctx.lineWidth = lw + 6 / zoom;
+            ctx.lineCap = "round";
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          ctx.strokeStyle = l.strokeColor || DEFAULT_STROKE;
+          ctx.lineWidth = lw;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          if (l.dashed || l.hidden) {
+            ctx.setLineDash([Math.max(8, lw * 3.2), Math.max(6, lw * 2.4)]);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 4. Custom Styled & Hidden Ghost Dots
+        const baseDotR = Math.max(3.6, Math.min(6.4, 4.8 / Math.pow(zoom, 0.2)));
+        for (const [k, d] of Object.entries(state.dots)) {
+          if (d.hidden && !state.showHidden) continue;
+          const wp = latticeToWorld(d.q, d.r);
+          const isSel = state.selected.dots.has(k);
+          const r = baseDotR * (d.sizeScale || 1.2);
+
+          ctx.save();
+          if (isSel) {
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, r + 5 / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(29, 143, 112, 0.28)";
+            ctx.fill();
+            ctx.strokeStyle = "#1d8f70";
+            ctx.lineWidth = 1.6 / zoom;
+            ctx.stroke();
+          }
+
+          if (d.hidden) {
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(100, 116, 139, 0.7)";
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.setLineDash([3 / zoom, 3 / zoom]);
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = d.color || DEFAULT_DOT_COLOR;
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 1.4 / zoom;
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 5. Pick's Theorem i (Green) & b (Red) Dot Highlights
+        if (state.highlightPickDots && state.lastAnalysis && state.lastAnalysis.pickStatus === "ok") {
+          const hr = Math.max(4.8, 5.8 / Math.pow(zoom, 0.15));
+          ctx.save();
+          // Interior dots = Green
+          for (const pt of state.lastAnalysis.interiorDots) {
+            const wp = latticeToWorld(pt.q, pt.r);
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, hr, 0, Math.PI * 2);
+            ctx.fillStyle = "#16a34a";
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 1.8 / zoom;
+            ctx.stroke();
+          }
+          // Boundary dots = Red
+          for (const pt of state.lastAnalysis.boundaryDots) {
+            const wp = latticeToWorld(pt.q, pt.r);
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, hr, 0, Math.PI * 2);
+            ctx.fillStyle = "#ef4444";
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 1.8 / zoom;
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 6. Active Drawing Draft Preview
+        if (state.draftPts.length > 0) {
+          const wPts = state.draftPts.map(p => latticeToWorld(p.q, p.r));
+          const lw = STROKE_WIDTHS[state.activeWidth - 1] || 2.5;
+          ctx.save();
+
+          // Translucent preview fill if >= 3 points
+          if (state.drawAutoClose && wPts.length >= 3) {
+            ctx.beginPath();
+            ctx.moveTo(wPts[0].x, wPts[0].y);
+            for (let i = 1; i < wPts.length; i++) ctx.lineTo(wPts[i].x, wPts[i].y);
+            ctx.closePath();
+            ctx.fillStyle = hexToRgba(state.activeColor, 0.1);
+            ctx.fill();
+          }
+
+          // Existing chained segments
+          if (wPts.length >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(wPts[0].x, wPts[0].y);
+            for (let i = 1; i < wPts.length; i++) ctx.lineTo(wPts[i].x, wPts[i].y);
+            ctx.strokeStyle = state.activeColor;
+            ctx.lineWidth = lw;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            if (state.activeDashed) ctx.setLineDash([Math.max(8, lw * 3), Math.max(6, lw * 2.2)]);
+            ctx.stroke();
+          }
+
+          // Live rubberband dashed preview segment to hovered dot
+          if (state.hoverLattice) {
+            const last = wPts[wPts.length - 1];
+            const hov = latticeToWorld(state.hoverLattice.q, state.hoverLattice.r);
+            ctx.beginPath();
+            ctx.moveTo(last.x, last.y);
+            ctx.lineTo(hov.x, hov.y);
+            ctx.strokeStyle = hexToRgba(state.activeColor, 0.72);
+            ctx.lineWidth = Math.max(1.8, lw * 0.85);
+            ctx.setLineDash([7 / zoom, 6 / zoom]);
+            ctx.stroke();
+          }
+
+          // Draft vertex nodes (highlight first dot green when ready to close!)
+          ctx.setLineDash([]);
+          for (let i = 0; i < wPts.length; i++) {
+            const p = wPts[i];
+            const isCloseTarget = i === 0 && state.drawAutoClose && wPts.length >= 3;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, (isCloseTarget ? 7.5 : 4.5) / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = isCloseTarget ? "#16a34a" : state.activeColor;
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2 / zoom;
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 7. Hover Snap Ring (for Draw & Dot tools)
+        if (state.hoverLattice && (state.tool === "draw" || state.tool === "dot")) {
+          const wp = latticeToWorld(state.hoverLattice.q, state.hoverLattice.r);
+          const isClosing = state.tool === "draw" && state.drawAutoClose && state.draftPts.length >= 3 &&
+            state.hoverLattice.q === state.draftPts[0].q && state.hoverLattice.r === state.draftPts[0].r;
+          const ringColor = isClosing ? "#16a34a" : (state.tool === "dot" ? state.activeDotColor : state.activeColor);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(wp.x, wp.y, (isClosing ? 13 : 10) / zoom, 0, Math.PI * 2);
+          ctx.strokeStyle = ringColor;
+          ctx.lineWidth = 2 / zoom;
+          ctx.setLineDash([4 / zoom, 3 / zoom]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.arc(wp.x, wp.y, 4.2 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = ringColor;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore();
+
+        // 8. Screen-space Marquee Selection Box
+        if (state.marquee) {
+          const { startSx, startSy, curSx, curSy } = state.marquee;
+          const rx = Math.min(startSx, curSx);
+          const ry = Math.min(startSy, curSy);
+          const rw = Math.abs(curSx - startSx);
+          const rh = Math.abs(curSy - startSy);
+          ctx.save();
+          ctx.fillStyle = "rgba(29, 143, 112, 0.12)";
+          ctx.strokeStyle = "#1d8f70";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 4]);
+          ctx.fillRect(rx, ry, rw, rh);
+          ctx.strokeRect(rx, ry, rw, rh);
+          ctx.restore();
+        }
+
+        requestAnimationFrame(renderScene);
+      }
+
+      /* =====================================================================
+       * POINTER, MOUSE & MULTI-TOUCH HANDLERS
+       * ===================================================================== */
+      function eraseAtScreen(sx, sy, recordUndo = true) {
+        const hit = hitTestAtScreen(sx, sy, "all");
+        if (!hit) return false;
+        const before = recordUndo ? createSnapshot() : null;
+        if (hit.type === "shape") {
+          state.shapes = state.shapes.filter(s => s.id !== hit.id);
+          state.selected.shapes.delete(hit.id);
+        } else if (hit.type === "line") {
+          state.lines = state.lines.filter(l => l.id !== hit.id);
+          state.selected.lines.delete(hit.id);
+        } else if (hit.type === "dot") {
+          delete state.dots[hit.key];
+          state.selected.dots.delete(hit.key);
+        }
+        if (recordUndo) commitHistory(before);
+        positionMiniToolbar();
+        updateInspectorHUD();
+        return true;
+      }
+
+      function paintDotAt(q, r) {
+        const before = createSnapshot();
+        const k = dotKey(q, r);
+        const existing = state.dots[k];
+        if (existing && !existing.hidden && existing.color.toLowerCase() === state.activeDotColor.toLowerCase()) {
+          // Clicking same colored dot resets it back to default grid dot
+          delete state.dots[k];
+          state.selected.dots.delete(k);
+          commitHistory(before);
+          return;
+        }
+        state.dots[k] = { q, r, color: state.activeDotColor, hidden: false, sizeScale: 1.3 };
+        commitHistory(before);
+      }
+
+      function onPointerDown(e) {
+        hideMiniPopovers();
+        canvas.setPointerCapture(e.pointerId);
+        state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+
+        // 2-Finger Touch Pinch-Zoom & Pan
+        if (state.pointers.size === 2) {
+          state.marquee = null;
+          state.dragMove = null;
+          state.erasingDrag = null;
+          const pts = Array.from(state.pointers.values());
+          const midX = (pts[0].x + pts[1].x) / 2;
+          const midY = (pts[0].y + pts[1].y) / 2;
+          state.pinchState = {
+            dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y),
+            midX,
+            midY
+          };
+          return;
+        }
+
+        // Right-Click Behavior: Cancel draft -> Erase hit -> Clear selection
+        if (e.button === 2) {
+          e.preventDefault();
+          if (cancelDraft(false)) return;
+          if (eraseAtScreen(e.clientX, e.clientY, true)) {
+            showToast("🧹 Removed / Reset");
+            return;
+          }
+          if (hasAnySelection()) {
+            clearSelection();
+            showToast("Selection cleared");
+          }
+          return;
+        }
+
+        // Middle-Mouse Pan OR Pan Tool
+        if (e.button === 1 || (e.button === 0 && state.tool === "pan")) {
+          e.preventDefault();
+          state.panState = {
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            startY: e.clientY,
+            camX: state.camera.x,
+            camY: state.camera.y
+          };
+          canvas.style.cursor = "grabbing";
+          return;
+        }
+
+        if (e.button !== 0) return;
+
+        const w = screenToWorld(e.clientX, e.clientY);
+        const snapTolerance = (e.pointerType === "touch" ? 28 : 22) / state.camera.zoom;
+
+        // Tool: Draw Line/Shape
+        if (state.tool === "draw") {
+          const near = worldToLatticeNearest(w.x, w.y);
+          if (near.distWorld <= snapTolerance) {
+            handleDrawDotClick(near.q, near.r);
+          }
+          return;
+        }
+
+        // Tool: Dot Painter
+        if (state.tool === "dot") {
+          const near = worldToLatticeNearest(w.x, w.y);
+          if (near.distWorld <= snapTolerance) {
+            paintDotAt(near.q, near.r);
+          }
+          return;
+        }
+
+        // Tool: Eraser
+        if (state.tool === "eraser") {
+          const before = createSnapshot();
+          const changed = eraseAtScreen(e.clientX, e.clientY, false);
+          state.erasingDrag = { pointerId: e.pointerId, before, changed };
+          return;
+        }
+
+        // Tool: Select & Move / Marquee
+        if (state.tool === "select") {
+          const hit = hitTestAtScreen(e.clientX, e.clientY, state.selectFilter);
+          if (hit) {
+            if (!isHitSelected(hit) || e.shiftKey) {
+              selectHit(hit, e.shiftKey);
+            }
+            if (hasAnySelection() && !e.shiftKey) {
+              const near = worldToLatticeNearest(w.x, w.y);
+              state.dragMove = {
+                pointerId: e.pointerId,
+                startQ: near.q,
+                startR: near.r,
+                lastDq: 0,
+                lastDr: 0,
+                before: createSnapshot(),
+                moved: false
+              };
+            }
+          } else {
+            if (!e.shiftKey) clearSelection();
+            state.marquee = {
+              pointerId: e.pointerId,
+              startSx: e.clientX,
+              startSy: e.clientY,
+              curSx: e.clientX,
+              curSy: e.clientY,
+              additive: e.shiftKey
+            };
+          }
+        }
+      }
+
+      function onPointerMove(e) {
+        if (state.pointers.has(e.pointerId)) {
+          state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+        }
+
+        // 2-Finger Pinch-Zoom & Pan
+        if (state.pinchState && state.pointers.size >= 2) {
+          const pts = Array.from(state.pointers.values());
+          const midX = (pts[0].x + pts[1].x) / 2;
+          const midY = (pts[0].y + pts[1].y) / 2;
+          const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+
+          // Pan by midpoint delta
+          state.camera.x += midX - state.pinchState.midX;
+          state.camera.y += midY - state.pinchState.midY;
+
+          // Zoom by pinch ratio
+          if (state.pinchState.dist > 10 && dist > 10) {
+            zoomAtScreenPoint(dist / state.pinchState.dist, midX, midY);
+          }
+
+          state.pinchState.dist = dist;
+          state.pinchState.midX = midX;
+          state.pinchState.midY = midY;
+          positionMiniToolbar();
+          return;
+        }
+
+        // Active Pan
+        if (state.panState && state.panState.pointerId === e.pointerId) {
+          state.camera.x = state.panState.camX + (e.clientX - state.panState.startX);
+          state.camera.y = state.panState.camY + (e.clientY - state.panState.startY);
+          positionMiniToolbar();
+          return;
+        }
+
+        // Active Drag-Move of Selected Group (Snapped to Lattice!)
+        if (state.dragMove && state.dragMove.pointerId === e.pointerId) {
+          const w = screenToWorld(e.clientX, e.clientY);
+          const near = worldToLatticeNearest(w.x, w.y);
+          const dq = near.q - state.dragMove.startQ;
+          const dr = near.r - state.dragMove.startR;
+          const stepQ = dq - state.dragMove.lastDq;
+          const stepR = dr - state.dragMove.lastDr;
+          if (stepQ !== 0 || stepR !== 0) {
+            translateSelection(stepQ, stepR);
+            state.dragMove.lastDq = dq;
+            state.dragMove.lastDr = dr;
+            state.dragMove.moved = true;
+            positionMiniToolbar();
+            updateInspectorHUD();
+          }
+          return;
+        }
+
+        // Active Marquee Selection
+        if (state.marquee && state.marquee.pointerId === e.pointerId) {
+          state.marquee.curSx = e.clientX;
+          state.marquee.curSy = e.clientY;
+          return;
+        }
+
+        // Active Eraser Drag
+        if (state.erasingDrag && state.erasingDrag.pointerId === e.pointerId) {
+          if (eraseAtScreen(e.clientX, e.clientY, false)) {
+            state.erasingDrag.changed = true;
+          }
+          return;
+        }
+
+        // Hover Feedback
+        const w = screenToWorld(e.clientX, e.clientY);
+        const near = worldToLatticeNearest(w.x, w.y);
+        state.hoverLattice = near.distWorld <= 24 / state.camera.zoom ? { q: near.q, r: near.r } : null;
+
+        if (state.tool === "select" || state.tool === "eraser") {
+          state.hoverHit = hitTestAtScreen(e.clientX, e.clientY, state.tool === "select" ? state.selectFilter : "all");
+        } else {
+          state.hoverHit = null;
+        }
+      }
+
+      function onPointerUp(e) {
+        state.pointers.delete(e.pointerId);
+        if (state.pointers.size < 2) {
+          state.pinchState = null;
+        }
+
+        if (state.panState && state.panState.pointerId === e.pointerId) {
+          state.panState = null;
+          updateToolCursor();
+        }
+
+        if (state.dragMove && state.dragMove.pointerId === e.pointerId) {
+          if (state.dragMove.moved) {
+            commitHistory(state.dragMove.before);
+          }
+          state.dragMove = null;
+        }
+
+        if (state.erasingDrag && state.erasingDrag.pointerId === e.pointerId) {
+          if (state.erasingDrag.changed) {
+            commitHistory(state.erasingDrag.before);
+          }
+          state.erasingDrag = null;
+        }
+
+        if (state.marquee && state.marquee.pointerId === e.pointerId) {
+          const { startSx, startSy, curSx, curSy } = state.marquee;
+          const minX = Math.min(startSx, curSx);
+          const maxX = Math.max(startSx, curSx);
+          const minY = Math.min(startSy, curSy);
+          const maxY = Math.max(startSy, curSy);
+          state.marquee = null;
+
+          if (maxX - minX > 6 || maxY - minY > 6) {
+            const f = state.selectFilter;
+            const ptInBox = (p) => {
+              const sc = worldToScreen(p.x, p.y);
+              return sc.x >= minX && sc.x <= maxX && sc.y >= minY && sc.y <= maxY;
+            };
+
+            if (f === "all" || f === "shape") {
+              for (const s of state.shapes) {
+                if (s.hidden && !state.showHidden) continue;
+                if (s.pts.some(pt => ptInBox(latticeToWorld(pt.q, pt.r)))) {
+                  state.selected.shapes.add(s.id);
+                }
+              }
+            }
+            if (f === "all" || f === "line") {
+              for (const l of state.lines) {
+                if (l.hidden && !state.showHidden) continue;
+                if (l.pts.some(pt => ptInBox(latticeToWorld(pt.q, pt.r)))) {
+                  state.selected.lines.add(l.id);
+                }
+              }
+            }
+            if (f === "all" || f === "dot") {
+              for (const [k, d] of Object.entries(state.dots)) {
+                if (d.hidden && !state.showHidden) continue;
+                if (ptInBox(latticeToWorld(d.q, d.r))) {
+                  state.selected.dots.add(k);
+                }
+              }
+            }
+            positionMiniToolbar();
+            updateInspectorHUD();
+          }
+        }
+      }
+
+      /* =====================================================================
+       * PRINT-READY SVG EXPORT STUDIO ENGINE
+       * ===================================================================== */
+      function applyExportWorldTransform(x, y, cx, cy, s) {
+        let dx = x - cx;
+        let dy = y - cy;
+        const stepDeg = state.gridMode === "tri" ? 60 : 90;
+        const rad = (s.rotSteps * stepDeg * Math.PI) / 180;
+        const c = Math.cos(rad);
+        const sn = Math.sin(rad);
+        let rx = dx * c - dy * sn;
+        let ry = dx * sn + dy * c;
+        if (s.flipH) rx = -rx;
+        if (s.flipV) ry = -ry;
+        return { x: rx, y: ry };
+      }
+
+      function buildExportSVG() {
+        const cfg = state.svgSettings;
+        const useSelected = cfg.scope === "selected" && hasAnySelection();
+        const mode = state.gridMode;
+
+        const shapes = state.shapes.filter(sh => {
+          if (useSelected && !state.selected.shapes.has(sh.id)) return false;
+          if (sh.hidden && !cfg.includeHidden) return false;
+          return true;
+        });
+
+        const lines = state.lines.filter(ln => {
+          if (useSelected && !state.selected.lines.has(ln.id)) return false;
+          if (ln.hidden && !cfg.includeHidden) return false;
+          return true;
+        });
+
+        const customDotMap = new Map();
+        for (const [k, d] of Object.entries(state.dots)) {
+          if (useSelected && !state.selected.dots.has(k)) continue;
+          customDotMap.set(k, d);
+        }
+
+        // Collect all raw world points of content to compute exact framing
+        const rawWorldPts = [];
+        let minR = Infinity, maxR = -Infinity, minQ = Infinity, maxQ = -Infinity;
+        const pushLattice = (q, r) => {
+          if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+          if (r < minR) minR = r; if (r > maxR) maxR = r;
+          rawWorldPts.push(latticeToWorld(q, r, mode));
+        };
+
+        for (const sh of shapes) for (const p of sh.pts) pushLattice(p.q, p.r);
+        for (const ln of lines) for (const p of ln.pts) pushLattice(p.q, p.r);
+        for (const d of customDotMap.values()) {
+          if (!d.hidden || cfg.includeHidden) pushLattice(d.q, d.r);
+        }
+
+        // Empty board fallback -> clean 5x5 grid
+        if (rawWorldPts.length === 0) {
+          pushLattice(0, 0);
+          pushLattice(4, 4);
+        }
+
+        // Compute center in raw world coordinates
+        let rawMinX = Infinity, rawMaxX = -Infinity, rawMinY = Infinity, rawMaxY = -Infinity;
+        for (const p of rawWorldPts) {
+          if (p.x < rawMinX) rawMinX = p.x; if (p.x > rawMaxX) rawMaxX = p.x;
+          if (p.y < rawMinY) rawMinY = p.y; if (p.y > rawMaxY) rawMaxY = p.y;
+        }
+        const cx = (rawMinX + rawMaxX) / 2;
+        const cy = (rawMinY + rawMaxY) / 2;
+
+        // Transform all content points to find post-rotation rectangular bounds
+        const tPts = rawWorldPts.map(p => applyExportWorldTransform(p.x, p.y, cx, cy, cfg));
+        let tMinX = Infinity, tMaxX = -Infinity, tMinY = Infinity, tMaxY = -Infinity;
+        for (const p of tPts) {
+          if (p.x < tMinX) tMinX = p.x; if (p.x > tMaxX) tMaxX = p.x;
+          if (p.y < tMinY) tMinY = p.y; if (p.y > tMaxY) tMaxY = p.y;
+        }
+
+        // Extra grid rings in world units
+        const padX = cfg.extraPad * GRID_STEP;
+        const padY = cfg.extraPad * (mode === "tri" ? GRID_STEP * HALF_SQRT3 : GRID_STEP);
+        const gridMinX = tMinX - padX - 0.5;
+        const gridMaxX = tMaxX + padX + 0.5;
+        const gridMinY = tMinY - padY - 0.5;
+        const gridMaxY = tMaxY + padY + 0.5;
+
+        // Generate all lattice dots whose transformed position lies inside the rectangular card grid!
+        // Expand scan window safely for rotation
+        const diagR = Math.ceil(Math.hypot(gridMaxX - gridMinX, gridMaxY - gridMinY) / GRID_STEP) + 4;
+        const centerLat = worldToLatticeNearest(cx, cy, mode);
+        const gridDots = [];
+
+        for (let r = centerLat.r - diagR; r <= centerLat.r + diagR; r++) {
+          for (let q = centerLat.q - diagR; q <= centerLat.q + diagR; q++) {
+            const wp = latticeToWorld(q, r, mode);
+            const tp = applyExportWorldTransform(wp.x, wp.y, cx, cy, cfg);
+            if (tp.x >= gridMinX && tp.x <= gridMaxX && tp.y >= gridMinY && tp.y <= gridMaxY) {
+              const k = dotKey(q, r);
+              const custom = state.dots[k];
+              if (custom && custom.hidden && !cfg.includeHidden) continue;
+              gridDots.push({ q, r, x: tp.x, y: tp.y, custom });
+            }
+          }
+        }
+
+        // Re-measure tight bounds of generated grid dots + content
+        let contentMinX = tMinX, contentMaxX = tMaxX, contentMinY = tMinY, contentMaxY = tMaxY;
+        for (const d of gridDots) {
+          if (d.x < contentMinX) contentMinX = d.x; if (d.x > contentMaxX) contentMaxX = d.x;
+          if (d.y < contentMinY) contentMinY = d.y; if (d.y > contentMaxY) contentMaxY = d.y;
+        }
+
+        const safetyMargin = cfg.safetyGrid ? GRID_STEP * 0.68 : GRID_STEP * 0.3;
+        const extraBottom = (cfg.includeArea || cfg.includeSeed) ? 28 : 0;
+        const vbX = contentMinX - safetyMargin;
+        const vbY = contentMinY - safetyMargin;
+        const vbW = Math.max(GRID_STEP * 2, contentMaxX - contentMinX + safetyMargin * 2);
+        const vbH = Math.max(GRID_STEP * 2, contentMaxY - contentMinY + safetyMargin * 2 + extraBottom);
+
+        const r2 = (n) => Number(n.toFixed(2));
+        const borderStrokeW = cfg.borderCard ? 4 : 0;
+        const cornerR = cfg.roundedCard ? cfg.cornerRadius : 0;
+        const seedText = encodeBoardToSeed(useSelected);
+
+        const parts = [];
+        parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${r2(vbX)} ${r2(vbY)} ${r2(vbW)} ${r2(vbH)}" width="${Math.round(vbW)}" height="${Math.round(vbH)}">`);
+        parts.push(`  <metadata>Dot Grid Geometry Studio | Mode: ${mode} | SeedID: ${escapeXml(seedText)}</metadata>`);
+
+        // 1. Card Background & Border
+        if (!cfg.transparentBg || cfg.borderCard) {
+          const inset = borderStrokeW / 2;
+          const fillAttr = cfg.transparentBg ? "none" : cfg.bgColor;
+          const strokeAttr = cfg.borderCard ? ` stroke="${cfg.borderColor}" stroke-width="${borderStrokeW}"` : "";
+          parts.push(`  <rect id="card-frame" x="${r2(vbX + inset)}" y="${r2(vbY + inset)}" width="${r2(vbW - borderStrokeW)}" height="${r2(vbH - borderStrokeW)}" rx="${cornerR}" ry="${cornerR}" fill="${fillAttr}"${strokeAttr} />`);
+        }
+
+        // 2. Optional Faint Grid Lines
+        if (cfg.showGuides && gridDots.length > 0) {
+          parts.push(`  <g id="grid-lines" stroke="${cfg.dotColor}" stroke-opacity="0.24" stroke-width="1">`);
+          const dotLookup = new Map(gridDots.map(d => [dotKey(d.q, d.r), d]));
+          const dirs = mode === "tri" ? [[1, 0], [0, 1], [-1, 1]] : [[1, 0], [0, 1]];
+          for (const d of gridDots) {
+            for (const [dq, dr] of dirs) {
+              const nb = dotLookup.get(dotKey(d.q + dq, d.r + dr));
+              if (nb) {
+                parts.push(`    <line x1="${r2(d.x)}" y1="${r2(d.y)}" x2="${r2(nb.x)}" y2="${r2(nb.y)}" />`);
+              }
+            }
+          }
+          parts.push(`  </g>`);
+        }
+
+        // 3. Grid Dots
+        if (cfg.showDots && gridDots.length > 0) {
+          parts.push(`  <g id="grid-dots">`);
+          for (const d of gridDots) {
+            const isCustom = cfg.keepCustomDots && d.custom && !d.custom.hidden;
+            const fill = isCustom ? d.custom.color : cfg.dotColor;
+            const rad = isCustom ? cfg.dotSize * 1.28 : cfg.dotSize;
+            const stroke = isCustom ? ` stroke="#ffffff" stroke-width="1.2"` : "";
+            const opacity = d.custom && d.custom.hidden ? ` opacity="0.3"` : "";
+            parts.push(`    <circle cx="${r2(d.x)}" cy="${r2(d.y)}" r="${r2(rad)}" fill="${fill}"${stroke}${opacity} />`);
+          }
+          parts.push(`  </g>`);
+        }
+
+        // 4. Shapes
+        if (shapes.length > 0) {
+          parts.push(`  <g id="shapes" stroke-linecap="round" stroke-linejoin="round">`);
+          for (const sh of shapes) {
+            const ptsStr = sh.pts.map(p => {
+              const wp = latticeToWorld(p.q, p.r, mode);
+              const tp = applyExportWorldTransform(wp.x, wp.y, cx, cy, cfg);
+              return `${r2(tp.x)},${r2(tp.y)}`;
+            }).join(" ");
+            const lw = STROKE_WIDTHS[(sh.lineWidth || 2) - 1] || 2.5;
+            const fillOpacity = sh.fillAlpha ?? 0.22;
+            const fillAttr = fillOpacity > 0.01 ? `fill="${sh.fillColor || sh.strokeColor}" fill-opacity="${r2(fillOpacity)}"` : `fill="none"`;
+            const dashAttr = sh.dashed ? ` stroke-dasharray="${r2(Math.max(8, lw * 3.2))} ${r2(Math.max(6, lw * 2.4))}"` : "";
+            const opAttr = sh.hidden ? ` opacity="0.32"` : "";
+            parts.push(`    <polygon points="${ptsStr}" ${fillAttr} stroke="${sh.strokeColor}" stroke-width="${lw}"${dashAttr}${opAttr} />`);
+          }
+          parts.push(`  </g>`);
+        }
+
+        // 5. Lines
+        if (lines.length > 0) {
+          parts.push(`  <g id="lines" fill="none" stroke-linecap="round" stroke-linejoin="round">`);
+          for (const ln of lines) {
+            const ptsStr = ln.pts.map(p => {
+              const wp = latticeToWorld(p.q, p.r, mode);
+              const tp = applyExportWorldTransform(wp.x, wp.y, cx, cy, cfg);
+              return `${r2(tp.x)},${r2(tp.y)}`;
+            }).join(" ");
+            const lw = STROKE_WIDTHS[(ln.lineWidth || 2) - 1] || 2.5;
+            const dashAttr = ln.dashed ? ` stroke-dasharray="${r2(Math.max(8, lw * 3.2))} ${r2(Math.max(6, lw * 2.4))}"` : "";
+            const opAttr = ln.hidden ? ` opacity="0.32"` : "";
+            parts.push(`    <polyline points="${ptsStr}" stroke="${ln.strokeColor}" stroke-width="${lw}"${dashAttr}${opAttr} />`);
+          }
+          parts.push(`  </g>`);
+        }
+
+        // 6. Optional Pick's i & b Dot Highlights
+        const pickInfo = shapes.length === 1 ? computePickForPolygon(shapes[0].pts, mode) : null;
+        if (cfg.includePick && pickInfo && pickInfo.applicable) {
+          parts.push(`  <g id="picks-highlights">`);
+          const hr = Math.max(5.2, cfg.dotSize * 1.35);
+          for (const pt of pickInfo.interiorDots) {
+            const wp = latticeToWorld(pt.q, pt.r, mode);
+            const tp = applyExportWorldTransform(wp.x, wp.y, cx, cy, cfg);
+            parts.push(`    <circle cx="${r2(tp.x)}" cy="${r2(tp.y)}" r="${r2(hr)}" fill="#16a34a" stroke="#ffffff" stroke-width="1.6" />`);
+          }
+          for (const pt of pickInfo.boundaryDots) {
+            const wp = latticeToWorld(pt.q, pt.r, mode);
+            const tp = applyExportWorldTransform(wp.x, wp.y, cx, cy, cfg);
+            parts.push(`    <circle cx="${r2(tp.x)}" cy="${r2(tp.y)}" r="${r2(hr)}" fill="#ef4444" stroke="#ffffff" stroke-width="1.6" />`);
+          }
+          parts.push(`  </g>`);
+        }
+
+        // 7. Optional Area / Formula Label (Bottom Left inside card)
+        const footerY = vbY + vbH - 12;
+        if (cfg.includeArea && shapes.length > 0) {
+          let label = "";
+          if (pickInfo && pickInfo.applicable) {
+            label = mode === "tri"
+              ? `i=${pickInfo.i}, b=${pickInfo.b} | T = 2(${pickInfo.i})+${pickInfo.b}−2 = ${formatNumber(pickInfo.area)}`
+              : `i=${pickInfo.i}, b=${pickInfo.b} | A = ${pickInfo.i}+${pickInfo.b}/2−1 = ${formatNumber(pickInfo.area)}`;
+          } else {
+            const sumArea = shapes.reduce((acc, s) => acc + polygonAreaUnits(s.pts, mode), 0);
+            label = `Area = ${formatNumber(sumArea)} ${mode === "tri" ? "△" : "sq"}`;
+          }
+          parts.push(`  <text id="area-label" x="${r2(vbX + 14)}" y="${r2(footerY)}" font-family="Inter, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#1e293b">${escapeXml(label)}</text>`);
+        }
+
+        // 8. Optional Compact SeedID Tag (Bottom Right inside card)
+        if (cfg.includeSeed) {
+          parts.push(`  <text id="seed-tag" x="${r2(vbX + vbW - 14)}" y="${r2(footerY)}" text-anchor="end" font-family="monospace" font-size="10.5" font-weight="600" fill="#475569" opacity="0.82">${escapeXml(seedText)}</text>`);
+        }
+
+        parts.push(`</svg>`);
+        return { svg: parts.join("\n"), width: Math.round(vbW), height: Math.round(vbH) };
+      }
+
+      function escapeXml(str) {
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      function updateSvgStudioPreview() {
+        const { svg, width, height } = buildExportSVG();
+        document.getElementById("svgPreviewBox").innerHTML = svg;
+        document.getElementById("svgDimBadge").textContent = `${width} × ${height} px`;
+        const rotLabel = state.gridMode === "tri" ? "↻ 60°" : "↻ 90°";
+        document.getElementById("svgRotateBtn").textContent = rotLabel;
+      }
+
+      function openSvgStudio(forceSelectedScope = false) {
+        if (forceSelectedScope && hasAnySelection()) {
+          state.svgSettings.scope = "selected";
+        } else if (!hasAnySelection()) {
+          state.svgSettings.scope = "all";
+        }
+        syncSvgStudioInputs();
+        updateSvgStudioPreview();
+        openModal("svgModal");
+      }
+
+      function syncSvgStudioInputs() {
+        const s = state.svgSettings;
+        document.getElementById("svgScopeAllBtn").classList.toggle("active", s.scope === "all");
+        document.getElementById("svgScopeSelBtn").classList.toggle("active", s.scope === "selected");
+        document.getElementById("svgScopeSelBtn").disabled = !hasAnySelection();
+
+        document.getElementById("svgExtraPad").value = s.extraPad;
+        document.getElementById("svgPadVal").textContent = s.extraPad;
+        document.getElementById("svgSafetyGrid").checked = s.safetyGrid;
+        document.getElementById("svgShowGuides").checked = s.showGuides;
+        document.getElementById("svgShowDots").checked = s.showDots;
+        document.getElementById("svgDotColor").value = s.dotColor;
+        document.getElementById("svgDotSize").value = s.dotSize;
+        document.getElementById("svgDotSizeVal").textContent = s.dotSize;
+        document.getElementById("svgKeepCustomDots").checked = s.keepCustomDots;
+        document.getElementById("svgBorderCard").checked = s.borderCard;
+        document.getElementById("svgRoundedCard").checked = s.roundedCard;
+        document.getElementById("svgCornerRadius").value = s.cornerRadius;
+        document.getElementById("svgRadiusVal").textContent = s.cornerRadius;
+        document.getElementById("svgBgColor").value = s.bgColor;
+        document.getElementById("svgBorderColor").value = s.borderColor;
+        document.getElementById("svgTransparentBg").checked = s.transparentBg;
+        document.getElementById("svgIncludeHidden").checked = s.includeHidden;
+        document.getElementById("svgIncludePick").checked = s.includePick;
+        document.getElementById("svgIncludeArea").checked = s.includeArea;
+        document.getElementById("svgIncludeSeed").checked = s.includeSeed;
+        document.getElementById("svgFlipHBtn").classList.toggle("active", s.flipH);
+        document.getElementById("svgFlipVBtn").classList.toggle("active", s.flipV);
+      }
+
+      /* =====================================================================
+       * CLIPBOARD, DOWNLOADS, MODALS & TOASTS (ZERO BROWSER ALERT/CONFIRM)
+       * ===================================================================== */
+      function copyTextToClipboard(text) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        let ok = false;
+        try {
+          ok = document.execCommand("copy");
+        } catch (_e) {
+          ok = false;
+        }
+        document.body.removeChild(ta);
+        return ok;
+      }
+
+      let toastTimer = null;
+      function showToast(msg) {
+        const el = document.getElementById("toastBar");
+        el.textContent = msg;
+        el.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+      }
+
+      function openModal(id) {
+        document.getElementById(id).classList.add("open");
+      }
+
+      function closeModal(id) {
+        document.getElementById(id).classList.remove("open");
+      }
+
+      let pendingConfirmCallback = null;
+      function showConfirmDialog(title, message, onConfirm) {
+        document.getElementById("confirmTitle").textContent = title;
+        document.getElementById("confirmMessage").textContent = message;
+        pendingConfirmCallback = onConfirm;
+        openModal("confirmModal");
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      /* =====================================================================
+       * UI SYNCHRONIZATION & FIT VIEW
+       * ===================================================================== */
+      function updateToolCursor() {
+        if (state.tool === "pan") canvas.style.cursor = "grab";
+        else if (state.tool === "select") canvas.style.cursor = "default";
+        else if (state.tool === "eraser") canvas.style.cursor = "not-allowed";
+        else canvas.style.cursor = "crosshair";
+      }
+
+      function updateZoomLabel() {
+        document.getElementById("zoomLabel").textContent = `${Math.round(state.camera.zoom * 100)}%`;
+      }
+
+      function updateUndoRedoUI() {
+        document.getElementById("undoBtn").disabled = state.undoStack.length === 0;
+        document.getElementById("redoBtn").disabled = state.redoStack.length === 0;
+      }
+
+      function updateViewButtonsUI() {
+        const step = state.gridMode === "tri" ? "60°" : "90°";
+        document.getElementById("viewRotLeftBtn").textContent = `↺ ${step}`;
+        document.getElementById("viewRotRightBtn").textContent = `↻ ${step}`;
+        document.getElementById("viewFlipHBtn").classList.toggle("active", state.camera.flipX);
+        document.getElementById("viewFlipVBtn").classList.toggle("active", state.camera.flipY);
+        document.getElementById("gridModeBtn").textContent = state.gridMode === "tri" ? "🔺 Tri 60°" : "⬜ Square";
+      }
+
+      function setTool(toolName) {
+        state.tool = toolName;
+        if (toolName !== "draw") cancelDraft(true);
+        document.querySelectorAll("[data-tool]").forEach(btn => {
+          btn.classList.toggle("active", btn.dataset.tool === toolName);
+        });
+        document.getElementById("selectFilterBar").classList.toggle("visible", toolName === "select");
+        document.getElementById("drawModeBar").classList.toggle("visible", toolName === "draw");
+
+        const hints = {
+          draw: "✏️ Click dots to chain lines. Click first dot to auto-close loop, <b>Enter</b> to finish open line, <b>Esc</b> / <b>Right-Click</b> to cancel.",
+          dot: "🔵 Click any lattice dot to paint it with the active dot color. Click again or Right-Click to reset it.",
+          select: "🖱️ Click or drag empty space for a marquee box. Drag selected shapes/lines/dots to shift them snapped to the grid!",
+          eraser: "🧹 Click or drag over any shape, line, or colored dot to remove/reset it.",
+          pan: "✋ Drag anywhere to pan the endless dot grid. Scroll or pinch to zoom."
+        };
+        document.getElementById("hudToolHint").innerHTML = hints[toolName] || "";
+        updateToolCursor();
+      }
+
+      function fitViewToBoard() {
+        const pts = [];
+        for (const s of state.shapes) if (!s.hidden) for (const p of s.pts) pts.push(latticeToWorld(p.q, p.r));
+        for (const l of state.lines) if (!l.hidden) for (const p of l.pts) pts.push(latticeToWorld(p.q, p.r));
+        for (const d of Object.values(state.dots)) if (!d.hidden) pts.push(latticeToWorld(d.q, d.r));
+
+        state.camera.rotDeg = 0;
+        state.camera.flipX = false;
+        state.camera.flipY = false;
+
+        if (pts.length === 0) {
+          state.camera.zoom = 1;
+          state.camera.x = window.innerWidth * 0.5;
+          state.camera.y = window.innerHeight * 0.5;
+        } else {
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          for (const p of pts) {
+            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+          }
+          const spanX = Math.max(GRID_STEP * 4, maxX - minX + GRID_STEP * 4);
+          const spanY = Math.max(GRID_STEP * 4, maxY - minY + GRID_STEP * 4);
+          const availW = Math.max(240, window.innerWidth - 120);
+          const availH = Math.max(240, window.innerHeight - 190);
+          state.camera.zoom = Math.max(0.45, Math.min(1.65, Math.min(availW / spanX, availH / spanY)));
+          const cx = (minX + maxX) / 2;
+          const cy = (minY + maxY) / 2;
+          state.camera.x = window.innerWidth * 0.5 - cx * state.camera.zoom;
+          state.camera.y = window.innerHeight * 0.52 - cy * state.camera.zoom;
+        }
+        updateZoomLabel();
+        updateViewButtonsUI();
+        positionMiniToolbar();
+      }
+
+      function syncAllUI() {
+        updateViewButtonsUI();
+        updateZoomLabel();
+        updateUndoRedoUI();
+        document.getElementById("activeColorSwatch").style.background = state.activeColor;
+        document.getElementById("activeDotColorSwatch").style.background = state.activeDotColor;
+        document.getElementById("boardBgSwatch").style.background = state.boardBg;
+        document.getElementById("guideLinesBtn").classList.toggle("active", state.showGuides);
+        document.getElementById("showHiddenBtn").classList.toggle("active", state.showHidden);
+        document.getElementById("togglePickDotsBtn").classList.toggle("active", state.highlightPickDots);
+        document.getElementById("dashToggleBtn").classList.toggle("active", state.activeDashed);
+        document.getElementById("dashToggleBtn").textContent = state.activeDashed ? "┄ Dash" : "━ Solid";
+        document.querySelectorAll(".width-pill").forEach(p => {
+          p.classList.toggle("active", Number(p.dataset.width) === state.activeWidth);
+        });
+        updateInspectorHUD();
+        positionMiniToolbar();
+      }
+
+      /* =====================================================================
+       * POPOVER PALETTES (TOP SWATCHES & MINI TOOLBAR)
+       * ===================================================================== */
+      let nativePickerTarget = "active"; // "active" | "dot" | "selection"
+
+      function openColorPopover(popoverEl, anchorEl, onPickColor, currentHex, pickerTarget) {
+        hideMiniPopovers();
+        popoverEl.innerHTML = "";
+        for (const hex of PRESET_COLORS) {
+          const chip = document.createElement("button");
+          chip.className = "palette-chip";
+          chip.style.background = hex;
+          chip.title = hex;
+          chip.addEventListener("click", () => {
+            onPickColor(hex);
+            popoverEl.classList.remove("visible");
+          });
+          popoverEl.appendChild(chip);
+        }
+        const customBtn = document.createElement("button");
+        customBtn.className = "btn sm";
+        customBtn.style.width = "100%";
+        customBtn.textContent = "🎨 Custom Color…";
+        customBtn.addEventListener("click", () => {
+          nativePickerTarget = pickerTarget;
+          const picker = document.getElementById("nativeColorPicker");
+          picker.value = currentHex || DEFAULT_STROKE;
+          popoverEl.classList.remove("visible");
+          picker.click();
+        });
+        popoverEl.appendChild(customBtn);
+
+        popoverEl.classList.add("visible");
+        const aRect = anchorEl.getBoundingClientRect();
+        const pRect = popoverEl.getBoundingClientRect();
+        let left = aRect.left;
+        let top = aRect.bottom + 8;
+        if (top + pRect.height > window.innerHeight - 10) {
+          top = aRect.top - pRect.height - 8;
+        }
+        left = Math.max(10, Math.min(window.innerWidth - pRect.width - 10, left));
+        popoverEl.style.left = `${Math.round(left)}px`;
+        popoverEl.style.top = `${Math.round(top)}px`;
+      }
+
+      /* =====================================================================
+       * EVENT BINDINGS
+       * ===================================================================== */
+      function bindUI() {
+        // Canvas Events
+        canvas.addEventListener("contextmenu", e => e.preventDefault());
+        canvas.addEventListener("pointerdown", onPointerDown);
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", onPointerUp);
+        window.addEventListener("pointercancel", onPointerUp);
+        canvas.addEventListener("wheel", e => {
+          e.preventDefault();
+          const factor = Math.exp(-e.deltaY * 0.0014);
+          zoomAtScreenPoint(factor, e.clientX, e.clientY);
+        }, { passive: false });
+
+        // Close popovers when clicking outside
+        document.addEventListener("pointerdown", e => {
+          if (!e.target.closest("#miniColorPopover") && !e.target.closest("#miniColorBtn") &&
+              !e.target.closest("#topPalettePopover") && !e.target.closest("#activeColorSwatch") && !e.target.closest("#activeDotColorSwatch")) {
+            hideMiniPopovers();
+          }
+        });
+
+        // Tool Buttons
+        document.querySelectorAll("[data-tool]").forEach(btn => {
+          btn.addEventListener("click", () => setTool(btn.dataset.tool));
+        });
+
+        // Draw Mode Loop vs Segment
+        document.getElementById("drawAutoCloseBtn").addEventListener("click", () => {
+          state.drawAutoClose = true;
+          document.getElementById("drawAutoCloseBtn").classList.add("active");
+          document.getElementById("drawSegmentBtn").classList.remove("active");
+          updateDraftBar();
+        });
+        document.getElementById("drawSegmentBtn").addEventListener("click", () => {
+          state.drawAutoClose = false;
+          document.getElementById("drawSegmentBtn").classList.add("active");
+          document.getElementById("drawAutoCloseBtn").classList.remove("active");
+          updateDraftBar();
+        });
+
+        // Select Filters
+        document.querySelectorAll("[data-filter]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            state.selectFilter = btn.dataset.filter;
+            document.querySelectorAll("[data-filter]").forEach(b => b.classList.toggle("active", b === btn));
+          });
+        });
+
+        // Draft Floating Pills
+        document.getElementById("draftFinishLineBtn").addEventListener("click", finishDraftAsLine);
+        document.getElementById("draftCloseShapeBtn").addEventListener("click", finishDraftAsShape);
+        document.getElementById("draftUndoPtBtn").addEventListener("click", () => {
+          state.draftPts.pop();
+          updateDraftBar();
+        });
+        document.getElementById("draftCancelBtn").addEventListener("click", () => cancelDraft(false));
+
+        // Grid Mode Switcher (Square <-> Triangular 60°)
+        document.getElementById("gridModeBtn").addEventListener("click", () => {
+          const before = createSnapshot();
+          state.gridMode = state.gridMode === "square" ? "tri" : "square";
+          // Snap rotation to valid multiple for the grid mode
+          const step = state.gridMode === "tri" ? 60 : 90;
+          state.camera.rotDeg = Math.round(state.camera.rotDeg / step) * step;
+          commitHistory(before);
+          syncAllUI();
+          showToast(state.gridMode === "tri" ? "🔺 Triangular 60° Dot Grid" : "⬜ Square 90° Dot Grid");
+        });
+
+        // Active Colors & Reset
+        document.getElementById("activeColorSwatch").addEventListener("click", e => {
+          openColorPopover(
+            document.getElementById("topPalettePopover"),
+            e.currentTarget,
+            hex => {
+              state.activeColor = hex;
+              document.getElementById("activeColorSwatch").style.background = hex;
+            },
+            state.activeColor,
+            "active"
+          );
+        });
+        document.getElementById("activeDotColorSwatch").addEventListener("click", e => {
+          openColorPopover(
+            document.getElementById("topPalettePopover"),
+            e.currentTarget,
+            hex => {
+              state.activeDotColor = hex;
+              document.getElementById("activeDotColorSwatch").style.background = hex;
+            },
+            state.activeDotColor,
+            "dot"
+          );
+        });
+        document.getElementById("resetColorsBtn").addEventListener("click", () => {
+          state.activeColor = DEFAULT_STROKE;
+          state.activeDotColor = DEFAULT_DOT_COLOR;
+          syncAllUI();
+          showToast("🔄 Colors reset to default");
+        });
+
+        // Native Color Picker Callback
+        document.getElementById("nativeColorPicker").addEventListener("input", e => {
+          const hex = e.target.value;
+          if (nativePickerTarget === "active") {
+            state.activeColor = hex;
+            document.getElementById("activeColorSwatch").style.background = hex;
+          } else if (nativePickerTarget === "dot") {
+            state.activeDotColor = hex;
+            document.getElementById("activeDotColorSwatch").style.background = hex;
+          } else if (nativePickerTarget === "selection") {
+            applyColorToSelection(hex);
+          }
+        });
+
+        // Line Thickness 1..5 & Dash Toggle
+        document.querySelectorAll(".width-pill").forEach(btn => {
+          btn.addEventListener("click", () => {
+            state.activeWidth = Number(btn.dataset.width);
+            document.querySelectorAll(".width-pill").forEach(p => p.classList.toggle("active", p === btn));
+          });
+        });
+        document.getElementById("dashToggleBtn").addEventListener("click", () => {
+          state.activeDashed = !state.activeDashed;
+          syncAllUI();
+        });
+
+        // View Rotate & Flip
+        document.getElementById("viewRotLeftBtn").addEventListener("click", () => {
+          const step = state.gridMode === "tri" ? 60 : 90;
+          transformView(() => { state.camera.rotDeg = (state.camera.rotDeg - step + 360) % 360; });
+        });
+        document.getElementById("viewRotRightBtn").addEventListener("click", () => {
+          const step = state.gridMode === "tri" ? 60 : 90;
+          transformView(() => { state.camera.rotDeg = (state.camera.rotDeg + step) % 360; });
+        });
+        document.getElementById("viewFlipHBtn").addEventListener("click", () => {
+          transformView(() => { state.camera.flipX = !state.camera.flipX; });
+        });
+        document.getElementById("viewFlipVBtn").addEventListener("click", () => {
+          transformView(() => { state.camera.flipY = !state.camera.flipY; });
+        });
+
+        // Show Hidden & Clear Board
+        document.getElementById("showHiddenBtn").addEventListener("click", () => {
+          state.showHidden = !state.showHidden;
+          syncAllUI();
+          showToast(state.showHidden ? "👁️‍🗨️ Showing hidden elements" : "Hidden elements concealed");
+        });
+        document.getElementById("clearBoardBtn").addEventListener("click", () => {
+          if (state.shapes.length === 0 && state.lines.length === 0 && Object.keys(state.dots).length === 0) {
+            showToast("Board is already empty");
+            return;
+          }
+          showConfirmDialog(
+            "🗑️ Clear Entire Board?",
+            "This removes all shapes, lines, and colored dots on the board. You can still undo with ↩️ Undo.",
+            () => {
+              const before = createSnapshot();
+              state.shapes = [];
+              state.lines = [];
+              state.dots = {};
+              clearSelection();
+              cancelDraft(true);
+              commitHistory(before);
+              showToast("🗑️ Board cleared");
+            }
+          );
+        });
+
+        // Mobile Compact Toolbar Toggle
+        document.getElementById("mobileMoreBtn").addEventListener("click", () => {
+          document.getElementById("topToolbar").classList.toggle("compact-mobile");
+        });
+
+        // Inspector HUD Collapse & Pick's Highlight Toggle
+        document.getElementById("hudToggleHeader").addEventListener("click", () => {
+          const hud = document.getElementById("inspectorHud");
+          hud.classList.toggle("collapsed");
+          document.getElementById("hudCollapseArrow").textContent = hud.classList.contains("collapsed") ? "▸" : "▾";
+        });
+        document.getElementById("togglePickDotsBtn").addEventListener("click", () => {
+          state.highlightPickDots = !state.highlightPickDots;
+          syncAllUI();
+          showToast(state.highlightPickDots ? "🔍 Pick's i (green) & b (red) dots ON" : "Pick's dot highlights OFF");
+        });
+
+        // Bottom Dock Controls
+        document.getElementById("undoBtn").addEventListener("click", undo);
+        document.getElementById("redoBtn").addEventListener("click", redo);
+        document.getElementById("zoomInBtn").addEventListener("click", () => zoomAtScreenPoint(1.22, window.innerWidth * 0.5, window.innerHeight * 0.5));
+        document.getElementById("zoomOutBtn").addEventListener("click", () => zoomAtScreenPoint(1 / 1.22, window.innerWidth * 0.5, window.innerHeight * 0.5));
+        document.getElementById("fitViewBtn").addEventListener("click", () => {
+          fitViewToBoard();
+          showToast("🎯 View centered & reset");
+        });
+        document.getElementById("guideLinesBtn").addEventListener("click", () => {
+          state.showGuides = !state.showGuides;
+          syncAllUI();
+          saveToLocalStorage();
+        });
+        document.getElementById("boardBgSwatch").addEventListener("click", () => {
+          const p = document.getElementById("boardBgPicker");
+          p.value = state.boardBg;
+          p.click();
+        });
+        document.getElementById("boardBgPicker").addEventListener("input", e => {
+          state.boardBg = e.target.value;
+          document.getElementById("boardBgSwatch").style.background = state.boardBg;
+          saveToLocalStorage();
+        });
+
+        // Mini Context Toolbar Actions
+        document.getElementById("miniColorBtn").addEventListener("click", e => {
+          const sampleShape = state.shapes.find(s => state.selected.shapes.has(s.id));
+          const sampleLine = state.lines.find(l => state.selected.lines.has(l.id));
+          const sampleDotKey = Array.from(state.selected.dots)[0];
+          const curHex = sampleShape?.strokeColor || sampleLine?.strokeColor || state.dots[sampleDotKey]?.color || DEFAULT_STROKE;
+          openColorPopover(
+            document.getElementById("miniColorPopover"),
+            e.currentTarget,
+            hex => applyColorToSelection(hex),
+            curHex,
+            "selection"
+          );
+        });
+        document.getElementById("miniFillBtn").addEventListener("click", () => {
+          const selShapes = state.shapes.filter(s => state.selected.shapes.has(s.id));
+          if (selShapes.length === 0) return;
+          const before = createSnapshot();
+          const cur = selShapes[0].fillAlpha ?? 0.22;
+          // Cycle: Soft (0.22) -> Solid (0.92) -> Outline Only (0)
+          const next = cur < 0.05 ? 0.22 : (cur < 0.5 ? 0.92 : 0);
+          for (const s of selShapes) s.fillAlpha = next;
+          commitHistory(before);
+          showToast(next === 0 ? "🎭 Outline only" : next > 0.5 ? "🎭 Solid fill" : "🎭 Soft fill");
+        });
+        document.getElementById("miniDashBtn").addEventListener("click", () => {
+          const selShapes = state.shapes.filter(s => state.selected.shapes.has(s.id));
+          const selLines = state.lines.filter(l => state.selected.lines.has(l.id));
+          if (selShapes.length === 0 && selLines.length === 0) return;
+          const before = createSnapshot();
+          const next = !(selShapes[0]?.dashed || selLines[0]?.dashed);
+          for (const s of selShapes) s.dashed = next;
+          for (const l of selLines) l.dashed = next;
+          commitHistory(before);
+          positionMiniToolbar();
+        });
+        document.getElementById("miniWidthBtn").addEventListener("click", () => {
+          const selShapes = state.shapes.filter(s => state.selected.shapes.has(s.id));
+          const selLines = state.lines.filter(l => state.selected.lines.has(l.id));
+          if (selShapes.length === 0 && selLines.length === 0) return;
+          const before = createSnapshot();
+          const cur = (selShapes[0] || selLines[0]).lineWidth || 2;
+          const next = (cur % 5) + 1;
+          for (const s of selShapes) s.lineWidth = next;
+          for (const l of selLines) l.lineWidth = next;
+          commitHistory(before);
+          positionMiniToolbar();
+        });
+        document.getElementById("miniResetColorBtn").addEventListener("click", () => {
+          const before = createSnapshot();
+          for (const s of state.shapes) {
+            if (state.selected.shapes.has(s.id)) {
+              s.strokeColor = DEFAULT_STROKE;
+              s.fillColor = DEFAULT_STROKE;
+              s.fillAlpha = 0.22;
+            }
+          }
+          for (const l of state.lines) {
+            if (state.selected.lines.has(l.id)) l.strokeColor = DEFAULT_STROKE;
+          }
+          for (const k of state.selected.dots) delete state.dots[k];
+          state.selected.dots.clear();
+          commitHistory(before);
+          positionMiniToolbar();
+          showToast("🔄 Selection color reset");
+        });
+        document.getElementById("miniFlipHBtn").addEventListener("click", flipSelectedHorizontal);
+        document.getElementById("miniFlipVBtn").addEventListener("click", flipSelectedVertical);
+        document.getElementById("miniRotateBtn").addEventListener("click", rotateSelected);
+        document.getElementById("miniHideBtn").addEventListener("click", toggleHideSelected);
+        document.getElementById("miniDupBtn").addEventListener("click", duplicateSelected);
+        document.getElementById("miniExportBtn").addEventListener("click", () => openSvgStudio(true));
+        document.getElementById("miniDeleteBtn").addEventListener("click", deleteSelected);
+
+        // SeedID Modal
+        document.getElementById("openSeedBtn").addEventListener("click", () => {
+          const seed = encodeBoardToSeed(false);
+          document.getElementById("currentSeedField").value = seed;
+          document.getElementById("seedLengthInfo").textContent = `${seed.length} characters • Mode: ${state.gridMode === "tri" ? "Triangular 60°" : "Square 90°"}`;
+          document.getElementById("loadSeedInput").value = "";
+          openModal("seedModal");
+        });
+        document.getElementById("copySeedBtn").addEventListener("click", () => {
+          const seed = document.getElementById("currentSeedField").value;
+          copyTextToClipboard(seed);
+          showToast(`📋 SeedID copied (${seed.length} chars)`);
+        });
+        document.getElementById("copySeedLinkBtn").addEventListener("click", () => {
+          const seed = document.getElementById("currentSeedField").value;
+          const base = window.location.href.split("#")[0];
+          copyTextToClipboard(`${base}#seed=${encodeURIComponent(seed)}`);
+          showToast("🔗 Shareable Seed Link copied!");
+        });
+        document.getElementById("loadSeedBtn").addEventListener("click", () => {
+          const raw = document.getElementById("loadSeedInput").value.trim();
+          if (!raw) {
+            showToast("⚠️ Paste a SeedID first");
+            return;
+          }
+          try {
+            const decoded = decodeSeedToBoard(raw);
+            const before = createSnapshot();
+            state.gridMode = decoded.gridMode;
+            state.shapes = decoded.shapes;
+            state.lines = decoded.lines;
+            state.dots = decoded.dots;
+            state.nextId = decoded.nextId;
+            clearSelection();
+            cancelDraft(true);
+            commitHistory(before);
+            fitViewToBoard();
+            syncAllUI();
+            closeModal("seedModal");
+            showToast("🌱 SeedID loaded!");
+          } catch (err) {
+            showToast(`⚠️ Invalid SeedID: ${err.message}`);
+          }
+        });
+
+        // Build Lesson Preset Cards
+        const presetGrid = document.getElementById("presetGrid");
+        for (const preset of LESSON_PRESETS) {
+          const card = document.createElement("button");
+          card.className = "preset-card";
+          card.innerHTML = `<strong>${preset.title}</strong><span>${preset.desc}</span>`;
+          card.addEventListener("click", () => {
+            try {
+              const decoded = decodeSeedToBoard(preset.seed);
+              const before = createSnapshot();
+              state.gridMode = decoded.gridMode;
+              state.shapes = decoded.shapes;
+              state.lines = decoded.lines;
+              state.dots = decoded.dots;
+              state.nextId = decoded.nextId;
+              clearSelection();
+              cancelDraft(true);
+              commitHistory(before);
+              fitViewToBoard();
+              syncAllUI();
+              closeModal("seedModal");
+              showToast(`📚 Loaded: ${preset.title}`);
+            } catch (_e) {
+              showToast("⚠️ Could not load preset");
+            }
+          });
+          presetGrid.appendChild(card);
+        }
+
+        // SVG Studio Modal & Controls
+        document.getElementById("openSvgBtn").addEventListener("click", () => openSvgStudio(false));
+        document.getElementById("svgScopeAllBtn").addEventListener("click", () => {
+          state.svgSettings.scope = "all";
+          syncSvgStudioInputs();
+          updateSvgStudioPreview();
+        });
+        document.getElementById("svgScopeSelBtn").addEventListener("click", () => {
+          if (!hasAnySelection()) return;
+          state.svgSettings.scope = "selected";
+          syncSvgStudioInputs();
+          updateSvgStudioPreview();
+        });
+
+        const bindSvgInput = (id, prop, parseFn = v => v) => {
+          const el = document.getElementById(id);
+          const ev = el.type === "checkbox" ? "change" : "input";
+          el.addEventListener(ev, () => {
+            state.svgSettings[prop] = el.type === "checkbox" ? el.checked : parseFn(el.value);
+            if (id === "svgExtraPad") document.getElementById("svgPadVal").textContent = state.svgSettings.extraPad;
+            if (id === "svgDotSize") document.getElementById("svgDotSizeVal").textContent = state.svgSettings.dotSize;
+            if (id === "svgCornerRadius") document.getElementById("svgRadiusVal").textContent = state.svgSettings.cornerRadius;
+            updateSvgStudioPreview();
+          });
+        };
+        bindSvgInput("svgExtraPad", "extraPad", Number);
+        bindSvgInput("svgSafetyGrid", "safetyGrid");
+        bindSvgInput("svgShowGuides", "showGuides");
+        bindSvgInput("svgShowDots", "showDots");
+        bindSvgInput("svgDotColor", "dotColor");
+        bindSvgInput("svgDotSize", "dotSize", Number);
+        bindSvgInput("svgKeepCustomDots", "keepCustomDots");
+        bindSvgInput("svgBorderCard", "borderCard");
+        bindSvgInput("svgRoundedCard", "roundedCard");
+        bindSvgInput("svgCornerRadius", "cornerRadius", Number);
+        bindSvgInput("svgBgColor", "bgColor");
+        bindSvgInput("svgBorderColor", "borderColor");
+        bindSvgInput("svgTransparentBg", "transparentBg");
+        bindSvgInput("svgIncludeHidden", "includeHidden");
+        bindSvgInput("svgIncludePick", "includePick");
+        bindSvgInput("svgIncludeArea", "includeArea");
+        bindSvgInput("svgIncludeSeed", "includeSeed");
+
+        // Export Studio Flip & Rotate
+        document.getElementById("svgFlipHBtn").addEventListener("click", () => {
+          state.svgSettings.flipH = !state.svgSettings.flipH;
+          syncSvgStudioInputs();
+          updateSvgStudioPreview();
+        });
+        document.getElementById("svgFlipVBtn").addEventListener("click", () => {
+          state.svgSettings.flipV = !state.svgSettings.flipV;
+          syncSvgStudioInputs();
+          updateSvgStudioPreview();
+        });
+        document.getElementById("svgRotateBtn").addEventListener("click", () => {
+          const mod = state.gridMode === "tri" ? 6 : 4;
+          state.svgSettings.rotSteps = (state.svgSettings.rotSteps + 1) % mod;
+          updateSvgStudioPreview();
+        });
+        document.getElementById("svgResetTransformBtn").addEventListener("click", () => {
+          state.svgSettings.flipH = false;
+          state.svgSettings.flipV = false;
+          state.svgSettings.rotSteps = 0;
+          syncSvgStudioInputs();
+          updateSvgStudioPreview();
+        });
+
+        // Quick Book Themes
+        document.querySelectorAll("[data-svg-theme]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const t = SVG_THEMES[btn.dataset.svgTheme];
+            if (!t) return;
+            state.svgSettings.bgColor = t.bg;
+            state.svgSettings.borderColor = t.border;
+            state.svgSettings.dotColor = t.dot;
+            state.svgSettings.showDots = t.showDots;
+            state.svgSettings.borderCard = t.borderCard;
+            state.svgSettings.roundedCard = t.rounded;
+            state.svgSettings.cornerRadius = t.radius;
+            state.svgSettings.transparentBg = t.transparent;
+            syncSvgStudioInputs();
+            updateSvgStudioPreview();
+          });
+        });
+
+        // Export Actions (SVG Download, Copy SVG, High-DPI PNG Download)
+        document.getElementById("downloadSvgBtn").addEventListener("click", () => {
+          const { svg } = buildExportSVG();
+          const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+          downloadBlob(blob, `dot-grid-${state.gridMode}-${Date.now()}.svg`);
+          showToast("⬇️ High-quality SVG downloaded!");
+        });
+
+        document.getElementById("copySvgCodeBtn").addEventListener("click", () => {
+          const { svg } = buildExportSVG();
+          copyTextToClipboard(svg);
+          showToast("📋 SVG markup copied to clipboard!");
+        });
+
+        document.getElementById("downloadPngBtn").addEventListener("click", () => {
+          const { svg, width, height } = buildExportSVG();
+          const scale = 3; // Crisp 300-DPI-style print PNG
+          const img = new Image();
+          const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+          const url = URL.createObjectURL(svgBlob);
+          img.onload = () => {
+            const off = document.createElement("canvas");
+            off.width = Math.round(width * scale);
+            off.height = Math.round(height * scale);
+            const octx = off.getContext("2d");
+            octx.scale(scale, scale);
+            octx.drawImage(img, 0, 0, width, height);
+            URL.revokeObjectURL(url);
+            off.toBlob(pngBlob => {
+              if (pngBlob) {
+                downloadBlob(pngBlob, `dot-grid-${state.gridMode}-${Date.now()}.png`);
+                showToast("🖼️ High-DPI PNG downloaded!");
+              }
+            }, "image/png");
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            showToast("⚠️ Could not render PNG");
+          };
+          img.src = url;
+        });
+
+        // Modal Close Handlers
+        document.querySelectorAll("[data-close-modal]").forEach(btn => {
+          btn.addEventListener("click", () => closeModal(btn.dataset.closeModal));
+        });
+        document.querySelectorAll(".modal-backdrop").forEach(bd => {
+          bd.addEventListener("click", e => {
+            if (e.target === bd) bd.classList.remove("open");
+          });
+        });
+        document.getElementById("confirmOkBtn").addEventListener("click", () => {
+          closeModal("confirmModal");
+          if (typeof pendingConfirmCallback === "function") {
+            const fn = pendingConfirmCallback;
+            pendingConfirmCallback = null;
+            fn();
+          }
+        });
+
+        // Keyboard Shortcuts
+        window.addEventListener("keydown", e => {
+          const tag = (e.target && e.target.tagName || "").toLowerCase();
+          if (tag === "input" || tag === "textarea") return;
+
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+            e.preventDefault();
+            if (e.shiftKey) redo(); else undo();
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+            e.preventDefault();
+            redo();
+            return;
+          }
+          if (e.key === "Enter") {
+            if (state.draftPts.length >= 2) {
+              e.preventDefault();
+              finishDraftAsLine();
+            }
+            return;
+          }
+          if (e.key === "Escape") {
+            // Close open modals first
+            const openModalEl = document.querySelector(".modal-backdrop.open");
+            if (openModalEl) {
+              openModalEl.classList.remove("open");
+              return;
+            }
+            if (cancelDraft(false)) return;
+            if (hasAnySelection()) clearSelection();
+            return;
+          }
+          if (e.key === "Backspace" && state.draftPts.length > 0) {
+            e.preventDefault();
+            state.draftPts.pop();
+            updateDraftBar();
+            return;
+          }
+          if ((e.key === "Delete" || e.key === "Backspace") && hasAnySelection()) {
+            e.preventDefault();
+            deleteSelected();
+          }
+        });
+
+        window.addEventListener("resize", resizeCanvas);
+      }
+
+      /* =====================================================================
+       * BOOTSTRAP
+       * ===================================================================== */
+      function boot() {
+        resizeCanvas();
+        bindUI();
+
+        // Check URL hash #seed=... first
+        let loaded = false;
+        const hashMatch = window.location.hash.match(/seed=([^&]+)/);
+        if (hashMatch && hashMatch[1]) {
+          try {
+            const decoded = decodeSeedToBoard(decodeURIComponent(hashMatch[1]));
+            state.gridMode = decoded.gridMode;
+            state.shapes = decoded.shapes;
+            state.lines = decoded.lines;
+            state.dots = decoded.dots;
+            state.nextId = decoded.nextId;
+            loaded = true;
+            showToast("🌱 Loaded board from Seed Link!");
+          } catch (_err) {
+            loaded = false;
+          }
+        }
+
+        if (!loaded) {
+          loaded = loadFromLocalStorage();
+        }
+
+        // First-time default classroom example (textbook Pick's Theorem polygon)
+        if (!loaded) {
+          const starter = decodeSeedToBoard(LESSON_PRESETS[0].seed);
+          state.gridMode = starter.gridMode;
+          state.shapes = starter.shapes;
+          state.lines = starter.lines;
+          state.dots = starter.dots;
+          state.nextId = starter.nextId;
+          state.highlightPickDots = true;
+        }
+
+        // Collapse inspector by default on very narrow mobile screens so canvas stays open
+        if (window.innerWidth < 600) {
+          document.getElementById("inspectorHud").classList.add("collapsed");
+          document.getElementById("hudCollapseArrow").textContent = "▸";
+          document.getElementById("topToolbar").classList.add("compact-mobile");
+        }
+
+        setTool("draw");
+        fitViewToBoard();
+        syncAllUI();
+        requestAnimationFrame(renderScene);
+      }
+
+      window.onload = boot;
+    })();
+  </script>
+</body>
+</html>
