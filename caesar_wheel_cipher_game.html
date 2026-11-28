@@ -1873,6 +1873,9 @@
         <button id="btn-wheel-discs" class="mech-btn" type="button" title="Print outer and inner cipher discs on A4 paper">
           <span>🌀</span> Discs
         </button>
+        <button id="btn-wheel-view" class="mech-btn" type="button" title="Export the exact wheel alignment you see as SVG">
+          <span>🧭</span> Wheel SVG
+        </button>
         <button id="btn-sound" class="mech-btn icon-only" type="button" title="Toggle Sound Effects">
           🔊
         </button>
@@ -2235,6 +2238,78 @@
               <span>⬇️</span> Download A4 SVG
             </button>
             <button id="btn-print-wheel-discs" class="mech-btn" type="button">
+              <span>🖨️</span> Print / Save PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: CURRENT WHEEL VIEW SVG EXPORT (WHAT YOU SEE)
+       ======================================================================== -->
+  <div id="wheel-view-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="wheel-view-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="wheel-view-modal-title">
+          <span>🧭</span> CURRENT WHEEL SVG (WHAT YOU SEE)
+        </div>
+        <button id="btn-close-wheel-view" class="mech-btn icon-only" type="button" title="Close wheel SVG export">✕</button>
+      </div>
+
+      <div class="modal-split-body">
+        <div class="modal-preview-pane">
+          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">
+            LIVE WHEEL EXPORT PREVIEW
+          </div>
+          <div class="svg-sheet-frame" id="wheel-view-preview"></div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); text-align: center; font-weight: 600;">
+            Transparent background — no outside border. Print at <strong>100% / actual size</strong>.
+          </div>
+        </div>
+
+        <div class="modal-controls-pane">
+          <div class="modal-info-pill">
+            Exports the outer ring, inner ring, key-link hub and alignment pointer at their current positions. Use the toggles to hide or show each part.
+          </div>
+
+          <div class="toggle-list">
+            <label class="toggle-row">
+              <span>Show outer ring (Cipher / top)</span>
+              <input id="wheel-view-toggle-outer" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Show inner ring (Decode / bottom)</span>
+              <input id="wheel-view-toggle-inner" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Show center key link</span>
+              <input id="wheel-view-toggle-hub" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Show alignment pointer</span>
+              <input id="wheel-view-toggle-pointer" type="checkbox" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Show outer ring highlight halo</span>
+              <input id="wheel-view-toggle-outer-halo" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <span>Show inner ring highlight halo</span>
+              <input id="wheel-view-toggle-inner-halo" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <span>Show outer brass bezel</span>
+              <input id="wheel-view-toggle-bezel" type="checkbox" checked />
+            </label>
+          </div>
+
+          <div class="modal-actions-row">
+            <button id="btn-download-wheel-view" class="mech-btn primary" type="button">
+              <span>⬇️</span> Download SVG
+            </button>
+            <button id="btn-print-wheel-view" class="mech-btn" type="button">
               <span>🖨️</span> Print / Save PDF
             </button>
           </div>
@@ -2848,6 +2923,21 @@
         wheelDiscsToggleStrips: document.getElementById('wheel-discs-toggle-strips'),
         btnDownloadWheelDiscs: document.getElementById('btn-download-wheel-discs'),
         btnPrintWheelDiscs: document.getElementById('btn-print-wheel-discs'),
+
+        // Current Wheel View SVG Export Modal
+        btnWheelView: document.getElementById('btn-wheel-view'),
+        wheelViewModal: document.getElementById('wheel-view-modal'),
+        btnCloseWheelView: document.getElementById('btn-close-wheel-view'),
+        wheelViewPreview: document.getElementById('wheel-view-preview'),
+        wheelViewToggleOuter: document.getElementById('wheel-view-toggle-outer'),
+        wheelViewToggleInner: document.getElementById('wheel-view-toggle-inner'),
+        wheelViewToggleHub: document.getElementById('wheel-view-toggle-hub'),
+        wheelViewTogglePointer: document.getElementById('wheel-view-toggle-pointer'),
+        wheelViewToggleOuterHalo: document.getElementById('wheel-view-toggle-outer-halo'),
+        wheelViewToggleInnerHalo: document.getElementById('wheel-view-toggle-inner-halo'),
+        wheelViewToggleBezel: document.getElementById('wheel-view-toggle-bezel'),
+        btnDownloadWheelView: document.getElementById('btn-download-wheel-view'),
+        btnPrintWheelView: document.getElementById('btn-print-wheel-view'),
 
         // Custom Code Modal
         customModal: document.getElementById('custom-modal'),
@@ -4300,6 +4390,155 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
 </svg>`;
       }
 
+      // Export the exact concentric wheel currently shown, with optional layers.
+      // No sheet rectangle and no outside border: only the wheel artwork.
+      function generateCurrentWheelSvg(opts) {
+        const showOuter = opts.showOuter !== false;
+        const showInner = opts.showInner !== false;
+        const showHub = opts.showHub !== false;
+        const showPointer = opts.showPointer !== false;
+        const showOuterHalo = Boolean(opts.showOuterHalo);
+        const showInnerHalo = Boolean(opts.showInnerHalo);
+        const showBezel = opts.showBezel !== false;
+
+        const cs = getComputedStyle(document.body);
+        const cssVar = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
+        const outerFill = cssVar('--wheel-outer-fill', '#272019');
+        const outerStroke = cssVar('--wheel-outer-stroke', '#d4a64a');
+        const outerText = cssVar('--wheel-outer-text', '#fde68a');
+        const innerFill = cssVar('--wheel-inner-fill', '#fdf8ee');
+        const innerStroke = cssVar('--wheel-inner-stroke', '#8c621c');
+        const innerText = cssVar('--wheel-inner-text', '#231d16');
+        const hubFill = cssVar('--wheel-hub-fill', '#f3e6cb');
+        const anchor = cssVar('--anchor-color', '#b45309');
+        const brassLight = cssVar('--brass-light', '#fde68a');
+        const brassMid = cssVar('--brass-mid', '#d4a64a');
+        const brassDark = cssVar('--brass-dark', '#784f12');
+        const textPrimary = cssVar('--text-primary', '#231d16');
+        const textMuted = cssVar('--text-muted', '#6d5a42');
+
+        const stopEl1 = document.getElementById('bezel-stop-1');
+        const stopEl2 = document.getElementById('bezel-stop-2');
+        const stopEl3 = document.getElementById('bezel-stop-3');
+        const bezel1 = (stopEl1 && stopEl1.getAttribute('stop-color')) || '#f6df9b';
+        const bezel2 = (stopEl2 && stopEl2.getAttribute('stop-color')) || '#c9973b';
+        const bezel3 = (stopEl3 && stopEl3.getAttribute('stop-color')) || '#6e4b12';
+
+        const outerDeg = Number(state.outerDeg) || 0;
+        const innerDeg = Number(state.innerDeg) || 0;
+        const shift = getCurrentShift();
+        const keyText = `A ↔ ${ALPHABET[shift]}`;
+        const shiftText = `SHIFT +${shift}`;
+
+        // Keep exported SVG self-contained offline; load display fonts only when deployed.
+        const isOnline = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
+        const webFontStyle = isOnline
+          ? `  <style>@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&amp;display=swap');</style>\n`
+          : '';
+
+        function buildRing(rOuter, rInner, rText, fontPx, fill, stroke, textFill, anchorFill) {
+          let out = '';
+          for (let i = 0; i < 26; i++) {
+            const centerAngleDeg = -90 + i * STEP_DEG;
+            const startRad = ((centerAngleDeg - STEP_DEG / 2) * Math.PI) / 180;
+            const endRad = ((centerAngleDeg + STEP_DEG / 2) * Math.PI) / 180;
+
+            const x1Out = rOuter * Math.cos(startRad);
+            const y1Out = rOuter * Math.sin(startRad);
+            const x2Out = rOuter * Math.cos(endRad);
+            const y2Out = rOuter * Math.sin(endRad);
+            const x2In = rInner * Math.cos(endRad);
+            const y2In = rInner * Math.sin(endRad);
+            const x1In = rInner * Math.cos(startRad);
+            const y1In = rInner * Math.sin(startRad);
+
+            const d = [
+              `M ${x1Out.toFixed(2)} ${y1Out.toFixed(2)}`,
+              `A ${rOuter} ${rOuter} 0 0 1 ${x2Out.toFixed(2)} ${y2Out.toFixed(2)}`,
+              `L ${x2In.toFixed(2)} ${y2In.toFixed(2)}`,
+              `A ${rInner} ${rInner} 0 0 0 ${x1In.toFixed(2)} ${y1In.toFixed(2)}`,
+              'Z'
+            ].join(' ');
+
+            out += `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="1.4" />`;
+
+            const textRad = (centerAngleDeg * Math.PI) / 180;
+            const tx = rText * Math.cos(textRad);
+            const ty = rText * Math.sin(textRad);
+            // Explicit baseline offset instead of dominant-baseline for Word/PowerPoint compatibility.
+            const baselineY = ty + fontPx * 0.35;
+            const rotation = centerAngleDeg + 90;
+            const charFill = i === 0 ? anchorFill : textFill;
+
+            out += `<text x="${tx.toFixed(2)}" y="${baselineY.toFixed(2)}" text-anchor="middle" `
+              + `font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="${fontPx}" `
+              + `fill="${charFill}" transform="rotate(${rotation.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)})">${ALPHABET[i]}</text>`;
+          }
+          return out;
+        }
+
+        let body = '';
+
+        if (showBezel) {
+          body += `<circle cx="0" cy="0" r="254" fill="url(#wheelViewBezel)" />`;
+          body += `<circle cx="0" cy="0" r="248" fill="#1b1713" />`;
+        }
+
+        if (showOuter) {
+          body += `<g id="current-outer-ring" transform="rotate(${outerDeg.toFixed(3)})">`
+            + buildRing(244, 177, 211, 21, outerFill, outerStroke, outerText, anchor)
+            + `</g>`;
+        }
+
+        if (showOuterHalo) {
+          body += `<circle cx="0" cy="0" r="245" fill="none" stroke="${anchor}" stroke-width="6" opacity="0.95" />`;
+        }
+
+        body += `<circle cx="0" cy="0" r="175" fill="none" stroke="url(#wheelViewBezel)" stroke-width="5" />`;
+
+        if (showInner) {
+          body += `<g id="current-inner-ring" transform="rotate(${innerDeg.toFixed(3)})">`
+            + buildRing(172, 106, 139, 18, innerFill, innerStroke, innerText, anchor)
+            + `</g>`;
+        }
+
+        if (showInnerHalo) {
+          body += `<circle cx="0" cy="0" r="171" fill="none" stroke="${anchor}" stroke-width="6" opacity="0.95" />`;
+        }
+
+        body += `<circle cx="0" cy="0" r="103" fill="url(#wheelViewBezel)" />`;
+
+        if (showHub) {
+          body += `<g id="current-key-link">`
+            + `<circle cx="0" cy="0" r="92" fill="${hubFill}" stroke="${brassMid}" stroke-width="4" />`
+            + `<text x="0" y="-34" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-weight="800" font-size="13" letter-spacing="1.2" fill="${textMuted}">KEY LINK</text>`
+            + `<text x="0" y="10" text-anchor="middle" font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="27" fill="${textPrimary}">${escapeXml(keyText)}</text>`
+            + `<rect x="-52" y="25" width="104" height="24" rx="12" fill="${brassMid}" />`
+            + `<text x="0" y="41" text-anchor="middle" font-family="JetBrains Mono, Consolas, monospace" font-weight="800" font-size="13" fill="#1b1409">${escapeXml(shiftText)}</text>`
+            + `</g>`;
+        }
+
+        if (showPointer) {
+          body += `<g id="current-alignment-pointer">`
+            + `<polygon points="0,-257 -11,-243 11,-243" fill="${brassLight}" stroke="${brassDark}" stroke-width="2" />`
+            + `<rect x="-21" y="-244" width="42" height="138" rx="10" fill="${brassLight}" fill-opacity="0.13" stroke="${brassLight}" stroke-width="3" />`
+            + `<line x1="-16" y1="-175" x2="16" y2="-175" stroke="${brassLight}" stroke-width="2.5" />`
+            + `</g>`;
+        }
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="180mm" height="180mm" viewBox="-262 -262 524 524">
+${webFontStyle}  <defs>
+    <radialGradient id="wheelViewBezel" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="${bezel1}" />
+      <stop offset="55%" stop-color="${bezel2}" />
+      <stop offset="100%" stop-color="${bezel3}" />
+    </radialGradient>
+  </defs>
+${body}
+</svg>`;
+      }
+
       // Short, sortable SVG filenames: base_YYYYMMDD-HHMMSS.svg
       function makeSvgExportName(base) {
         const d = new Date();
@@ -4369,6 +4608,80 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
           const win = window.open('', '_blank', 'width=900,height=900');
           if (win) {
             win.document.write(`<!DOCTYPE html><html><head><title>Print Caesar Wheel Discs</title><style>@page{size:A4 portrait;margin:0;}html,body{margin:0;padding:0;}svg{width:210mm;height:297mm;display:block;}<\/style></head><body>${svgStr}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+            win.document.close();
+          }
+        });
+      }
+
+      function refreshWheelViewPreview() {
+        const svgMarkup = generateCurrentWheelSvg({
+          showOuter: dom.wheelViewToggleOuter.checked,
+          showInner: dom.wheelViewToggleInner.checked,
+          showHub: dom.wheelViewToggleHub.checked,
+          showPointer: dom.wheelViewTogglePointer.checked,
+          showOuterHalo: dom.wheelViewToggleOuterHalo.checked,
+          showInnerHalo: dom.wheelViewToggleInnerHalo.checked,
+          showBezel: dom.wheelViewToggleBezel.checked
+        });
+        dom.wheelViewPreview.innerHTML = svgMarkup;
+        return svgMarkup;
+      }
+
+      function openWheelViewModal() {
+        dom.wheelViewToggleOuter.checked = true;
+        dom.wheelViewToggleInner.checked = true;
+        dom.wheelViewToggleHub.checked = true;
+        dom.wheelViewTogglePointer.checked = true;
+        dom.wheelViewToggleOuterHalo.checked = state.followRing === 'outer';
+        dom.wheelViewToggleInnerHalo.checked = state.followRing === 'inner';
+        dom.wheelViewToggleBezel.checked = true;
+        refreshWheelViewPreview();
+        dom.wheelViewModal.classList.remove('hidden');
+        sound.playTick();
+      }
+
+      function initWheelViewModalHandlers() {
+        dom.btnWheelView.addEventListener('click', openWheelViewModal);
+
+        dom.btnCloseWheelView.addEventListener('click', () => {
+          dom.wheelViewModal.classList.add('hidden');
+        });
+        dom.wheelViewModal.addEventListener('click', (e) => {
+          if (e.target === dom.wheelViewModal) dom.wheelViewModal.classList.add('hidden');
+        });
+
+        [
+          dom.wheelViewToggleOuter,
+          dom.wheelViewToggleInner,
+          dom.wheelViewToggleHub,
+          dom.wheelViewTogglePointer,
+          dom.wheelViewToggleOuterHalo,
+          dom.wheelViewToggleInnerHalo,
+          dom.wheelViewToggleBezel
+        ].forEach((el) => {
+          el.addEventListener('input', refreshWheelViewPreview);
+          el.addEventListener('change', refreshWheelViewPreview);
+        });
+
+        dom.btnDownloadWheelView.addEventListener('click', () => {
+          const svgStr = refreshWheelViewPreview();
+          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = makeSvgExportName('cw_wheel_view');
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          sound.playTing();
+        });
+
+        dom.btnPrintWheelView.addEventListener('click', () => {
+          const svgStr = refreshWheelViewPreview();
+          const win = window.open('', '_blank', 'width=700,height=700');
+          if (win) {
+            win.document.write(`<!DOCTYPE html><html><head><title>Print Caesar Wheel</title><style>@page{size:180mm 180mm;margin:0;}html,body{margin:0;padding:0;background:#fff;}svg{width:180mm;height:180mm;display:block;max-width:none;}<\/style></head><body>${svgStr}<script>window.onload=function(){window.print();};<\/script></body></html>`);
             win.document.close();
           }
         });
@@ -4885,6 +5198,9 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
             dom.wheelDiscsThemeSelect.value = state.visualTheme + (state.darkMode ? '-dark' : '');
             refreshWheelDiscsPreview();
           }
+          if (!dom.wheelViewModal.classList.contains('hidden')) {
+            refreshWheelViewPreview();
+          }
           sound.playTick();
         });
 
@@ -4910,6 +5226,7 @@ ${webFontStyle}  <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${
         initStripInteractions();
         initExportModalHandlers();
         initWheelDiscsModalHandlers();
+        initWheelViewModalHandlers();
         initCustomModalHandlers();
         initToolbarHandlers();
 
