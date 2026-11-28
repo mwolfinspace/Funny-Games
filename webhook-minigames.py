@@ -6,7 +6,9 @@
 #   http://<host>:9099/deploy/minigames   (event: push)
 #
 # Required Gitea config (core-cloud/compose.yaml environment):
-#   GITEA__security__ALLOWED_HOST_LIST=host.docker.internal,127.0.0.1,172.16.0.0/12,192.168.10.0/24
+#   GITEA__security__ALLOWED_HOST_LIST=host.docker.internal,127.0.0.1,172.16.0.0/12,10.200.1.1/32:9099,100.75.222.20/32:9099
+# Gitea 28 rejects non-public webhook targets without an explicit /32:port entry;
+# a catch-all like 0.0.0.0/0 is explicitly ignored.
 #
 # systemd unit: /etc/systemd/system/minigames-webhook.service
 #   [Unit]   Description=Minigames Gitea Webhook Receiver

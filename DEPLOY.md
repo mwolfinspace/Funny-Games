@@ -24,6 +24,21 @@ denied by egress policy: 100.75.222.20(100.75.222.20)
 needs an explicit IP allow entry (non-public address)
 ```
 
+There was a second, independent problem: the repository had a custom
+`hooks/post-receive` that ran `curl http://127.0.0.1:9099/deploy/minigames`
+from **inside the Gitea container**. That loopback is the container's own, not
+the host's receiver, so it never reached port 9099 — and because it replaced
+Gitea's generated wrapper, Gitea's own webhook dispatch was skipped too. Restore
+the generated hook (the broken custom one is kept as
+`hooks/post-receive.custom.bak`):
+
+```bash
+cp /mnt/data/gitea_data/git/repositories/xedryk/diary.git/hooks/post-receive \
+   /mnt/data/gitea_data/git/repositories/xedryk/funny-games.git/hooks/post-receive
+# the generated hook dispatches to hooks/post-receive.d/gitea,
+# which runs: /usr/local/bin/gitea hook --config=/data/gitea/conf/app.ini post-receive
+```
+
 The webhook receiver never saw those pushes. The `minigames-watchdog` timer
 (every 10 minutes) noticed the local HEAD was behind and deployed instead, which
 is why updates appeared eventually but never instantly. The server copy of
@@ -32,7 +47,9 @@ containers on every push, adding ~15 s even for a one-line HTML change.
 
 ### Required Gitea egress entries
 
-In `/mnt/data/gitea_data/gitea/conf/app.ini`:
+The effective setting is the environment variable in
+`/mnt/data/docker/stacks/core-cloud/compose.yaml` — it overrides
+`app.ini`. Set both for consistency:
 
 ```ini
 [security]
@@ -40,10 +57,15 @@ EGRESS_MODE = lax
 ALLOWED_HOST_LIST = host.docker.internal,127.0.0.1,172.16.0.0/12,10.200.1.1/32:9099,100.75.222.20/32:9099
 ```
 
+```yaml
+- GITEA__security__ALLOWED_HOST_LIST=host.docker.internal,127.0.0.1,172.16.0.0/12,10.200.1.1/32:9099,100.75.222.20/32:9099
+```
+
 The two `/32:9099` entries are the important ones: one for the Docker host
 gateway (`host.docker.internal` → `10.200.1.1`) and one for the host's Tailscale
-IP used by the current hook URL. Restart Gitea after editing (`docker restart
-gitea-app`) and confirm new `hook_task` rows have `is_succeed = true`.
+IP used by the current hook URL. Recreate Gitea (`docker compose -f
+/mnt/data/docker/stacks/core-cloud/compose.yaml up -d gitea`) and confirm new
+`hook_task` rows have `is_succeed = true`.
 
 With the allowlist fixed, the webhook deploys in **about a second** for static
 changes. The watchdog remains as a fallback; it can be left at 10 minutes or
@@ -67,7 +89,7 @@ In `core-cloud/compose.yaml`, add to the Gitea service environment:
 
 ```yaml
 environment:
-  - GITEA__security__ALLOWED_HOST_LIST=host.docker.internal,127.0.0.1,172.16.0.0/12,192.168.10.0/24
+  - GITEA__security__ALLOWED_HOST_LIST=host.docker.internal,127.0.0.1,172.16.0.0/12,10.200.1.1/32:9099,100.75.222.20/32:9099
 ```
 
 Recreate the Gitea container, then verify:
@@ -142,9 +164,11 @@ Add the stack to Dockge using `/mnt/data/docker/stacks/minigames/compose.yml`.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Webhook fails with `denied by egress policy` / `needs an explicit IP allow entry` | Gitea 28 blocks webhooks to non-public addresses unless the IP is explicitly allowlisted | Add `10.200.1.1/32:9099` and `100.75.222.20/32:9099` to `[security] ALLOWED_HOST_LIST`, then `docker restart gitea-app` |
+| Webhook fails with `denied by egress policy` / `needs an explicit IP allow entry` | Gitea 28 blocks webhooks to non-public addresses unless the IP is explicitly allowlisted | Add `10.200.1.1/32:9099` and `100.75.222.20/32:9099` to the compose env var, then `docker compose -f /mnt/data/docker/stacks/core-cloud/compose.yaml up -d gitea` |
 | Site updates only every 10 minutes | Webhook delivery is failing; the watchdog is deploying instead | Fix the egress allowlist above and check `hook_task.is_succeed` |
+| Webhook not firing at all | A custom `hooks/post-receive` replaced Gitea's generated hook | Restore the generated hook from another repo; keep the custom one as `.bak` |
 | Webhook not firing | `ALLOWED_HOST_LIST` missing in Gitea | Add to compose.yaml, recreate Gitea container |
+| Deploy works but takes ~15 s | Outdated `/usr/local/bin/deploy-minigames.sh` (always rebuilds Docker) | Copy this repo's `deploy-minigames.sh` to `/usr/local/bin/` and `chmod +x` |
 | "dubious ownership" error | `safe.directory` not set | `git config --global --add safe.directory /mnt/data/workspace/Funny-Games` |
 | New game not showing | Deploy didn't run after push | Check `deploy-minigames.log` and `webhook-minigames.log` |
 | Site serves old content | Browser/Cloudflare cache | Hard refresh (Ctrl+F5) or purge Cloudflare cache |
