@@ -1119,6 +1119,19 @@
             </div>
 
             <div class="control-section">
+              <div class="control-section-title">🧩 Puzzle Board Elements</div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgShowShapes" checked /> Show Shapes</label>
+                <label><input type="checkbox" id="svgShowLines" checked /> Show Lines</label>
+              </div>
+              <div class="control-row">
+                <label><input type="checkbox" id="svgShowCustomDots" checked /> Show Custom Dots</label>
+                <button class="btn sm" id="svgBlankPuzzleBtn" title="Toggle all drawn elements off/on; the grid stays">🧩 Blank Board</button>
+              </div>
+              <div class="hud-hint" style="margin-top:6px;">Hide your drawing to print a blank grid — the layout and grid dots stay exactly where they are.</div>
+            </div>
+
+            <div class="control-section">
               <div class="control-section-title">Card &amp; Border</div>
               <div class="control-row">
                 <label><input type="checkbox" id="svgBorderCard" checked /> Border Card</label>
@@ -1334,6 +1347,9 @@
           dotColor: "#4b9ec2",
           dotSize: 4.2,
           keepCustomDots: true,
+          showShapes: true,
+          showLines: true,
+          showCustomDots: true,
           borderCard: true,
           roundedCard: true,
           cornerRadius: 14,
@@ -3529,23 +3545,29 @@
         const useSelected = cfg.scope === "selected" && hasAnySelection();
         const mode = state.gridMode;
 
-        const shapes = state.shapes.filter(sh => {
+        // Full content set drives framing, so hiding elements keeps the grid in place.
+        const allShapes = state.shapes.filter(sh => {
           if (useSelected && !state.selected.shapes.has(sh.id)) return false;
           if (sh.hidden && !cfg.includeHidden) return false;
           return true;
         });
 
-        const lines = state.lines.filter(ln => {
+        const allLines = state.lines.filter(ln => {
           if (useSelected && !state.selected.lines.has(ln.id)) return false;
           if (ln.hidden && !cfg.includeHidden) return false;
           return true;
         });
 
-        const customDotMap = new Map();
+        const allDots = new Map();
         for (const [k, d] of Object.entries(state.dots)) {
           if (useSelected && !state.selected.dots.has(k)) continue;
-          customDotMap.set(k, d);
+          allDots.set(k, d);
         }
+
+        // Render set: puzzle-board toggles only affect drawing, not the framing.
+        const shapes = cfg.showShapes ? allShapes : [];
+        const lines = cfg.showLines ? allLines : [];
+        const customDotMap = cfg.showCustomDots ? allDots : new Map();
 
         // Collect all raw world points of content to compute exact framing
         const rawWorldPts = [];
@@ -3556,9 +3578,9 @@
           rawWorldPts.push(latticeToWorld(q, r, mode));
         };
 
-        for (const sh of shapes) for (const p of sh.pts) pushLattice(p.q, p.r);
-        for (const ln of lines) for (const p of ln.pts) pushLattice(p.q, p.r);
-        for (const d of customDotMap.values()) {
+        for (const sh of allShapes) for (const p of sh.pts) pushLattice(p.q, p.r);
+        for (const ln of allLines) for (const p of ln.pts) pushLattice(p.q, p.r);
+        for (const d of allDots.values()) {
           if (!d.hidden || cfg.includeHidden) pushLattice(d.q, d.r);
         }
 
@@ -3605,9 +3627,9 @@
             const tp = applyExportWorldTransform(wp.x, wp.y, cx, cy, cfg);
             if (tp.x >= gridMinX && tp.x <= gridMaxX && tp.y >= gridMinY && tp.y <= gridMaxY) {
               const k = dotKey(q, r);
-              const custom = state.dots[k];
-              if (custom && custom.hidden && !cfg.includeHidden) continue;
-              gridDots.push({ q, r, x: tp.x, y: tp.y, custom });
+              const customRaw = state.dots[k];
+              if (customRaw && customRaw.hidden && !cfg.includeHidden) continue;
+              gridDots.push({ q, r, x: tp.x, y: tp.y, custom: cfg.showCustomDots ? customRaw : null });
             }
           }
         }
@@ -3620,7 +3642,9 @@
         }
 
         const safetyMargin = cfg.safetyGrid ? GRID_STEP * 0.68 : GRID_STEP * 0.3;
-        const extraBottom = (cfg.includeArea || cfg.includeSeed) ? 28 : 0;
+        // The footer strip exists only when there is something to print in it.
+        // Hiding the SeedID removes the extra bottom space entirely.
+        const extraBottom = cfg.includeSeed ? 28 : (cfg.includeArea ? 18 : 0);
         const vbX = contentMinX - safetyMargin;
         const vbY = contentMinY - safetyMargin;
         const vbW = Math.max(GRID_STEP * 2, contentMaxX - contentMinX + safetyMargin * 2);
@@ -3789,6 +3813,12 @@
         document.getElementById("svgDotSize").value = s.dotSize;
         document.getElementById("svgDotSizeVal").textContent = s.dotSize;
         document.getElementById("svgKeepCustomDots").checked = s.keepCustomDots;
+        document.getElementById("svgShowShapes").checked = s.showShapes;
+        document.getElementById("svgShowLines").checked = s.showLines;
+        document.getElementById("svgShowCustomDots").checked = s.showCustomDots;
+        const blankBtn = document.getElementById("svgBlankPuzzleBtn");
+        if (blankBtn) blankBtn.textContent = (!s.showShapes && !s.showLines && !s.showCustomDots)
+          ? "✏️ Restore Drawing" : "🧩 Blank Board";
         document.getElementById("svgBorderCard").checked = s.borderCard;
         document.getElementById("svgRoundedCard").checked = s.roundedCard;
         document.getElementById("svgCornerRadius").value = s.cornerRadius;
@@ -4394,6 +4424,7 @@
             if (id === "svgExtraPad") document.getElementById("svgPadVal").textContent = state.svgSettings.extraPad;
             if (id === "svgDotSize") document.getElementById("svgDotSizeVal").textContent = state.svgSettings.dotSize;
             if (id === "svgCornerRadius") document.getElementById("svgRadiusVal").textContent = state.svgSettings.cornerRadius;
+            if (id === "svgShowShapes" || id === "svgShowLines" || id === "svgShowCustomDots") syncSvgStudioInputs();
             updateSvgStudioPreview();
           });
         };
@@ -4404,6 +4435,18 @@
         bindSvgInput("svgDotColor", "dotColor");
         bindSvgInput("svgDotSize", "dotSize", Number);
         bindSvgInput("svgKeepCustomDots", "keepCustomDots");
+        bindSvgInput("svgShowShapes", "showShapes");
+        bindSvgInput("svgShowLines", "showLines");
+        bindSvgInput("svgShowCustomDots", "showCustomDots");
+        document.getElementById("svgBlankPuzzleBtn").addEventListener("click", () => {
+          const s = state.svgSettings;
+          const blank = s.showShapes || s.showLines || s.showCustomDots;
+          s.showShapes = !blank;
+          s.showLines = !blank;
+          s.showCustomDots = !blank;
+          syncSvgStudioInputs();
+          updateSvgStudioPreview();
+        });
         bindSvgInput("svgBorderCard", "borderCard");
         bindSvgInput("svgRoundedCard", "roundedCard");
         bindSvgInput("svgCornerRadius", "cornerRadius", Number);
