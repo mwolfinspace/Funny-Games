@@ -5,12 +5,49 @@
 ```
 Git push → Gitea webhook (port 9099)
          → webhook-minigames.py → deploy-minigames.sh
-         → git fetch + reset --hard origin/main
+         → git fetch origin main + reset --hard origin/main
          → rsync repo → /mnt/data/www/minigames/  (nginx, port 8092)
-         → rebuild minigames-hub if backend/Dockerfile changed
-         → docker compose up -d minigames-web minigames-hub
+         → static-only pushes: done (no Docker restart)
+         → backend changes only: rebuild/restart minigames-hub
          → Caddy: minigames.xedryk.top → 127.0.0.1:8092
 ```
+
+## Why Gitea pushes used to take minutes
+
+Gitea 28 added an **egress policy** for webhooks. A webhook target on a
+private, loopback, CGNAT, or Tailscale address is denied unless the address is
+explicitly allowlisted. `ALLOWED_HOST_LIST = 0.0.0.0/0` does **not** count as an
+explicit entry for non-public addresses, so every real push failed with:
+
+```
+denied by egress policy: 100.75.222.20(100.75.222.20)
+needs an explicit IP allow entry (non-public address)
+```
+
+The webhook receiver never saw those pushes. The `minigames-watchdog` timer
+(every 10 minutes) noticed the local HEAD was behind and deployed instead, which
+is why updates appeared eventually but never instantly. The server copy of
+`deploy-minigames.sh` also rebuilt the hub image and recreated **both**
+containers on every push, adding ~15 s even for a one-line HTML change.
+
+### Required Gitea egress entries
+
+In `/mnt/data/gitea_data/gitea/conf/app.ini`:
+
+```ini
+[security]
+EGRESS_MODE = lax
+ALLOWED_HOST_LIST = host.docker.internal,127.0.0.1,172.16.0.0/12,10.200.1.1/32:9099,100.75.222.20/32:9099
+```
+
+The two `/32:9099` entries are the important ones: one for the Docker host
+gateway (`host.docker.internal` → `10.200.1.1`) and one for the host's Tailscale
+IP used by the current hook URL. Restart Gitea after editing (`docker restart
+gitea-app`) and confirm new `hook_task` rows have `is_succeed = true`.
+
+With the allowlist fixed, the webhook deploys in **about a second** for static
+changes. The watchdog remains as a fallback; it can be left at 10 minutes or
+lowered to 1 minute for faster recovery.
 
 ## Files in this repo
 
@@ -105,6 +142,8 @@ Add the stack to Dockge using `/mnt/data/docker/stacks/minigames/compose.yml`.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
+| Webhook fails with `denied by egress policy` / `needs an explicit IP allow entry` | Gitea 28 blocks webhooks to non-public addresses unless the IP is explicitly allowlisted | Add `10.200.1.1/32:9099` and `100.75.222.20/32:9099` to `[security] ALLOWED_HOST_LIST`, then `docker restart gitea-app` |
+| Site updates only every 10 minutes | Webhook delivery is failing; the watchdog is deploying instead | Fix the egress allowlist above and check `hook_task.is_succeed` |
 | Webhook not firing | `ALLOWED_HOST_LIST` missing in Gitea | Add to compose.yaml, recreate Gitea container |
 | "dubious ownership" error | `safe.directory` not set | `git config --global --add safe.directory /mnt/data/workspace/Funny-Games` |
 | New game not showing | Deploy didn't run after push | Check `deploy-minigames.log` and `webhook-minigames.log` |
